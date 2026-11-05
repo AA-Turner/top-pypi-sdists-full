@@ -1053,6 +1053,13 @@
           <button type="button" class="btn btn-small" data-cancel>Cancel</button>
         </span>`;
       card.querySelector(".ask-action-text").textContent = proposal.summary;
+      if (proposal.warning) {
+        const warning = document.createElement("span");
+        warning.className = "ask-action-warning";
+        warning.setAttribute("role", "alert");
+        warning.textContent = `▲ ${proposal.warning}`;
+        card.prepend(warning);
+      }
       card.addEventListener("click", async (event) => {
         const run = event.target.closest("[data-run]");
         if (!run && !event.target.closest("[data-cancel]")) return;

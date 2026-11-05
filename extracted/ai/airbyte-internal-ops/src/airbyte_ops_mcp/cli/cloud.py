@@ -89,9 +89,9 @@ from airbyte_ops_mcp.connection_config_retriever import (
     residency_for_dataplane_group,
 )
 from airbyte_ops_mcp.connection_config_retriever.residency import (
-    EU_RUNNER_EU_ONLY_MESSAGE,
-    EU_RUNNER_REQUIRED_MESSAGE,
-    is_running_on_eu_runner,
+    EU_REGION_EU_ONLY_MESSAGE,
+    EU_REGION_REQUIRED_MESSAGE,
+    is_running_in_eu_region,
 )
 from airbyte_ops_mcp.connector_secrets import (
     DEFAULT_GCP_PROJECT_ID,
@@ -1196,11 +1196,11 @@ def _run_connector_command(
     configured_catalog = None
     if catalog_path and catalog_path.exists():
         catalog_json = catalog_path.read_text()
-        configured_catalog = ConfiguredAirbyteCatalog.parse_raw(catalog_json)
+        configured_catalog = ConfiguredAirbyteCatalog.parse_raw(catalog_json)  # ty: ignore[deprecated]
 
     mask_catalog = configured_catalog
     if mask_catalog_path is not None and output_mode == "masked":
-        mask_catalog = ConfiguredAirbyteCatalog.parse_raw(mask_catalog_path.read_text())
+        mask_catalog = ConfiguredAirbyteCatalog.parse_raw(mask_catalog_path.read_text())  # ty: ignore[deprecated]
 
     # Pass log level as an environment variable to the connector container
     container_env: dict[str, str] = {}
@@ -2571,7 +2571,7 @@ def _new_stream_record_checks(
             has_pk = True
             try:
                 for pk_path in pk_paths:
-                    catalog_stream = stream.model_copy(
+                    catalog_stream = stream.model_copy(  # ty: ignore[unresolved-attribute]
                         update={"source_defined_primary_key": [pk_path]}
                     )
                     validation = validate_primary_keys_exist_in_schema(
@@ -2585,9 +2585,9 @@ def _new_stream_record_checks(
                         )
                 if record_comparison is not None:
                     integrity = (
-                        record_comparison.target_pk_uniqueness.stream_results.get(name)
+                        record_comparison.target_pk_uniqueness.stream_results.get(name)  # ty: ignore[unresolved-attribute]
                     )
-                    presence = record_comparison.pk_presence.stream_results.get(name)
+                    presence = record_comparison.pk_presence.stream_results.get(name)  # ty: ignore[unresolved-attribute]
                     null_count = integrity.records_missing_pk if integrity else 0
                     duplicate_count = integrity.duplicate_pk_count if integrity else 0
                     presence_detail = (
@@ -2637,7 +2637,7 @@ def _new_stream_record_checks(
             has_incremental = True
             try:
                 validation = validate_cursors_exist_in_schema(
-                    AirbyteCatalog(streams=[stream]),
+                    AirbyteCatalog(streams=[stream]),  # ty: ignore[invalid-argument-type]
                     cursor_paths_by_stream={name: cursor_path},
                 )
                 if not validation.passed:
@@ -2647,7 +2647,7 @@ def _new_stream_record_checks(
                         f"{name}: cursor {'.'.join(cursor_path)} missing from schema"
                     )
                 state = (target_outputs.final_states or {}).get(
-                    (stream.namespace, stream.name)
+                    (stream.namespace, stream.name)  # ty: ignore[unresolved-attribute]
                 )
                 cursor_readable = (
                     mask_policy.cursor_readable(name)
@@ -3101,10 +3101,10 @@ def regression_test(
             write_github_output("error", message)
             exit_with_error(message)
         if connection_residency == "eu":
-            _refuse_eu_connection_off_eu_runner(connection_id, connection_residency)
+            _refuse_eu_connection_outside_eu_region(connection_id, connection_residency)
             output_mode = "masked"
         else:
-            _refuse_non_eu_connection_on_eu_runner(connection_id)
+            _refuse_non_eu_connection_in_eu_region(connection_id)
     if output_mode is None:
         # A connection reads a customer's data, so unset is masked there and
         # `raw` is the opt-in; a GSM or local config is the team's own. Kept
@@ -3821,7 +3821,7 @@ def regression_test(
         # Use the target catalog so changed shared-stream cursor or primary-key
         # declarations cannot change record tokens; catalog comparison shows them.
         control_result, control_outputs = _run_with_optional_http_metrics(
-            connector_image=resolved_control_image,  # type: ignore[arg-type]
+            connector_image=resolved_control_image,  # ty: ignore[invalid-argument-type]
             command=cmd,
             output_dir=control_output,
             target_or_control=TargetOrControl.CONTROL,
@@ -4240,7 +4240,7 @@ def regression_test(
         }
         report_path = generate_regression_report(
             target_image=resolved_test_image,
-            control_image=resolved_control_image,  # type: ignore[arg-type]
+            control_image=resolved_control_image,  # ty: ignore[invalid-argument-type]
             command=command,
             target_result=report_target_result,
             control_result=control_result,
@@ -4273,7 +4273,7 @@ def regression_test(
         # passed through so the run is evaluated exactly once.
         report_model = build_comparison_report_model(
             target_image=resolved_test_image,
-            control_image=resolved_control_image,  # type: ignore[arg-type]
+            control_image=resolved_control_image,  # ty: ignore[invalid-argument-type]
             command=command,
             target_result=report_target_result,
             control_result=control_result,
@@ -5098,7 +5098,7 @@ def _configured_stream_names(
         return ()
 
     try:
-        catalog = ConfiguredAirbyteCatalog.parse_raw(catalog_file.read_text())
+        catalog = ConfiguredAirbyteCatalog.parse_raw(catalog_file.read_text())  # ty: ignore[deprecated]
     except Exception as exc:
         print_warning(f"Could not read the configured catalog for the report: {exc}")
         return ()
@@ -5516,15 +5516,15 @@ def _describe_residency_lookup_error(connection_id: str, exc: Exception) -> str:
     )
 
 
-def _refuse_eu_connection_off_eu_runner(connection_id: str, residency: str) -> None:
-    """Exit before any fetch if an EU connection is used off the EU runner.
+def _refuse_eu_connection_outside_eu_region(connection_id: str, residency: str) -> None:
+    """Exit before any fetch if an EU connection is used outside the EU region.
 
     This check runs before the public API returns config or catalog, keeping
     them off a US runner.
     """
-    if residency == "eu" and not is_running_on_eu_runner():
+    if residency == "eu" and not is_running_in_eu_region():
         message = (
-            f"{EU_RUNNER_REQUIRED_MESSAGE}; connection ID {connection_id} was "
+            f"{EU_REGION_REQUIRED_MESSAGE}; connection ID {connection_id} was "
             "refused before its config or catalog was fetched."
         )
         write_github_output("success", False)
@@ -5536,15 +5536,15 @@ def _refuse_eu_connection_off_eu_runner(connection_id: str, residency: str) -> N
         )
 
 
-def _refuse_non_eu_connection_on_eu_runner(connection_id: str) -> None:
-    """Exit before any fetch if a non-EU connection is used on the EU runner.
+def _refuse_non_eu_connection_in_eu_region(connection_id: str) -> None:
+    """Exit before any fetch if a non-EU connection is used in the EU region.
 
-    The mirror of `_refuse_eu_connection_off_eu_runner`, so each runner reads
+    The mirror of `_refuse_eu_connection_outside_eu_region`, so each runtime reads
     only connections in the data region their customer chose.
     """
-    if is_running_on_eu_runner():
+    if is_running_in_eu_region():
         message = (
-            f"{EU_RUNNER_EU_ONLY_MESSAGE}; connection ID {connection_id} was "
+            f"{EU_REGION_EU_ONLY_MESSAGE}; connection ID {connection_id} was "
             "refused before its config or catalog was fetched."
         )
         write_github_output("success", False)
@@ -5970,7 +5970,7 @@ def workspace_search(
         rows = _search_workspaces(name_contains=name_contains, limit=limit)
     else:
         rows = query_workspaces_by_email_domain(
-            email_domain=email_domain.lstrip("@"),  # type: ignore[union-attr]
+            email_domain=email_domain.lstrip("@"),  # ty: ignore[unresolved-attribute]
             limit=limit,
         )
 

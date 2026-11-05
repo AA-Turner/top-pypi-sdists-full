@@ -34,7 +34,7 @@ from pyscf import lib
 from pyscf.lib import logger
 from pyscf.data import nist
 from pyscf.pbc.scf import addons
-from pyscf.pbc.scf import chkfile  # noqa
+from pyscf.pbc.scf import chkfile
 from pyscf import __config__
 
 PRE_ORTH_METHOD = getattr(__config__, 'pbc_scf_analyze_pre_orth_method', 'ANO')
@@ -153,8 +153,8 @@ def get_occ(mf, mo_energy_kpts=None, mo_coeff_kpts=None):
                            f'nelec ({nocc_a}, {nocc_b}) > Nmo ({nmo})')
 
     fermi_a = mo_energy_a[nocc_a-1]
+    mo_energy_b = np.sort(mo_energy_kpts[1].ravel())
     if nocc_b > 0:
-        mo_energy_b = np.sort(mo_energy_kpts[1].ravel())
         nmo = mo_energy_b.size
         fermi_b = mo_energy_b[nocc_b-1]
     else:
@@ -251,7 +251,7 @@ def _make_rdm1_meta(cell, dm_ao_kpts, kpts, pre_orth_method, s):
     from pyscf.lo import orth
     from pyscf.pbc.tools import k2gamma
 
-    kmesh = k2gamma.kpts_to_kmesh(cell, kpts-kpts[0])
+    kmesh = k2gamma.kpts_to_kmesh(cell, kpts-kpts[0], bound_by_supmol=False)
     nkpts, nao = dm_ao_kpts[0].shape[:2]
     scell, phase = k2gamma.get_phase(cell, kpts, kmesh)
     s_sc = k2gamma.to_supercell_ao_integrals(cell, kpts, s, kmesh=kmesh, force_real=False)

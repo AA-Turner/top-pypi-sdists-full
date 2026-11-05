@@ -3,12 +3,12 @@
 ``attach(session)`` gives a ``SessionClient`` for an ``agents.Session`` handle. Its methods send
 one Session protocol procedure each (``upload_file`` sends none: the client uploads), and return
 the protocol's own models, which this module re-exports with the protocol's errors. Other errors
-come from the host: a local session raises ``agents.LocalSessionProcedureError`` for a request it
-refuses (an unknown cursor, an invalid page, a ``write_config`` change it does not allow); a
-deployment-backed session raises ``agents.RemoteSessionConflictError`` for an invalid cursor or
-page, a ``LookupError`` for a session the server does not know, a ``RuntimeError`` when it cannot
-tell whether a command took effect, and ``httpx.HTTPStatusError`` for another HTTP error. Use it
-for what the handles do not do yet: answer a client tool, upload a file to a local session, rename
+come from the host: on both hosts, an event cursor that is not valid raises ``agents.InvalidCursorError``,
+and another request the host refuses (an invalid page, a ``write_config`` change a local session does
+not allow) raises an ``agents.AgentsError``; a deployment-backed session also raises a
+``LookupError`` for a session the server does not know, a ``RuntimeError`` when it cannot tell
+whether a command took effect, and ``httpx.HTTPStatusError`` for another HTTP error. Use it for
+what the handles do not do yet: answer a client tool, upload a file to a local session, rename
 or archive a session, list its turns, read its history page by page, or change a local session's
 configuration.
 
@@ -113,6 +113,7 @@ with temporalio.workflow.unsafe.imports_passed_through():
             TurnUpdatedEvent,
             UnknownContentBlock,
             UnknownEventPayload,
+            UnknownValue,
             UnsupportedSessionProcedureError,
             UserInputCallback,
         )
@@ -175,6 +176,8 @@ __all__ = [
     "TurnInterruptResponse",
     "TurnStartResponse",
     "TurnSteerResponse",
+    # A value a newer host added to a closed set, such as a status this client does not know
+    "UnknownValue",
     # Content blocks
     "AudioContentBlock",
     "ContentBlock",
@@ -573,7 +576,7 @@ class SessionClient:
 
         Only ``tools``, ``hooks``, ``mcps``, ``connectors`` and ``subagents`` can change, and only in
         a way that keeps the session's subagent policy. Any other change, such as the model or the
-        instructions, raises ``agents.LocalSessionProcedureError``.
+        instructions, raises an ``agents.AgentsError``.
         """
         return await self._request(
             "app_server/session/config/write",

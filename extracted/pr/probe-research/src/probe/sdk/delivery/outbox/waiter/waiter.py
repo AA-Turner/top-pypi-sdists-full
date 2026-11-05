@@ -190,6 +190,8 @@ class DeliveryWaiter:
                 return WaitOutcome.LOGIN_REFUSED
         if DeliveryErrorKind.LOGIN_REFUSED in view.error_kinds:
             return WaitOutcome.LOGIN_REFUSED
+        if DeliveryErrorKind.NEEDS_NEWER in view.error_kinds:
+            return WaitOutcome.NEEDS_NEWER_SERVICE
         return None
 
     # -- keeping a worker on each queue that holds the run ----------------------------------
@@ -275,7 +277,14 @@ class DeliveryWaiter:
             first_error=view.last_error,
             waited_seconds=self.clock() - getattr(self, "started", self.clock()),
             holder=self._holder,
+            service_version=_get_service_version() if outcome == WaitOutcome.NEEDS_NEWER_SERVICE else None,
         )
+
+
+def _get_service_version() -> str | None:
+    from probe.foundation.service_api import handoff
+
+    return handoff.hello_answer().get("service_version")
 
 
 def _print_progress(line: str) -> None:

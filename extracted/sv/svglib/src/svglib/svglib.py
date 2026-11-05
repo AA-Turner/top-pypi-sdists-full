@@ -93,9 +93,12 @@ from .fonts import (
     register_font as _fonts_register_font,
 )
 from .utils import (
+    PathSampler,
     bezier_arc_from_end_points,
     convert_quadratic_to_cubic_path,
+    flatten_path,
     normalise_svg_path,
+    place_glyphs_on_path,
 )
 
 # SVG user units are px; ReportLab works in points.  1 px = 0.75 pt (96 dpi / 72 dpi).
@@ -210,6 +213,10 @@ DELAYED = object()
 
 # Max number of <use> expansions per document, external SVGs included.
 MAX_USE_EXPANSIONS = 10_000
+# Max number of elements cloned by all <use> expansions of a document, external
+# SVGs included. Every expansion copies and renders its whole target, so the
+# number of expansions alone doesn't bound the work.
+MAX_USE_CLONED_ELEMENTS = 20_000
 
 logger = logging.getLogger(__name__)
 
@@ -322,6 +329,77 @@ class ClippingPath(Path):
         return props
 
 
+_FONT_SIZE_RE = re.compile(
+    r"^(?:\d*\.?\d+(?:px|pt|pc|cm|mm|in|em|ex|rem|%)"
+    r"|xx-small|x-small|small|medium|large|x-large|xx-large|larger|smaller)"
+    r"(?:/.*)?$"
+)
+_FONT_WEIGHTS = {"bold", "bolder", "lighter"} | {str(w) for w in range(100, 1000, 100)}
+
+
+def _parse_font_shorthand(value: str) -> dict[str, str]:
+    """Expand a CSS ``font`` shorthand into the font properties svglib reads.
+
+    ``font: italic bold 12px/1.5 "Open Sans", serif`` gives ``font-style``,
+    ``font-weight``, ``font-size`` and ``font-family``. Like CSS, the shorthand
+    resets the style and weight it does not mention to ``normal``. Values
+    without both a size and a family are invalid and give an empty dict.
+    """
+    tokens = value.split()
+    for index, token in enumerate(tokens):
+        if not _FONT_SIZE_RE.match(token):
+            continue
+        rest = tokens[index + 1 :]
+        if "/" not in token and rest and rest[0].startswith("/"):
+            # Line height as separate tokens: "12px / 1.5" or "12px /1.5".
+            rest = rest[2:] if rest[0] == "/" else rest[1:]
+        family = " ".join(rest)
+        if not family:
+            return {}
+        style = weight = "normal"
+        for prefix in tokens[:index]:
+            if prefix in ("italic", "oblique"):
+                style = prefix
+            elif prefix in _FONT_WEIGHTS:
+                weight = prefix
+        return {
+            "font-style": style,
+            "font-weight": weight,
+            "font-size": token.split("/")[0],
+            "font-family": family,
+        }
+    return {}
+
+
+def _expand_font_shorthand(declarations: dict[str, str]) -> dict[str, str]:
+    """Replace a ``font`` declaration with its longhand properties, keeping order."""
+    if "font" not in declarations:
+        return declarations
+    expanded: dict[str, str] = {}
+    for key, val in declarations.items():
+        if key == "font":
+            expanded.update(_parse_font_shorthand(val))
+        else:
+            expanded[key] = val
+    return expanded
+
+
+def _parse_declarations(content: Any) -> dict[str, str]:
+    """Parse CSS declarations (a style attribute or a rule body) into a dict.
+
+    Uses tinycss2 rather than splitting on ":" and ";", so values that contain
+    those characters, such as ``url(http://...)`` or a data URL, stay intact.
+    Malformed declarations are skipped.
+    """
+    return {
+        decl.name: tinycss2.serialize(decl.value).strip()
+        for decl in tinycss2.parse_declaration_list(
+            content, skip_comments=True, skip_whitespace=True
+        )
+        if decl.type == "declaration"
+    }
+
+
 class CSSMatcher(cssselect2.Matcher):
     """A CSS matcher to handle styles defined in SVG <style> elements."""
 
@@ -340,11 +418,7 @@ class CSSMatcher(cssselect2.Matcher):
                 continue
             selectors = cssselect2.compile_selector_list(rule.prelude)
             selector_string = tinycss2.serialize(rule.prelude)
-            content_dict = {
-                attr.split(":")[0].strip(): attr.split(":")[1].strip()
-                for attr in tinycss2.serialize(rule.content).split(";")
-                if ":" in attr
-            }
+            content_dict = _expand_font_shorthand(_parse_declarations(rule.content))
             payload = (selector_string, content_dict)
             for selector in selectors:
                 self.add_selector(selector, payload)
@@ -380,17 +454,22 @@ class AttributeConverter:
         Returns:
             A dictionary of attribute key-value pairs.
         """
-        attrs = line.split(";")
-        attrs = [a.strip() for a in attrs]
-        attrs = [a for a in attrs if len(a) > 0]
+        return _expand_font_shorthand(_parse_declarations(line))
 
-        new_attrs = {}
-        for a in attrs:
-            k, v = a.split(":")
-            k, v = (s.strip() for s in (k, v))
-            new_attrs[k] = v
-
-        return new_attrs
+    def _applyStyleRules(self, svgNode: Any) -> None:
+        """Copy CSS rules and the 'style' attribute onto the node's attributes."""
+        if not svgNode.attrib.get("__rules_applied", False):
+            # Apply global styles...
+            if self.css_rules is not None:
+                svgNode.apply_rules(self.css_rules)
+            # ...and locally defined
+            if svgNode.attrib.get("style"):
+                attrs = self.parseMultiAttributes(svgNode.attrib.get("style"))
+                for key, val in attrs.items():
+                    # lxml nodes cannot accept attributes starting with '-'
+                    if not key.startswith("-"):
+                        svgNode.attrib[key] = val
+                svgNode.attrib["__rules_applied"] = "1"
 
     def findAttr(self, svgNode: Any, name: str) -> str:
         """Find an attribute value, searching the node and its ancestors.
@@ -407,18 +486,7 @@ class AttributeConverter:
         Returns:
             The attribute value, or an empty string if not found.
         """
-        if not svgNode.attrib.get("__rules_applied", False):
-            # Apply global styles...
-            if self.css_rules is not None:
-                svgNode.apply_rules(self.css_rules)
-            # ...and locally defined
-            if svgNode.attrib.get("style"):
-                attrs = self.parseMultiAttributes(svgNode.attrib.get("style"))
-                for key, val in attrs.items():
-                    # lxml nodes cannot accept attributes starting with '-'
-                    if not key.startswith("-"):
-                        svgNode.attrib[key] = val
-                svgNode.attrib["__rules_applied"] = "1"
+        self._applyStyleRules(svgNode)
 
         attr_value: str = svgNode.attrib.get(name, "").strip()
 
@@ -726,9 +794,32 @@ class Svg2RlgAttributeConverter(AttributeConverter):
             return [v * PX_TO_PT for v in result]
         return result * PX_TO_PT
 
+    def findOpacity(self, svgNode: Any) -> float:
+        """Return the combined 'opacity' of a node and all its ancestors.
+
+        'opacity' is not inherited like 'fill-opacity': each element's value
+        applies on top of its parent's, so a shape at 0.5 inside a group at 0.5
+        ends up at 0.25.
+        """
+        opacity = 1.0
+        while svgNode is not None:
+            self._applyStyleRules(svgNode)
+            value = svgNode.attrib.get("opacity", "").strip()
+            if value and value != "inherit":
+                try:
+                    opacity *= self.convertOpacity(value)
+                except ValueError:
+                    logger.debug("Ignoring invalid opacity: %s", value)
+            svgNode = svgNode.parent
+        return opacity
+
     def convertOpacity(self, svgAttr: str) -> float:
-        """Convert an opacity string to a float."""
-        return float(svgAttr)
+        """Convert an opacity string (number or percentage) to a float in [0, 1]."""
+        if isinstance(svgAttr, str) and svgAttr.endswith("%"):
+            value = float(svgAttr[:-1]) / 100
+        else:
+            value = float(svgAttr)
+        return min(max(value, 0.0), 1.0)
 
     def convertFillRule(self, svgAttr: str) -> Union[int, str]:
         """Convert an SVG fill-rule string to a ReportLab fill rule."""
@@ -791,10 +882,26 @@ class Svg2RlgAttributeConverter(AttributeConverter):
         """Convert an SVG stroke-linecap string to a ReportLab line cap."""
         return {"butt": 0, "round": 1, "square": 2}[svgAttr]
 
-    def convertDashArray(self, svgAttr: str) -> list[Union[float, list[float]]]:
-        """Convert an SVG stroke-dasharray string to a list of lengths."""
-        strokeDashArray = self.convertLengthList(svgAttr)
-        return strokeDashArray
+    def convertDashArray(self, svgAttr: str) -> list[float]:
+        """Convert an SVG stroke-dasharray string to a list of dash lengths.
+
+        Returns an empty list (a solid line) for ``none`` and for the values
+        the SVG spec calls invalid: an empty list, any negative length, or a
+        list that sums to zero. An odd number of values is repeated once to
+        make it even, as the spec requires.
+        """
+        if not svgAttr or svgAttr.strip() in ("none", ""):
+            return []
+        values = self.convertLengthList(svgAttr)
+        # convertLengthList can nest a list when a value itself held a list.
+        flat: list[float] = []
+        for v in values:
+            flat.extend(v if isinstance(v, list) else [v])
+        if any(v < 0 for v in flat) or sum(flat) == 0:
+            return []
+        if len(flat) % 2 == 1:
+            flat = flat * 2
+        return flat
 
     def convertDashOffset(self, svgAttr: str) -> Union[float, list[float]]:
         """Convert an SVG stroke-dashoffset string to a length."""
@@ -897,7 +1004,29 @@ class _UseExpansionCounter:
 
     def __init__(self) -> None:
         self.count = 0
+        self.cloned_elements = 0
+        self.exhausted = False
         self.origin_ids = itertools.count()
+
+    def allow_clone(self, element: Any) -> bool:
+        """Charge the elements of a <use> target about to be cloned to the budget.
+
+        Returns False, and refuses all later <use> elements too, once the
+        budget is spent.
+        """
+        if self.exhausted:
+            # Expansions already under way when the budget ran out.
+            return False
+        self.cloned_elements += sum(1 for _ in element.iter())
+        if self.cloned_elements > MAX_USE_CLONED_ELEMENTS:
+            self.exhausted = True
+            logger.error(
+                "Too many <use> expansions (more than %d cloned elements), "
+                "skipping the rest",
+                MAX_USE_CLONED_ELEMENTS,
+            )
+            return False
+        return True
 
 
 class ExternalSVG:
@@ -1177,6 +1306,8 @@ class SvgRenderer:
         self.shape_converter = Svg2RlgShapeConverter(path, self.attrConverter)
         self.handled_shapes = self.shape_converter.get_handled_shapes()
         self.definitions: dict[str, Any] = {}
+        # Shapes such as <textPath> refer to other nodes by their ID.
+        self.shape_converter.definitions = self.definitions
         self.gradient_defs: dict[str, _GradientDef] = {}
         self.waiting_use_nodes: dict[str, list[tuple[NodeTracker, Optional[Group]]]] = (
             defaultdict(list)
@@ -2017,6 +2148,8 @@ class SvgRenderer:
         if group is None:
             group = Group()
 
+        if self._use_expansions.exhausted:
+            return group
         self._use_expansions.count += 1
         if self._use_expansions.count > MAX_USE_EXPANSIONS:
             if self._use_expansions.count == MAX_USE_EXPANSIONS + 1:
@@ -2051,11 +2184,15 @@ class SvgRenderer:
             logger.error("Circular <use> reference detected, skipping.")
             return group
 
+        needs_clone = len(node.getchildren()) == 0
+        if needs_clone and not self._use_expansions.allow_clone(item.etree_element):
+            return group
+
         self._use_stack.append(target)
         try:
             if clipping:
                 group.add(clipping)
-            if len(node.getchildren()) == 0:
+            if needs_clone:
                 # Append a copy of the referenced node as the <use> child (if not
                 # already done)
                 node.append(copy.deepcopy(item))
@@ -2083,6 +2220,7 @@ class SvgShapeConverter:
         self.attrConverter = attrConverter or Svg2RlgAttributeConverter()
         self.svg_source_file = path
         self.preserve_space = False
+        self.definitions: dict[str, Any] = {}
 
     @classmethod
     def get_handled_shapes(cls) -> list[str]:
@@ -2266,6 +2404,10 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
         y: list[float]
         x, y = self.convert_length_attrs(node, "x", "y", em_base=fs)  # type: ignore
         for subnode, text, is_tail in iter_text_node(node, preserve_space):
+            if not is_tail and node_name(subnode) == "textPath":
+                gr.add(self.convertTextPath(subnode, node, preserve_space))
+            if _is_inside_text_path(subnode, node):
+                continue
             if not text:
                 continue
             has_x, has_y = False, False
@@ -2287,11 +2429,27 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
                 )
                 dx0 += dx[0] if isinstance(dx, list) else dx
                 dy0 += dy[0] if isinstance(dy, list) else dy
-            baseLineShift_raw = subnode.attrib.get("baseline-shift", "0")
+            # baseline-shift is not inherited, so a value on an enclosing <g> must
+            # not move the text. Look no further than the <text> element: text in a
+            # nested <tspan> still sits on the shifted baseline of the one around it.
+            baseLineShift_raw = ""
+            shift_node = subnode
+            while shift_node is not None and not baseLineShift_raw:
+                attrConv._applyStyleRules(shift_node)
+                baseLineShift_raw = shift_node.attrib.get("baseline-shift", "").strip()
+                if baseLineShift_raw == "inherit":
+                    baseLineShift_raw = ""
+                if node_name(shift_node) == "text":
+                    break
+                shift_node = shift_node.parent
+            baseLineShift_raw = baseLineShift_raw or "0"
             if baseLineShift_raw in ("sub", "super", "baseline"):
                 baseLineShift = {"sub": -fs / 2, "super": fs / 2, "baseline": 0}[
                     baseLineShift_raw
                 ]
+            elif baseLineShift_raw.endswith("%"):
+                # A percentage of the line height, which svglib takes as the font size.
+                baseLineShift = float(baseLineShift_raw[:-1]) / 100 * fs
             else:
                 baseLineShift = cast(
                     float, attrConv.convertLength(baseLineShift_raw, em_base=fs)
@@ -2348,6 +2506,90 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
 
         gr.scale(1, -1)
 
+        return gr
+
+    def convertTextPath(
+        self, path_node: Any, text_node: Any, preserve_space: bool
+    ) -> Group:
+        """Convert an SVG <textPath> element to a Group of single glyph Strings.
+
+        ReportLab can't draw text along a path, so every glyph becomes its own
+        String, moved to the point of the path under its midpoint and rotated to
+        the direction of the path there. Only <path> elements in the same document
+        can be followed. `side`, `method`, `spacing`, `lengthAdjust` and the
+        `dx`/`dy`/`rotate` attributes are not supported.
+        """
+        attrConv = self.attrConverter
+        gr = Group()
+        href = path_node.attrib.get(
+            "{http://www.w3.org/1999/xlink}href"
+        ) or path_node.attrib.get("href", "")
+        # Only paths of the same document are followed.
+        target = self.definitions.get(href[1:]) if href.startswith("#") else None
+        if target is None or node_name(target) != "path":
+            logger.warning("Ignoring <textPath> with unusable href %r.", href)
+            return gr
+        outline = self.convertPath(target)
+        if outline is None:
+            return gr
+        path = outline.contents[-1]
+        group = Group()
+        if target.attrib.get("transform"):
+            self.applyTransformOnGroup(target.attrib["transform"], group)
+        a, b, c, d, e, f = group.transform
+        coords = path.points
+        moved = [
+            v
+            for x, y in zip(coords[::2], coords[1::2])
+            for v in (a * x + c * y + e, b * x + d * y + f)
+        ]
+        sampler = PathSampler(flatten_path(path.operators, moved))
+
+        glyphs: list[tuple[str, float, Any]] = []
+        for subnode, text, _is_tail in iter_text_node(path_node, preserve_space):
+            if not text:
+                continue
+            ff = attrConv.findAttr(subnode, "font-family") or DEFAULT_FONT_NAME
+            fw = attrConv.findAttr(subnode, "font-weight") or DEFAULT_FONT_WEIGHT
+            fstyle = attrConv.findAttr(subnode, "font-style") or DEFAULT_FONT_STYLE
+            ff = attrConv.convertFontFamily(ff, fw, fstyle)
+            fs_attr = (
+                attrConv.findAttr(subnode, "font-size") or f"{DEFAULT_FONT_SIZE}pt"
+            )
+            fs = cast(float, attrConv.convertLength(fs_attr))
+            for char in text:
+                glyphs.append((char, stringWidth(char, ff, fs), subnode))
+
+        advances = [advance for _, advance, _ in glyphs]
+        offset_attr = path_node.attrib.get("startOffset", "").strip()
+        if offset_attr.endswith("%"):
+            start = float(offset_attr[:-1]) / 100 * sampler.length
+        elif offset_attr:
+            start = cast(float, attrConv.convertLength(offset_attr))
+        else:
+            start = 0.0
+        anchor = attrConv.findAttr(path_node, "text-anchor")
+        if anchor == "middle":
+            start -= sum(advances) / 2
+        elif anchor == "end":
+            start -= sum(advances)
+
+        placements = place_glyphs_on_path(advances, sampler, start)
+        for (char, advance, subnode), placement in zip(glyphs, placements):
+            if placement is None or char.isspace():
+                continue
+            x, y, angle = placement
+            shape = String(-advance / 2, 0, char)
+            self.applyStyleOnShape(shape, text_node)
+            for styled in (path_node, subnode):
+                if styled is not text_node:
+                    self.applyStyleOnShape(shape, styled)
+            shape.textAnchor = "start"
+            glyph = Group(shape)
+            # The enclosing text group flips y, so mirror the SVG placement.
+            glyph.translate(x, -y)
+            glyph.rotate(-angle)
+            gr.add(glyph)
         return gr
 
     def convertPath(self, node: Any) -> Optional[Any]:
@@ -2697,6 +2939,13 @@ class Svg2RlgShapeConverter(SvgShapeConverter):
                             exc_type,
                         )
                     )
+        if not only_explicit:
+            opacity = ac.findOpacity(node)
+            if opacity != 1:
+                if getattr(shape, "fillOpacity", None) is not None:
+                    shape.fillOpacity *= opacity
+                if getattr(shape, "strokeOpacity", None) is not None:
+                    shape.strokeOpacity *= opacity
         if getattr(shape, "fillOpacity", None) is not None and shape.fillColor:
             shape.fillColor.alpha = shape.fillOpacity
         if getattr(shape, "strokeWidth", None) == 0:
@@ -2961,6 +3210,15 @@ def node_name(node: Any) -> Optional[str]:
         return cast(str, node.tag.split("}")[-1])
     except AttributeError:
         return None
+
+
+def _is_inside_text_path(node: Any, text_node: Any) -> bool:
+    """Tell whether a node is a <textPath> or lies within one in a <text> node."""
+    while node is not None and node is not text_node:
+        if node_name(node) == "textPath":
+            return True
+        node = node.parent
+    return False
 
 
 def iter_text_node(node: Any, preserve_space: bool, level: int = 0) -> Any:

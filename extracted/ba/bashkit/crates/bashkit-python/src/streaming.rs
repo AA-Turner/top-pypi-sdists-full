@@ -203,6 +203,8 @@ pub(crate) fn register(
     Ok(())
 }
 
+// Mirrors the Python `execute()` keyword arguments one-to-one.
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn execute(
     bash: &mut Bash,
     script: &str,
@@ -210,15 +212,22 @@ pub(crate) async fn execute(
     stdout: Option<Py<PyAny>>,
     stderr: Option<Py<PyAny>>,
     session: Arc<PyCallbackSession>,
+    timeout: Option<std::time::Duration>,
+    output_file: Option<(std::path::PathBuf, usize)>,
 ) -> PyResult<ExecResult> {
     session.check_cancelled()?;
     let mut extensions = ExecutionExtensions::new();
     let _ = extensions.insert(session.clone());
-    let mut execution = bash
-        .execute(script)
-        .options(bashkit::ExecOptions::new().extensions(extensions));
+    let mut options = bashkit::ExecOptions::new().extensions(extensions);
+    if let Some(timeout) = timeout {
+        options = options.timeout(timeout);
+    }
+    let mut execution = bash.execute(script).options(options);
     if let Some(limit) = capture {
         execution = execution.capture(limit);
+    }
+    if let Some((path, max_bytes)) = output_file {
+        execution = execution.output_file(path, max_bytes);
     }
     if let Some(callback) = stdout {
         let session = session.clone();

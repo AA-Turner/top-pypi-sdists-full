@@ -263,7 +263,8 @@ class _WorkerEpisode:
                 journal_module.prune_credential_queues(journal.dir, counts=relocated)
                 from .... import analytics as _telemetry
 
-                _telemetry.emit_outbox_discarded(relocated, reason=_telemetry.DiscardReason.RELOCATED)
+                _telemetry.emit_outbox_discarded(relocated, reason=_telemetry.DiscardReason.RELOCATED,
+                                                 surface=_telemetry.get_worker_surface())
             except Exception:  # noqa: BLE001 -- housekeeping never stops delivery
                 pass
         # Every wait comes from the ONE backoff helper (plan 0.6), restarted after
@@ -310,6 +311,7 @@ class _WorkerEpisode:
 
             telemetry.emit_outbox_drained(
                 base_url=self.gate_base_url,
+                surface=telemetry.get_worker_surface(),
                 outcome=outcome,
                 delivered=self.delivered,
                 dead_lettered=self.dead_lettered,

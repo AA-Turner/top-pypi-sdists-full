@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '796c5bcc8041a9dcf92c1182fabbafd9a5ab9ed2'
+_SKYPILOT_COMMIT_SHA = '08acc822c45c13f99cb6bc809e1d09bd264743c2'
 
 
 def _get_git_commit():
@@ -45,7 +45,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20261103'
+__version__ = '1.0.0.dev20261105'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -116,6 +116,7 @@ from sky.client.sdk import endpoints
 from sky.client.sdk import exec  # pylint: disable=redefined-builtin
 from sky.client.sdk import get
 from sky.client.sdk import get_user_workspace
+from sky.client.sdk import impersonate
 from sky.client.sdk import job_status
 from sky.client.sdk import launch
 from sky.client.sdk import optimize
@@ -254,6 +255,7 @@ __all__ = [
     'api_start',
     'api_stop',
     'api_server_logs',
+    'impersonate',
     # Debug Dump
     'create_debug_dump',
     'download_debug_dump',

@@ -11,12 +11,10 @@ created
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 from copy import deepcopy
 
-from ansible.module_utils.six import iteritems
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.cfg.base import (
     ConfigBase,
 )
@@ -76,6 +74,7 @@ class Interfaces(ConfigBase):
 
         if self.state in self.ACTION_STATES:
             existing_interfaces_facts = self.get_interfaces_facts()
+
         else:
             existing_interfaces_facts = []
 
@@ -227,7 +226,7 @@ class Interfaces(ConfigBase):
         updates = dict_diff(have_copy, want_copy)
 
         if updates:
-            for key, value in iteritems(updates):
+            for key, value in updates.items():
                 commands.append(
                     self._compute_commands(key=key, value=value, interface=want_copy["name"]),
                 )
@@ -243,7 +242,7 @@ class Interfaces(ConfigBase):
 
                 vif_updates = dict_diff(have_vif, want_vif)
                 if vif_updates:
-                    for key, value in iteritems(vif_updates):
+                    for key, value in vif_updates.items():
                         commands.append(
                             self._compute_commands(
                                 key=key,

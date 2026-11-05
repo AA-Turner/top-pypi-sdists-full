@@ -229,9 +229,9 @@ def _raise_component_too_old(detail: str) -> NoReturn:
             ErrorCode.COMPONENT_NOT_INSTALLED,
             f"The installed ha_mcp_tools custom component is too old: {detail}. "
             f"This ha-mcp release requires >= {MIN_COMPONENT_VERSION}. "
-            "Update via HACS and restart Home Assistant.",
+            "Update via HACS or the Marketplace and restart Home Assistant.",
             suggestions=[
-                "HACS → Integrations → HA-MCP Custom Component → Update",
+                "Settings → System → Updates → HA-MCP Custom Component → Update (HACS, or the Marketplace on Home Assistant 2026.11+)",
                 "Restart Home Assistant after update completes",
                 "Then retry the operation",
             ],
@@ -325,7 +325,7 @@ async def _fetch_caller_token(client: Any) -> str:
                 f"malformed version: {version!r}, so ha-mcp can't verify it "
                 f"meets the required >= {MIN_COMPONENT_VERSION}.",
                 suggestions=[
-                    "Reinstall ha_mcp_tools via HACS",
+                    "Reinstall ha_mcp_tools via HACS or the Marketplace",
                     "Restart Home Assistant after reinstalling",
                     "If the version is still malformed, file an issue at "
                     + "https://github.com/homeassistant-ai/ha-mcp/issues",
@@ -580,7 +580,7 @@ class FilesystemTools:
         - `packages/`, plus the folder bound by `homeassistant: packages:` when
           it has another name
         - Plus any custom directories OR HAOS sibling volumes (`/share`,
-          `/media`, `/ssl`, `/backup`) configured in the ha-mcp settings UI
+          `/media`, `/ssl`) configured in the ha-mcp settings UI
         Path traversal (../) is blocked.
 
         EXAMPLE: ha_list_files(path="www/", pattern="*.css")
@@ -696,7 +696,7 @@ class FilesystemTools:
         - `www/**`, `themes/**`, `custom_templates/**`, `dashboards/**`, `blueprints/**`
         - `custom_components/**/*.py` (read-only)
         - Plus any custom directories OR HAOS sibling volumes (`/share`,
-          `/media`, `/ssl`, `/backup`) configured in the ha-mcp settings UI
+          `/media`, `/ssl`) configured in the ha-mcp settings UI
         Path traversal (../) is blocked.
 
         EXAMPLE: ha_read_file(path="packages/alert2.yaml", yaml_path="alert2")
@@ -797,8 +797,8 @@ class FilesystemTools:
         - `themes/` - Theme YAML files
         - `custom_templates/` - Jinja2 template files
         - `dashboards/` - YAML-mode dashboard files
-        - Plus any custom directories OR HAOS sibling volumes (`/share`,
-          `/media`, `/ssl`, `/backup`) configured in the ha-mcp settings UI
+        - Plus custom directories OR HAOS sibling volumes (`/share`, `/media`, `/ssl`)
+          from the ha-mcp settings UI; `/ssl` is read-only on HAOS and Supervised
         Configuration files (configuration.yaml, etc.) cannot be written; path
         traversal (../) is blocked.
 
@@ -887,9 +887,9 @@ class FilesystemTools:
         recent auto-backup snapshot; a binary file has no snapshot and its
         deletion is permanent. Allowed directories:
         `www/`, `themes/`, `custom_templates/`, `dashboards/`, plus any custom
-        directories OR HAOS sibling volumes (`/share`, `/media`, `/ssl`,
-        `/backup`) configured in the ha-mcp settings UI. Configuration files
-        cannot be deleted; path traversal (../) is blocked.
+        directories OR HAOS sibling volumes (`/share`, `/media`, `/ssl`) configured
+        in the ha-mcp settings UI; `/ssl` is read-only on HAOS and Supervised.
+        Configuration files cannot be deleted; path traversal (../) is blocked.
 
         EXAMPLE: ha_delete_file(path="www/deprecated-style.css", confirm=True)
         """
@@ -1020,7 +1020,7 @@ async def assert_extra_yaml_keys_supported(client: Any, extra_keys: list[str]) -
             f"(reported version: {reported or 'unknown'}; requires >= "
             f"{MIN_COMPONENT_VERSION_EXTRA_YAML_KEYS}).",
             suggestions=[
-                "HACS → Integrations → HA-MCP Custom Component → Update",
+                "Settings → System → Updates → HA-MCP Custom Component → Update (HACS, or the Marketplace on Home Assistant 2026.11+)",
                 "Restart Home Assistant after the update completes",
                 # Parenthesised so this reads as one suggestion rather than
                 # a list entry with a missing comma (py/implicit-string-

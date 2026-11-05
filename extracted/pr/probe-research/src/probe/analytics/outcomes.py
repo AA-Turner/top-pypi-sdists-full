@@ -79,6 +79,8 @@ class BackfillOutcome(StrEnum):
     #: stay `new` and the next run classifies only them.
     PARTIAL_CLASSIFICATION = "partial_classification"
     PROJECT_CREATE_FAILED = "project_create_failed"
+    #: Handed to a background job (`job_id` rides along): its `import_job.finished` says how it ended.
+    HANDED_OFF = "handed_off"
     ABORTED = "aborted"
     ERROR = "error"  # unexpected crash; the exception itself is re-raised
 

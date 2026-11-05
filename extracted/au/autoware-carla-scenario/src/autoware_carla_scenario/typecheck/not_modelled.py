@@ -165,8 +165,9 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
         **_each("ScenarioQueue ScenarioRunner", _RUNNER),
         **_each(
             "BuildScenarioFn ScenarioBuilder get_conf_dirs get_scenario_builder "
-            "get_scenario_classes get_scenario_registry load_scenario_plugins "
-            "register_conf_dir register_scenario register_scenario_builder "
+            "get_scenario_classes get_scenario_document get_scenario_registry "
+            "load_scenario_plugins register_conf_dir register_scenario "
+            "register_scenario_builder register_scenario_document "
             "unregister_conf_dir unregister_scenario",
             _REGISTRY,
         ),
@@ -221,8 +222,8 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
         ),
     },
     f"{_PACKAGE}.weather_rules": _each(
-        "DEFAULT_RULES EGO_KEY QUANTITIES RulesError WEATHER_INPUTS default_rules "
-        "rule_values use_weather_rules vehicle_range weather_rule_files",
+        "DEFAULT_RULES EGO_KEY QUANTITIES RulesError WEATHER_INPUTS check_weather_rules "
+        "default_rules rule_values use_weather_rules vehicle_range weather_rule_files",
         "reads rule files with openodd (a Rust extension) and takes "
         "`environment.rules` as `Mapping[str, Any]`, the runner's; a scenario "
         "sets the weather, not the rules (weather_rules.codon models what "
@@ -303,7 +304,7 @@ NOT_MODELLED: dict[str, dict[str, str]] = {
     },
     f"{_PACKAGE}.rerun": _each(
         "INSTALL_HINT RECORDING_SUFFIX RerunConversion RerunUnavailableError "
-        "convert_outputs main report require_converter",
+        "convert_outputs latest main report require_converter",
         "makes Rerun recordings of a run's trajectory logs with the "
         "autoware-carla-scenario-rerun package, which the runner does after a "
         "run (rerun.enabled), not a scenario; the model declares only the "
@@ -700,7 +701,7 @@ NOT_MODELLED_MEMBERS: dict[str, dict[str, str]] = {
         "to_dict": _AS_DICT,
         "from_dict": _FROM_MAPPING,
     },
-    "SweepConfig": _members("bindings constraints odd_sample", _SWEEP_FIELD),
+    "SweepConfig": _members("bindings constraints exclude odd_sample", _SWEEP_FIELD),
     "DriverConfig": {
         "bridge": (
             "a Hydra mapping of AutowareBridgeConfig's fields, or None "

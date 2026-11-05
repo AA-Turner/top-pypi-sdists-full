@@ -27,7 +27,7 @@ from schemathesis.core.errors import (
 )
 from schemathesis.core.jsonschema import Bundler
 from schemathesis.core.jsonschema.bundler import BundleCache
-from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
+from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
@@ -64,11 +64,11 @@ from ...hooks import (
     dispatch_before_process_path,
 )
 from ...schemas import APIOperation, APIOperationMap, BaseSchema
-from . import checks
+from . import checks, expressions
 from ._hypothesis import openapi_cases
 from ._operation_lookup import OperationLookup
 from .examples import get_strategies_from_examples
-from .operations import SCHEMA_PARSING_ERRORS, OperationLoader, RawSchemaVersion
+from .operations import SCHEMA_PARSING_ERRORS, OperationLoader, RawSchemaVersion, resolve_path_item
 from .serialization import _build_urlencoded_serializer
 from .stateful import collect_transitions, create_state_machine
 from .utils import PathTemplate, compile_path_template, parse_spec_version, read_from_wire
@@ -95,7 +95,7 @@ if TYPE_CHECKING:
     from schemathesis.generation.coverage import GenerationSession
     from schemathesis.generation.hypothesis.reporting import SlowParameter, UnsatisfiableParameter
     from schemathesis.generation.stateful import APIStateMachine
-    from schemathesis.generation.stateful.state_machine import StepInput
+    from schemathesis.generation.stateful.state_machine import StepInput, StepOutput
     from schemathesis.specs.openapi.adapter import OpenApiResponses
     from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter
     from schemathesis.specs.openapi.adapter.security import OpenApiSecurityParameters, SecurityRequirements
@@ -481,6 +481,10 @@ class OpenApiSchema(BaseSchema):
         record_link_outcome(calibration, response, observations, step_input, recorder)
 
     @override
+    def resolve_link_value(self, definition: object, output: StepOutput, recorded: object) -> object:
+        return expressions.prefer_recorded(expressions.evaluate_wildcard(definition, output), recorded)
+
+    @override
     def iter_link_candidates(
         self,
         *,
@@ -574,12 +578,12 @@ class OpenApiSchema(BaseSchema):
         if paths is None:
             raise KeyError(path)
         path_item = paths[path]
-        if "$ref" in path_item:
-            path_resolver, path_item = resolve_reference(self.root_resolver, path_item["$ref"])
-            scope = path_resolver.base_uri
-        else:
-            path_resolver = self.root_resolver
-            scope = path_resolver.base_uri
+        try:
+            path_resolver, path_item = resolve_path_item(self.root_resolver, path_item)
+        except InvalidSchema:
+            # A reference to a non-object node declares no operations.
+            path_resolver, path_item = self.root_resolver, {}
+        scope = path_resolver.base_uri
         dispatch_before_process_path(self, HookContext(), path, path_item)
         return APIOperationMap(self, MethodMap(self, path_resolver, scope, path, CaseInsensitiveDict(path_item)))
 

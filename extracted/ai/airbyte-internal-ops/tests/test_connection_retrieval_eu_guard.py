@@ -9,7 +9,11 @@ from unittest.mock import MagicMock, Mock
 import pytest
 import sqlalchemy
 
-from airbyte_ops_mcp.connection_config_retriever import audit_logging, retrieval
+from airbyte_ops_mcp.connection_config_retriever import (
+    audit_logging,
+    residency,
+    retrieval,
+)
 from airbyte_ops_mcp.connection_config_retriever.retrieval import (
     SELECT_ON_CONNECTION,
     SELECT_ON_CONNECTION_DATAPLANE_GROUP_IS_EU,
@@ -50,7 +54,7 @@ def _queries(db_conn: MagicMock) -> list[sqlalchemy.TextClause]:
 def eu_runner_check(monkeypatch: pytest.MonkeyPatch) -> Mock:
     """Stub the GCE metadata check; tests set its return value."""
     check = Mock(return_value=False)
-    monkeypatch.setattr(retrieval, "is_running_on_eu_runner", check)
+    monkeypatch.setattr(retrieval, "is_running_in_eu_region", check)
     return check
 
 
@@ -87,7 +91,7 @@ def test_eu_connection_is_dropped_off_the_eu_runner(
     assert candidates == []
     eu_runner_check.assert_called_once_with()
     assert _queries(db_conn) == [SELECT_ON_CONNECTION_DATAPLANE_GROUP_IS_EU]
-    assert "only permitted on the EU regression runner" in caplog.text
+    assert "only permitted in the EU region" in caplog.text
     assert CONNECTION_ID in caplog.text
 
 
@@ -111,7 +115,7 @@ def test_us_connection_is_dropped_on_the_eu_runner(
     assert candidates == []
     eu_runner_check.assert_called_once_with()
     assert _queries(db_conn) == [SELECT_ON_CONNECTION_DATAPLANE_GROUP_IS_EU]
-    assert "only retrieves EU connections" in caplog.text
+    assert "only permitted for EU connections" in caplog.text
     assert CONNECTION_ID in caplog.text
 
 
@@ -149,6 +153,47 @@ def test_eu_connection_on_the_eu_runner_uses_the_unfiltered_query(
         SELECT_ON_CONNECTION_DATAPLANE_GROUP_IS_EU,
         SELECT_ON_CONNECTION,
     ]
+
+
+@pytest.mark.parametrize(
+    ("zone", "is_eu_connection", "allowed"),
+    [
+        ("europe-west9-a", True, True),
+        ("us-west1-a", True, False),
+        ("europe-west9-a", False, False),
+        ("us-west1-a", False, True),
+    ],
+)
+def test_workstation_location_controls_connection_residency(
+    monkeypatch: pytest.MonkeyPatch,
+    zone: str,
+    is_eu_connection: bool,
+    allowed: bool,
+) -> None:
+    """The real metadata check gates workstation retrieval in both directions."""
+    session = MagicMock()
+    session.__enter__.return_value = session
+    session.get.return_value = Mock(
+        status_code=200,
+        text=f"projects/1/zones/{zone}",
+        headers={"Metadata-Flavor": "Google"},
+    )
+    monkeypatch.setattr(residency.requests, "Session", Mock(return_value=session))
+    db_conn = _db_conn(is_eu=is_eu_connection)
+    _patch_prod_db(monkeypatch, db_conn)
+
+    candidates = retrieve_objects([ConnectionObject.SOURCE_ID], "test", CONNECTION_ID)
+
+    assert [candidate.source_id for candidate in candidates] == (
+        ["source-id"] if allowed else []
+    )
+    expected_queries = [SELECT_ON_CONNECTION_DATAPLANE_GROUP_IS_EU]
+    if allowed:
+        expected_queries.append(
+            SELECT_ON_CONNECTION if is_eu_connection else SELECT_ON_CONNECTION_NOT_EU
+        )
+    assert _queries(db_conn) == expected_queries
+    assert all(call.args[0].endswith("/zone") for call in session.get.call_args_list)
 
 
 @pytest.mark.parametrize(

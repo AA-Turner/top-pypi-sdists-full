@@ -8,7 +8,8 @@ import yaml
 from flask import jsonify
 
 import schemathesis
-from schemathesis.config import SchemathesisConfig
+from schemathesis.checks import not_a_server_error
+from schemathesis.config import ConfigError, SchemathesisConfig
 from schemathesis.config._auth import DynamicTokenAuthConfig
 from schemathesis.config._checks import ChecksConfig
 from schemathesis.core.failures import AcceptedNegativeData, Failure, FailureGroup, MalformedJson
@@ -2721,6 +2722,16 @@ def test_positive_data_acceptance_passes_for_rate_limiting(response_factory, sam
     assert positive_data_acceptance(check_context(), response_factory.requests(status_code=429), case) is None
 
 
+def test_grpc_status_name_is_invalid_for_openapi(ctx):
+    api = ctx.openapi.apps.failure()
+    operation = schemathesis.openapi.from_url(api.schema_url)["/api/failure"]["GET"]
+    case = operation.Case()
+    response = case.call()
+    with pytest.raises(ConfigError, match="Invalid status value `UNAVAILABLE` for Open API"):
+        config = ChecksConfig.from_dict({"not_a_server_error": {"expected-statuses": ["UNAVAILABLE"]}})
+        not_a_server_error(check_context(config), response, case)
+
+
 @pytest.mark.parametrize(
     ["path", "header_name", "expected_status"],
     [
@@ -3895,57 +3906,17 @@ def test_response_schema_conformance_renders_failure_inside_embedded_resource(
     )
 
 
-@pytest.mark.parametrize(
-    ("version", "keyword", "identifier", "reference"),
-    [
-        ("3.1.0", "$id", "https://example.com/tree", "https://example.com/tree"),
-        ("3.0.2", "id", "https://example.com/tree", "https://example.com/tree"),
-        ("3.1.0", "$id", "tree", "tree"),
-        ("3.1.0", "$id", "https://example.com/schemas/tree", "tree"),
-        ("3.1.0", "$id", "schemas/tree", "tree"),
-        ("3.1.0", "$id", "./tree", "tree"),
-    ],
-    ids=[
-        "id",
-        "draft-4-id",
-        "relative-id",
-        "reference-relative-to-id",
-        "reference-relative-to-relative-id",
-        "dot-segment-id",
-    ],
-)
-def test_response_schema_conformance_follows_reference_into_embedded_resource(
-    ctx, response_factory, version, keyword, identifier, reference
-):
+def _tree_items(keyword, identifier, reference):
     tree = {
         keyword: identifier,
         "type": "object",
-        "properties": {
-            "id": {"type": "integer"},
-            "children": {"type": "array", "items": {"$ref": reference}},
-        },
+        "properties": {"id": {"type": "integer"}, "children": {"type": "array", "items": {"$ref": reference}}},
     }
-    operation = ctx.openapi.load_operation(
-        "GET /items",
-        {
-            "responses": {
-                "200": {
-                    "description": "OK",
-                    "content": {"application/json": {"schema": {"type": "array", "items": tree}}},
-                }
-            }
-        },
-        version=version,
-    )
-    response = response_factory.core(content=b'[{"id":1,"children":[{"id":"y"}]}]')
+    return {"type": "array", "items": tree}
 
-    with pytest.raises(JsonSchemaError) as exc:
-        operation.validate_response(response)
-    assert exc.value.message == (
-        '"y" is not of type "integer"\n\n'
-        "Validated against the response schema for status code 200.\n\n"
-        "Schema at /tree/properties/id:\n\n" + _INTEGER_SCHEMA_SECTION + 'Value:\n\n    "y"'
-    )
+
+_TREE = "https://example.com/tree"
+_TREE_BODY = '[{"id":1,"children":[{"id":"y"}]}]'
 
 
 def _resource_with_own_id(uri, id_type):
@@ -4008,13 +3979,38 @@ def _resource_with_own_id(uri, id_type):
             '{"id":"y"}',
             "/components/schemas/Id",
         ),
+        ("3.1.0", _tree_items("$id", _TREE, _TREE), {}, _TREE_BODY, "/tree/properties/id"),
+        ("3.0.2", _tree_items("id", _TREE, _TREE), {}, _TREE_BODY, "/tree/properties/id"),
+        ("3.1.0", _tree_items("$id", "tree", "tree"), {}, _TREE_BODY, "/tree/properties/id"),
+        (
+            "3.1.0",
+            _tree_items("$id", "https://example.com/schemas/tree", "tree"),
+            {},
+            _TREE_BODY,
+            "/tree/properties/id",
+        ),
+        ("3.1.0", _tree_items("$id", "schemas/tree", "tree"), {}, _TREE_BODY, "/tree/properties/id"),
+        ("3.1.0", _tree_items("$id", "./tree", "tree"), {}, _TREE_BODY, "/tree/properties/id"),
     ],
-    ids=["defs", "draft-4-definitions", "own-property", "nested-resource", "named-resources", "document-component"],
+    ids=[
+        "defs",
+        "draft-4-definitions",
+        "own-property",
+        "nested-resource",
+        "named-resources",
+        "document-component",
+        "reference-to-id",
+        "reference-to-draft-4-id",
+        "reference-to-relative-id",
+        "reference-relative-to-id",
+        "reference-relative-to-relative-id",
+        "reference-to-dot-segment-id",
+    ],
 )
-def test_response_schema_conformance_reads_fragments_inside_embedded_resource(
+def test_response_schema_conformance_resolves_references_inside_embedded_resource(
     ctx, response_factory, version, schema, schemas, body, location
 ):
-    # A fragment inside a schema that declares `$id` points into that schema, falling back to the document.
+    # A reference inside a schema that declares `$id` resolves against that schema, falling back to the document.
     operation = ctx.openapi.load_operation(
         "GET /items",
         {"responses": {"200": {"description": "OK", "content": {"application/json": {"schema": schema}}}}},

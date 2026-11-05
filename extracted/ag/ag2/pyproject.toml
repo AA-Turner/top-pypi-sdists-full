@@ -78,7 +78,7 @@ relative_files = true
 [tool.ruff]
 fix = true
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 exclude = [
     ".eggs",
     ".git",
@@ -120,6 +120,7 @@ ignore = [
     "C901",
     "ASYNC109",
     "ASYNC240",
+    "UP042",
 ]
 
 [tool.ruff.lint.mccabe]
@@ -135,8 +136,12 @@ convention = "google"
 docstring-code-format = true
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 files = [
+    "ag2/scopes.py",
+    "ag2/events/delegation.py",
+    "ag2/tools/subagents/_forwarding.py",
+    "ag2/usage.py",
     "ag2/_import_utils.py",
     "ag2/__init__.py",
     "ag2/acp/client.py",
@@ -172,6 +177,7 @@ files = [
     "ag2/live/elevenlabs.py",
     "ag2/live/gemini.py",
     "ag2/live/mistral.py",
+    "ag2/live/mistral_realtime.py",
     "ag2/live/observer.py",
     "ag2/live/openai.py",
     "ag2/live/protocols.py",
@@ -399,15 +405,14 @@ keywords = [
     "ag2ai",
     "agentic",
 ]
-requires-python = ">=3.10"
-version = "1.2.2"
+requires-python = ">=3.11"
+version = "1.3.0"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -442,7 +447,7 @@ name = "Chi Wang & Qingyun Wu"
 email = "support@ag2.ai"
 
 [project.optional-dependencies]
-a2a = ["a2a-sdk>=1.2.0,<2"]
+a2a = ["a2a-sdk>=1.3.0,<2"]
 a2ui = [
     "jsonschema>=4.18.0,<5",
     "starlette>=0.40,<2",
@@ -463,7 +468,7 @@ gemini = [
 elevenlabs = ["elevenlabs>=2.73.0,<3"]
 xai = ["xai-sdk>=1.12.2,<2"]
 zai = ["zai-sdk>=0.2.3,<1"]
-mistral = ["mistralai>=3.2.0,<4"]
+mistral = ["mistralai>=3.6.0,<4"]
 ollama = ["ollama>=0.5.2,<1"]
 bedrock = ["aiobotocore>=3.9.1,<4"]
 dashscope = ["dashscope>=1.25.13"]
@@ -475,13 +480,13 @@ tavily = ["tavily-python>=0.7.4,<0.9"]
 ddgs = ["ddgs>=9.0.0,<10"]
 perplexity = ["perplexityai>=0.30.0,<1"]
 mcp = [
-    "mcp>=2.2.0,<3",
-    "mcp-types>=2.2.0,<3",
+    "mcp>=2.3.0,<3",
+    "mcp-types>=2.3.0,<3",
     "jsonschema>=4.20.0,<5",
 ]
 mcp-ui = [
     "mcp-ui-server>=1.0.0",
-    "mcp>=2.2.0,<3",
+    "mcp>=2.3.0,<3",
 ]
 
 [dependency-groups]
@@ -501,7 +506,7 @@ test = [
     "pillow",
     "python-dotenv",
     "respx>=0.23.0,<0.24.0",
-    "httpx2>=2.9.1,<3",
+    "httpx2>=2.10.0,<3",
 ]
 optionals = [
     "ag2[redis]",
@@ -518,10 +523,11 @@ optionals = [
     "agent-client-protocol[http]",
     "watchdog>=4.0,<7",
     "websockets>=14.0,<17",
+    "mistralai[realtime]>=3.6.0,<4",
     "docker>=6.0.0,<8",
     "daytona>=0.171.0,<1",
     "tenki>=1.4.0,<2",
-    "tinyfish>=0.5,<0.6; python_version>='3.11'",
+    "tinyfish>=0.5,<0.6",
     "exa-py>=2.12.1,<3",
     "firecrawl-py>=4.53,<5",
     "torch>=2.5,<3",
@@ -544,7 +550,7 @@ docs = [
     "ag2[tracing]",
     "ag2[metrics]",
     "ag2[ag-ui]",
-    "tinyfish>=0.5,<0.6; python_version>='3.11'",
+    "tinyfish>=0.5,<0.6",
     "daytona>=0.171.0,<1",
     "tenki>=1.4.0,<2",
     "exa-py>=2.12.1,<3",
@@ -577,7 +583,7 @@ docs = [
     "mkdocs-redirects==1.2.3",
     "jinja2==3.1.6",
     "pyyaml==6.0.3",
-    "mcp>=2.2.0,<3",
+    "mcp>=2.3.0,<3",
 ]
 types = [
     "mypy==2.4.0",

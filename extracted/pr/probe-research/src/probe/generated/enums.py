@@ -463,6 +463,7 @@ class CaptureSource(StrEnum):
     codex = 'codex'
     pi = 'pi'
     kimi_code = 'kimi_code'
+    cursor_agent = 'cursor_agent'
 
 
 class Status1(StrEnum):
@@ -716,6 +717,7 @@ class CaptureSources1Enum(StrEnum):
     codex = 'codex'
     pi = 'pi'
     kimi_code = 'kimi_code'
+    cursor_agent = 'cursor_agent'
 
 
 class Role5(StrEnum):
@@ -1852,6 +1854,7 @@ class Source5(StrEnum):
     codex = 'codex'
     pi = 'pi'
     kimi_code = 'kimi_code'
+    cursor_agent = 'cursor_agent'
 
 
 class DocsState(StrEnum):

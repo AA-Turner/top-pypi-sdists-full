@@ -10,9 +10,7 @@ from pydantic import JsonValue
 
 from mistralai.vibe.harness.app_server.session import (
     AgentConfig,
-    BuiltinsConfig,
     McpHttpSourceConfiguration,
-    SubagentBuiltinsConfig,
     SubagentConfig,
     SubagentPolicy,
 )
@@ -26,7 +24,7 @@ from mistralai.vibe.harness.runtime.completion.providers.anthropic import Anthro
 from mistralai.vibe.harness.runtime.completion.providers.mistral import MistralCompletionConfig
 from mistralai.vibe.harness.runtime.completion.providers.openai import OpenAICompletionConfig
 from mistralai.vibe_agents import session_workflow as wire
-from mistralai.vibe_agents.sdk.authoring import contracts, mcp_sources
+from mistralai.vibe_agents.sdk.authoring import builtin_declarations, contracts, mcp_sources
 from mistralai.vibe_agents.sdk.authoring import subagent as subagent_authoring
 from mistralai.vibe_agents.sdk.authoring import tool as tool_authoring
 from mistralai.vibe_agents.sdk.authoring import types as authoring_types
@@ -111,14 +109,14 @@ def _compile_subagent(
         values["first_output_timeout_seconds"] = layer.first_output_timeout_seconds
     if layer.auto_compact_threshold is not None:
         values["auto_compact_threshold"] = layer.auto_compact_threshold
-    builtins = _compile_subagent_builtins(layer)
+    builtins = builtin_declarations.subagent_builtins_layer(layer)
     if builtins is not None:
         values["builtins"] = builtins
     if layer.sandbox_access is not None:
         if harness is not None:
             _require_access_in_sandbox(harness.sandbox, layer.sandbox_access, path)
         values["sandbox_access"] = layer.sandbox_access
-    programmatic = _resolved_subagent_builtins(parent.builtins, builtins, path).programmatic_enabled
+    programmatic = builtin_declarations.merge_builtins(parent.builtins, builtins, path).programmatic_enabled
     # Inherited tools and MCP sources were compiled for the parent; a child whose programmatic tool
     # calling differs gets its own copy.
     inherited = harness if harness is not None and programmatic != parent.builtins.programmatic_enabled else None
@@ -170,30 +168,6 @@ def _compile_subagent(
             "subagents": compile_subagent_catalog(resolved, layer.subagents, harness=nested_harness, path=path),
         }
     )
-
-
-def _compile_subagent_builtins(layer: subagent_authoring.Subagent) -> SubagentBuiltinsConfig | None:
-    """Return the built-in switches the child sets; the ones it leaves out inherit."""
-
-    if layer.builtins is None:
-        return None
-    config = authoring_types.builtins_to_config(layer.builtins)
-    return SubagentBuiltinsConfig.model_validate(
-        {name: getattr(config, name) for name in layer.builtins.model_fields_set}
-    )
-
-
-def _resolved_subagent_builtins(
-    parent: BuiltinsConfig,
-    layer: SubagentBuiltinsConfig | None,
-    path: tuple[str, ...],
-) -> BuiltinsConfig:
-    if layer is None:
-        return parent
-    try:
-        return layer.apply(parent)
-    except ValueError as error:
-        raise SdkError(f"Subagent {'/'.join(path)!r} builtins: {error}") from error
 
 
 def _require_access_in_sandbox(

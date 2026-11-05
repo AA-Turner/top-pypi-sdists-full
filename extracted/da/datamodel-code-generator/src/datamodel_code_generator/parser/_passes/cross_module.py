@@ -25,11 +25,12 @@ from datamodel_code_generator.parser._graph_ids import keyed_models
 from datamodel_code_generator.parser._imports_plan import ImportProducer
 from datamodel_code_generator.parser._passes._import_binding import (
     ReimportHost,
-    _generic_base_class_module,
+    generic_base_class_import,
     register_reference_import,
     reimport_references,
     set_reference_expressions,
 )
+from datamodel_code_generator.parser._passes._import_edges import generic_base_class_module, inherits_one_of
 from datamodel_code_generator.parser._passes._shared import (
     GraphBuilderHost,
     ModuleScopeView,
@@ -42,10 +43,11 @@ from datamodel_code_generator.parser._passes._shared import (
 from datamodel_code_generator.parser._passes._warnings import warn_as_parser_base
 from datamodel_code_generator.parser._passes.plans import FlattenHost, flatten_base_layouts
 from datamodel_code_generator.parser._tag_plan import TagPlanHost, iter_struct_tag_decisions
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import Reference
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
     from pathlib import Path
 
     from datamodel_code_generator.imports import Imports
@@ -101,6 +103,9 @@ class CrossModuleHost(ReimportHost, RenamedTypesHost, GraphBuilderHost, Protocol
 
     def _is_root_model(self, model: DataModel) -> bool:
         """Return whether a model uses the configured root model representation."""
+
+    def _new_model(self, factory: Callable[..., DataModel | None], /, **kwargs: Any) -> DataModel | None:
+        """Build a model with ``factory``, a model class or a model factory, for the run's target Python."""
 
 
 class TaggedBasesHost(CrossModuleHost, FlattenHost, TagPlanHost, Protocol):
@@ -201,8 +206,8 @@ def warn_enums_admitting_other_values(parser: CrossModuleHost) -> None:
     values = (narrowing for field, narrowing in parser._enum_admits_other_values if not field.is_class_var)  # noqa: SLF001
     for narrowing in {narrowing.location: narrowing for narrowing in values}.values():
         warn_as_parser_base(
-            f"The schema at {narrowing.location} admits only its const {narrowing.const!r} of its enum values, but "
-            "its values are typed as its enum class, which accepts the other values too.",
+            f"The schema at {narrowing.location} admits only its const {stable_repr(narrowing.const)} of its enum "
+            "values, but its values are typed as its enum class, which accepts the other values too.",
             UserWarning,
             stacklevel=2,
         )
@@ -320,42 +325,38 @@ def import_enum_member_literal_classes(parser: CrossModuleHost, run: CrossModule
                         init=ctx.is_init,
                         internal_modules=run.internal_modules,
                         producer=ImportProducer("import-enum-member-literal-classes", model),
-                        treat_dot_as_module=parser.treat_dot_as_module,
                         import_ledger=parser._import_ledger,  # noqa: SLF001
+                        shared_imports=parser.imports,
                     )
                     or reference.short_name
                 )
-                data_type.enum_member_literals = [(enum_class, member) for _, member in data_type.enum_member_literals]
+                parser._graph_builder.name_enum_member_literal_class(data_type, enum_class)  # noqa: SLF001
 
 
-def apply_generic_base_class(parser: CrossModuleHost, run: CrossModuleRun) -> None:  # noqa: PLR0912
+def apply_generic_base_class(parser: CrossModuleHost, run: CrossModuleRun) -> None:
     """Add the configured generic base class to the first root module and make top-level target models inherit it."""
     if not parser.use_generic_base_class or not parser.generic_base_class_config:
         return
 
     all_target_models: set[DataModel] = set()
-    modules_with_targets: list[tuple[tuple[str, ...], list[DataModel], list[DataModel], Imports]] = []
+    modules_with_targets: list[tuple[tuple[str, ...], list[DataModel], list[DataModel], Imports, bool]] = []
     for ctx in run.contexts:
         if target_models := [m for m in ctx.models if m.SUPPORTS_GENERIC_BASE_CLASS and not parser._is_root_model(m)]:  # noqa: SLF001
-            modules_with_targets.append((ctx.module, ctx.models, target_models, ctx.imports))
+            modules_with_targets.append((ctx.module, ctx.models, target_models, ctx.imports, ctx.is_init))
             all_target_models.update(target_models)
 
     if not modules_with_targets:
         return
 
-    def has_target_model_parent(model: DataModel) -> bool:
-        return any(ref.source in all_target_models for bc in model.base_classes if (ref := bc.reference))
-
-    root_modules = [entry for entry in modules_with_targets if not all(map(has_target_model_parent, entry[2]))]
-    if not root_modules:  # pragma: no cover
-        root_modules = [modules_with_targets[0]]
-
-    first_root_module, first_root_models, first_root_target_models, _ = root_modules[0]
+    first_root_module, first_root_models, first_root_target_models, _, _ = modules_with_targets[
+        generic_base_class_module([entry[2] for entry in modules_with_targets])
+    ]
     first_root_file_path = first_root_target_models[0].file_path
 
     base_class_ref = Reference(path=GENERIC_BASE_CLASS_PATH, name=GENERIC_BASE_CLASS_NAME)
 
-    base_class_model = parser.data_model_type.create_base_class_model(
+    base_class_model = parser._new_model(  # noqa: SLF001
+        parser.data_model_type.create_base_class_model,
         config=parser.generic_base_class_config,
         reference=base_class_ref,
         custom_template_dir=parser.custom_template_dir,
@@ -375,12 +376,12 @@ def apply_generic_base_class(parser: CrossModuleHost, run: CrossModuleRun) -> No
 
     original_base_class = parser.data_model_type.BASE_CLASS
     original_import = Import.from_full_path(original_base_class) if original_base_class else None
-    for module, _, target_models, imports in modules_with_targets:
+    for module, _, target_models, imports, init in modules_with_targets:
         for model in target_models:
             if original_import:  # pragma: no branch
                 additional_imports = model._additional_imports  # noqa: SLF001
                 model._additional_imports = [i for i in additional_imports if i != original_import]  # noqa: SLF001
-            if has_target_model_parent(model):
+            if inherits_one_of(model, all_target_models):
                 continue
             if any(bc.reference for bc in model.base_classes):  # pragma: no cover
                 parser._graph_builder.set_base_classes(model, [base_class_dt, *model.base_classes])  # noqa: SLF001
@@ -390,6 +391,6 @@ def apply_generic_base_class(parser: CrossModuleHost, run: CrossModuleRun) -> No
             parser._import_ledger.remove(imports, original_import, _GENERIC_BASE_CLASS)  # noqa: SLF001
             parser._import_ledger.append(  # noqa: SLF001
                 imports,
-                Import(from_=_generic_base_class_module(module, first_root_module), import_=base_class_ref.name),
+                generic_base_class_import(module, first_root_module, base_class_ref.name, init=init),
                 _GENERIC_BASE_CLASS,
             )

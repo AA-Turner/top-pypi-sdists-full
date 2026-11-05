@@ -42,7 +42,7 @@ static void sbuf_put_source(sbuf *out, th_tree *tree, Py_ssize_t start, Py_ssize
 }
 
 /* The WHATWG-conformant escaping the reserialized parts fall back to. */
-static const th_serialize_opts lossless_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 0, 0, NULL};
+static const th_serialize_opts lossless_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 0, 0, NULL, 0};
 
 /* Emit a text node: its verbatim source span while it is still the zero-copy slice
    the parse left (character references and raw ampersands preserved), or the WHATWG
@@ -51,7 +51,9 @@ static void lossless_put_text(sbuf *out, th_tree *tree, th_node *node) {
     if (text_is_span(node)) {
         Py_ssize_t offset = text_span_offset(node);
         sbuf_put_source(out, tree, offset, offset + node->text_len);
-    } else {
+    } else if (node->text == NULL && node->text_len > 0) { /* GCOVR_EXCL_BR_LINE: an earlier lazy text OOM */
+        out->failed = 1;                                   /* GCOVR_EXCL_LINE: allocation failure */
+    } else { /* GCOVR_EXCL_LINE: llvm-cov assigns this line to the allocation-failure edge */
         sbuf_put_text(out, node->text, node->text_len, 0, TH_FMT_WHATWG);
     }
 }

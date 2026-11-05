@@ -1,5 +1,6 @@
 """Who drains a client's queue: the `Drainer` interface and `pick_drainer`, which picks the kind
-ONCE per client (detached worker, in-process thread, or nobody); DrainerMixin is Client's side."""
+ONCE per client (the Probe service, an in-process thread for an injected transport, or nobody);
+DrainerMixin is Client's side."""
 
 from __future__ import annotations
 import os
@@ -15,9 +16,9 @@ EXPORT_INTERVAL_ENV = "PROBE_EXPORT_INTERVAL_SEC"
 class DrainerKind(StrEnum):
     """What delivers a client's queued writes."""
 
-    #: The detached outbox worker (or the Probe service, which starts one for us).
+    #: The Probe service's own drain (plan D8), which a client asks for (`ServiceDrainer`).
     WORKER = "worker"
-    #: The in-process exporter thread, sending through this client's own transport.
+    #: The in-process exporter thread, sending through an injected transport (a server's, R7).
     THREAD = "thread"
     #: Nobody on its own: `flush()`/`finish()`, or a forced kick, delivers.
     NONE = "none"
@@ -25,8 +26,8 @@ class DrainerKind(StrEnum):
 
 class Drainer:
     """The interface every kind implements, and the NONE kind itself: it delivers nothing on
-    its own. ``kick(force=True)`` hands the queue to a detached worker from any kind (a
-    deferred finish, a hand-off), never past a custom transport the worker cannot replay."""
+    its own. ``kick(force=True)`` asks the service to drain the queue from any kind (a deferred
+    finish, a hand-off), never past a custom transport the service cannot replay."""
 
     kind = DrainerKind.NONE
 
@@ -40,14 +41,14 @@ class Drainer:
         """After an enqueue: make sure someone delivers it soon. Runs per `log()`."""
 
     def kick(self, *, force: bool = False) -> None:
-        """Hand the queue to a detached worker. Forced kicks skip every throttle."""
+        """Ask the service to drain the queue, now. Forced kicks skip every throttle."""
         if not (force and self.can_fork):
             return
         from .. import outbox as outbox_worker
 
         try:
             outbox_worker.maybe_spawn(self.directory, **_with_credential(self.credential_env))
-        except Exception:  # noqa: BLE001 -- best-effort; finish() waits for the worker
+        except Exception:  # noqa: BLE001 -- best-effort; finish() waits for the drain
             pass
 
     def close(self, timeout: float | None = None) -> bool:
@@ -76,19 +77,19 @@ def export_interval_from_env() -> float | None:
 
 
 def pick_drainer(client) -> Drainer:
-    """The client's drainer, picked once at construction (D1): the detached worker for every
-    client on the default transport, a token passed in code riding its spawn (R5); the
-    in-process thread only for an injected transport with a ``drain_interval`` (the worker
-    cannot replay one); else none (`flush()` delivers)."""
+    """The client's drainer, picked once at construction (D1): the Probe service's drain for every
+    client on the default transport (plan D8; a token passed in code rides each ask, D11); the
+    in-process thread only for an injected transport with a ``drain_interval``, which no service
+    can replay (Probe's own servers, plan R7); else none (`flush()` delivers)."""
     credential_env = getattr(client, "_worker_credentials", None)
     if client._drain_interval is not None:
         from .drainers.in_process import ThreadDrainer
 
         return ThreadDrainer(client)
     if client._auto_drain:
-        from .drainers.detached import DetachedDrainer
+        from .drainers.service import ServiceDrainer
 
-        return DetachedDrainer(client.journal.dir, credential_env=credential_env)
+        return ServiceDrainer(client.journal.dir, credential_env=credential_env)
     return Drainer(client.journal.dir, can_fork=client._default_transport, credential_env=credential_env)
 
 
@@ -105,8 +106,8 @@ class DrainerMixin:
 
     def _promote_waiting_at_exit(self, run_ref: str) -> None:
         """Make sure an upload this process queued for a background credential
-        scan is promoted even if no worker could be started (a frozen or
-        embedded interpreter): at exit, promote what is still waiting for THIS
+        scan is promoted even if no drain could be asked for: at exit, promote
+        what is still waiting for THIS
         process's runs -- not other processes' in a shared journal -- within
         `_EXIT_PROMOTE_SECONDS`, then kick delivery the way `_kick_drainer`
         would. Registered once. Normally a no-op: the worker or `finish()` got
@@ -142,7 +143,7 @@ class DrainerMixin:
         _at_exit(promote)
 
     def _kick_drainer(self, *, force: bool = False) -> None:
-        """Wake the detached outbox worker (parity F1); `Drainer.kick` says how.
+        """Wake the service's drain (plan D8); `Drainer.kick` says how.
 
         ``force`` (deferred finish, F3): skip the mode gate and the throttle -- a
         queued terminal status must not have its one kick swallowed -- but never

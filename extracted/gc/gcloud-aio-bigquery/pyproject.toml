@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gcloud-aio-bigquery"
-version = "7.3.0"
+version = "7.3.1"
 description = "Python Client for Google Cloud BigQuery"
 readme = "README.rst"
 
@@ -29,8 +29,8 @@ gcloud-aio-auth = { path = "../auth" }
 gcloud-aio-datastore = { path = "../datastore" }
 gcloud-aio-storage = { path = "../storage" }
 pytest = "9.1.1"
-pytest-asyncio = "1.4.0"
-pytest-mock = "3.16.0"
+pytest-asyncio = "1.4.1.post1"
+pytest-mock = "3.17.0"
 tenacity = "9.2.1"
 
 [[tool.poetry.source]]

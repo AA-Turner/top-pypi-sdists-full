@@ -65,6 +65,7 @@ from .models import (
     PersonalImageOwner,
     PlatformImageOwner,
     ReadFileResponse,
+    RegistryAuth,
     Sandbox,
     SandboxCheckpoint,
     SandboxEgressPolicy,
@@ -85,7 +86,7 @@ from .models import (
 from .process import AsyncSandboxProcess
 from .sandbox import AsyncSandboxClient, SandboxClient
 
-__version__ = "0.5.5"
+__version__ = "0.5.6"
 
 # Deprecated alias for backward compatibility
 TimeoutError = APITimeoutError
@@ -132,6 +133,7 @@ __all__ = [
     "SandboxStatusLookupError",
     "SSHSession",
     "BuildImageRequest",
+    "RegistryAuth",
     "BuildImageResponse",
     "BulkBuildImageResponse",
     "SourceImageBuildResult",

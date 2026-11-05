@@ -131,14 +131,15 @@ def _safe_error_summary(response: requests.Response) -> str:
 
     if not isinstance(body, dict):
         return ""
-    details = body.get("details")
-    if not isinstance(details, dict):
-        return ""
 
     summary_parts: list[str] = []
     error = body.get("error")
     if isinstance(error, str) and _SAFE_ERROR_SUMMARY_TOKEN.fullmatch(error):
         summary_parts.append(f"Error: {error}.")
+
+    details = body.get("details")
+    if not isinstance(details, dict):
+        return f" {' '.join(summary_parts)}" if summary_parts else ""
 
     safe_details = [
         (field_name, entries)
@@ -197,10 +198,15 @@ def _request(
 
     if response.status_code == 404:
         raise ZendeskAPIError(f"Zendesk resource not found: {path}")
-    if response.status_code in (401, 403):
+    if response.status_code == 401:
         raise ZendeskAPIError(
-            f"Zendesk authentication failed ({response.status_code}) for {path}. "
+            f"Zendesk authentication failed (401) for {path}. "
             "Check ZENDESK_EMAIL / ZENDESK_API_TOKEN."
+        )
+    if response.status_code == 403:
+        raise ZendeskAPIError(
+            f"Zendesk {method} {path} was forbidden (403): the Zendesk user lacks "
+            f"permission for this action.{_safe_error_summary(response)}"
         )
     if not 200 <= response.status_code < 300:
         # Include only safe field names and error codes, never descriptions or
@@ -566,7 +572,7 @@ def set_ticket_tcm_total_score(
     overwrite: bool = False,
     credentials: ZendeskCredentials | None = None,
 ) -> tuple[int | None, bool]:
-    """Set only the TCM total score field on a Solved ticket.
+    """Set only the TCM total score field on a Solved or Closed ticket.
 
     Returns the previous normalized value and whether an update was made.
     """
@@ -578,10 +584,8 @@ def set_ticket_tcm_total_score(
     credentials = credentials or resolve_zendesk_credentials()
     ticket = get_ticket(ticket_id, credentials)
     status = ticket.get("status")
-    if status == "closed":
-        raise ZendeskAPIError("Zendesk doesn't allow edits to Closed tickets.")
-    if status != "solved":
-        raise ZendeskAPIError("Only Solved tickets are scored and written.")
+    if status not in ("solved", "closed"):
+        raise ZendeskAPIError("Only Solved or Closed tickets are scored and written.")
 
     custom_fields = ticket.get("custom_fields", []) or []
     score_field = next(

@@ -72,6 +72,7 @@ NATIVE_OBSERVATION_MODELS = tuple(
 # its images (``image_size``), the end-effector one names the model, the others take the chunk.
 _BUILDERS = {
     "libero": "build_libero_observation", "rldx_libero": "build_rldx_libero_observation",
+    "libero_history": "build_libero_history_observation",
     "robocasa": "build_robocasa_observation", "franka": "build_franka_observation",
     "rho_end_effector": "build_rho_end_effector_observation",
 }
@@ -582,17 +583,25 @@ def _zero_sim_action(env=None) -> list[float]:
 
 def _default_env_factory(*, task_suite: str, task_id: int, task_seed: int,
                          control_freq: int = LIBERO_ACTION_HZ, env_resolution: int = 256,
-                         camera_history: bool = False) -> Any:
+                         camera_history: bool | tuple[int, ...] = False) -> Any:
+    """``camera_history``: True for RLDX-1's window, or the steps back of each frame."""
     from dreamscale.sim.runtime import HistoryLiberoSimEnv, LiberoSimEnv, ensure_sim_ready
 
     ensure_sim_ready()
-    return (HistoryLiberoSimEnv if camera_history else LiberoSimEnv).create_default(
+    if not camera_history:
+        return LiberoSimEnv.create_default(
+            task_suite_name=task_suite, task_id=task_id, seed=task_seed,
+            control_freq=control_freq, env_resolution=env_resolution)
+    env = HistoryLiberoSimEnv.create_default(
         task_suite_name=task_suite,
         task_id=task_id,
         seed=task_seed,
         control_freq=control_freq,
         env_resolution=env_resolution,
     )
+    if camera_history is not True:
+        env.set_history_ticks(camera_history)
+    return env
 
 
 def connect_libero(*, client_factory: Callable[..., Any] = ControlPlaneClient,

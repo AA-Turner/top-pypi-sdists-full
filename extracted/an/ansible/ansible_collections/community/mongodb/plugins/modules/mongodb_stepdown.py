@@ -16,7 +16,9 @@ description: >
   Returns OK immediately if the member is already in the SECONDARY or ARBITER states.
   Will wait until a timeout for the member state to reach SECONDARY or PRIMARY,
   if the member state is currently STARTUP, RECOVERING, STARTUP2 or ROLLBACK,
-  before taking any needed action.
+  before taking any needed action. This module sets the connection option
+  directConnection to true and this means multiple hosts cannot be specified in
+  login_hosts.
 author: Rhys Campbell (@rhysmeister)
 version_added: "1.0.0"
 
@@ -92,7 +94,7 @@ msg:
 import time
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 from ansible_collections.community.mongodb.plugins.module_utils.mongodb_common import (
     missing_required_lib,
     mongodb_common_argument_spec,

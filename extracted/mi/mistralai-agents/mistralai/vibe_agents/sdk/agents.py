@@ -14,28 +14,37 @@ from mistralai.vibe.harness.app_server.session import (
     ContentAnnotations,
     EmbeddedResourceContentBlock,
     HistoryImportEntry,
+    HistoryImportMessage,
+    HistoryImportReasoning,
+    HistoryImportSnapshot,
+    HistoryImportToolCall,
+    HistoryImportToolResult,
     ImageContentBlock,
     ResourceLinkContentBlock,
     TextContentBlock,
     UnknownContentBlock,
 )
-from mistralai.vibe.harness.app_server.session.local_record import LocalSessionProcedureError
+from mistralai.vibe.harness.app_server.session.local_record import (
+    LocalSessionProcedureError as _LocalSessionProcedureError,
+)
+from mistralai.vibe.harness.core.protocol import TokenUsage
 from mistralai.vibe.harness.runtime.capabilities import (
     PostAgentTurnHookAccept,
     PostLlmCallHookAccept,
     PostLlmCallHookReject,
     PostLlmCallHookRetry,
-    PostToolCallHookContinue,
     PreAgentTurnHookContinue,
     PreAgentTurnHookSkip,
     PreLlmCallHookContinue,
     PreLlmCallHookSkip,
     PreToolCallHookContinue,
     PreToolCallHookSkip,
+    ReplaceAssistantContent,
 )
 from mistralai.vibe_agents.sdk.assembly import assemble
 from mistralai.vibe_agents.sdk.authoring import determinism as sdk_determinism
 from mistralai.vibe_agents.sdk.authoring import errors as _errors
+from mistralai.vibe_agents.sdk.authoring import hooks as _hooks
 from mistralai.vibe_agents.sdk.authoring.agent import Agent
 from mistralai.vibe_agents.sdk.authoring.connector_selection import AllConnectors, all_connectors
 from mistralai.vibe_agents.sdk.authoring.contracts import (
@@ -70,6 +79,7 @@ from mistralai.vibe_agents.sdk.authoring.errors import (
     AuthenticationError,
     ClientToolAnswerError,
     InternalServerError,
+    InvalidCursorError,
     LegacySessionError,
     MistralConnectorNotFoundError,
     ObservationLost,
@@ -131,12 +141,22 @@ from mistralai.vibe_agents.sdk.client.approvals import (
     ApprovalTool,
     DenyApproval,
 )
-from mistralai.vibe_agents.sdk.client.entries import ToolCallEntry, ToolResultEntry, UnknownEntry
+from mistralai.vibe_agents.sdk.client.entries import (
+    ContextMessage,
+    MessageEntry,
+    ToolCallEntry,
+    ToolResultEntry,
+    UnknownEntry,
+)
 from mistralai.vibe_agents.sdk.client.events import (
     CallbackOpened,
     CallbackResolved,
+    EntryAdded,
+    EntryCompleted,
     Event,
+    Notice,
     SessionUpdated,
+    TextDelta,
     TurnEnded,
     TurnStarted,
     TurnUpdated,
@@ -173,11 +193,12 @@ from mistralai.vibe_agents.sdk.client.records import (
     UnknownTermination,
 )
 from mistralai.vibe_agents.sdk.client.sign_ins import SignInAnswer
+from mistralai.vibe_agents.sdk.client.unknown_values import UnknownValue
 from mistralai.vibe_agents.sdk.transport.client_tools import ClientToolAnswers, ClientToolCall
-from mistralai.vibe_agents.sdk.transport.remote import RemoteSessionConflictError
+from mistralai.vibe_agents.sdk.transport.remote import RemoteSessionConflictError as _RemoteSessionConflictError
 from mistralai.vibe_agents.sdk.transport.results import ToolCall
 from mistralai.vibe_agents.sdk.transport.session_journal import JsonFileSessionJournal as _JsonFileSessionJournal
-from mistralai.vibe_agents.session_workflow import SubagentPolicy
+from mistralai.vibe_agents.session_workflow import SessionAgentCustomization, SubagentPolicy
 from mistralai.workflows.plugins.mistralai.connectors import decorator as connector_decorator
 
 CallbackContext = assemble.CallbackContext
@@ -196,7 +217,9 @@ class _ParentHarness(_Harness):
         )
 
 
-class ParentSandbox(NoSandbox):
+class _ParentSandbox(NoSandbox):
+    """The 1.0 `agents.ParentSandbox`, which `__getattr__` returns with a warning."""
+
     def __init__(self) -> None:
         raise UnsupportedAgentFeatureError(
             "parent_inheritance",
@@ -205,14 +228,19 @@ class ParentSandbox(NoSandbox):
 
 
 class hook:
-    """Result models for a Hook that changes what continues.
+    """What a Hook receives at each point, and the result models for a Hook that changes what continues.
 
     A Hook that only continues returns ``None``; one that stops returns ``agents.skip``,
     ``agents.retry`` or ``agents.reject``.
     """
 
+    PreAgentTurn = _hooks.PreAgentTurn
+    PreLlmCall = _hooks.PreLlmCall
+    PostLlmCall = _hooks.PostLlmCall
+    PostAgentTurn = _hooks.PostAgentTurn
     PreToolCall = PreToolCall
     PostToolCall = PostToolCall
+    ReplaceAssistantContent = ReplaceAssistantContent
     PreAgentTurnHookContinue = PreAgentTurnHookContinue
     PreAgentTurnHookSkip = PreAgentTurnHookSkip
     PreLlmCallHookContinue = PreLlmCallHookContinue
@@ -222,7 +250,7 @@ class hook:
     PostLlmCallHookReject = PostLlmCallHookReject
     PreToolCallHookContinue = PreToolCallHookContinue
     PreToolCallHookSkip = PreToolCallHookSkip
-    PostToolCallHookContinue = PostToolCallHookContinue
+    PostToolCallHookContinue = _hooks.PostToolCallHookContinue
     PostAgentTurnHookAccept = PostAgentTurnHookAccept
 
 
@@ -238,12 +266,14 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
     from typing_extensions import deprecated
 
-    # The 1.1.0rc12 error names are plain aliases for type checkers, which report nothing, so rc12 code
+    # The 1.1.0rc12 and rc14 error names are plain aliases for type checkers, which report nothing, so that code
     # type-checks as it is. At runtime `__getattr__` returns the same classes with a `DeprecationWarning`.
     RemoteSessionNotFoundError = SessionNotFoundError
     RemoteSessionOutcomeUnknownError = OutcomeUnknownError
     RemoteSessionStartupTimeoutError = SessionStartupTimeoutError
     RemoteSessionStreamLostError = _errors.RemoteStreamLostError
+    LocalSessionProcedureError = _LocalSessionProcedureError
+    RemoteSessionConflictError = _RemoteSessionConflictError
 
     # For type checkers, each deprecated 1.1.0rc12 name of a renamed class is a subclass of the new class,
     # marked `@deprecated`, so they report each use. At runtime `__getattr__` returns the new class itself,
@@ -275,6 +305,7 @@ if TYPE_CHECKING:
     Harness = _Harness
     VibeHarness = _Harness
     ParentHarness = _ParentHarness
+    ParentSandbox = _ParentSandbox
 
 # 1.1.0rc12 names of the callback types and of the errors, kept working with a warning until a later release
 # removes them. `mistralai.agents` serves the same names through this table.
@@ -286,12 +317,14 @@ _RENAMED = {
 }
 
 
-# 1.1.0rc12 Harness names, kept working with a warning until a later release removes them: an Agent takes
-# the Harness fields itself. `mistralai.agents` serves the same names through this table.
-_DEPRECATED_HARNESS: dict[str, type[_Harness]] = {
+# 1.1.0rc12 Harness names and the 1.0 `ParentSandbox`, kept working with a warning until a later release removes
+# them: an Agent takes the Harness fields itself, and a subagent always uses the root's sandbox.
+# `mistralai.agents` serves the same names through this table.
+_DEPRECATED_HARNESS: dict[str, type[_Harness] | type[NoSandbox]] = {
     "Harness": _Harness,
     "VibeHarness": _Harness,
     "ParentHarness": _ParentHarness,
+    "ParentSandbox": _ParentSandbox,
 }
 
 
@@ -315,6 +348,22 @@ _JSON_FILE_SESSION_JOURNAL_WARNING = (
 )
 
 
+# 1.1.0rc14 host-specific error names, kept working with a warning until a later release removes them: each
+# host raises the same class for the same meaning, all in the `AgentsError` family. The old name stays its old
+# class, so an `except` on it catches what it caught before. `mistralai.agents` serves them too.
+_HOST_ERRORS: dict[str, type[Exception]] = {
+    "LocalSessionProcedureError": _LocalSessionProcedureError,
+    "RemoteSessionConflictError": _RemoteSessionConflictError,
+}
+
+
+def _host_error_warning(name: str) -> str:
+    return (
+        f"agents.{name} is deprecated: stable calls raise agents.AgentsError, so catch that; an event cursor that "
+        "is not valid raises agents.InvalidCursorError on both hosts"
+    )
+
+
 def _renamed_warning(name: str) -> str:
     return f"agents.{name} is deprecated: use agents.{_RENAMED[name]}"
 
@@ -329,6 +378,12 @@ def _harness_warning(name: str) -> str:
         return (
             "agents.ParentHarness is deprecated: parent inheritance is not supported; set the subagent's fields "
             "(tools=, connectors=, mcps=, skills=, hooks=, sandbox_access=) on agents.Subagent"
+        )
+    if name == "ParentSandbox":
+        # Like ParentHarness, ParentSandbox raises when built: a subagent always runs in the root's sandbox.
+        return (
+            "agents.ParentSandbox is deprecated: a subagent always uses the root's sandbox; set its access with "
+            "sandbox_access= on agents.Subagent"
         )
     return (
         f"agents.{name} is deprecated: pass its fields (tools=, sandbox= as environment=, connectors=, mcps=, skills=, "
@@ -353,6 +408,9 @@ def __getattr__(name: str) -> object:
     if name == "JsonFileSessionJournal":
         warnings.warn(_JSON_FILE_SESSION_JOURNAL_WARNING, DeprecationWarning, stacklevel=2)
         return _JsonFileSessionJournal
+    if name in _HOST_ERRORS:
+        warnings.warn(_host_error_warning(name), DeprecationWarning, stacklevel=2)
+        return _HOST_ERRORS[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -391,10 +449,13 @@ __all__ = [
     "Completed",
     "Connector",
     "ContentAnnotations",
+    "ContextMessage",
     "CustomSandbox",
     "DangerousLocalSandbox",
     "DenyApproval",
     "EgressPolicy",
+    "EntryAdded",
+    "EntryCompleted",
     "Event",
     "ExperimentalWarning",
     "Depends",
@@ -408,10 +469,10 @@ __all__ = [
     "LegacySessionError",
     "ImageContentBlock",
     "Interrupted",
+    "InvalidCursorError",
     "InvalidOutput",
     "LocalDockerSandbox",
     "LocalRuntime",
-    "LocalSessionProcedureError",
     "LocalSkillBundle",
     "LocalSkillFile",
     "MistralApiBinding",
@@ -421,13 +482,14 @@ __all__ = [
     "Network",
     "NoSandbox",
     "NotFound",
+    "MessageEntry",
+    "Notice",
     "ObservationLost",
     "OpenApproval",
     "OpenCallback",
     "OpenClientToolCall",
     "OpenSignIn",
     "OutcomeUnknownError",
-    "ParentSandbox",
     "PermissionDeniedError",
     "PermissionPolicy",
     "PermissionRule",
@@ -438,7 +500,6 @@ __all__ = [
     "RateLimitError",
     "RegistrySkill",
     "RemoteAgentDeploymentNotFoundError",
-    "RemoteSessionConflictError",
     "RemoteMCP",
     "ResourceLinkContentBlock",
     "Running",
@@ -449,8 +510,14 @@ __all__ = [
     "SandboxWorkspaceSkills",
     "HeaderBinding",
     "HistoryImportEntry",
+    "HistoryImportMessage",
+    "HistoryImportReasoning",
+    "HistoryImportSnapshot",
+    "HistoryImportToolCall",
+    "HistoryImportToolResult",
     "SdkError",
     "Session",
+    "SessionAgentCustomization",
     "SessionBusyError",
     "SessionConfigMismatchError",
     "SessionIdempotencyConflictError",
@@ -472,7 +539,10 @@ __all__ = [
     "FailedTermination",
     "UnknownOutcome",
     "UnknownTermination",
+    "UnknownValue",
     "TextContentBlock",
+    "TextDelta",
+    "TokenUsage",
     "ToolAnnotations",
     "ToolCall",
     "ToolCallEntry",

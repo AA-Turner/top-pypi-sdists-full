@@ -1,5 +1,6 @@
 import os
 import platform
+import re
 import socket
 import subprocess
 import sys
@@ -148,14 +149,70 @@ def test_from_url_tls_untrusted_certificate(ctx, tmp_path):
     )
 
 
-def test_from_url_reports_refused_reflection(ctx):
+def test_from_url_missing_tls_client_certificate_keeps_details_without_retry_advice(ctx):
+    server = ctx.grpc.apps.users(tls=True, client_auth=True)
+    with pytest.raises(LoaderError) as exc_info:
+        schemathesis.grpc.from_url(server.target, verify=str(server.ca_path))
+    port = server.target.rsplit(":", 1)[1]
+    prefix = (
+        f"Failed to connect to 127.0.0.1:{port}: failed to connect to all addresses; last error: UNAVAILABLE: "
+        f"ipv4:127.0.0.1:{port}: "
+    )
+    suffix = ". The server may require a client certificate; use `--request-cert` and `--request-cert-key`"
+    assert exc_info.value.kind == LoaderErrorKind.NETWORK_OTHER
+    # The closed connection text depends on the platform.
+    assert re.fullmatch(f"{re.escape(prefix)}.+{re.escape(suffix)}", exc_info.value.message, re.DOTALL)
+
+
+@pytest.mark.parametrize(
+    ("denial", "status", "details"),
+    [
+        ("1", "PERMISSION_DENIED", "denied"),
+        ("authentication", "UNAUTHENTICATED", "missing credentials"),
+    ],
+    ids=["permission", "authentication"],
+)
+def test_from_url_reports_refused_reflection(ctx, denial, status, details):
     server = ctx.grpc.apps.users()
     with pytest.raises(LoaderError) as exc_info:
-        schemathesis.grpc.from_url(server.target, headers={"x-deny": "1"})
+        schemathesis.grpc.from_url(server.target, headers={"x-deny": denial})
     assert (exc_info.value.kind, exc_info.value.message) == (
-        LoaderErrorKind.UNCLASSIFIED,
-        "Reflection failed with PERMISSION_DENIED: denied",
+        LoaderErrorKind.HTTP_FORBIDDEN,
+        f"Reflection failed with {status}: {details}",
     )
+
+
+def test_from_url_reports_reflection_timeout(ctx):
+    server = ctx.grpc.apps.users()
+    with pytest.raises(LoaderError) as exc_info:
+        schemathesis.grpc.from_url(server.target, headers={"x-stall": "1"}, timeout=0.01)
+    assert (exc_info.value.kind, exc_info.value.message) == (
+        LoaderErrorKind.NETWORK_OTHER,
+        "Read timed out after 0.01 seconds",
+    )
+
+
+def test_from_url_reports_no_application_services(ctx):
+    server = ctx.grpc.apps.users(
+        reflection_services=("grpc.reflection.v1alpha.ServerReflection", "grpc.health.v1.Health")
+    )
+    with pytest.raises(LoaderError) as exc_info:
+        schemathesis.grpc.from_url(server.target)
+    assert (exc_info.value.kind, exc_info.value.message) == (
+        LoaderErrorKind.GRPC_REFLECTION_UNAVAILABLE,
+        "The server lists no services besides reflection and health. Build a descriptor set with "
+        f"`buf build -o api.binpb` and run `schemathesis run api.binpb --url {server.target}`",
+    )
+
+
+@pytest.mark.parametrize(
+    "service",
+    ["grpc.channelz.v1.Channelz", "envoy.service.status.v3.ClientStatusDiscoveryService"],
+    ids=["channelz", "csds"],
+)
+def test_from_url_skips_infrastructure_services(ctx, service):
+    server = ctx.grpc.apps.users(reflection_services=("pkg.Users", "pkg.Admin", "grpc.health.v1.Health", service))
+    assert labels(schemathesis.grpc.from_url(server.target)) == LABELS
 
 
 @pytest.mark.parametrize(
@@ -205,7 +262,7 @@ def test_from_url_reports_tls_failure_of_server_starting_during_wait(ctx):
 
 def test_known_fields_pass_for_reflection_schemas(ctx, response_factory):
     operation = schemathesis.grpc.from_url(ctx.grpc.apps.users().target)["pkg.Users"]["GetUser"]
-    response = response_factory.core(content=b"\x0a\x02u7", content_type=None, headers={"grpc-status": ["0"]})
+    response = response_factory.grpc(content=b"\x0a\x02u7")
     assert operation.validate_response(response, case=operation.Case(body={})) is None
 
 
@@ -233,7 +290,7 @@ PACKED_UNKNOWN_FIELD = b"\x2a" + bytes([len(PACKED_USER)]) + PACKED_USER
 )
 def test_unknown_fields_fail_for_reflection_schemas(ctx, response_factory, label, content, message):
     operation = schemathesis.grpc.from_url(ctx.grpc.apps.users().target).find_operation_by_label(label)
-    response = response_factory.core(content=content, content_type=None, headers={"grpc-status": ["0"]})
+    response = response_factory.grpc(content=content)
     with pytest.raises(UndeclaredGrpcFields) as exc_info:
         operation.validate_response(response, case=operation.Case(body={}))
     assert exc_info.value.message == f"The response carries fields that {message}"
@@ -242,7 +299,7 @@ def test_unknown_fields_fail_for_reflection_schemas(ctx, response_factory, label
 # Extensions can be declared in files that reflection does not return.
 def test_unknown_extension_numbers_pass_for_reflection_schemas(ctx, response_factory):
     operation = schemathesis.grpc.from_url(ctx.grpc.apps.envelope().target)["types.Types"]["Extendable"]
-    response = response_factory.core(content=b"\xb0\x09\x01", content_type=None, headers={"grpc-status": ["0"]})
+    response = response_factory.grpc(content=b"\xb0\x09\x01")
     assert operation.validate_response(response, case=operation.Case(body={})) is None
 
 
@@ -276,7 +333,7 @@ def test_unknown_fields_report_once_per_operation(ctx, response_factory):
     operation = schemathesis.grpc.from_url(ctx.grpc.apps.users().target)["pkg.Users"]["GetUser"]
     failures = []
     for content in UNKNOWN_FIELDS:
-        response = response_factory.core(content=content, content_type=None, headers={"grpc-status": ["0"]})
+        response = response_factory.grpc(content=content)
         with pytest.raises(UndeclaredGrpcFields) as exc_info:
             operation.validate_response(response, case=operation.Case(body={}))
         failures.append(exc_info.value)

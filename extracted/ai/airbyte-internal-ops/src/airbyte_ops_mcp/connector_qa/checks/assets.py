@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
 
 from airbyte_ops_mcp.connector_ops.utils import (
-    Connector,  # type: ignore
+    Connector,
 )
 from airbyte_ops_mcp.connector_qa.models import (
     Check,

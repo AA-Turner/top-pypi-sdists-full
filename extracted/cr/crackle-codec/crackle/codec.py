@@ -79,8 +79,8 @@ def labels_for_z_range(binary:bytes, z_start:int, z_end:int) -> np.ndarray:
 
   return section_labels.astype(head.dtype, copy=False)
 
-def num_labels(binary:bytes) -> int:
-  """Returns the number of unique labels."""
+def num_labels_raw(binary:bytes) -> int:
+  """Returns the number of unique labels in the codec stream."""
   head = header(binary)
   hb = head.header_bytes
 
@@ -94,6 +94,15 @@ def num_labels(binary:bytes) -> int:
     N += 1 # bgcolor
   N += int.from_bytes(binary[offset:offset+8], 'little')
   return N
+
+def num_labels(binary:bytes) -> int:
+  """Returns the number of unique labels."""
+  head = header(binary)
+
+  if not head.is_remapped:
+    return num_labels_raw(binary)
+  else:
+    return fastremap.unique(labels(binary)).size
 
 def contains(binary:bytes, label:int) -> bool:
   """Rapidly check if a label exists in a Crackle bytestream."""
@@ -474,12 +483,20 @@ def z_range_for_label_flat(binary:bytes, label:int) -> Tuple[int,int]:
     count=num_labels,
     dtype=head.stored_dtype
   )
-  try:
-    label = np.asarray(label, dtype=uniq.dtype)
-    idx = np.searchsorted(uniq, label)
-  except OverflowError:
-    idx = -1
-    
+
+  if head.is_sorted:
+    try:
+      label = np.asarray(label, dtype=uniq.dtype)
+      idx = np.searchsorted(uniq, label)
+    except OverflowError:
+      idx = -1
+  else:
+    idx = np.where(uniq == label)
+    if len(idx) == 0:
+      idx = -1
+    else:
+      idx = idx[0][0]
+
   if idx < 0 or idx >= uniq.size or uniq[idx] != label:
     return (-1, -1)
 
@@ -536,11 +553,19 @@ def z_range_for_label_condensed_pins(binary:bytes, label:int) -> Tuple[int,int]:
     count=num_labels,
     dtype=head.stored_dtype,
   )
-  try:
-    label = np.asarray(label, dtype=uniq.dtype)
-    idx = np.searchsorted(uniq, label)
-  except OverflowError:
-    idx = -1
+
+  if head.is_sorted:
+    try:
+      label = np.asarray(label, dtype=uniq.dtype)
+      idx = np.searchsorted(uniq, label)
+    except OverflowError:
+      idx = -1
+  else:
+    idx = np.where(uniq == label)
+    if len(idx) == 0:
+      idx = -1
+    else:
+      idx = idx[0][0]
 
   if idx < 0 or idx >= uniq.size or uniq[idx] != label:
     return (-1, -1)
@@ -737,7 +762,7 @@ def extract_keys(binary:bytes) -> np.ndarray:
   if head.label_format != LabelFormat.FLAT:
     raise FormatError("Can't use this function except with FLAT labels.")
 
-  N = num_labels(binary)
+  N = num_labels_raw(binary)
   raw = raw_labels(binary)
   idx_bytes = head.component_width() * head.sz
   offset = 8 + N * head.stored_data_width + idx_bytes
@@ -789,6 +814,7 @@ def condense_unique(binary:bytes) -> bytes:
   comps = components(binary)
   head.num_label_bytes = len(labels_binary)
   head.is_sorted = True
+  head.is_remapped = True
 
   crack_crcs = comps["crcs"][4:]
 

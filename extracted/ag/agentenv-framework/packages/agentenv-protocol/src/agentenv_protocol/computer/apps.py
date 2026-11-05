@@ -3,7 +3,7 @@ Each app's own server answers on its folder's socket (``serve_app``): its card s
 paths it owns, and its ``computer-app/v1`` ``ready`` whether it's ready. Every app's server must answer before the
 computer is ready; an app that starts with the computer must also be ready, and a ``demand`` app is checked once
 something launches it. The driver lists each app as a child environment named for its folder, its card's paths under
-``/svc/<name>/``, and forwards each request there to the app's server."""
+``/svc/<name>/``, where it forwards each request to the app's server (``svc``)."""
 from __future__ import annotations
 
 import asyncio
@@ -84,20 +84,17 @@ def child_card(name: str, card: dict) -> dict:
     return card
 
 
+def agent_routes(card: dict) -> list[str]:
+    """The path prefixes under its own route that an app's ``card`` opens to agents, which reach them through the
+    driver without the computer's control token and the app checks itself."""
+    return list(client.extension_params(card, COMPUTER_APP).get("agent_routes") or [])
+
+
 async def owned_paths(folders: list[Path]) -> list[str]:
     """The paths under the session user's home that the apps in ``folders`` keep their data in, as their cards say."""
     cards = await asyncio.gather(*(served_card(folder) for folder in folders))
     return [path for card in cards if card is not None
             for path in client.extension_params(card, COMPUTER_APP).get("paths") or []]
-
-
-async def forward(folder: Path, method: str, path: str, query: str, body: bytes,
-                  content_type: Optional[str]) -> httpx.Response:
-    """The app's server's answer to the request, sent on as it came; it takes as long as the app does."""
-    async with httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(uds=str(folder / SOCKET)), base_url="http://app",
-                                 timeout=None) as http:
-        return await http.request(method, f"/{path}" + (f"?{query}" if query else ""), content=body,
-                                  headers={"content-type": content_type} if content_type else None)
 
 
 def endpoint(card: dict, method: str) -> str:

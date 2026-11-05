@@ -58,7 +58,7 @@ def _to_nbest_spt(serialized):
 # - is_batch: True if input is a list of strings, False if input is a single string.
 # - return_type: The requested output format (int, str, bytes, proto, etc.).
 # Note: 'proto' return type is mapped to '_EncodeAsSerializedProto' because the C++
-# wrapper returns a serialized string which is then parsed into a ModelProto in Python.
+# wrapper returns a serialized string which is then parsed into a SentencePieceText proto in Python.
 # 'numpy' return type is mapped to '_EncodeAsBuffer' which returns raw binary buffers.
 _ENCODE_DISPATCH = {
     # Single string input
@@ -132,6 +132,73 @@ SetDataDir = _sentencepiece.SetDataDir
 set_random_generator_seed = SetRandomGeneratorSeed
 set_min_log_level = SetMinLogLevel
 set_nbest_timeout = SetNBestTimeout
+set_data_dir = SetDataDir
+
+
+def ConvertToFlatbuffer(
+    model_file=None,
+    model_proto=None,
+    serialized_model_proto=None,
+    output_file=None,
+    skip_char_bigrams=False,
+    treat_null_byte_as_unused=False,
+    allow_unsupported_model_type=False,
+):
+    """Converts a SentencePiece ModelProto into a FlatBuffers (.spm.fb) model.
+
+    Note: WORD and CHAR models are not natively supported in FlatBuffers
+    (.spm.fb) and raise a ValueError by default. Even when
+    `allow_unsupported_model_type=True` is specified, they fall back to
+    UNIGRAM at runtime in SentencePieceLiteProcessor.
+    """
+    num_inputs = sum(
+        x is not None for x in (model_file, model_proto, serialized_model_proto)
+    )
+    if num_inputs != 1:
+        raise ValueError(
+            'Exactly one of model_file, model_proto, or serialized_model_proto must be specified.'
+        )
+
+    out_path = ''
+    if output_file is not None:
+        out_path = os.fsdecode(os.fspath(output_file))
+        if not out_path:
+            raise ValueError('output_file must not be empty.')
+
+    if model_file is not None:
+        model_path = os.fsdecode(os.fspath(model_file))
+        if not model_path:
+            raise ValueError('model_file must not be empty.')
+        return _sentencepiece._ConvertFileToFlatbuffer(
+            model_path,
+            out_path,
+            bool(skip_char_bigrams),
+            bool(treat_null_byte_as_unused),
+            bool(allow_unsupported_model_type),
+        )
+
+    if model_proto is not None:
+        if hasattr(model_proto, 'SerializeToString'):
+            serialized = model_proto.SerializeToString()
+        elif isinstance(model_proto, bytes):
+            serialized = model_proto
+        else:
+            raise TypeError('model_proto must be a ModelProto object or bytes.')
+    else:
+        if not isinstance(serialized_model_proto, bytes):
+            raise TypeError('serialized_model_proto must be bytes.')
+        serialized = serialized_model_proto
+
+    return _sentencepiece._ConvertSerializedProtoToFlatbuffer(
+        serialized,
+        out_path,
+        bool(skip_char_bigrams),
+        bool(treat_null_byte_as_unused),
+        bool(allow_unsupported_model_type),
+    )
+
+
+convert_to_flatbuffer = ConvertToFlatbuffer
 
 class SentencePieceProcessor:
     def __init__(self,
@@ -162,17 +229,6 @@ class SentencePieceProcessor:
         if model_file or model_proto:
             self.Load(model_file=model_file, model_proto=model_proto)
 
-    def _resolve_and_validate_return_type(self, return_type):
-        if return_type is None:
-            return_type = self._return_type
-        if return_type == 'immutable_proto':
-            raise ValueError("immutable_proto is deprecated and no longer supported. Use return_type='proto' instead.")
-        
-        valid_types = (int, str, bytes, 'proto', 'serialized_proto', 'numpy', 'offset_mapping')
-        if return_type not in valid_types:
-            raise ValueError("Invalid return_type: {}. Must be one of {}".format(return_type, valid_types))
-        return return_type
-
     def _resolve_return_type(self, return_type, out_type, default=None):
         if out_type is not None:
             if return_type is not None:
@@ -180,7 +236,12 @@ class SentencePieceProcessor:
             return_type = out_type
         if return_type is None:
             return_type = default if default is not None else self._return_type
-        return self._resolve_and_validate_return_type(return_type)
+        if return_type == 'immutable_proto':
+            raise ValueError("immutable_proto is deprecated and no longer supported. Use return_type='proto' instead.")
+        valid_types = (int, str, bytes, 'proto', 'serialized_proto', 'numpy', 'offset_mapping')
+        if return_type not in valid_types:
+            raise ValueError("Invalid return_type: {}. Must be one of {}".format(return_type, valid_types))
+        return return_type
 
     @classmethod
     def from_file(cls, model_file, **kwargs):
@@ -290,7 +351,9 @@ class SentencePieceProcessor:
         elif return_type == 'offset_mapping':
             if return_bytes is None:
                 # Default to matching input type
-                return_bytes_val = isinstance(input, bytes) or (isinstance(input, list) and input and isinstance(input[0], bytes))
+                return_bytes_val = isinstance(input, bytes) or bool(
+                    isinstance(input, list) and input and isinstance(input[0], bytes)
+                )
             else:
                 return_bytes_val = return_bytes
             args.append(return_bytes_val)
@@ -324,17 +387,11 @@ class SentencePieceProcessor:
     def EncodeAsNumpy(self, input, **kwargs):
         return self.Encode(input=input, return_type='numpy', **kwargs)
 
-    def EncodeAsSerializedProto(self, input, **kwargs):
-        return self.Encode(input=input, return_type='serialized_proto', **kwargs)
-
     def EncodeAsProto(self, input, **kwargs):
         return self.Encode(input=input, return_type='proto', **kwargs)
 
     def EncodeAsOffsetMapping(self, input, **kwargs):
         return self.Encode(input=input, return_type='offset_mapping', **kwargs)
-
-    def EncodeAsImmutableProto(self, input, **kwargs):
-        raise ValueError("immutable_proto is deprecated and no longer supported. Use return_type='proto' instead.")
 
     def SampleEncodeAsPieces(self, input, nbest_size=None, alpha=None, **kwargs):
         return self.Encode(input=input, nbest_size=nbest_size, alpha=alpha,
@@ -348,16 +405,9 @@ class SentencePieceProcessor:
         return self.Encode(input=input, nbest_size=nbest_size, alpha=alpha,
                            return_type='numpy', enable_sampling=True, **kwargs)
 
-    def SampleEncodeAsSerializedProto(self, input, nbest_size=None, alpha=None, **kwargs):
-        return self.Encode(input=input, nbest_size=nbest_size, alpha=alpha,
-                           return_type='serialized_proto', enable_sampling=True, **kwargs)
-
     def SampleEncodeAsProto(self, input, nbest_size=None, alpha=None, **kwargs):
         return self.Encode(input=input, nbest_size=nbest_size, alpha=alpha,
                            return_type='proto', enable_sampling=True, **kwargs)
-
-    def SampleEncodeAsImmutableProto(self, input, nbest_size=None, alpha=None, **kwargs):
-        raise ValueError("immutable_proto is deprecated and no longer supported. Use return_type='proto' instead.")
 
     def NBestEncode(self,
                     input,
@@ -425,88 +475,8 @@ class SentencePieceProcessor:
     def NBestEncodeAsNumpy(self, input, nbest_size=None, **kwargs):
         return self.NBestEncode(input=input, nbest_size=nbest_size, return_type='numpy', **kwargs)
 
-    def NBestEncodeAsSerializedProto(self, input, nbest_size=None, **kwargs):
-        return self.NBestEncode(input=input, nbest_size=nbest_size, return_type='serialized_proto', **kwargs)
-
     def NBestEncodeAsProto(self, input, nbest_size=None, **kwargs):
         return self.NBestEncode(input=input, nbest_size=nbest_size, return_type='proto', **kwargs)
-
-    def NBestEncodeAsImmutableProto(self, input, nbest_size=None, **kwargs):
-        raise ValueError("immutable_proto is deprecated and no longer supported. Use return_type='proto' instead.")
-
-    def SampleEncodeAndScore(self,
-                             input,
-                             add_bos=None,
-                             add_eos=None,
-                             reverse=None,
-                             emit_unk_piece=None,
-                             num_samples=None,
-                             alpha=None,
-                             wor=None,
-                             include_best=None,
-                             return_type=None,
-                             out_type=None):
-        return_type = self._resolve_return_type(return_type, out_type)
-        if add_bos is None:
-            add_bos = self._add_bos
-        if add_eos is None:
-            add_eos = self._add_eos
-        if reverse is None:
-            reverse = self._reverse
-        if emit_unk_piece is None:
-            emit_unk_piece = self._emit_unk_piece
-        if num_samples is None:
-            num_samples = 1
-        if alpha is None:
-            alpha = 1.
-        if wor is None:
-            wor = False
-        if include_best is None:
-            include_best = False
-
-        if num_samples <= 0:
-            raise ValueError('num_samples must be positive')
-        if include_best and not wor:
-            raise ValueError('When include_best is True, We must specify "wor = True".')
-
-        if return_type == 'numpy':
-            raise ValueError("numpy return_type is not supported in SampleEncodeAndScore")
-
-        def _encode(text):
-            if return_type is int:
-                return self._processor._SampleEncodeAndScoreAsIds(
-                    text, num_samples, alpha, wor, include_best, add_bos, add_eos, reverse)
-            if return_type is str or return_type is bytes:
-                return_bytes = (return_type is bytes)
-                return self._processor._SampleEncodeAndScoreAsPieces(
-                    text, num_samples, alpha, wor, include_best, add_bos, add_eos, reverse, emit_unk_piece, return_bytes)
-            if return_type == 'serialized_proto':
-                return self._processor._SampleEncodeAndScoreAsSerializedProto(
-                    text, num_samples, alpha, wor, include_best, add_bos, add_eos, reverse, emit_unk_piece)
-            if return_type == 'proto':
-                serialized = self._processor._SampleEncodeAndScoreAsSerializedProto(
-                    text, num_samples, alpha, wor, include_best, add_bos, add_eos, reverse, emit_unk_piece)
-                return _to_nbest_spt(serialized)
-            raise ValueError('unknown return_type={}'.format(return_type))
-
-        if isinstance(input, list):
-            return [_encode(n) for n in input]
-        return _encode(input)
-
-    def SampleEncodeAndScoreAsPieces(self, input, num_samples=None, alpha=None, **kwargs):
-        return self.SampleEncodeAndScore(input=input, num_samples=num_samples, alpha=alpha, return_type=str, **kwargs)
-
-    def SampleEncodeAndScoreAsIds(self, input, num_samples=None, alpha=None, **kwargs):
-        return self.SampleEncodeAndScore(input=input, num_samples=num_samples, alpha=alpha, return_type=int, **kwargs)
-
-    def SampleEncodeAndScoreAsSerializedProto(self, input, num_samples=None, alpha=None, **kwargs):
-        return self.SampleEncodeAndScore(input=input, num_samples=num_samples, alpha=alpha, return_type='serialized_proto', **kwargs)
-
-    def SampleEncodeAndScoreAsProto(self, input, num_samples=None, alpha=None, **kwargs):
-        return self.SampleEncodeAndScore(input=input, num_samples=num_samples, alpha=alpha, return_type='proto', **kwargs)
-
-    def SampleEncodeAndScoreAsImmutableProto(self, input, num_samples=None, alpha=None, **kwargs):
-        raise ValueError("immutable_proto is deprecated and no longer supported. Use return_type='proto' instead.")
 
     def ParallelEncode(self,
                        input,
@@ -578,14 +548,8 @@ class SentencePieceProcessor:
     def ParallelEncodeAsNumpy(self, input, **kwargs):
         return self.ParallelEncode(input=input, return_type='numpy', **kwargs)
 
-    def ParallelEncodeAsSerializedProto(self, input, **kwargs):
-        return self.ParallelEncode(input=input, return_type='serialized_proto', **kwargs)
-
     def ParallelEncodeAsProto(self, input, **kwargs):
         return self.ParallelEncode(input=input, return_type='proto', **kwargs)
-
-    def ParallelEncodeAsImmutableProto(self, input, **kwargs):
-        raise ValueError("immutable_proto is deprecated and no longer supported. Use return_type='proto' instead.")
 
     def Decode(self, input, return_type=None, out_type=None, num_threads=None, thread_pool=None, return_bytes=None):
         return_type = self._resolve_return_type(return_type, out_type, default=str)
@@ -607,13 +571,14 @@ class SentencePieceProcessor:
         return raw_val
 
     def _decode_raw(self, input, return_type, num_threads, thread_pool, return_bytes=False):
+        # Normalize empty input to an empty id sequence and fall through to the
+        # regular dispatch below, so that the result comes from the C++ method
+        # and is typed according to return_type (e.g. bytes for
+        # return_type=bytes or 'serialized_proto'), matching non-empty inputs.
         if input is None:
-            return ''
-        if _is_sequence(input):
-            if len(input) == 0:
-                return ''
+            input = []
         elif isinstance(input, (str, bytes)) and len(input) == 0:
-            return ''
+            input = []
 
         # Helper to determine if a sequence contains pieces (str/bytes)
         def _is_pieces(seq):
@@ -632,11 +597,20 @@ class SentencePieceProcessor:
         if hasattr(input, 'ndim'):
             is_batch = input.ndim > 1
         else:
-            is_batch = _is_sequence(input[0])
+            is_batch = len(input) > 0 and _is_sequence(input[0])
 
-        # Determine if input contains pieces (str/bytes)
+        # Determine if input contains pieces (str/bytes).
+        # An empty sequence (no ids / no pieces) is ambiguous, so for a batch we
+        # infer the element type from the first non-empty inner sequence.
+        # Without this, a piece batch that starts with an empty sentence (e.g.
+        # produced by encoding an empty string) is mistaken for an id batch and
+        # decode() fails with an unrelated TypeError.
         if is_batch:
-            input_is_pieces = _is_pieces(input[0])
+            input_is_pieces = False
+            for item in input:
+                if _is_sequence(item) and len(item) > 0:
+                    input_is_pieces = _is_pieces(item)
+                    break
         else:
             input_is_pieces = _is_pieces(input)
 
@@ -659,16 +633,10 @@ class SentencePieceProcessor:
             else:
                 return method(input)
 
-    def DecodePieces(self, input, return_type=str, **kwargs):
+    def DecodePieces(self, input, return_type=None, **kwargs):
         return self.Decode(input=input, return_type=return_type, **kwargs)
 
-    def DecodeIds(self, input, return_type=str, **kwargs):
-        return self.Decode(input=input, return_type=return_type, **kwargs)
-
-    def DecodePiecesAsSerializedProto(self, input, return_type='serialized_proto', **kwargs):
-        return self.Decode(input=input, return_type=return_type, **kwargs)
-
-    def DecodeIdsAsSerializedProto(self, input, return_type='serialized_proto', **kwargs):
+    def DecodeIds(self, input, return_type=None, **kwargs):
         return self.Decode(input=input, return_type=return_type, **kwargs)
 
     def DecodePiecesAsProto(self, input, **kwargs):
@@ -676,17 +644,6 @@ class SentencePieceProcessor:
 
     def DecodeIdsAsProto(self, input, **kwargs):
         return self.Decode(input=input, return_type='proto', **kwargs)
-
-    def DecodePiecesAsImmutableProto(self, input, **kwargs):
-        raise ValueError("immutable_proto is deprecated and no longer supported. Use return_type='proto' instead.")
-
-    def DecodeIdsAsImmutableProto(self, input, **kwargs):
-        raise ValueError("immutable_proto is deprecated and no longer supported. Use return_type='proto' instead.")
-
-    def CalculateEntropy(self, input, alpha):
-        if isinstance(input, list):
-            return [self._processor._CalculateEntropy(x, alpha) for x in input]
-        return self._processor._CalculateEntropy(input, alpha)
 
     def Normalize(self, input, with_offsets=None):
         if isinstance(input, list):
@@ -696,10 +653,6 @@ class SentencePieceProcessor:
         if with_offsets:
             return self._processor._NormalizeWithOffsets(input)
         return self._processor._Normalize(input)
-
-    def OverrideNormalizerSpec(self, **kwargs):
-        new_kwargs = {key: str(value) for key, value in kwargs.items()}
-        return self._processor._OverrideNormalizerSpec(new_kwargs)
 
     def GetPieceSize(self):
         return self._processor.GetPieceSize()
@@ -744,14 +697,20 @@ class SentencePieceProcessor:
     vocab_size = GetPieceSize
 
     def __getstate__(self):
-        return self.serialized_model_proto()
+        state = self.__dict__.copy()
+        state.pop('_processor', None)
+        state['model_proto'] = self.serialized_model_proto()
+        return state
 
-    def __getstate_for_pickle__(self):
-        return self.serialized_model_proto()
-
-    def __setstate__(self, serialized_model_proto):
-        self.__init__()
-        self.LoadFromSerializedProto(serialized_model_proto)
+    def __setstate__(self, state):
+        # Pickles written by older versions hold only the serialized model.
+        if not isinstance(state, dict):
+            state = {'model_proto': state}
+        else:
+            state = state.copy()
+        SentencePieceProcessor.__init__(self)
+        self.LoadFromSerializedProto(state.pop('model_proto'))
+        self.__dict__.update(state)
 
     def __len__(self):
         return self.GetPieceSize()
@@ -768,15 +727,19 @@ class _LogStream:
 
     def __enter__(self):
         if self.ostream is not None:
+            ostream_fileno = self.ostream.fileno()
             self.orig_stream_dup = os.dup(self.orig_stream_fileno)
-            os.dup2(self.ostream.fileno(), self.orig_stream_fileno)
+            try:
+                os.dup2(ostream_fileno, self.orig_stream_fileno)
+            except Exception:
+                os.close(self.orig_stream_dup)
+                raise
 
     def __exit__(self, type, value, traceback):
         if self.ostream is not None:
-            os.close(self.orig_stream_fileno)
             os.dup2(self.orig_stream_dup, self.orig_stream_fileno)
             os.close(self.orig_stream_dup)
-            self.ostream.close()
+            self.ostream.flush()
 
 
 class SentencePieceTrainer:
@@ -795,12 +758,18 @@ class SentencePieceTrainer:
                 return str(value)
 
         sentence_iterator = None
+        pretokenizer = None
+        allow_inconsistent_pretokenization = False
         model_writer = None
         normalizer = None
         new_kwargs = {}
         for key, value in kwargs.items():
             if key in ['sentence_iterator', 'sentence_reader']:
                 sentence_iterator = value
+            elif key == 'pretokenizer':
+                pretokenizer = value
+            elif key == 'allow_inconsistent_pretokenization':
+                allow_inconsistent_pretokenization = bool(value)
             elif key in ['model_writer']:
                 model_writer = value
             elif key in ['normalizer']:
@@ -811,17 +780,16 @@ class SentencePieceTrainer:
         if normalizer:
             new_kwargs['_serialized_normalizer_spec'] = normalizer.serialized_normalizer_spec()
 
-        if model_writer:
-            if sentence_iterator:
-                model_proto = _sentencepiece.SentencePieceTrainer._TrainFromMap4(new_kwargs, sentence_iterator)
-            else:
-                model_proto = _sentencepiece.SentencePieceTrainer._TrainFromMap3(new_kwargs)
-            model_writer.write(model_proto)
-        else:
-            if sentence_iterator:
-                return _sentencepiece.SentencePieceTrainer._TrainFromMap2(new_kwargs, sentence_iterator)
-            else:
-                return _sentencepiece.SentencePieceTrainer._TrainFromMap(new_kwargs)
+        res = _sentencepiece.SentencePieceTrainer._TrainFromMap(
+            new_kwargs,
+            sentence_iterator=sentence_iterator,
+            pretokenizer=pretokenizer,
+            allow_inconsistent_pretokenization=allow_inconsistent_pretokenization,
+            return_model_proto=(model_writer is not None)
+        )
+        if model_writer and res is not None:
+            model_writer.write(res)
+            return None
         return None
 
     @staticmethod
@@ -838,9 +806,9 @@ class SentencePieceNormalizer:
                  rule_tsv=None,
                  rule_name=None,
                  norm_map=None,
-                 add_dummy_prefix=False,
-                 escape_whitespaces=False,
-                 remove_extra_whitespaces=False):
+                 add_dummy_prefix=None,
+                 escape_whitespaces=None,
+                 remove_extra_whitespaces=None):
         self._normalizer = _sentencepiece.SentencePieceNormalizer()
 
         if model_file:
@@ -862,9 +830,15 @@ class SentencePieceNormalizer:
         else:
             raise ValueError('no model is specified')
 
-        self._normalizer._SetProtoField('add_dummy_prefix', add_dummy_prefix)
-        self._normalizer._SetProtoField('escape_whitespaces', escape_whitespaces)
-        self._normalizer._SetProtoField('remove_extra_whitespaces', remove_extra_whitespaces)
+        # Only override flags the caller actually passed. Defaults used to be
+        # False and always clobbered values loaded from model/spec (#1334).
+        if add_dummy_prefix is not None:
+            self._normalizer._SetProtoField('add_dummy_prefix', add_dummy_prefix)
+        if escape_whitespaces is not None:
+            self._normalizer._SetProtoField('escape_whitespaces', escape_whitespaces)
+        if remove_extra_whitespaces is not None:
+            self._normalizer._SetProtoField('remove_extra_whitespaces',
+                                           remove_extra_whitespaces)
 
     def Decompile(self):
         return self._normalizer.Decompile()
@@ -892,7 +866,7 @@ class SentencePieceNormalizer:
         self._normalizer.LoadFromSerializedProto(serialized_model_proto)
 
 
-# Helpers for batchnize and snake_case (replicated from SWIG skeleton)
+# Helpers for snake_case aliases
 def _add_snake_case(classname):
     import re
     snake_map = {}
@@ -904,14 +878,9 @@ def _add_snake_case(classname):
         setattr(classname, k, v)
 
 
-
-
-
-# Run batchnize and snake_case on classes
+# Apply aliases and snake_case on classes
 SentencePieceProcessor.Tokenize = SentencePieceProcessor.Encode
 SentencePieceProcessor.Detokenize = SentencePieceProcessor.Decode
-
-
 
 _add_snake_case(SentencePieceProcessor)
 _add_snake_case(SentencePieceTrainer)

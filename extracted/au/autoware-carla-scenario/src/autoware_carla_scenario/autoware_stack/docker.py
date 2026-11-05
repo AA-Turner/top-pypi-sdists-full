@@ -47,6 +47,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Literal, Mapping, Optional, Sequence
 
+from ..constants import MAX_ROS_DOMAIN_ID
 from .bridge_node import (
     BRIDGE_APT_PACKAGES,
     bridge_command,
@@ -58,6 +59,8 @@ from .launcher import (
     AutowareEpisode,
     AutowareStackError,
     ProcessGroup,
+    _check_argument_list,
+    _check_stop_timeout_s,
     episode_log_path,
     fill_placeholders,
 )
@@ -131,15 +134,26 @@ class DockerAutowareConfig:
         ros_domain_ids: ``ROS_DOMAIN_ID`` for each scenario in turn, cycling;
             empty keeps the dev container's.  Moving to another domain keeps a
             stack from discovering what is left of the last one before its
-            participants time out.
+            participants time out.  Each is an ``int`` from 0 to 232, the
+            range ROS 2 can use (0 to 101 is safe on Linux; see
+            :data:`~autoware_carla_scenario.constants.MAX_ROS_DOMAIN_ID`).
         gpus: Docker's ``--gpus`` value; ``None`` for no GPU.
         user: Docker's ``--user`` value.  ``None`` leaves it to the image, which
             maps its ``aw`` user to ``HOST_UID``/``HOST_GID`` (set to this
             user's ids) so the files a build writes stay this user's.
         docker_args: Further ``docker run`` arguments.
         docker: The Docker CLI.
-        stop_timeout_s: How long stopping waits after each signal.
+        stop_timeout_s: How long stopping waits after each signal, positive
+            and finite.
         container_prefix: Container names start with this.
+
+    Raises:
+        ValueError: Naming the field, when ``build`` is not a
+            :data:`BuildPolicy`, ``launch``, ``colcon_args`` or
+            ``docker_args`` is a ``str`` (or ``bytes``) rather than a sequence
+            of arguments, ``launch`` is empty, ``stop_timeout_s`` is not
+            positive and finite, or a ``ros_domain_ids`` entry is a boolean or
+            outside 0 to 232.
     """
 
     workspace: Path
@@ -174,11 +188,24 @@ class DockerAutowareConfig:
             raise ValueError(
                 f"build must be 'auto', 'always' or 'never', not {self.build!r}"
             )
+        # A str would be run a character per argument.
+        _check_argument_list("launch", self.launch)
+        _check_argument_list("colcon_args", self.colcon_args)
+        _check_argument_list("docker_args", self.docker_args)
         if not self.launch:
             raise ValueError(
                 "launch is required: the ros2 launch package, file and arguments "
                 "that start Autoware in scenario mode"
             )
+        # Checked here: an id out of range would only be refused inside the
+        # container, by the stack's DDS, once a scenario has started.
+        for domain_id in self.ros_domain_ids:
+            if isinstance(domain_id, bool) or not (0 <= domain_id <= MAX_ROS_DOMAIN_ID):
+                raise ValueError(
+                    "ros_domain_ids must be ROS domain ids, whole numbers from 0 "
+                    f"to {MAX_ROS_DOMAIN_ID}, got {domain_id}"
+                )
+        _check_stop_timeout_s(self.stop_timeout_s)
 
 
 class DockerAutowareLauncher:

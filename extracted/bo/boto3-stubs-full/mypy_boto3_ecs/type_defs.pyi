@@ -457,6 +457,7 @@ __all__ = (
     "LogConfigurationOutputTypeDef",
     "LogConfigurationTypeDef",
     "LogConfigurationUnionTypeDef",
+    "LogDriverVolumeConfigurationTypeDef",
     "ManagedAgentStateChangeTypeDef",
     "ManagedAgentTypeDef",
     "ManagedApplicationAutoScalingPolicyTypeDef",
@@ -1009,6 +1010,9 @@ class DaemonTaskDefinitionSummaryTypeDef(TypedDict):
 
 class HostVolumePropertiesTypeDef(TypedDict):
     sourcePath: NotRequired[str]
+
+class LogDriverVolumeConfigurationTypeDef(TypedDict):
+    driver: LogDriverType
 
 class DeleteAccountSettingRequestTypeDef(TypedDict):
     name: SettingNameType
@@ -2163,6 +2167,7 @@ class ListDaemonTaskDefinitionsResponseTypeDef(TypedDict):
 class DaemonVolumeTypeDef(TypedDict):
     name: NotRequired[str]
     host: NotRequired[HostVolumePropertiesTypeDef]
+    logDriverVolumeConfiguration: NotRequired[LogDriverVolumeConfigurationTypeDef]
 
 class DeleteAccountSettingResponseTypeDef(TypedDict):
     setting: SettingTypeDef

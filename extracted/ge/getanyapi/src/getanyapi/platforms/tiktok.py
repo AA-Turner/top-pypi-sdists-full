@@ -119,7 +119,7 @@ class TiktokCommentRepliesInput(TypedDict, total=False):
     source: NotRequired[list[str]]
     """Optional. Source ids to prefer, in order, taken from this endpoint's `lanes[].source.id` in /catalog or /apis. Omit it and the cheapest source serves, with automatic failover. Listed sources are tried first in the order given, then the others, unless `allowFallbacks` is false. A single source with `allowFallbacks` false is served only by that source at its price, quoted and charged exactly, with no failover. The price is that of the dearest source that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
     url: Required[str]
-    """TikTok video URL the comment belongs to."""
+    """TikTok video URL the comment belongs to, on tiktok.com: a video or photo post (https://www.tiktok.com/@<user>/video/<id> or /photo/<id>) or a vm.tiktok.com, vt.tiktok.com or tiktok.com/t/ share link. A /video/ or /photo/ link without the post's numeric id, a profile link (https://www.tiktok.com/@<user>), a /@<user>/<id> link without /video/, a video file link (tiktokcdn.com) or a link to any other site is refused as invalid input, with no charge."""
 
 
 class TiktokFollowersInput(TypedDict, total=False):

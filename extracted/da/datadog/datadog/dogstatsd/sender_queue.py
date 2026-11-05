@@ -14,7 +14,7 @@ if sys.version_info[:2] >= (3, 5):
 # Sentinel telling the background sender thread to shut down.
 Stop = object()
 
-# What the queue can hold. A payload is either a bare string (replay-safe, no
+# What the queue can hold. A payload is either a bare string (timestamped, no
 # expiry state needed) or a PendingPayload (subject to expiry); Stop is the
 # only other thing that ever goes in, and is matched by identity.
 if sys.version_info[:2] >= (3, 5):
@@ -25,13 +25,13 @@ if sys.version_info[:2] >= (3, 5):
 class PendingPayload(object):
     """A packet queued for the background sender that can go stale.
 
-    Only payloads subject to expiry are wrapped in this. A replay-safe
-    payload -- one carrying its own explicit timestamp, so that delivering it
-    late doesn't change what it means -- is queued as the bare packet string
-    instead, because it needs none of the state here. The queue therefore
-    reads replay-safety off the entry's *type* rather than a stored flag (see
-    SenderQueue._expired() and is_replay_safe()), which keeps ~56 bytes per
-    replay-safe entry out of the queue and keeps those entries out of the
+    Only payloads subject to expiry are wrapped in this. A payload carrying
+    its own explicit timestamp is exempt -- delivering it late doesn't change
+    what it means -- so it is queued as the bare packet string instead,
+    because it needs none of the state here. The queue therefore infers
+    timestamping from the entry's *type* rather than a stored flag (see
+    SenderQueue._expired() and is_timestamped()), which keeps ~56 bytes per
+    timestamped entry out of the queue and keeps those entries out of the
     cyclic GC's traversal set entirely, since str holds no references.
 
     :ivar payload: The already-serialized packet text (including its
@@ -50,13 +50,13 @@ class PendingPayload(object):
         self.enqueued_at = enqueued_at
 
 
-def is_replay_safe(item):
+def is_timestamped(item):
     # type: (Union[str, PendingPayload]) -> bool
-    """True when this queue entry is exempt from expiry.
+    """True when this queue entry carries its own timestamp.
 
-    Replay-safe entries are queued as bare strings; everything subject to
-    expiry is wrapped in PendingPayload. Centralised here so the type test
-    isn't repeated at every site that cares.
+    Those are exempt from expiry and queued as bare strings; everything
+    subject to expiry is wrapped in PendingPayload. Centralised here so the
+    type test isn't repeated at every site that cares.
     """
     return not isinstance(item, PendingPayload)
 
@@ -72,8 +72,9 @@ def payload_text(item):
 class SenderQueue(object):
     """Bounded hand-off queue between application threads and the background sender thread.
 
-    put() never rejects a payload outright. When the queue is already at its
-    maximum size, what happens depends on put_timeout:
+    Until the queue is sealed (by sending a Stop sentinel), put() never rejects a
+    payload outright. When the queue is already at its maximum size, what happens
+    depends on put_timeout:
       - 0 (the default): no waiting at all -- the oldest entry is dropped
         immediately to make room, along with any additional expired entries
         left at the front.
@@ -121,6 +122,10 @@ class SenderQueue(object):
         # this exists.
         self._closing = False
 
+        # Set by put(Stop): once Stop has been queued, nothing else is ever
+        # admitted again.
+        self._sealed = False
+
         # The items currently handed out by get() and not yet finished via
         # requeue_front() or task_done(), keyed by id(item). SenderQueue is
         # single-consumer by design (one background sender thread), so this
@@ -137,7 +142,7 @@ class SenderQueue(object):
     def _expired(self, item, now):
         # type: (QueuedItem, float) -> bool
         if not isinstance(item, PendingPayload):
-            # A bare string is a replay-safe payload: it carries its own
+            # A bare string is a timestamped payload: it carries its own
             # timestamp, so it never goes stale (see PendingPayload).
             return False
         return (now - item.enqueued_at) > self._expiry_seconds
@@ -176,44 +181,59 @@ class SenderQueue(object):
             self._not_full.notify(reclaimed)
 
     def put(self, item):
-        # type: (QueuedItemOrStop) -> None
+        # type: (QueuedItemOrStop) -> bool
         """Queue a payload (or the Stop sentinel).
 
         If the queue is full: waits for room according to put_timeout --
         forever if it's None, up to put_timeout seconds if it's a positive
         number, or not at all if it's 0 (the default) -- then falls back to
         evicting the oldest entry (see _make_room_locked()) if the queue is
-        still full once the wait is over. Either way, put() never rejects
-        the payload outright. A close() call (from any thread) cuts any of
-        that waiting short immediately, regardless of put_timeout.
+        still full once the wait is over. A close() call (from any thread)
+        cuts any of that waiting short immediately, regardless of
+        put_timeout.
+
+        Returns True if the item was admitted. Returns False only when Stop
+        has already been queued: once that happens nothing else may ever be
+        admitted.
         """
         with self._not_empty:
-            if item is not Stop and self._maxsize > 0 and len(self._deque) >= self._maxsize:
-                if self._closing:
-                    pass  # Already closing: don't wait at all, straight to eviction below.
-                elif self._put_timeout is None:
-                    # Wait forever: an explicit opt-in to unbounded
-                    # backpressure on the calling thread. close() is what
-                    # keeps this from actually being forever once a shutdown
-                    # is underway.
-                    while len(self._deque) >= self._maxsize and not self._closing:
-                        self._not_full.wait()
-                elif self._put_timeout > 0:
-                    deadline = monotonic() + self._put_timeout
-                    while len(self._deque) >= self._maxsize and not self._closing:
-                        remaining = deadline - monotonic()
-                        if remaining <= 0:
-                            break
-                        self._not_full.wait(remaining)
-                # else: put_timeout is 0 (or negative) -- no wait at all,
-                # straight to eviction below.
+            if item is Stop:
+                self._sealed = True
+            else:
+                if self._sealed:
+                    return False
 
-                if len(self._deque) >= self._maxsize:
-                    self._make_room_locked()
+                if self._maxsize > 0 and len(self._deque) >= self._maxsize:
+                    if self._closing:
+                        pass  # Already closing: don't wait at all, straight to eviction below.
+                    elif self._put_timeout is None:
+                        # Wait forever: an explicit opt-in to unbounded
+                        # backpressure on the calling thread. close() is
+                        # what keeps this from actually being forever once
+                        # a shutdown is underway.
+                        while len(self._deque) >= self._maxsize and not self._closing:
+                            self._not_full.wait()
+                    elif self._put_timeout > 0:
+                        deadline = monotonic() + self._put_timeout
+                        while len(self._deque) >= self._maxsize and not self._closing:
+                            remaining = deadline - monotonic()
+                            if remaining <= 0:
+                                break
+                            self._not_full.wait(remaining)
+                    # else: put_timeout is 0 (or negative) -- no wait at
+                    # all, straight to eviction below.
+
+                    # Re-check as waiting on _not_full above releases the lock.
+                    if self._sealed:
+                        return False
+
+                    if len(self._deque) >= self._maxsize:
+                        self._make_room_locked()
 
             self._deque.append(item)
             self._unfinished_tasks += 1
             self._not_empty.notify()
+            return True
 
     def close(self):
         # type: () -> None
@@ -225,11 +245,12 @@ class SenderQueue(object):
         thread is stuck inside that wait (that stuck thread is exactly what
         this is for). Without it, a put() with put_timeout=None waits
         forever for room that will never open up once nothing is draining
-        the queue, and even a bounded put_timeout can outlast whatever
-        timeout a caller trying to shut things down asked for -- see
-        DogStatsd._stop_sender_thread(), which calls this before it needs
-        the *caller's* lock (_buffer_lock) that a stuck put() would
-        otherwise be holding for the entire wait.
+        the queue: once the sender thread dequeues Stop and exits, nothing
+        will ever call get() again to free a slot, so a producer still
+        waiting at that point would otherwise hang forever (or for up to
+        its own put_timeout). DogStatsd._stop_sender_thread() calls this
+        before inserting Stop so no producer is left waiting on room that
+        can never come.
 
         Sticky: once closed, no future put() on this queue ever waits for
         room again, regardless of put_timeout -- it goes straight to
@@ -237,9 +258,9 @@ class SenderQueue(object):
         shutdown starts with a fresh SenderQueue instead.
 
         This does not stop put()/get() from working, and does not reject or
-        drop anything by itself -- it only ends a wait early. Refusing new
-        payloads outright is the caller's job (see DogStatsd._send_to_server(),
-        which checks _sender_stopping before ever calling put()).
+        drop anything by itself -- it only ends a wait early. Refusing a
+        payload outright once Stop has been queued is put()'s own job (see
+        its docstring and self._sealed).
         """
         with self._not_full:
             self._closing = True
@@ -307,7 +328,7 @@ class SenderQueue(object):
             # Guard the monotonic() call on the type test rather than letting
             # _expired() do it: the argument is evaluated BEFORE the call, so
             # `self._expired(item, monotonic())` read the clock on every get()
-            # including for bare strings, which are replay-safe and can never
+            # including for bare strings, which are timestamped and can never
             # expire, so the value was computed and immediately discarded.
             if isinstance(item, PendingPayload) and self._expired(item, monotonic()):
                 self._on_drop_expired(item)
@@ -384,6 +405,33 @@ class SenderQueue(object):
             if not self._release_in_flight_locked(item, "task_done"):
                 return
             self._finish_task_locked()
+
+    def abandon_all(self, on_drop):
+        # type: (Callable[[QueuedItem], None]) -> None
+        """Drop every outstanding entry and settle every outstanding task.
+
+        Used when the background sender gives up at shutdown deadline. This
+        makes join() waiters release promptly instead of waiting forever on a
+        queue no thread will drain.
+        """
+        with self._all_tasks_done:
+            while self._deque:
+                item = self._deque.popleft()
+                if item is not Stop:
+                    on_drop(item)  # type: ignore[arg-type]
+                self._finish_task_locked()
+
+            # Normally empty (single-consumer queue and caller owns the
+            # current item), but clear defensively in case of misuse.
+            if self._in_flight:
+                for key, item in list(self._in_flight.items()):
+                    if item is not Stop:
+                        on_drop(item)  # type: ignore[arg-type]
+                    del self._in_flight[key]
+                    self._finish_task_locked()
+
+            self._not_full.notify_all()
+            self._not_empty.notify_all()
 
     def join(self, timeout=None):
         # type: (Optional[float]) -> bool

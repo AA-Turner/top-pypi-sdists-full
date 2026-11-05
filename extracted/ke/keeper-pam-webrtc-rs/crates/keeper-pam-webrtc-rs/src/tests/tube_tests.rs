@@ -1325,3 +1325,137 @@ async fn test_closed_tube_releases_peer_connection() {
         "control data channel still alive after the tube was closed and dropped"
     );
 }
+
+/// UDP sockets this process holds on `port`, read from /proc (Linux only).
+#[cfg(target_os = "linux")]
+fn own_udp_sockets_on_port(port: u16) -> usize {
+    let inodes: std::collections::HashSet<String> = std::fs::read_dir("/proc/self/fd")
+        .map(|dir| {
+            dir.filter_map(|e| std::fs::read_link(e.ok()?.path()).ok())
+                .filter_map(|l| {
+                    let l = l.to_string_lossy().to_string();
+                    l.strip_prefix("socket:[")?
+                        .strip_suffix(']')
+                        .map(str::to_string)
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let port_hex = format!(":{port:04X}");
+    ["/proc/net/udp", "/proc/net/udp6"]
+        .iter()
+        .filter_map(|f| std::fs::read_to_string(f).ok())
+        .flat_map(|t| t.lines().skip(1).map(str::to_string).collect::<Vec<_>>())
+        .filter(|line| {
+            let cols: Vec<&str> = line.split_whitespace().collect();
+            cols.len() > 9 && cols[1].ends_with(&port_hex) && inodes.contains(cols[9])
+        })
+        .count()
+}
+
+/// Browsers hide their host addresses behind `<uuid>.local` candidates. If the gateway
+/// tries to resolve one that nobody answers (the browser is not on the gateway's LAN),
+/// webrtc-ice 0.14 parks a resolver task that pins the whole ICE agent, so a closed
+/// session keeps its mDNS, host and relay sockets open for the life of the process.
+/// The gateway must not resolve `.local` candidates at all.
+///
+/// The check counts this process's sockets on 5353, and other tests open mDNS sockets of
+/// their own, so it runs in a separate process of this test binary.
+#[cfg(target_os = "linux")]
+#[test]
+fn unanswered_mdns_remote_candidate_does_not_pin_sockets_after_close() {
+    let status = std::process::Command::new(std::env::current_exe().expect("test binary"))
+        .args([
+            "--exact",
+            "tests::tube_tests::unanswered_mdns_remote_candidate_check_in_own_process",
+            "--ignored",
+            "--test-threads=1",
+        ])
+        .status()
+        .expect("re-run the test binary");
+    assert!(
+        status.success(),
+        "the mDNS socket check failed (see its output above)"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[ignore = "run by unanswered_mdns_remote_candidate_does_not_pin_sockets_after_close in its own process"]
+#[tokio::test]
+async fn unanswered_mdns_remote_candidate_check_in_own_process() {
+    let baseline = own_udp_sockets_on_port(5353);
+
+    let tube1 = Tube::new(
+        false,
+        None,
+        None,
+        None,
+        crate::tube_protocol::Capabilities::NONE,
+        None,
+    )
+    .expect("tube1");
+    let tube2 = Tube::new(
+        false,
+        None,
+        None,
+        None,
+        crate::tube_protocol::Capabilities::NONE,
+        None,
+    )
+    .expect("tube2");
+    let (signal_tx1, mut signal_rx1) = mpsc::unbounded_channel();
+    let (signal_tx2, mut signal_rx2) = mpsc::unbounded_channel();
+    let mut settings = HashMap::new();
+    settings.insert("conversationType".to_string(), serde_json::json!("tunnel"));
+    for (tube, tx, tag) in [(&tube1, signal_tx1, "t1"), (&tube2, signal_tx2, "t2")] {
+        tube.create_peer_connection(
+            Some(RTCConfiguration::default()),
+            true,
+            false,
+            format!("TEST_MODE_KSM_CONFIG_{tag}_MDNS"),
+            format!("test_token_{tag}_mdns"),
+            "ms16.5.0",
+            settings.clone(),
+            tx,
+            false,
+        )
+        .await
+        .expect("create_peer_connection");
+    }
+    tube1
+        .create_data_channel(
+            "control",
+            "TEST_MODE_KSM_CONFIG_t1_MDNS".to_string(),
+            "test_token_t1_mdns".to_string(),
+            "ms16.5.0",
+        )
+        .await
+        .expect("create_data_channel");
+    perform_signaling_and_ice_exchange(&tube1, &tube2, &mut signal_rx1, &mut signal_rx2)
+        .await
+        .expect("signaling");
+
+    // A browser-style obfuscated host candidate that no one will ever answer.
+    let _ = tube2
+        .add_ice_candidate(
+            "candidate:9999 1 udp 2130706431 6d2c4c8e-0b6f-4f3a-9d51-7c1f0e5a2b3c.local 54321 typ host"
+                .to_string(),
+        )
+        .await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    let _ = tube2.close(None).await;
+    let _ = tube1.close(None).await;
+    drop(tube2);
+    drop(tube1);
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    while own_udp_sockets_on_port(5353) > baseline && tokio::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    assert_eq!(
+        own_udp_sockets_on_port(5353),
+        baseline,
+        "a closed session still holds an mDNS socket: the .local resolver pinned its ICE agent"
+    );
+}

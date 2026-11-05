@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sequence-ai"
-version = "0.56.2"
+version = "0.56.5"
 description = "The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -32,14 +32,14 @@ classifiers = [
 dependencies = [
     "httpx>=0.24,<1",
     "pydantic>=2; python_version >= '3.10'",
-    "sequence-base>=0.8.4,<0.9; python_version >= '3.10'",
+    "sequence-base>=0.8.7,<0.9; python_version >= '3.10'",
     "pillow>=10",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7",
-    "sequence-base>=0.8.4,<0.9; python_version >= '3.10'",
+    "sequence-base>=0.8.7,<0.9; python_version >= '3.10'",
     "pillow>=10",
     "numpy>=1.24",
     "pyarrow>=14",

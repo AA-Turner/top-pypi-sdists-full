@@ -33,17 +33,12 @@ from pydantic import (
 from mistralai.vibe.harness.app_server.session import McpHttpSourceConfiguration, ToolModelAccess
 from mistralai.vibe.harness.runtime.capabilities import (
     PostAgentTurnHookAccept,
-    PostAgentTurnHookInvocation,
     PostLlmCallHookAccept,
-    PostLlmCallHookInvocation,
     PostLlmCallHookReject,
     PostLlmCallHookRetry,
-    PostToolCallHookContinue,
     PreAgentTurnHookContinue,
-    PreAgentTurnHookInvocation,
     PreAgentTurnHookSkip,
     PreLlmCallHookContinue,
-    PreLlmCallHookInvocation,
     PreLlmCallHookSkip,
     PreToolCallHookContinue,
     PreToolCallHookSkip,
@@ -633,31 +628,32 @@ class Hook(stateful.StatefulModel):
     async def pre_agent_turn(
         self,
         ctx: HookCallbackContext,
-        request: PreAgentTurnHookInvocation,
+        request: hooks.PreAgentTurn,
     ) -> PreAgentTurnHookContinue | PreAgentTurnHookSkip | hooks.HookDecision | None:
         """Runs before each turn, with its user content in ``request.user_content``.
 
-        Return ``hook.PreAgentTurnHookContinue`` to send other content, its blocks given as dicts such as
-        ``{"type": "text", "text": "..."}``, or ``agents.skip`` or ``hook.PreAgentTurnHookSkip`` to skip the turn.
+        Return ``hook.PreAgentTurnHookContinue`` to send other content, such as
+        ``[*request.user_content, agents.TextContentBlock(text="...")]``, or ``agents.skip`` or
+        ``hook.PreAgentTurnHookSkip`` to skip the turn.
         """
         return PreAgentTurnHookContinue(user_content=request.user_content)
 
     async def post_agent_turn(
         self,
         ctx: HookCallbackContext,
-        result: PostAgentTurnHookInvocation,
+        result: hooks.PostAgentTurn,
     ) -> PostAgentTurnHookAccept | None:
-        """Runs after each turn, with the model's final answer in ``result.candidate``.
+        """Runs after each turn, with the model's final answer in ``result``: ``result.text``, ``result.content``.
 
         Return ``hook.PostAgentTurnHookAccept()`` to keep the answer, or replace its content with
-        ``acceptance={"type": "replace_assistant_content", "content": [{"type": "text", "text": "..."}]}``.
+        ``acceptance=hook.ReplaceAssistantContent(content=[agents.TextContentBlock(text="...")])``.
         """
         return PostAgentTurnHookAccept()
 
     async def pre_llm_call(
         self,
         ctx: HookCallbackContext,
-        invocation: PreLlmCallHookInvocation,
+        invocation: hooks.PreLlmCall,
     ) -> PreLlmCallHookContinue | PreLlmCallHookSkip | hooks.HookDecision | None:
         """Runs before each model call. Return ``agents.skip`` or ``hook.PreLlmCallHookSkip`` to skip the call."""
         return PreLlmCallHookContinue()
@@ -665,9 +661,10 @@ class Hook(stateful.StatefulModel):
     async def post_llm_call(
         self,
         ctx: HookCallbackContext,
-        invocation: PostLlmCallHookInvocation,
+        invocation: hooks.PostLlmCall,
     ) -> PostLlmCallHookAccept | PostLlmCallHookRetry | PostLlmCallHookReject | hooks.HookDecision | None:
-        """Runs after each model call, with its response in ``invocation.candidate``.
+        """Runs after each model call, with its response in ``invocation``: ``invocation.text``,
+        ``invocation.tool_calls``, ``invocation.content``.
 
         Return ``hook.PostLlmCallHookAccept`` to keep the response or replace its content, as
         ``hook.PostAgentTurnHookAccept`` does, ``agents.retry`` to call the model again with feedback, or
@@ -685,19 +682,19 @@ class Hook(stateful.StatefulModel):
         Return ``hook.PreToolCallHookContinue`` to run the tool with other ``effective_arguments``, or
         ``agents.skip`` or ``hook.PreToolCallHookSkip`` to skip the call: the model sees the reason instead.
         """
-        return PreToolCallHookContinue(effective_arguments=call.tool_call.call.arguments)
+        return PreToolCallHookContinue(effective_arguments=call.arguments)
 
     async def post_tool_call(
         self,
         ctx: HookCallbackContext,
         result: hooks.PostToolCall,
-    ) -> PostToolCallHookContinue | None:
-        """Runs after each tool call, with the call and its result in ``result``.
+    ) -> hooks.PostToolCallHookContinue | None:
+        """Runs after each tool call, with the call and its result, an ``agents.ToolResult``, in ``result``.
 
         Return ``hook.PostToolCallHookContinue`` with another ``tool_result`` to change what the model gets,
-        given as a dict such as ``{"type": "success", "content": [{"type": "text", "text": "..."}]}``.
+        such as ``agents.ToolResult(content=[agents.TextContentBlock(text="...")])``.
         """
-        return PostToolCallHookContinue(tool_result=result.tool_result)
+        return hooks.PostToolCallHookContinue(tool_result=result.tool_result)
 
 
 _WARNED_UNDECLARED: set[tuple[type[Hook], str]] = set()

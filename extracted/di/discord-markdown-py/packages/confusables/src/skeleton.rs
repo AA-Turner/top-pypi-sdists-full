@@ -9,7 +9,7 @@ use icu_normalizer::DecomposingNormalizer;
 use icu_properties::{CodePointSetData, props::DefaultIgnorableCodePoint};
 use unicode_bidi::{BidiClass, bidi_class};
 
-use crate::{PROTOTYPES_BY_SOURCE, bidi};
+use crate::{ASCII_PROTOTYPES, PROTOTYPES_BY_SOURCE, bidi};
 
 /// Base paragraph direction used by the `bidiSkeleton` transform (protocol
 /// HL1 of UAX #9).
@@ -30,6 +30,20 @@ pub enum Direction {
 /// Unlike [`skeleton`], this does no bidirectional reordering, so it suits
 /// text already in display order (see [`display_order`]).
 pub fn internal_skeleton(x: &str) -> String {
+	// ASCII is already NFD, holds no default-ignorables, and maps to prototypes made only of
+	// starters with no decomposition, so neither normalization changes anything.
+	if x.is_ascii() {
+		return x
+			.bytes()
+			.map(|byte| ASCII_PROTOTYPES[usize::from(byte)])
+			.collect();
+	}
+
+	unicode_internal_skeleton(x)
+}
+
+/// [`internal_skeleton`] for any text.
+fn unicode_internal_skeleton(x: &str) -> String {
 	let nfd = DecomposingNormalizer::new_nfd();
 	let default_ignorable = CodePointSetData::new::<DefaultIgnorableCodePoint>();
 
@@ -84,23 +98,33 @@ impl Iterator for Prototype {
 /// can create right-to-left runs without any R or AL character present.
 fn is_reorder_free(x: &str) -> bool {
 	!x.chars().any(|ch| {
-		matches!(
-			bidi_class(ch),
-			BidiClass::R
-				| BidiClass::AL
-				| BidiClass::AN
-				| BidiClass::RLE
-				| BidiClass::RLO
-				| BidiClass::RLI
-				| BidiClass::LRE
-				| BidiClass::LRO
-				| BidiClass::LRI
-				| BidiClass::PDF
-				| BidiClass::PDI
-				| BidiClass::FSI
-				| BidiClass::B
-		)
+		if ch.is_ascii() {
+			// the only ASCII in these classes is the paragraph separators, class B
+			matches!(ch, '\n' | '\r' | '\u{1C}'..='\u{1E}')
+		} else {
+			can_reorder(ch)
+		}
 	})
+}
+
+/// Whether `ch` has a bidi class that can reorder or mirror text in a left-to-right paragraph.
+fn can_reorder(ch: char) -> bool {
+	matches!(
+		bidi_class(ch),
+		BidiClass::R
+			| BidiClass::AL
+			| BidiClass::AN
+			| BidiClass::RLE
+			| BidiClass::RLO
+			| BidiClass::RLI
+			| BidiClass::LRE
+			| BidiClass::LRO
+			| BidiClass::LRI
+			| BidiClass::PDF
+			| BidiClass::PDI
+			| BidiClass::FSI
+			| BidiClass::B
+	)
 }
 
 /// The `bidiSkeleton` transform of UTS #39 §4: reorder `x` for display per
@@ -139,4 +163,43 @@ pub fn is_confusable(x: &str, y: &str) -> bool {
 /// direction: their [`bidi_skeleton`]s are equal.
 pub fn is_confusable_in(direction: Direction, x: &str, y: &str) -> bool {
 	bidi_skeleton(direction, x) == bidi_skeleton(direction, y)
+}
+
+#[cfg(test)]
+mod test {
+	use super::{can_reorder, internal_skeleton, is_reorder_free, unicode_internal_skeleton};
+
+	fn ascii() -> impl Iterator<Item = char> {
+		(0..0x80u8).map(char::from)
+	}
+
+	#[test]
+	fn ascii_reorders_as_its_bidi_class_says() {
+		for ch in ascii() {
+			assert_eq!(!is_reorder_free(&ch.to_string()), can_reorder(ch), "{ch:?}");
+		}
+	}
+
+	/// The ASCII shortcut agrees with the full transform, one character at a time and together.
+	#[test]
+	fn ascii_skeleton_matches_the_full_transform() {
+		for ch in ascii() {
+			let s = ch.to_string();
+			assert_eq!(
+				internal_skeleton(&s),
+				unicode_internal_skeleton(&s),
+				"{ch:?}"
+			);
+		}
+
+		let all = ascii().collect::<String>();
+		let reversed = all.chars().rev().collect::<String>();
+		for s in [all, reversed, "%m1|I0`\"https://discord.gg/x".to_owned()] {
+			assert_eq!(
+				internal_skeleton(&s),
+				unicode_internal_skeleton(&s),
+				"{s:?}"
+			);
+		}
+	}
 }

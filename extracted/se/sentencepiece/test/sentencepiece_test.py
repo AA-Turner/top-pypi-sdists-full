@@ -16,20 +16,24 @@
 # limitations under the License.!
 
 from collections import defaultdict
-import glob
+import copy
 import io
 import os
 import pickle
+import re
 import sys
 import tempfile
 import threading
 import unittest
 import pytest
 import sentencepiece as spm
+
 try:
   from sentencepiece import sentencepiece_pb2
+  from sentencepiece import sentencepiece_model_pb2
+
   has_protobuf = True
-except ImportError:
+except Exception:
   has_protobuf = False
 
 TESTED_RETURN_TYPES = [str, int, 'serialized_proto']
@@ -41,7 +45,28 @@ print(HERE)
 
 print('VERSION={}'.format(spm.__version__))
 
-data_dir = HERE
+data_dir = (
+    HERE
+    if os.path.exists(os.path.join(HERE, 'botchan.txt'))
+    else os.path.normpath(os.path.join(HERE, '..', '..', 'data'))
+)
+
+# SentencePieceNormalizer keeps the flags of the loaded spec unless they are
+# given explicitly. These flags request raw normalization (no whitespace
+# handling), which was the implicit default before 0.3.0.
+RAW_NORMALIZER_FLAGS = dict(
+    add_dummy_prefix=False,
+    escape_whitespaces=False,
+    remove_extra_whitespaces=False,
+)
+
+
+# Pickle can only find classes defined at module level.
+class _ProcessorWithArg(spm.SentencePieceProcessor):
+
+  def __init__(self, my_arg, **kwargs):
+    super().__init__(**kwargs)
+    self.my_arg = my_arg
 
 
 class TestSentencepieceProcessor(unittest.TestCase):
@@ -50,19 +75,12 @@ class TestSentencepieceProcessor(unittest.TestCase):
   def setUp(self):
     self.sp_ = spm.SentencePieceProcessor()
     self.jasp_ = spm.SentencePieceProcessor()
-    self.assertTrue(self.sp_.Load(os.path.join(HERE, 'test_model.model')))
-    self.assertTrue(self.jasp_.Load(os.path.join(HERE, 'test_ja_model.model')))
-    with open(os.path.join(HERE, 'test_model.model'), 'rb') as f:
+    self.assertTrue(self.sp_.Load(os.path.join(HERE, 'botchan_en_unigram_1000.model')))
+    self.assertTrue(self.jasp_.Load(os.path.join(HERE, 'kyoto_ja_unigram_8000.model')))
+    with open(os.path.join(HERE, 'botchan_en_unigram_1000.model'), 'rb') as f:
       self.assertTrue(self.sp_.LoadFromSerializedProto(f.read()))
-    with open(os.path.join(HERE, 'test_ja_model.model'), 'rb') as f:
+    with open(os.path.join(HERE, 'kyoto_ja_unigram_8000.model'), 'rb') as f:
       self.assertTrue(self.jasp_.LoadFromSerializedProto(f.read()))
-
-  def tearDown(self):
-    patterns = ['m_*.model', 'm_*.vocab', 'sp_*.pickle']
-    for pattern in patterns:
-      for file_path in glob.glob(pattern):
-        if os.path.isfile(file_path):
-          os.remove(file_path)
 
   def test_load(self):
     self.assertEqual(1000, self.sp_.GetPieceSize())
@@ -101,6 +119,133 @@ class TestSentencepieceProcessor(unittest.TestCase):
       self.sp_.decode(10000)
     with self.assertRaises(IndexError):
       self.sp_.DecodeIds([10000])
+
+  def test_decode_empty_input(self):
+    # Empty input must return a value typed according to return_type,
+    # matching the non-empty code path.
+    for empty in ([], None):
+      self.assertEqual(self.sp_.decode(empty, return_type=str), '')
+      self.assertEqual(self.sp_.decode(empty, return_type=bytes), b'')
+      serialized = self.sp_.decode(empty, return_type='serialized_proto')
+      self.assertEqual(type(serialized), bytes)
+      offsets = self.sp_.decode(empty, return_type='offset_mapping')
+      self.assertIsInstance(offsets, dict)
+      self.assertEqual(offsets['text'], '')
+      self.assertEqual(offsets['ids'], [])
+      self.assertEqual(offsets['pieces'], [])
+      self.assertEqual(offsets['offsets'], [])
+      if has_protobuf:
+        proto = self.sp_.decode(empty, return_type='proto')
+        self.assertIsInstance(proto, sentencepiece_pb2.SentencePieceText)
+        self.assertEqual(proto.text, '')
+        self.assertEqual(len(proto.pieces), 0)
+
+  def test_decode_batch_with_leading_empty_sequence(self):
+    # A batch may contain empty sequences (e.g. an empty sentence encoded to
+    # zero pieces/ids). The batch element type (pieces vs ids) is inferred from
+    # the first non-empty sequence, so a leading empty sequence must not make a
+    # piece batch be decoded as an id batch. Regression test: an empty sequence
+    # at the start used to fail while the same empty sequence at the end worked.
+    sp = self.sp_
+    text = 'hello world'
+    ids = sp.encode(text, return_type=int)
+    pieces = sp.encode(text, return_type=str)
+    pieces_bytes = [p.encode('utf-8') for p in pieces]
+
+    # Empty sequence at the end (already worked).
+    self.assertEqual(sp.decode([ids, []]), [text, ''])
+    self.assertEqual(sp.decode([pieces, []], return_type=str), [text, ''])
+    self.assertEqual(
+        sp.decode([pieces_bytes, []], return_type=bytes), [text.encode(), b'']
+    )
+
+    # Empty id sequence at the start.
+    self.assertEqual(sp.decode([[], ids]), ['', text])
+
+    # Empty piece sequence at the start.
+    self.assertEqual(sp.decode([[], pieces], return_type=str), ['', text])
+    self.assertEqual(
+        sp.decode([[], pieces_bytes], return_type=bytes), [b'', text.encode()]
+    )
+
+    # offset_mapping must produce the same result for both orders.
+    empty_om = sp.decode([], return_type='offset_mapping')
+    text_om = sp.decode(pieces, return_type='offset_mapping')
+    self.assertEqual(
+        sp.decode([pieces, []], return_type='offset_mapping'), [text_om, empty_om]
+    )
+    self.assertEqual(
+        sp.decode([[], pieces], return_type='offset_mapping'), [empty_om, text_om]
+    )
+
+  def test_decode_batch_with_unstable_len(self):
+    # Batch decode APIs accept arbitrary sequences. A user-defined __len__ may
+    # return a different value on every call; the binding must take a single
+    # read of __len__ instead of calling it repeatedly (or while the GIL is
+    # released). Regression test for a heap overflow / out-of-bounds
+    # read in _DecodePieces*Batch and _DecodeAsOffsetMappingBatch.
+    sp = self.sp_
+    text = 'hello world'
+    ids = sp.encode(text, return_type=int)
+    pieces = sp.encode(text, return_type=str)
+
+    class UnstableLen:
+
+      def __init__(self, item, size, lens):
+        self._item = item
+        self._size = size
+        self._lens = iter(lens)
+
+      def __len__(self):
+        return next(self._lens, 1)
+
+      def __getitem__(self, i):
+        if i >= self._size:
+          raise IndexError(i)
+        return self._item
+
+    # __len__ returns 3 on the first call, then a larger / smaller value.
+    growing = lambda item: UnstableLen(item, 3, [3] + [64] * 100)
+    shrinking = lambda item: UnstableLen(item, 3, [3])
+
+    # The binding methods are called directly, since the Python wrapper may
+    # call __len__ itself before reaching them.
+    for make in [growing, shrinking]:
+      self.assertEqual(
+          sp._processor._DecodePiecesBatch(make(pieces), 1, None), [text] * 3
+      )
+      self.assertEqual(
+          sp._processor._DecodePiecesAsBytesBatch(make(pieces), 1, None),
+          [text.encode()] * 3,
+      )
+      self.assertEqual(
+          len(
+              sp._processor._DecodePiecesAsSerializedProtoBatch(
+                  make(pieces), 1, None
+              )
+          ),
+          3,
+      )
+      # The id path converts the batch in a second pass, so a changed __len__
+      # is reported as an error. It must never crash.
+      expected_om = sp.decode(ids, return_type='offset_mapping')
+      try:
+        self.assertEqual(
+            sp._processor._DecodeAsOffsetMappingBatch(
+                make(ids), 1, None, False
+            ),
+            [expected_om] * 3,
+        )
+      except (IndexError, ValueError):
+        pass
+      self.assertEqual(
+          len(
+              sp._processor._DecodeAsOffsetMappingBatch(
+                  make(pieces), 1, None, False
+              )
+          ),
+          3,
+      )
 
   def test_roundtrip(self):
     text = 'I saw a girl with a telescope.'
@@ -155,11 +300,6 @@ class TestSentencepieceProcessor(unittest.TestCase):
           text,
           self.sp_.decode_ids(self.sp_.sample_encode_as_ids(text, -1, 0.5)),
       )
-
-    self.assertEqual(
-        self.sp_.calculate_entropy(text, 0.1),
-        self.sp_.CalculateEntropy(text, 0.1),
-    )
 
   def test_ja_load(self):
     self.assertEqual(8000, self.jasp_.GetPieceSize())
@@ -228,196 +368,186 @@ class TestSentencepieceProcessor(unittest.TestCase):
           ),
       )
 
-      self.assertEqual(
-          self.jasp_.calculate_entropy(text, 0.1),
-          self.jasp_.CalculateEntropy(text, 0.1),
-      )
-
   def test_train(self):
-    tid = threading.get_native_id()
-    spm.SentencePieceTrainer.Train(
-        '--input='
-        + os.path.join(data_dir, 'botchan.txt')
-        + f' --model_prefix=m_{tid} --vocab_size=1000'
-    )
-    sp = spm.SentencePieceProcessor()
-    sp.Load(f'm_{tid}.model')
-    with open(os.path.join(data_dir, 'botchan.txt'), 'r') as file:
-      for line in file:
-        sp.DecodePieces(sp.EncodeAsPieces(line))
-        sp.DecodeIds(sp.EncodeAsIds(line))
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      model_prefix = os.path.join(tmp_dir, 'm')
+      spm.SentencePieceTrainer.Train(
+          '--input='
+          + os.path.join(data_dir, 'botchan.txt')
+          + f' --model_prefix={model_prefix} --vocab_size=1000'
+      )
+      sp = spm.SentencePieceProcessor()
+      sp.Load(f'{model_prefix}.model')
+      with open(os.path.join(data_dir, 'botchan.txt'), 'r') as file:
+        for line in file:
+          sp.DecodePieces(sp.EncodeAsPieces(line))
+          sp.DecodeIds(sp.EncodeAsIds(line))
 
   def test_special_tokens_combinations(self):
-    tid = threading.get_native_id()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      # 1. CONTROL (default)
+      model_prefix_control = os.path.join(tmp_dir, 'm_control')
+      spm.SentencePieceTrainer.train(
+          input=os.path.join(data_dir, 'botchan.txt'),
+          model_prefix=model_prefix_control,
+          vocab_size=1000,
+      )
+      sp = spm.SentencePieceProcessor()
+      self.assertTrue(sp.Load(f'{model_prefix_control}.model'))
+      self.assertNotEqual(-1, sp.bos_id())
+      self.assertEqual(
+          [sp.bos_id()] + sp.encode('a'), sp.encode('a', add_bos=True)
+      )
+      self.assertEqual(
+          sp.encode('a') + [sp.eos_id()], sp.encode('a', add_eos=True)
+      )
+      self.assertEqual(
+          [sp.bos_id()] + sp.encode('a') + [sp.eos_id()],
+          sp.encode('a', add_bos=True, add_eos=True),
+      )
 
-    # 1. CONTROL (default)
-    spm.SentencePieceTrainer.train(
-        input=os.path.join(data_dir, 'botchan.txt'),
-        model_prefix=f'm_control_{tid}',
-        vocab_size=1000,
-    )
-    sp = spm.SentencePieceProcessor()
-    self.assertTrue(sp.Load(f'm_control_{tid}.model'))
-    self.assertNotEqual(-1, sp.bos_id())
-    self.assertEqual([sp.bos_id()] + sp.encode('a'), sp.encode('a', add_bos=True))
-    self.assertEqual(sp.encode('a') + [sp.eos_id()], sp.encode('a', add_eos=True))
-    self.assertEqual([sp.bos_id()] + sp.encode('a') + [sp.eos_id()], sp.encode('a', add_bos=True, add_eos=True))
-    
-    self.assertEqual([sp.IdToPiece(sp.bos_id())] + sp.encode('a', return_type=str), sp.encode('a', add_bos=True, return_type=str))
+      self.assertEqual(
+          [sp.IdToPiece(sp.bos_id())] + sp.encode('a', return_type=str),
+          sp.encode('a', add_bos=True, return_type=str),
+      )
 
-    # 2. USER_DEFINED
-    spm.SentencePieceTrainer.train(
-        input=os.path.join(data_dir, 'botchan.txt'),
-        model_prefix=f'm_user_{tid}',
-        vocab_size=1000,
-        user_defined_symbols=['<s>', '</s>'],
-        bos_piece='<s>',
-        eos_piece='</s>',
-    )
-    sp = spm.SentencePieceProcessor()
-    self.assertTrue(sp.Load(f'm_user_{tid}.model'))
-    self.assertEqual(-1, sp.bos_id())
-    with self.assertRaises(ValueError):
-      sp.encode('a', add_bos=True)
-    with self.assertRaises(ValueError):
-      sp.encode('a', add_eos=True)
-    with self.assertRaises(ValueError):
-      sp.encode('a', add_bos=True, return_type=str)
-    with self.assertRaises(ValueError):
-      sp.encode('a', add_eos=True, return_type=str)
+      # 2. USER_DEFINED
+      model_prefix_user = os.path.join(tmp_dir, 'm_user')
+      spm.SentencePieceTrainer.train(
+          input=os.path.join(data_dir, 'botchan.txt'),
+          model_prefix=model_prefix_user,
+          vocab_size=1000,
+          user_defined_symbols=['<s>', '</s>'],
+          bos_piece='<s>',
+          eos_piece='</s>',
+      )
+      sp = spm.SentencePieceProcessor()
+      self.assertTrue(sp.Load(f'{model_prefix_user}.model'))
+      self.assertEqual(-1, sp.bos_id())
+      with self.assertRaises(ValueError):
+        sp.encode('a', add_bos=True)
+      with self.assertRaises(ValueError):
+        sp.encode('a', add_eos=True)
+      with self.assertRaises(ValueError):
+        sp.encode('a', add_bos=True, return_type=str)
+      with self.assertRaises(ValueError):
+        sp.encode('a', add_eos=True, return_type=str)
 
-    # 3. Missing (disabled)
-    spm.SentencePieceTrainer.train(
-        input=os.path.join(data_dir, 'botchan.txt'),
-        model_prefix=f'm_missing_{tid}',
-        vocab_size=1000,
-        bos_id=-1,
-        eos_id=-1,
-    )
-    sp = spm.SentencePieceProcessor()
-    self.assertTrue(sp.Load(f'm_missing_{tid}.model'))
-    self.assertEqual(-1, sp.bos_id())
-    with self.assertRaises(ValueError):
-      sp.encode('a', add_bos=True)
-    with self.assertRaises(ValueError):
-      sp.encode('a', add_eos=True)
-    with self.assertRaises(ValueError):
-      sp.encode('a', add_bos=True, return_type=str)
-    with self.assertRaises(ValueError):
-      sp.encode('a', add_eos=True, return_type=str)
+      # 3. Missing (disabled)
+      model_prefix_missing = os.path.join(tmp_dir, 'm_missing')
+      spm.SentencePieceTrainer.train(
+          input=os.path.join(data_dir, 'botchan.txt'),
+          model_prefix=model_prefix_missing,
+          vocab_size=1000,
+          bos_id=-1,
+          eos_id=-1,
+      )
+      sp = spm.SentencePieceProcessor()
+      self.assertTrue(sp.Load(f'{model_prefix_missing}.model'))
+      self.assertEqual(-1, sp.bos_id())
+      with self.assertRaises(ValueError):
+        sp.encode('a', add_bos=True)
+      with self.assertRaises(ValueError):
+        sp.encode('a', add_eos=True)
+      with self.assertRaises(ValueError):
+        sp.encode('a', add_bos=True, return_type=str)
+      with self.assertRaises(ValueError):
+        sp.encode('a', add_eos=True, return_type=str)
 
   def test_train_iterator(self):
-    tid = threading.get_native_id()
-    spm.SentencePieceTrainer.Train(
-        '--input='
-        + os.path.join(data_dir, 'botchan.txt')
-        + f' --model_prefix=m_{tid} --vocab_size=1000'
-    )
-    # Load as 'rb' for Python3.5/2.7.
-    os1 = io.BytesIO()
-    os2 = io.BytesIO()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      model_prefix = os.path.join(tmp_dir, 'm')
+      spm.SentencePieceTrainer.Train(
+          '--input='
+          + os.path.join(data_dir, 'botchan.txt')
+          + f' --model_prefix={model_prefix} --vocab_size=1000'
+      )
+      # Load as 'rb' for Python3.5/2.7.
+      os1 = io.BytesIO()
+      os2 = io.BytesIO()
 
-    # suppress logging (redirect to /dev/null)
-    spm.SentencePieceTrainer.train(
-        input=os.path.join(data_dir, 'botchan.txt'),
-        model_prefix=f'm_{tid}',
-        vocab_size=1000,
-        # logstream=open(os.devnull, 'w'),
-    )
-
-    with open(os.path.join(data_dir, 'botchan.txt'), 'rb') as is1:
+      # suppress logging (redirect to /dev/null)
       spm.SentencePieceTrainer.train(
-          sentence_iterator=is1,
-          model_prefix=f'm_{tid}',
+          input=os.path.join(data_dir, 'botchan.txt'),
+          model_prefix=model_prefix,
           vocab_size=1000,
           # logstream=open(os.devnull, 'w'),
       )
 
-    spm.SentencePieceTrainer.train(
-        input=os.path.join(data_dir, 'botchan.txt'),
-        model_writer=os1,
-        vocab_size=1000,
-        # logstream=open(os.devnull, 'w'),
-    )
+      with open(os.path.join(data_dir, 'botchan.txt'), 'rb') as is1:
+        spm.SentencePieceTrainer.train(
+            sentence_iterator=is1,
+            model_prefix=model_prefix,
+            vocab_size=1000,
+            # logstream=open(os.devnull, 'w'),
+        )
 
-    with open(os.path.join(data_dir, 'botchan.txt'), 'rb') as is2:
       spm.SentencePieceTrainer.train(
-          sentence_iterator=is2,
-          model_writer=os2,
+          input=os.path.join(data_dir, 'botchan.txt'),
+          model_writer=os1,
           vocab_size=1000,
           # logstream=open(os.devnull, 'w'),
       )
 
-    sp1 = spm.SentencePieceProcessor(model_proto=os1.getvalue())
-    sp2 = spm.SentencePieceProcessor(model_proto=os2.getvalue())
-    self.assertEqual(
-        [sp1.id_to_piece(i) for i in range(sp1.get_piece_size())],
-        [sp2.id_to_piece(i) for i in range(sp2.get_piece_size())],
-    )
+      with open(os.path.join(data_dir, 'botchan.txt'), 'rb') as is2:
+        spm.SentencePieceTrainer.train(
+            sentence_iterator=is2,
+            model_writer=os2,
+            vocab_size=1000,
+            # logstream=open(os.devnull, 'w'),
+        )
+
+      sp1 = spm.SentencePieceProcessor(model_proto=os1.getvalue())
+      sp2 = spm.SentencePieceProcessor(model_proto=os2.getvalue())
+      self.assertEqual(
+          [sp1.id_to_piece(i) for i in range(sp1.get_piece_size())],
+          [sp2.id_to_piece(i) for i in range(sp2.get_piece_size())],
+      )
 
   def test_train_kwargs(self):
-    tid = threading.get_native_id()
-    # suppress logging (redirect to /dev/null)
-    spm.SentencePieceTrainer.train(
-        input=[os.path.join(data_dir, 'botchan.txt')],
-        model_prefix=f'm_{tid}',
-        vocab_size=1002,
-        user_defined_symbols=['foo', 'bar', ',', ' ', '\t', '\b', '\n', '\r'],
-        # logstream=open(os.devnull, 'w'),
-    )
-    sp = spm.SentencePieceProcessor()
-    sp.Load(f'm_{tid}.model')
-    with open(os.path.join(data_dir, 'botchan.txt'), 'r') as file:
-      for line in file:
-        sp.DecodePieces(sp.EncodeAsPieces(line))
-        sp.DecodeIds(sp.EncodeAsIds(line))
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      model_prefix = os.path.join(tmp_dir, 'm')
+      # suppress logging (redirect to /dev/null)
+      spm.SentencePieceTrainer.train(
+          input=[os.path.join(data_dir, 'botchan.txt')],
+          model_prefix=model_prefix,
+          vocab_size=1002,
+          user_defined_symbols=['foo', 'bar', ',', ' ', '\t', '\b', '\n', '\r'],
+          # logstream=open(os.devnull, 'w'),
+      )
+      sp = spm.SentencePieceProcessor()
+      sp.Load(f'{model_prefix}.model')
+      with open(os.path.join(data_dir, 'botchan.txt'), 'r') as file:
+        for line in file:
+          sp.DecodePieces(sp.EncodeAsPieces(line))
+          sp.DecodeIds(sp.EncodeAsIds(line))
 
-    s = 'hello\tworld\r\nthis\tis a \b pen'
-    self.assertEqual(s, sp.decode(sp.encode(s)))
+      s = 'hello\tworld\r\nthis\tis a \b pen'
+      self.assertEqual(s, sp.decode(sp.encode(s)))
 
   def test_serialized_proto(self):
     text = 'I saw a girl with a telescope.'
-    s1 = self.sp_.EncodeAsSerializedProto(text)
-    s2 = self.sp_.SampleEncodeAsSerializedProto(text, 10, 0.2)
-    s3 = self.sp_.NBestEncodeAsSerializedProto(text, 10)
-    s4 = self.sp_.DecodePiecesAsSerializedProto(['foo', 'bar'])
-    s5 = self.sp_.DecodeIdsAsSerializedProto([20, 30])
-
-    t1 = self.sp_.encode_as_serialized_proto(text)
-    t2 = self.sp_.sample_encode_as_serialized_proto(text, 10, 0.2)
-    t3 = self.sp_.nbest_encode_as_serialized_proto(text, 10)
-    t4 = self.sp_.decode_pieces_as_serialized_proto(['foo', 'bar'])
-    t5 = self.sp_.decode_ids_as_serialized_proto([20, 30])
-
     y1 = self.sp_.encode(text, return_type='serialized_proto')
     y2 = self.sp_.encode(
         text, enable_sampling=True, return_type='serialized_proto'
     )
-    y3 = self.sp_.nbest_encode(text, return_type='serialized_proto', nbest_size=10)
+    y3 = self.sp_.nbest_encode(
+        text, return_type='serialized_proto', nbest_size=10
+    )
     y4 = self.sp_.decode(['foo', 'bar'], return_type='serialized_proto')
     y5 = self.sp_.decode([20, 30], return_type='serialized_proto')
 
-    self.assertEqual(type(s1), bytes)
-    self.assertEqual(type(s2), bytes)
-    self.assertEqual(type(t2), bytes)
-    self.assertEqual(type(s3), bytes)
-    self.assertEqual(type(s4), bytes)
-    self.assertEqual(type(s5), bytes)
-
-    self.assertEqual(s1, t1)
-    self.assertEqual(s3, t3)
-    self.assertEqual(s4, t4)
-    self.assertEqual(s5, t5)
-    self.assertEqual(s1, y1)
-    self.assertEqual(s3, y3)
-    self.assertEqual(s4, y4)
-    self.assertEqual(s5, y5)
+    self.assertEqual(type(y1), bytes)
+    self.assertEqual(type(y2), bytes)
+    self.assertEqual(type(y3), bytes)
+    self.assertEqual(type(y4), bytes)
+    self.assertEqual(type(y5), bytes)
 
     ids = self.jasp_.EncodeAsIds(text)
     pieces = self.jasp_.EncodeAsPieces(text)
-    s1 = self.jasp_.EncodeAsSerializedProto(text)
-    s2 = self.jasp_.DecodeIdsAsSerializedProto(ids)
-    s3 = self.jasp_.DecodePiecesAsSerializedProto(ids)
+    s1 = self.jasp_.encode(text, return_type='serialized_proto')
+    s2 = self.jasp_.decode(ids, return_type='serialized_proto')
+    s3 = self.jasp_.decode(pieces, return_type='serialized_proto')
     self.assertEqual(s2, s1)
     self.assertEqual(s3, s1)
 
@@ -460,7 +590,6 @@ class TestSentencepieceProcessor(unittest.TestCase):
     s3 = self.sp_.NBestEncodeAsProto(text, 10)
     s4 = self.sp_.DecodePiecesAsProto(['foo', 'bar'])
     s5 = self.sp_.DecodeIdsAsProto([20, 30])
-    s6 = self.sp_.SampleEncodeAndScoreAsProto(text, 10)
     s7 = self.sp_.ParallelEncodeAsProto(text, chunk_len=5, num_threads=2)
 
     t1 = self.sp_.encode_as_proto(text)
@@ -468,7 +597,6 @@ class TestSentencepieceProcessor(unittest.TestCase):
     t3 = self.sp_.nbest_encode_as_proto(text, 10)
     t4 = self.sp_.decode_pieces_as_proto(['foo', 'bar'])
     t5 = self.sp_.decode_ids_as_proto([20, 30])
-    t6 = self.sp_.sample_encode_and_score_as_proto(text, 10)
     t7 = self.sp_.parallel_encode_as_proto(text, chunk_len=5, num_threads=2)
 
     y1 = self.sp_.encode(text, return_type='proto')
@@ -476,22 +604,16 @@ class TestSentencepieceProcessor(unittest.TestCase):
     y3 = self.sp_.nbest_encode(text, return_type='proto', nbest_size=10)
     y4 = self.sp_.decode(['foo', 'bar'], return_type='proto')
     y5 = self.sp_.decode([20, 30], return_type='proto')
-    y6 = self.sp_.sample_encode_and_score(text, num_samples=10, return_type='proto')
-    y7 = self.sp_.parallel_encode(text, chunk_len=5, num_threads=2, return_type='proto')
+    y7 = self.sp_.parallel_encode(
+        text, chunk_len=5, num_threads=2, return_type='proto'
+    )
 
     self.assertIsInstance(s1, sentencepiece_pb2.SentencePieceText)
     self.assertIsInstance(s2, sentencepiece_pb2.SentencePieceText)
     self.assertIsInstance(s3, sentencepiece_pb2.NBestSentencePieceText)
     self.assertIsInstance(s4, sentencepiece_pb2.SentencePieceText)
     self.assertIsInstance(s5, sentencepiece_pb2.SentencePieceText)
-    self.assertIsInstance(s6, sentencepiece_pb2.NBestSentencePieceText)
-    self.assertIsInstance(t6, sentencepiece_pb2.NBestSentencePieceText)
-    self.assertIsInstance(y6, sentencepiece_pb2.NBestSentencePieceText)
     self.assertIsInstance(s7, sentencepiece_pb2.SentencePieceText)
-
-    self.assertEqual(len(s6.nbests), 10)
-    self.assertEqual(len(t6.nbests), 10)
-    self.assertEqual(len(y6.nbests), 10)
 
     self.assertEqual(s1, t1)
     self.assertEqual(s3, t3)
@@ -504,19 +626,23 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual(s5, y5)
     self.assertEqual(s7, y7)
 
-    x1 = self.sp_.encode_as_serialized_proto(text)
-    x2 = self.sp_.sample_encode_as_serialized_proto(text, 10, 0.2)
-    x3 = self.sp_.nbest_encode_as_serialized_proto(text, 10)
-    x4 = self.sp_.decode_pieces_as_serialized_proto(['foo', 'bar'])
-    x5 = self.sp_.decode_ids_as_serialized_proto([20, 30])
-    x7 = self.sp_.ParallelEncodeAsSerializedProto(text, chunk_len=5, num_threads=2)
-    tx7 = self.sp_.parallel_encode_as_serialized_proto(text, chunk_len=5, num_threads=2)
+    x1 = self.sp_.encode(text, return_type='serialized_proto')
+    x2 = self.sp_.encode(
+        text, enable_sampling=True, return_type='serialized_proto'
+    )
+    x3 = self.sp_.nbest_encode(
+        text, return_type='serialized_proto', nbest_size=10
+    )
+    x4 = self.sp_.decode(['foo', 'bar'], return_type='serialized_proto')
+    x5 = self.sp_.decode([20, 30], return_type='serialized_proto')
+    x7 = self.sp_.parallel_encode(
+        text, chunk_len=5, num_threads=2, return_type='serialized_proto'
+    )
 
     self.assertEqual(x1, t1.SerializeToString())
     self.assertEqual(x3, t3.SerializeToString())
     self.assertEqual(x4, t4.SerializeToString())
     self.assertEqual(x5, t5.SerializeToString())
-    self.assertEqual(x7, tx7)
     self.assertEqual(x7, s7.SerializeToString())
 
     v1 = self.sp_.EncodeAsIds(text)
@@ -535,11 +661,11 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual(s3.nbests[::-1], list(reversed(s3.nbests)))
 
     # Japanese offset
-    s1_ja = self.jasp_.EncodeAsProto(
-        '吾輩は猫である。Hello world. ABC 123'
-    )
+    s1_ja = self.jasp_.EncodeAsProto('吾輩は猫である。Hello world. ABC 123')
     text_bytes_ja = s1_ja.text.encode('utf-8')
-    surfaces1_ja = [text_bytes_ja[x.begin : x.end].decode('utf-8') for x in s1_ja.pieces]
+    surfaces1_ja = [
+        text_bytes_ja[x.begin : x.end].decode('utf-8') for x in s1_ja.pieces
+    ]
     surfaces2_ja = [x.surface for x in s1_ja.pieces]
     self.assertEqual(surfaces1_ja, surfaces2_ja)
 
@@ -553,27 +679,13 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
     # Verify immutable_proto raises ValueError
     with self.assertRaises(ValueError):
-      self.sp_.EncodeAsImmutableProto(text)
-    with self.assertRaises(ValueError):
-      self.sp_.SampleEncodeAsImmutableProto(text, 10, 0.2)
-    with self.assertRaises(ValueError):
-      self.sp_.NBestEncodeAsImmutableProto(text, 10)
-    with self.assertRaises(ValueError):
-      self.sp_.SampleEncodeAndScoreAsImmutableProto(text, 10)
-    with self.assertRaises(ValueError):
-      self.sp_.ParallelEncodeAsImmutableProto(text, chunk_len=5, num_threads=2)
-    with self.assertRaises(ValueError):
-      self.sp_.DecodePiecesAsImmutableProto(['foo', 'bar'])
-    with self.assertRaises(ValueError):
-      self.sp_.DecodeIdsAsImmutableProto([20, 30])
-    with self.assertRaises(ValueError):
       self.sp_.encode(text, return_type='immutable_proto')
     with self.assertRaises(ValueError):
       self.sp_.decode([20, 30], return_type='immutable_proto')
 
   def test_new_api(self):
     sp = spm.SentencePieceProcessor(
-        model_file=os.path.join(HERE, 'test_model.model')
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model')
     )
     text = 'hello world'
     text2 = 'Tokyo'
@@ -581,21 +693,18 @@ class TestSentencepieceProcessor(unittest.TestCase):
     ids2 = self.sp_.EncodeAsIds(text2)
     pieces = self.sp_.EncodeAsPieces(text)
     pieces2 = self.sp_.EncodeAsPieces(text2)
-    sprotos = self.sp_.EncodeAsSerializedProto(text)
-    sproto2 = self.sp_.EncodeAsSerializedProto(text2)
-
+    sprotos = self.sp_.encode(text, return_type='serialized_proto')
+    sproto2 = self.sp_.encode(text2, return_type='serialized_proto')
 
     self.assertEqual(sp.encode(text, return_type=int), ids)
     self.assertEqual(sp.encode(text, return_type=str), pieces)
     self.assertEqual(sp.encode(text, return_type='serialized_proto'), sprotos)
 
-
     self.assertEqual(sp.encode([text], return_type=int), [ids])
     self.assertEqual(sp.encode([text], return_type=str), [pieces])
-    self.assertEqual(sp.encode([text], return_type='serialized_proto'), [sprotos])
-
-
-
+    self.assertEqual(
+        sp.encode([text], return_type='serialized_proto'), [sprotos]
+    )
 
     detok_ids = self.sp_.DecodeIds(ids)
     detok_pieces = self.sp_.DecodePieces(pieces)
@@ -616,7 +725,9 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
     # different shape.
     self.assertEqual([ids, ids2], sp.encode([text, text2]))
-    self.assertEqual([pieces, pieces2], sp.encode([text, text2], return_type=str))
+    self.assertEqual(
+        [pieces, pieces2], sp.encode([text, text2], return_type=str)
+    )
     self.assertEqual([text, text2], sp.decode([ids, ids2]))
     self.assertEqual([text, text2], sp.decode([pieces, pieces2]))
 
@@ -646,7 +757,7 @@ class TestSentencepieceProcessor(unittest.TestCase):
   @unittest.skipUnless(has_protobuf, 'protobuf is not installed')
   def test_new_api_proto(self):
     sp = spm.SentencePieceProcessor(
-        model_file=os.path.join(HERE, 'test_model.model')
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model')
     )
     text = 'hello world'
     text2 = 'Tokyo'
@@ -686,7 +797,7 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
   def test_new_api_init(self):
     sp = spm.SentencePieceProcessor(
-        model_file=os.path.join(HERE, 'test_model.model'),
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model'),
         add_bos=True,
         add_eos=True,
         return_type=str,
@@ -699,14 +810,11 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual(pieces, sp.encode(text, add_bos=False, add_eos=True))
 
   def test_classmethod_factories(self):
-    model_path = os.path.join(HERE, 'test_model.model')
+    model_path = os.path.join(HERE, 'botchan_en_unigram_1000.model')
 
     # 1. Test loading via from_file
     sp_file = spm.SentencePieceProcessor.from_file(
-        model_path,
-        add_bos=True,
-        add_eos=True,
-        return_type=str
+        model_path, add_bos=True, add_eos=True, return_type=str
     )
     text = 'hello world'
     expected_pieces = ['<s>'] + self.sp_.EncodeAsPieces(text) + ['</s>']
@@ -717,10 +825,7 @@ class TestSentencepieceProcessor(unittest.TestCase):
       model_proto = f.read()
 
     sp_proto = spm.SentencePieceProcessor.from_proto(
-        model_proto,
-        add_bos=True,
-        add_eos=True,
-        return_type=str
+        model_proto, add_bos=True, add_eos=True, return_type=str
     )
     self.assertEqual(expected_pieces, sp_proto.encode(text))
 
@@ -737,8 +842,12 @@ class TestSentencepieceProcessor(unittest.TestCase):
     for return_type in TESTED_RETURN_TYPES:
       ids = defaultdict(int)
       for n in range(100):
-        out = sp.encode('hello world', return_type=return_type, enable_sampling=True)
-        if has_protobuf and isinstance(out, sentencepiece_pb2.SentencePieceText):
+        out = sp.encode(
+            'hello world', return_type=return_type, enable_sampling=True
+        )
+        if has_protobuf and isinstance(
+            out, sentencepiece_pb2.SentencePieceText
+        ):
           out = out.SerializeToString()
         if type(out) is list:
           out = tuple(out)
@@ -747,8 +856,12 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
       ids2 = defaultdict(int)
       for n in range(100):
-        out = sp.encode('hello world', return_type=return_type, enable_sampling=False)
-        if has_protobuf and isinstance(out, sentencepiece_pb2.SentencePieceText):
+        out = sp.encode(
+            'hello world', return_type=return_type, enable_sampling=False
+        )
+        if has_protobuf and isinstance(
+            out, sentencepiece_pb2.SentencePieceText
+        ):
           out = out.SerializeToString()
         if type(out) is list:
           out = tuple(out)
@@ -812,7 +925,9 @@ class TestSentencepieceProcessor(unittest.TestCase):
           self.assertEqual(n, text)
 
       # batch test
-      results = sp.nbest_encode([text, text2], nbest_size=10, return_type=return_type)
+      results = sp.nbest_encode(
+          [text, text2], nbest_size=10, return_type=return_type
+      )
       self.assertEqual(
           results,
           sp.NBestEncode([text, text2], nbest_size=10, return_type=return_type),
@@ -843,79 +958,170 @@ class TestSentencepieceProcessor(unittest.TestCase):
         sp.nbest_encode(text, nbest_size=10, return_type=int),
         sp.nbest_encode_as_ids(text, nbest_size=10),
     )
-    self.assertEqual(
-        sp.nbest_encode(text, nbest_size=10, return_type='serialized_proto'),
-        sp.nbest_encode_as_serialized_proto(text, nbest_size=10),
-    )
+
     if has_protobuf:
       self.assertEqual(
           sp.nbest_encode(text, nbest_size=10, return_type='proto'),
           sp.nbest_encode_as_proto(text, nbest_size=10),
       )
+
   # SetNBestTimeout/set_nbest_timeout modify a global atomic variable in C++.
   # This makes this test thread-unsafe when run in parallel with other tests
   # that perform nbest encoding.
   @pytest.mark.thread_unsafe
   def test_nbest_timeout(self):
-    model_prefix = 'm_timeout'
-    spm.SentencePieceTrainer.train(
-        input=os.path.join(HERE, 'botchan.txt'),
-        model_prefix=model_prefix,
-        vocab_size=1000,
-        model_type='unigram',
-    )
-    sp = spm.SentencePieceProcessor(model_file=model_prefix + '.model')
-    long_input = 'the' * 1000
-    results = sp.nbest_encode(long_input, nbest_size=10, return_type=str)
-    self.assertEqual(len(results), 10)
-
-    spm.SetNBestTimeout(1)
-    results_timeout = sp.nbest_encode(long_input, nbest_size=10, return_type=str)
-    self.assertEqual(len(results_timeout), 1)
-
-    spm.SetNBestTimeout(0)
-    results_no_timeout = sp.nbest_encode(long_input, nbest_size=10, return_type=str)
-    self.assertEqual(len(results_no_timeout), 10)
-
-    spm.set_nbest_timeout(1)
-    results_timeout2 = sp.nbest_encode(long_input, nbest_size=10, return_type=str)
-    self.assertEqual(len(results_timeout2), 1)
-    spm.set_nbest_timeout(0)
-
-  def test_sample_and_score(self):
-    sp = self.sp_
-    text = 'hello world'
-    text2 = 'I have a pen.'
-    for return_type in TESTED_RETURN_TYPES:
-      results = sp.sample_encode_and_score(
-          text, wor=True, num_samples=10, return_type=return_type
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      model_prefix = os.path.join(tmp_dir, 'm_timeout')
+      spm.SentencePieceTrainer.train(
+          input=os.path.join(HERE, 'botchan.txt'),
+          model_prefix=model_prefix,
+          vocab_size=1000,
+          model_type='unigram',
       )
-      results = sp.SampleEncodeAndScore(
-          text, wor=False, num_samples=10, return_type=return_type
+      sp = spm.SentencePieceProcessor(model_file=model_prefix + '.model')
+      long_input = 'the' * 20000
+      results = sp.nbest_encode(long_input, nbest_size=10, return_type=str)
+      self.assertEqual(len(results), 10)
+
+      spm.SetNBestTimeout(1)
+      results_timeout = sp.nbest_encode(
+          long_input, nbest_size=10, return_type=str
+      )
+      self.assertEqual(len(results_timeout), 1)
+
+      spm.SetNBestTimeout(0)
+      results_no_timeout = sp.nbest_encode(
+          long_input, nbest_size=10, return_type=str
+      )
+      self.assertEqual(len(results_no_timeout), 10)
+
+      spm.set_nbest_timeout(1)
+      results_timeout2 = sp.nbest_encode(
+          long_input, nbest_size=10, return_type=str
+      )
+      self.assertEqual(len(results_timeout2), 1)
+
+  def test_train_with_pretokenizer(self):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      model_prefix = os.path.join(tmp_dir, 'm_pretok')
+      spm.SentencePieceTrainer.train(
+          input=os.path.join(HERE, 'botchan.txt'),
+          model_prefix=model_prefix,
+          vocab_size=1000,
+          model_type='unigram',
+          pretokenizer=lambda text: text.split(' '),
+      )
+      sp = spm.SentencePieceProcessor(model_file=model_prefix + '.model')
+      self.assertEqual(sp.vocab_size(), 1000)
+      spm.set_nbest_timeout(0)
+
+  def test_inconsistent_pretokenizer(self):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      model_prefix = os.path.join(tmp_dir, 'm_inconsistent')
+      # Default allow_inconsistent_pretokenization=False raises ValueError/RuntimeError.
+      with self.assertRaises((RuntimeError, ValueError)):
+        spm.SentencePieceTrainer.train(
+            input=os.path.join(HERE, 'botchan.txt'),
+            model_prefix=model_prefix,
+            vocab_size=1000,
+            model_type='unigram',
+            hard_vocab_limit=False,
+            pretokenizer=lambda text: ['hello'],
+        )
+
+      # Setting allow_inconsistent_pretokenization=True succeeds.
+      spm.SentencePieceTrainer.train(
+          input=os.path.join(HERE, 'botchan.txt'),
+          model_prefix=model_prefix,
+          vocab_size=1000,
+          model_type='unigram',
+          hard_vocab_limit=False,
+          pretokenizer=lambda text: ['hello'],
+          allow_inconsistent_pretokenization=True,
       )
 
-      if return_type in [str, int]:
-        for n in results:
-          self.assertEqual(sp.decode(n[0]), text)
+  def test_pretokenizer_exception(self):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      model_prefix = os.path.join(tmp_dir, 'm_exception')
 
-      results = sp.sample_encode_and_score(
-          [text, text2], wor=True, num_samples=10, return_type=return_type
+      def throwing_pretokenizer(text):
+        raise RuntimeError('Pretokenizer failed')
+
+      with self.assertRaises((ValueError, RuntimeError)):
+        spm.SentencePieceTrainer.train(
+            input=os.path.join(HERE, 'botchan.txt'),
+            model_prefix=model_prefix,
+            vocab_size=1000,
+            model_type='unigram',
+            pretokenizer=throwing_pretokenizer,
+        )
+
+      with self.assertRaises(RuntimeError):
+        spm.SentencePieceTrainer.train(
+            input=os.path.join(HERE, 'botchan.txt'),
+            model_prefix=model_prefix,
+            vocab_size=1000,
+            model_type='unigram',
+            pretokenizer=throwing_pretokenizer,
+            allow_inconsistent_pretokenization=True,
+        )
+
+  def test_pretokenizer_and_delimiter_mutually_exclusive(self):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      model_prefix = os.path.join(tmp_dir, 'm_exclusive')
+      with self.assertRaises((ValueError, RuntimeError)):
+        spm.SentencePieceTrainer.train(
+            input=os.path.join(HERE, 'botchan.txt'),
+            model_prefix=model_prefix,
+            vocab_size=1000,
+            model_type='unigram',
+            pretokenizer=lambda text: text.split(' '),
+            pretokenization_delimiter='||||',
+        )
+
+  def test_complex_regex_pretokenizer(self):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      model_prefix = os.path.join(tmp_dir, 'm_complex_regex')
+
+      # Combined complex regex: Contractions + CamelCase + 3-digit chunks + CJK + Punct + Spaces
+      # Pretokenization Examples:
+      #   "▁CamelCaseWord" -> ["▁", "Camel", "Case", "Word"]
+      #   "▁XMLHttpRequest" -> ["▁", "XML", "Http", "Request"]
+      #   "▁Don't"        -> ["▁", "Don", "'t"]
+      #   "▁12345"        -> ["▁", "123", "45"]
+      #   "▁形態素解析"    -> ["▁", "形態素解析"]
+      #   "▁Hello,▁world!" -> ["▁", "Hello", ",", "▁", "world", "!"]
+      pat_combined = re.compile(
+          r"'[a-zA-Z]+|"
+          r'[A-Z]?[a-z]+|[A-Z]+(?![a-z])|'
+          r'[\u3040-\u30ff\u4e00-\u9faf]+|'
+          r'\d{1,3}|'
+          r'[^\w\s]|'
+          r'▁+|\s+'
       )
-      results = sp.SampleEncodeAndScore(
-          [text, text2], wor=True, num_samples=10, return_type=return_type
+
+      spm.SentencePieceTrainer.train(
+          input=os.path.join(HERE, 'botchan.txt'),
+          model_prefix=model_prefix,
+          vocab_size=1000,
+          model_type='unigram',
+          pretokenizer=pat_combined.findall,
       )
 
-      if return_type in [str, int]:
-        for n in results[0]:
-          self.assertEqual(sp.decode(n[0]), text)
-        for n in results[1]:
-          self.assertEqual(sp.decode(n[0]), text2)
+      sp = spm.SentencePieceProcessor(model_file=model_prefix + '.model')
+      self.assertEqual(sp.vocab_size(), 1000)
 
-    sp.sample_encode_and_score_as_pieces(text, 10)
-    sp.sample_encode_and_score_as_ids(text, 10)
-    if has_protobuf:
-      sp.sample_encode_and_score_as_proto(text, 10)
-    sp.sample_encode_and_score_as_serialized_proto(text, 10)
+      # Verify that every extracted vocabulary piece strictly obeys pretokenization boundaries.
+      for i in range(sp.vocab_size()):
+        if sp.is_control(i) or sp.is_unknown(i) or sp.is_unused(i):
+          continue
+        piece = sp.id_to_piece(i)
+        matched = pat_combined.findall(piece)
+        self.assertEqual(
+            len(matched),
+            1,
+            f'Piece {piece!r} crosses pretokenizer boundary: matched={matched}',
+        )
 
   def test_valid_range(self):
     size = self.sp_.piece_size()
@@ -927,7 +1133,6 @@ class TestSentencepieceProcessor(unittest.TestCase):
         'IsUnused',
         'IsByte',
         'DecodeIds',
-        'DecodeIdsAsSerializedProto',
     ]
     for m in funcs:
       getattr(self.sp_, m)([10, 20, 30])
@@ -941,7 +1146,7 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
   def test_batch(self):
     sp = spm.SentencePieceProcessor(
-        model_file=os.path.join(HERE, 'test_model.model')
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model')
     )
     with open(os.path.join(data_dir, 'botchan.txt'), 'r') as file:
       texts = file.readlines()
@@ -978,7 +1183,7 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
   def test_parallel(self):
     sp = spm.SentencePieceProcessor(
-        model_file=os.path.join(HERE, 'test_bpe_model.model')
+        model_file=os.path.join(HERE, 'botchan_en_bpe_1000.model')
     )
     with open(os.path.join(data_dir, 'botchan.txt'), 'r') as file:
       texts = file.readlines()
@@ -1002,18 +1207,50 @@ class TestSentencepieceProcessor(unittest.TestCase):
         self.assertEqual(r1, r3)
 
   def test_pickle(self):
-    tid = threading.get_native_id()
-    with open(f'sp_{tid}.pickle', 'wb') as f:
-      pickle.dump(self.sp_, f)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      pickle_path = os.path.join(tmp_dir, 'sp.pickle')
+      with open(pickle_path, 'wb') as f:
+        pickle.dump(self.sp_, f)
 
-    id1 = self.sp_.encode('hello world.', return_type=int)
+      id1 = self.sp_.encode('hello world.', return_type=int)
 
-    with open(f'sp_{tid}.pickle', 'rb') as f:
-      sp = pickle.load(f)
+      with open(pickle_path, 'rb') as f:
+        sp = pickle.load(f)
 
-    id2 = sp.encode('hello world.', return_type=int)
+      id2 = sp.encode('hello world.', return_type=int)
 
-    self.assertEqual(id1, id2)
+      self.assertEqual(id1, id2)
+
+  def test_pickle_keeps_options(self):
+    sp = spm.SentencePieceProcessor(
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model'),
+        add_bos=True,
+        add_eos=True,
+        out_type=str,
+    )
+    expected = sp.encode('hello world.')
+    self.assertEqual(pickle.loads(pickle.dumps(sp)).encode('hello world.'), expected)
+    self.assertEqual(copy.deepcopy(sp).encode('hello world.'), expected)
+
+    sub_sp = _ProcessorWithArg(
+        my_arg='custom_value',
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model'),
+        add_bos=True,
+        add_eos=True,
+        out_type=str,
+    )
+    cloned = pickle.loads(pickle.dumps(sub_sp))
+    self.assertIsInstance(cloned, _ProcessorWithArg)
+    self.assertEqual(cloned.encode('hello world.'), expected)
+    self.assertEqual(cloned.my_arg, 'custom_value')
+
+  def test_unpickle_model_only_state(self):
+    # Pickles from older versions store only the serialized model.
+    sp = spm.SentencePieceProcessor.__new__(spm.SentencePieceProcessor)
+    sp.__setstate__(self.sp_.serialized_model_proto())
+    self.assertEqual(
+        sp.encode('hello world.'), self.sp_.encode('hello world.', return_type=int)
+    )
 
   def test_global_params(self):
     spm.SetRandomGeneratorSeed(0)
@@ -1023,7 +1260,7 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
   def test_normalize(self):
     sp = spm.SentencePieceProcessor(
-        model_file=os.path.join(HERE, 'test_model.model')
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model')
     )
 
     self.assertEqual('▁KADOKAWAABC', sp.normalize('ＫＡＤＯＫＡＷＡABC'))
@@ -1065,8 +1302,10 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual([0, 0, 0, 1], x[1][1])
 
   def test_normalizer(self):
+    # Raw normalization: disable whitespace handling explicitly.
     sp = spm.SentencePieceNormalizer(
-        model_file=os.path.join(HERE, 'test_model.model')
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model'),
+        **RAW_NORMALIZER_FLAGS,
     )
 
     self.assertEqual('KADOKAWAABC', sp.normalize('ＫＡＤＯＫＡＷＡABC'))
@@ -1103,7 +1342,7 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual([0, 0, 1], x[1][1])
 
     sp = spm.SentencePieceNormalizer(
-        model_file=os.path.join(HERE, 'test_model.model'),
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model'),
         add_dummy_prefix=True,
         escape_whitespaces=True,
         remove_extra_whitespaces=False,
@@ -1111,7 +1350,7 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual('▁hello▁▁world', sp.normalize('hello  world'))
 
     sp = spm.SentencePieceNormalizer(
-        model_file=os.path.join(HERE, 'test_model.model'),
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model'),
         add_dummy_prefix=True,
         escape_whitespaces=True,
         remove_extra_whitespaces=True,
@@ -1119,18 +1358,75 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual('▁hello▁world', sp.normalize('  hello  world  '))
 
     sp = spm.SentencePieceNormalizer(
-        model_file=os.path.join(HERE, 'test_model.model'),
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model'),
         add_dummy_prefix=False,
         escape_whitespaces=False,
         remove_extra_whitespaces=True,
     )
     self.assertEqual('hello world', sp.normalize('  hello  world  '))
 
+    # Partial override: only add_dummy_prefix is changed; the other flags
+    # keep the model's values.
+    sp = spm.SentencePieceNormalizer(
+        model_file=os.path.join(HERE, 'botchan_en_unigram_1000.model'),
+        add_dummy_prefix=False,
+    )
+    self.assertEqual('hello▁world', sp.normalize('  hello  world  '))
+
+  def test_normalizer_default_flags_follow_spec(self):
+    model_file = os.path.join(HERE, 'botchan_en_unigram_1000.model')
+
+    # Without explicit flags, the normalizer reproduces the model's
+    # normalization, i.e., the same result as SentencePieceProcessor.
+    norm = spm.SentencePieceNormalizer(model_file=model_file)
+    proc = spm.SentencePieceProcessor(model_file=model_file)
+    self.assertEqual('▁hello▁world', norm.normalize('  hello  world  '))
+    for text in ['ＫＡＤＯＫＡＷＡABC', '㍻', '  hello  world  ']:
+      self.assertEqual(proc.normalize(text), norm.normalize(text))
+      self.assertEqual(
+          proc.normalize(text, with_offsets=True),
+          norm.normalize(text, with_offsets=True),
+      )
+
+    # The loaded spec survives a round trip unchanged.
+    with open(model_file, 'rb') as f:
+      m = spm.SentencePieceNormalizer(model_proto=f.read())
+    spec = m.serialized_normalizer_spec()
+    self.assertEqual(
+        spec,
+        spm.SentencePieceNormalizer(
+            normalizer_spec=spec
+        ).serialized_normalizer_spec(),
+    )
+
+    # Explicit flags are written into the spec.
+    raw = spm.SentencePieceNormalizer(
+        normalizer_spec=spec, **RAW_NORMALIZER_FLAGS
+    )
+    self.assertNotEqual(spec, raw.serialized_normalizer_spec())
+    self.assertEqual(
+        raw.serialized_normalizer_spec(),
+        spm.SentencePieceNormalizer(
+            normalizer_spec=raw.serialized_normalizer_spec()
+        ).serialized_normalizer_spec(),
+    )
+
   def test_normalizer_rule(self):
+    # rule_name builds a new spec, so the proto defaults (true) apply.
     sp = spm.SentencePieceNormalizer(rule_name='identity')
-    self.assertEqual('ＡＢＣ', sp.Normalize('ＡＢＣ'))
+    self.assertEqual('▁ＡＢＣ', sp.Normalize('ＡＢＣ'))
 
     sp = spm.SentencePieceNormalizer(rule_name='nfkc_cf')
+    self.assertEqual('▁abc', sp.Normalize('ＡＢＣ'))
+
+    sp = spm.SentencePieceNormalizer(
+        rule_name='identity', **RAW_NORMALIZER_FLAGS
+    )
+    self.assertEqual('ＡＢＣ', sp.Normalize('ＡＢＣ'))
+
+    sp = spm.SentencePieceNormalizer(
+        rule_name='nfkc_cf', **RAW_NORMALIZER_FLAGS
+    )
     self.assertEqual('abc', sp.Normalize('ＡＢＣ'))
 
   def test_normalizer_map(self):
@@ -1139,6 +1435,9 @@ class TestSentencepieceProcessor(unittest.TestCase):
         ('apple', 'orange'),
     ]
     sp = spm.SentencePieceNormalizer(norm_map=norm_map)
+    self.assertEqual('▁bar▁orange', sp.Normalize('  foo  apple '))
+
+    sp = spm.SentencePieceNormalizer(norm_map=norm_map, **RAW_NORMALIZER_FLAGS)
     self.assertEqual('bar', sp.Normalize('foo'))
     self.assertEqual('orange', sp.Normalize('apple'))
     self.assertEqual('banana', sp.Normalize('banana'))
@@ -1152,105 +1451,137 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual('bar', decompiled[1][1])
 
     # Test invalid UTF-8, empty source, identity conversion, and duplicate keys.
-    self.assertRaises(ValueError, spm.SentencePieceNormalizer, norm_map=[(b'\xFF', b'bar')])
-    self.assertRaises(ValueError, spm.SentencePieceNormalizer, norm_map=[(b'foo', b'\xFF')])
-    self.assertRaises(ValueError, spm.SentencePieceNormalizer, norm_map=[('', 'bar')])
-    self.assertRaises(ValueError, spm.SentencePieceNormalizer, norm_map=[(b'', b'bar')])
-    self.assertRaises(ValueError, spm.SentencePieceNormalizer, norm_map=[('foo', 'foo')])
-    self.assertRaises(ValueError, spm.SentencePieceNormalizer, norm_map=[(b'foo', b'foo')])
-    self.assertRaises(ValueError, spm.SentencePieceNormalizer, norm_map=[('foo', 'bar'), ('foo', 'baz')])
-    self.assertRaises(ValueError, spm.SentencePieceNormalizer, norm_map=[(b'foo', b'bar'), (b'foo', b'baz')])
+    self.assertRaises(
+        ValueError, spm.SentencePieceNormalizer, norm_map=[(b'\xFF', b'bar')]
+    )
+    self.assertRaises(
+        ValueError, spm.SentencePieceNormalizer, norm_map=[(b'foo', b'\xFF')]
+    )
+    self.assertRaises(
+        ValueError, spm.SentencePieceNormalizer, norm_map=[('', 'bar')]
+    )
+    self.assertRaises(
+        ValueError, spm.SentencePieceNormalizer, norm_map=[(b'', b'bar')]
+    )
+    self.assertRaises(
+        ValueError, spm.SentencePieceNormalizer, norm_map=[('foo', 'foo')]
+    )
+    self.assertRaises(
+        ValueError, spm.SentencePieceNormalizer, norm_map=[(b'foo', b'foo')]
+    )
+    self.assertRaises(
+        ValueError,
+        spm.SentencePieceNormalizer,
+        norm_map=[('foo', 'bar'), ('foo', 'baz')],
+    )
+    self.assertRaises(
+        ValueError,
+        spm.SentencePieceNormalizer,
+        norm_map=[(b'foo', b'bar'), (b'foo', b'baz')],
+    )
 
   def test_trainer_with_normalizer(self):
-    tid = threading.get_native_id()
-    norm_map = [
-        ('foo', 'bar'),
-        ('apple', 'orange'),
-    ]
-    normalizer = spm.SentencePieceNormalizer(norm_map=norm_map, add_dummy_prefix=False, escape_whitespaces=True)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      norm_map = [
+          ('foo', 'bar'),
+          ('apple', 'orange'),
+      ]
+      normalizer = spm.SentencePieceNormalizer(
+          norm_map=norm_map, add_dummy_prefix=False, escape_whitespaces=True
+      )
+      model_prefix = os.path.join(tmp_dir, 'm')
 
-    spm.SentencePieceTrainer.Train(
-        input=os.path.join(data_dir, 'botchan.txt'),
-        model_prefix=f'm_{tid}',
-        vocab_size=100,
-        normalizer=normalizer
-    )
-
-    sp_norm = spm.SentencePieceNormalizer(model_file=f'm_{tid}.model')
-    self.assertEqual('bar', sp_norm.Normalize('foo'))
-    self.assertEqual('orange', sp_norm.Normalize('apple'))
-
-    sp = spm.SentencePieceProcessor()
-    self.assertTrue(sp.Load(f'm_{tid}.model'))
-    pieces = sp.EncodeAsPieces('foo')
-    self.assertTrue(len(pieces) > 0)
-    self.assertNotEqual(pieces[0][0], '\u2581')
-
-    # Test conflict error
-    with self.assertRaises(ValueError):
       spm.SentencePieceTrainer.Train(
           input=os.path.join(data_dir, 'botchan.txt'),
-          model_prefix=f'm_{tid}_override',
+          model_prefix=model_prefix,
           vocab_size=100,
           normalizer=normalizer,
-          add_dummy_prefix=True
       )
 
-  def test_override_normalize_spec(self):
-    sp = spm.SentencePieceProcessor(
-        model_file=os.path.join(HERE, 'test_model.model')
-    )
+      sp_norm = spm.SentencePieceNormalizer(model_file=f'{model_prefix}.model')
+      self.assertEqual('bar', sp_norm.Normalize('foo'))
+      self.assertEqual('orange', sp_norm.Normalize('apple'))
 
-    self.assertEqual(
-        sp.EncodeAsPieces(' hello  world '), ['▁he', 'll', 'o', '▁world']
-    )
+      sp = spm.SentencePieceProcessor()
+      self.assertTrue(sp.Load(f'{model_prefix}.model'))
+      pieces = sp.EncodeAsPieces('foo')
+      self.assertTrue(len(pieces) > 0)
+      self.assertNotEqual(pieces[0][0], '\u2581')
 
-    sp.override_normalizer_spec(add_dummy_prefix=False)
-    sp.override_normalizer_spec(remove_extra_whitespaces=False)
-    sp.override_normalizer_spec(escape_whitespaces=False)
-    self.assertEqual(
-        sp.EncodeAsPieces(' hello  world '),
-        [' ', 'he', 'll', 'o', '  ', 'w', 'or', 'l', 'd', ' '],
-    )
+      # A normalizer without explicit flags keeps the spec defaults and can
+      # be used for training (it used to fail because escape_whitespaces was
+      # forced to False).
+      spm.SentencePieceTrainer.Train(
+          input=os.path.join(data_dir, 'botchan.txt'),
+          model_prefix=os.path.join(tmp_dir, 'm_default'),
+          vocab_size=100,
+          normalizer=spm.SentencePieceNormalizer(norm_map=norm_map),
+      )
+      sp_norm = spm.SentencePieceNormalizer(
+          model_file=os.path.join(tmp_dir, 'm_default.model')
+      )
+      self.assertEqual('▁bar▁orange', sp_norm.Normalize('foo apple'))
 
+      # Test conflict error
+      with self.assertRaises(ValueError):
+        spm.SentencePieceTrainer.Train(
+            input=os.path.join(data_dir, 'botchan.txt'),
+            model_prefix=os.path.join(tmp_dir, 'm_override'),
+            vocab_size=100,
+            normalizer=normalizer,
+            add_dummy_prefix=True,
+        )
+
+  def test_offset_mapping_empty_batch(self):
+    sp = self.sp_
+    # Every other return_type gives [] for an empty batch. offset_mapping used to
+    # leak the empty list into a bool parameter and raise TypeError.
+    self.assertEqual(sp.encode([], return_type='offset_mapping'), [])
+    self.assertEqual(sp.encode([], return_type='offset_mapping', return_bytes=True), [])
+    self.assertEqual(sp.encode([], return_type='offset_mapping', return_bytes=False), [])
+    self.assertEqual(sp.encode([], out_type='offset_mapping'), [])
+    self.assertEqual(sp.encode([], return_type=int), [])
+    self.assertEqual(sp.encode([], return_type=str), [])
+
+  @unittest.skipUnless(has_protobuf, 'protobuf is not installed')
   def test_offset_mapping(self):
     sp = self.sp_
-    
+
     # helper to compute expected offsets from proto in python
     def get_expected_offsets(text, proto):
       expected = []
       text_bytes = text.encode('utf-8')
       for p in proto.pieces:
-        start_char = len(text_bytes[:p.begin].decode('utf-8'))
-        end_char = len(text_bytes[:p.end].decode('utf-8'))
+        start_char = len(text_bytes[: p.begin].decode('utf-8'))
+        end_char = len(text_bytes[: p.end].decode('utf-8'))
         expected.append((start_char, end_char))
       return expected
 
     # 1. Test single text with ASCII characters
-    text = "hello world"
+    text = 'hello world'
     res = sp.encode(text, return_type='offset_mapping')
     self.assertIsInstance(res, dict)
     self.assertIn('ids', res)
     self.assertIn('pieces', res)
     self.assertIn('offsets', res)
-    
+
     self.assertEqual(len(res['ids']), len(res['pieces']))
     self.assertEqual(len(res['ids']), len(res['offsets']))
-    
+
     proto = sp.encode(text, return_type='proto')
     expected = get_expected_offsets(text, proto)
     self.assertEqual(res['offsets'], expected)
-    
+
     for (start, end), p in zip(res['offsets'], proto.pieces):
       self.assertEqual(text[start:end], p.surface)
 
     # 2. Test multi-byte Unicode characters (East Asian + Emojis)
-    unicode_text = "😊吾輩は猫である。😊"
+    unicode_text = '😊吾輩は猫である。😊'
     res_unicode = sp.encode(unicode_text, return_type='offset_mapping')
     proto_unicode = sp.encode(unicode_text, return_type='proto')
     expected_unicode = get_expected_offsets(unicode_text, proto_unicode)
     self.assertEqual(res_unicode['offsets'], expected_unicode)
-    
+
     for (start, end), p in zip(res_unicode['offsets'], proto_unicode.pieces):
       self.assertEqual(unicode_text[start:end], p.surface)
 
@@ -1263,14 +1594,18 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual(res_unicode, res_helper)
 
     # 5. Test batch encoding
-    texts = ["hello world", "😊吾輩は猫である。😊"]
+    texts = ['hello world', '😊吾輩は猫である。😊']
     res_batch = sp.encode(texts, return_type='offset_mapping')
     self.assertIsInstance(res_batch, list)
     self.assertEqual(len(res_batch), 2)
-    self.assertEqual(res_batch[0], sp.encode(texts[0], return_type='offset_mapping'))
-    self.assertEqual(res_batch[1], sp.encode(texts[1], return_type='offset_mapping'))
+    self.assertEqual(
+        res_batch[0], sp.encode(texts[0], return_type='offset_mapping')
+    )
+    self.assertEqual(
+        res_batch[1], sp.encode(texts[1], return_type='offset_mapping')
+    )
     # 6. Test bytes input (should return raw byte offsets directly)
-    byte_text = "😊吾輩は猫である。😊".encode('utf-8')
+    byte_text = '😊吾輩は猫である。😊'.encode('utf-8')
     res_bytes = sp.encode(byte_text, return_type='offset_mapping')
     proto_bytes = sp.encode(byte_text, return_type='proto')
 
@@ -1285,23 +1620,36 @@ class TestSentencepieceProcessor(unittest.TestCase):
     for (start, end), p in zip(res_bytes['offsets'], proto_bytes.pieces):
       self.assertEqual(byte_text[start:end], p.surface.encode('utf-8'))
 
+    # 7. add_bos, add_eos, reverse, emit_unk_piece are not supported in offset_mapping
+    for kw in (
+        {'add_bos': True},
+        {'add_eos': True},
+        {'reverse': True},
+        {'emit_unk_piece': True},
+    ):
+      with self.assertRaises(RuntimeError):
+        sp.encode(text, return_type='offset_mapping', **kw)
+      with self.assertRaises(RuntimeError):
+        sp.encode([text], return_type='offset_mapping', **kw)
+
+  @unittest.skipUnless(has_protobuf, 'protobuf is not installed')
   def test_decode_offset_mapping(self):
     sp = self.sp_
-    
+
     # helper to compute expected offsets from proto in python
     def get_expected_offsets(text, proto):
       expected = []
       text_bytes = text.encode('utf-8')
       for p in proto.pieces:
-        start_char = len(text_bytes[:p.begin].decode('utf-8'))
-        end_char = len(text_bytes[:p.end].decode('utf-8'))
+        start_char = len(text_bytes[: p.begin].decode('utf-8'))
+        end_char = len(text_bytes[: p.end].decode('utf-8'))
         expected.append((start_char, end_char))
       return expected
 
     # We start with some IDs
-    text = "hello world"
+    text = 'hello world'
     ids = sp.encode(text)
-    
+
     # 1. Test decode IDs to offset mapping (default: return_bytes=False -> Unicode offsets)
     res = sp.decode(ids, return_type='offset_mapping')
     self.assertIsInstance(res, dict)
@@ -1310,16 +1658,16 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertIn('pieces', res)
     self.assertIn('offsets', res)
     self.assertEqual(res['ids'], ids)
-    
+
     decoded_text = sp.decode(ids)
     self.assertEqual(res['text'], decoded_text)
-    
+
     # We can compare against proto
     proto = sp.decode(ids, return_type='proto')
     decoded_text = sp.decode(ids)
     expected = get_expected_offsets(decoded_text, proto)
     self.assertEqual(res['offsets'], expected)
-    
+
     for (start, end), p in zip(res['offsets'], proto.pieces):
       self.assertEqual(decoded_text[start:end], p.surface)
 
@@ -1336,12 +1684,35 @@ class TestSentencepieceProcessor(unittest.TestCase):
     for (start, end), p in zip(res_bytes['offsets'], proto.pieces):
       self.assertEqual(decoded_bytes[start:end], p.surface.encode('utf-8'))
 
-    # 3. Test decode pieces to offset mapping
+    # 3. Test decode pieces to offset mapping (and tuple of pieces)
     pieces_str = sp.encode(text, return_type=str)
     res_pieces = sp.decode(pieces_str, return_type='offset_mapping')
     self.assertEqual(res['offsets'], res_pieces['offsets'])
     self.assertEqual(res['pieces'], res_pieces['pieces'])
-    
+    self.assertEqual(sp.decode(tuple(pieces_str)), decoded_text)
+    self.assertEqual(
+        sp.decode(tuple(pieces_str), return_type=bytes), decoded_bytes
+    )
+    self.assertEqual(
+        sp.decode(tuple(pieces_str), return_type='serialized_proto'),
+        sp.decode(pieces_str, return_type='serialized_proto'),
+    )
+    self.assertEqual(
+        sp.decode([tuple(pieces_str), tuple(pieces_str)]),
+        [decoded_text, decoded_text],
+    )
+    self.assertEqual(
+        sp.decode((tuple(pieces_str), tuple(pieces_str))),
+        [decoded_text, decoded_text],
+    )
+    self.assertEqual(
+        sp.decode([tuple(pieces_str)], return_type=bytes), [decoded_bytes]
+    )
+    self.assertEqual(
+        sp.decode([tuple(pieces_str)], return_type='serialized_proto'),
+        sp.decode([pieces_str], return_type='serialized_proto'),
+    )
+
     pieces_bytes = [p.encode('utf-8') for p in pieces_str]
     res_pieces_bytes = sp.decode(pieces_bytes, return_type='offset_mapping')
     # Because input was bytes, it should automatically return bytes offsets/pieces
@@ -1349,46 +1720,71 @@ class TestSentencepieceProcessor(unittest.TestCase):
     self.assertEqual(res_bytes['pieces'], res_pieces_bytes['pieces'])
 
     # 4. Test batch decode
-    ids_batch = [sp.encode("hello world"), sp.encode("吾輩は猫である")]
+    ids_batch = [sp.encode('hello world'), sp.encode('吾輩は猫である')]
     res_batch = sp.decode(ids_batch, return_type='offset_mapping')
     self.assertIsInstance(res_batch, list)
     self.assertEqual(len(res_batch), 2)
-    self.assertEqual(res_batch[0], sp.decode(ids_batch[0], return_type='offset_mapping'))
-    self.assertEqual(res_batch[1], sp.decode(ids_batch[1], return_type='offset_mapping'))
+    self.assertEqual(
+        res_batch[0], sp.decode(ids_batch[0], return_type='offset_mapping')
+    )
+    self.assertEqual(
+        res_batch[1], sp.decode(ids_batch[1], return_type='offset_mapping')
+    )
 
     # 5. Test batch decode with return_bytes=True
-    res_batch_bytes = sp.decode(ids_batch, return_type='offset_mapping', return_bytes=True)
-    self.assertEqual(res_batch_bytes[0], sp.decode(ids_batch[0], return_type='offset_mapping', return_bytes=True))
-    self.assertEqual(res_batch_bytes[1], sp.decode(ids_batch[1], return_type='offset_mapping', return_bytes=True))
+    res_batch_bytes = sp.decode(
+        ids_batch, return_type='offset_mapping', return_bytes=True
+    )
+    self.assertEqual(
+        res_batch_bytes[0],
+        sp.decode(
+            ids_batch[0], return_type='offset_mapping', return_bytes=True
+        ),
+    )
+    self.assertEqual(
+        res_batch_bytes[1],
+        sp.decode(
+            ids_batch[1], return_type='offset_mapping', return_bytes=True
+        ),
+    )
 
   def test_decode_return_type_bytes(self):
     sp = self.sp_
-    text = "hello world"
+    text = 'hello world'
     ids = sp.encode(text)
     pieces_str = sp.encode(text, return_type=str)
     pieces_bytes = [p.encode('utf-8') for p in pieces_str]
 
     # 1. Single ID input
     self.assertEqual(sp.decode(ids, return_type=bytes), text.encode('utf-8'))
-    
+
     # 2. Pieces input (str pieces) -> forces bytes output
-    self.assertEqual(sp.decode(pieces_str, return_type=bytes), text.encode('utf-8'))
+    self.assertEqual(
+        sp.decode(pieces_str, return_type=bytes), text.encode('utf-8')
+    )
 
     # 3. Pieces input (bytes pieces) -> forces bytes output
-    self.assertEqual(sp.decode(pieces_bytes, return_type=bytes), text.encode('utf-8'))
+    self.assertEqual(
+        sp.decode(pieces_bytes, return_type=bytes), text.encode('utf-8')
+    )
 
     # 4. Batch ID input
-    ids2 = sp.encode("吾輩は猫である")
+    ids2 = sp.encode('吾輩は猫である')
     text2 = sp.decode(ids2)
     ids_batch = [ids, ids2]
     expected_batch = [text.encode('utf-8'), text2.encode('utf-8')]
     self.assertEqual(sp.decode(ids_batch, return_type=bytes), expected_batch)
 
     # 5. Batch pieces input (str pieces)
-    pieces_str2 = sp.encode("吾輩は猫である", return_type=str)
+    pieces_str2 = sp.encode('吾輩は猫である', return_type=str)
     pieces_str_batch = [pieces_str, pieces_str2]
-    expected_pieces_batch = [text.encode('utf-8'), sp.decode(pieces_str2).encode('utf-8')]
-    self.assertEqual(sp.decode(pieces_str_batch, return_type=bytes), expected_pieces_batch)
+    expected_pieces_batch = [
+        text.encode('utf-8'),
+        sp.decode(pieces_str2).encode('utf-8'),
+    ]
+    self.assertEqual(
+        sp.decode(pieces_str_batch, return_type=bytes), expected_pieces_batch
+    )
 
     # 6. Invalid return_bytes combinations in Decode
     with self.assertRaises(ValueError):
@@ -1400,13 +1796,18 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
   def test_legacy_out_type_compat(self):
     sp = self.sp_
-    text = "hello world"
+    text = 'hello world'
     ids = sp.encode(text)
-    
+
     # out_type works as alias for return_type
     self.assertEqual(sp.encode(text, out_type=int), ids)
     self.assertEqual(sp.decode(ids, out_type=str), text)
-    
+    pieces = sp.encode(text, out_type=str)
+    self.assertEqual(sp.DecodeIds(ids, out_type=bytes), text.encode('utf-8'))
+    self.assertEqual(
+        sp.decode_pieces(pieces, out_type=bytes), text.encode('utf-8')
+    )
+
     # Cannot specify both
     with self.assertRaises(ValueError):
       sp.encode(text, return_type=int, out_type=int)
@@ -1414,90 +1815,147 @@ class TestSentencepieceProcessor(unittest.TestCase):
       sp.decode(ids, return_type=str, out_type=str)
 
   def test_normalizer_rule_tsv(self):
-    import tempfile
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.tsv') as f:
+    with tempfile.NamedTemporaryFile(
+        mode='w', delete=False, suffix='.tsv'
+    ) as f:
       # Map 'A' (0041) to 'B' (0042)
-      f.write("0041\t0042\n")
+      f.write('0041\t0042\n')
       tsv_path = f.name
-      
+
     try:
       sp = spm.SentencePieceNormalizer(rule_tsv=tsv_path)
+      self.assertEqual('▁BBB', sp.normalize('AAA'))
+      sp = spm.SentencePieceNormalizer(
+          rule_tsv=tsv_path, **RAW_NORMALIZER_FLAGS
+      )
       self.assertEqual('BBB', sp.normalize('AAA'))
       self.assertEqual('BBB', sp.normalize('ABA'))
     finally:
       os.unlink(tsv_path)
 
   def test_normalizer_model_proto(self):
-    model_path = os.path.join(HERE, 'test_model.model')
+    model_path = os.path.join(HERE, 'botchan_en_unigram_1000.model')
     with open(model_path, 'rb') as f:
       model_proto = f.read()
-      
+
     sp = spm.SentencePieceNormalizer(model_proto=model_proto)
+    self.assertEqual('▁KADOKAWAABC', sp.normalize('ＫＡＤＯＫＡＷＡABC'))
+    sp = spm.SentencePieceNormalizer(
+        model_proto=model_proto, **RAW_NORMALIZER_FLAGS
+    )
     self.assertEqual('KADOKAWAABC', sp.normalize('ＫＡＤＯＫＡＷＡABC'))
+
+  def test_normalizer_normalizer_spec(self):
+    spec = spm.SentencePieceNormalizer(
+        rule_name='nfkc_cf').serialized_normalizer_spec()
+    sp = spm.SentencePieceNormalizer(normalizer_spec=spec)
+    self.assertEqual('▁abc', sp.normalize('ＡＢＣ'))
+
+    # Flags set on the source normalizer are carried by the spec.
+    raw_spec = spm.SentencePieceNormalizer(
+        rule_name='nfkc_cf', **RAW_NORMALIZER_FLAGS
+    ).serialized_normalizer_spec()
+    sp = spm.SentencePieceNormalizer(normalizer_spec=raw_spec)
+    self.assertEqual('abc', sp.normalize('ＡＢＣ'))
 
   def test_encode_return_type_explicit(self):
     sp = self.sp_
-    text_str = "hello world"
-    text_bytes = b"hello world"
-    
+    text_str = 'hello world'
+    text_bytes = b'hello world'
+
     # Expected pieces (as str)
     pieces_str = sp.encode(text_str, return_type=str)
     self.assertTrue(all(isinstance(p, str) for p in pieces_str))
-    
+
     # Expected pieces (as bytes)
     pieces_bytes = [p.encode('utf-8') for p in pieces_str]
-    
+
     # 1. return_type=str always returns str
     self.assertEqual(sp.encode(text_str, return_type=str), pieces_str)
     self.assertEqual(sp.encode(text_bytes, return_type=str), pieces_str)
-    
+
     # 2. return_type=bytes always returns bytes
     self.assertEqual(sp.encode(text_str, return_type=bytes), pieces_bytes)
     self.assertEqual(sp.encode(text_bytes, return_type=bytes), pieces_bytes)
-    
+
     # 3. Batch versions
-    self.assertEqual(sp.encode([text_str, text_str], return_type=str), [pieces_str, pieces_str])
-    self.assertEqual(sp.encode([text_bytes, text_bytes], return_type=str), [pieces_str, pieces_str])
-    self.assertEqual(sp.encode([text_str, text_str], return_type=bytes), [pieces_bytes, pieces_bytes])
-    self.assertEqual(sp.encode([text_bytes, text_bytes], return_type=bytes), [pieces_bytes, pieces_bytes])
+    self.assertEqual(
+        sp.encode([text_str, text_str], return_type=str),
+        [pieces_str, pieces_str],
+    )
+    self.assertEqual(
+        sp.encode([text_bytes, text_bytes], return_type=str),
+        [pieces_str, pieces_str],
+    )
+    self.assertEqual(
+        sp.encode([text_str, text_str], return_type=bytes),
+        [pieces_bytes, pieces_bytes],
+    )
+    self.assertEqual(
+        sp.encode([text_bytes, text_bytes], return_type=bytes),
+        [pieces_bytes, pieces_bytes],
+    )
 
     # 4. NBestEncode
     nbest_str = sp.nbest_encode(text_str, nbest_size=5, return_type=str)
     self.assertTrue(all(isinstance(p, str) for res in nbest_str for p in res))
     nbest_bytes = sp.nbest_encode(text_str, nbest_size=5, return_type=bytes)
-    self.assertTrue(all(isinstance(p, bytes) for res in nbest_bytes for p in res))
-    self.assertEqual([[p.decode('utf-8') for p in res] for res in nbest_bytes], nbest_str)
+    self.assertTrue(
+        all(isinstance(p, bytes) for res in nbest_bytes for p in res)
+    )
+    self.assertEqual(
+        [[p.decode('utf-8') for p in res] for res in nbest_bytes], nbest_str
+    )
 
     # 5. ParallelEncode
-    parallel_str = sp.parallel_encode([text_str], chunk_len=5, num_threads=2, return_type=str)[0]
+    parallel_str = sp.parallel_encode(
+        [text_str], chunk_len=5, num_threads=2, return_type=str
+    )[0]
     self.assertTrue(all(isinstance(p, str) for p in parallel_str))
-    parallel_bytes = sp.parallel_encode([text_str], chunk_len=5, num_threads=2, return_type=bytes)[0]
+    parallel_bytes = sp.parallel_encode(
+        [text_str], chunk_len=5, num_threads=2, return_type=bytes
+    )[0]
     self.assertTrue(all(isinstance(p, bytes) for p in parallel_bytes))
     self.assertEqual([p.decode('utf-8') for p in parallel_bytes], parallel_str)
     # 6. Offset Mapping with explicit return_bytes
     # Default behavior (None) matches input type
     om_default_str = sp.encode(text_str, return_type='offset_mapping')
     self.assertTrue(all(isinstance(p, str) for p in om_default_str['pieces']))
-    self.assertTrue(all(isinstance(o[0], int) and isinstance(o[1], int) for o in om_default_str['offsets']))
+    self.assertTrue(
+        all(
+            isinstance(o[0], int) and isinstance(o[1], int)
+            for o in om_default_str['offsets']
+        )
+    )
 
     om_default_bytes = sp.encode(text_bytes, return_type='offset_mapping')
-    self.assertTrue(all(isinstance(p, bytes) for p in om_default_bytes['pieces']))
+    self.assertTrue(
+        all(isinstance(p, bytes) for p in om_default_bytes['pieces'])
+    )
 
     # Force bytes on str input
-    om_force_bytes = sp.encode(text_str, return_type='offset_mapping', return_bytes=True)
+    om_force_bytes = sp.encode(
+        text_str, return_type='offset_mapping', return_bytes=True
+    )
     self.assertTrue(all(isinstance(p, bytes) for p in om_force_bytes['pieces']))
     self.assertEqual(om_force_bytes['pieces'], om_default_bytes['pieces'])
     self.assertEqual(om_force_bytes['offsets'], om_default_bytes['offsets'])
 
     # Force str on bytes input
-    om_force_str = sp.encode(text_bytes, return_type='offset_mapping', return_bytes=False)
+    om_force_str = sp.encode(
+        text_bytes, return_type='offset_mapping', return_bytes=False
+    )
     self.assertTrue(all(isinstance(p, str) for p in om_force_str['pieces']))
     self.assertEqual(om_force_str['pieces'], om_default_str['pieces'])
     self.assertEqual(om_force_str['offsets'], om_default_str['offsets'])
 
     # Batch version of force bytes/str
-    om_batch_force_bytes = sp.encode([text_str], return_type='offset_mapping', return_bytes=True)[0]
-    self.assertTrue(all(isinstance(p, bytes) for p in om_batch_force_bytes['pieces']))
+    om_batch_force_bytes = sp.encode(
+        [text_str], return_type='offset_mapping', return_bytes=True
+    )[0]
+    self.assertTrue(
+        all(isinstance(p, bytes) for p in om_batch_force_bytes['pieces'])
+    )
 
     # 7. Invalid return_bytes combinations
     with self.assertRaises(ValueError):
@@ -1514,10 +1972,10 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
     # Single
     self.assertEqual(sp.PieceToId(valid_pieces[0]), valid_ids[0])
-    self.assertEqual(sp.PieceToId("unknown_piece_xyz"), 0)
+    self.assertEqual(sp.PieceToId('unknown_piece_xyz'), 0)
 
     # Batch list
-    pieces_list = valid_pieces + ["unknown_piece_xyz"]
+    pieces_list = valid_pieces + ['unknown_piece_xyz']
     ids = sp.PieceToId(pieces_list)
     self.assertIsInstance(ids, list)
     self.assertEqual(ids[:-1], valid_ids)
@@ -1535,7 +1993,7 @@ class TestSentencepieceProcessor(unittest.TestCase):
     with self.assertRaises(TypeError):
       sp.PieceToId([123])
     with self.assertRaises(TypeError):
-      sp.PieceToId(["a", 123])
+      sp.PieceToId(['a', 123])
 
   def test_native_batch_id_to_piece(self):
     sp = self.sp_
@@ -1567,20 +2025,14 @@ class TestSentencepieceProcessor(unittest.TestCase):
 
     # Type error
     with self.assertRaises(TypeError):
-      sp.IdToPiece("a")
+      sp.IdToPiece('a')
     with self.assertRaises(TypeError):
-      sp.IdToPiece(["a"])
+      sp.IdToPiece(['a'])
 
   def test_native_batch_other_id_methods(self):
     sp = self.sp_
     vocab_size = sp.vocab_size()
-    methods = [
-        sp.GetScore,
-        sp.IsUnknown,
-        sp.IsControl,
-        sp.IsUnused,
-        sp.IsByte
-    ]
+    methods = [sp.GetScore, sp.IsUnknown, sp.IsControl, sp.IsUnused, sp.IsByte]
     for method in methods:
       # Single
       res = method(0)
@@ -1588,18 +2040,108 @@ class TestSentencepieceProcessor(unittest.TestCase):
         method(-1)
       with self.assertRaises(IndexError):
         method(vocab_size)
-      
+
       # Batch list
       res_batch = method([0, 1, 2])
       self.assertIsInstance(res_batch, list)
       self.assertEqual(len(res_batch), 3)
       with self.assertRaises(IndexError):
         method([0, -1])
-          
+
       # Batch tuple
       res_tuple = method((0, 1))
       self.assertIsInstance(res_tuple, list)
       self.assertEqual(len(res_tuple), 2)
+
+  def test_convert_to_flatbuffer(self):
+    unigram_path = os.path.join(data_dir, 'botchan_en_unigram_1000.model')
+    bpe_path = os.path.join(data_dir, 'botchan_en_bpe_1000.model')
+
+    with open(unigram_path, 'rb') as f:
+      unigram_serialized = f.read()
+
+    # 1. model_file -> bytes (both CamelCase and snake_case)
+    fb_from_file = spm.ConvertToFlatbuffer(model_file=unigram_path)
+    self.assertIsInstance(fb_from_file, bytes)
+    self.assertGreater(len(fb_from_file), 0)
+    self.assertEqual(
+        fb_from_file, spm.convert_to_flatbuffer(model_file=unigram_path)
+    )
+
+    # 2. serialized_model_proto -> bytes
+    fb_from_serialized = spm.convert_to_flatbuffer(
+        serialized_model_proto=unigram_serialized
+    )
+    self.assertEqual(fb_from_file, fb_from_serialized)
+
+    # 3. model_proto (bytes or ModelProto object) -> bytes
+    self.assertEqual(
+        fb_from_file, spm.convert_to_flatbuffer(model_proto=unigram_serialized)
+    )
+    if has_protobuf:
+      from sentencepiece import sentencepiece_model_pb2
+
+      mp = sentencepiece_model_pb2.ModelProto()
+      mp.ParseFromString(unigram_serialized)
+      self.assertEqual(fb_from_file, spm.convert_to_flatbuffer(model_proto=mp))
+
+    # 4. skip_char_bigrams option reduces FlatBuffer size on Unigram models
+    fb_no_bigrams = spm.convert_to_flatbuffer(
+        model_file=unigram_path, skip_char_bigrams=True
+    )
+    self.assertIsInstance(fb_no_bigrams, bytes)
+    self.assertLess(len(fb_no_bigrams), len(fb_from_file))
+
+    # 5. BPE model conversion
+    fb_bpe = spm.convert_to_flatbuffer(model_file=bpe_path)
+    self.assertIsInstance(fb_bpe, bytes)
+    self.assertGreater(len(fb_bpe), 0)
+
+    # 6. output_file writes to disk and returns None
+    with tempfile.TemporaryDirectory() as tmp_dir:
+      out_path = os.path.join(tmp_dir, 'out.spm.fb')
+      ret = spm.convert_to_flatbuffer(
+          model_file=unigram_path, output_file=out_path
+      )
+      self.assertIsNone(ret)
+      with open(out_path, 'rb') as f:
+        self.assertEqual(f.read(), fb_from_file)
+
+    # 7. allow_unsupported_model_type (WORD / CHAR)
+    if has_protobuf:
+      for model_type in (
+          sentencepiece_model_pb2.TrainerSpec.WORD,
+          sentencepiece_model_pb2.TrainerSpec.CHAR,
+      ):
+        mp = sentencepiece_model_pb2.ModelProto()
+        mp.ParseFromString(unigram_serialized)
+        mp.trainer_spec.model_type = model_type
+        with self.assertRaises(ValueError):
+          spm.convert_to_flatbuffer(model_proto=mp)
+        fb_unsupported = spm.convert_to_flatbuffer(
+            model_proto=mp, allow_unsupported_model_type=True
+        )
+        self.assertIsInstance(fb_unsupported, bytes)
+        self.assertGreater(len(fb_unsupported), 0)
+
+    # 8. Validation errors (0 or >1 inputs, invalid types, invalid data)
+    with self.assertRaises(ValueError):
+      spm.convert_to_flatbuffer()
+    with self.assertRaises(ValueError):
+      spm.convert_to_flatbuffer(
+          model_file=unigram_path, serialized_model_proto=unigram_serialized
+      )
+    with self.assertRaises(ValueError):
+      spm.convert_to_flatbuffer(model_file='')
+    with self.assertRaises(ValueError):
+      spm.convert_to_flatbuffer(model_file=unigram_path, output_file='')
+    with self.assertRaises(TypeError):
+      spm.convert_to_flatbuffer(serialized_model_proto='not_bytes')
+    with self.assertRaises(TypeError):
+      spm.convert_to_flatbuffer(model_proto=12345)
+    with self.assertRaises(ValueError):
+      spm.convert_to_flatbuffer(serialized_model_proto=b'corrupted_proto')
+
 
 def suite():
   suite = unittest.TestSuite()

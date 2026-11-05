@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import dataclasses
 import operator
-from itertools import chain
-from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
+from itertools import chain, repeat
+from keyword import iskeyword
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
 
 from typing_extensions import Protocol
 
@@ -24,6 +25,8 @@ from datamodel_code_generator._module_paths import (
     dotted_module,
     dotted_name,
     expanded_path,
+    is_within,
+    is_within_name,
     module_parts,
     normalized_path,
     written_path,
@@ -31,26 +34,39 @@ from datamodel_code_generator._module_paths import (
 from datamodel_code_generator._python_target_names import is_builtin_type_name
 from datamodel_code_generator._reference_graph import EdgeKind, GraphSnapshot, reference_graph
 from datamodel_code_generator._requirements import pydantic_floor
+from datamodel_code_generator._target_unicode import is_importable_part
 from datamodel_code_generator._url_redaction import redact_reference
 from datamodel_code_generator.enums import DefaultValueType
 from datamodel_code_generator.imports import (
+    IMPORT_ANNOTATIONS,
     IMPORT_LITERAL,
     Import,
     _aliased_name,
     _import_bindings,
     _import_key,
     _iter_import_bindings,
+    _stored_import,
 )
 from datamodel_code_generator.model._decisions.enum_kind import literal_value_kind
 from datamodel_code_generator.model._decisions.tag_value import struct_tag_clash
 from datamodel_code_generator.model._render_plan import RENDER_READY
 from datamodel_code_generator.model.base import BaseClassDataType, DataModel, _bare_loads_of
-from datamodel_code_generator.model.enum import Enum, IntEnum, StrEnum, get_raw_enum_member_value
+from datamodel_code_generator.model.enum import Enum, Member, get_raw_enum_member_value
 from datamodel_code_generator.model.output import _model_field_name_collisions
-from datamodel_code_generator.model.type_alias import TypeAliasBase, TypeStatement
+from datamodel_code_generator.model.type_alias import TypeAliasBase
 from datamodel_code_generator.parser._graph_ids import keyed_models
-from datamodel_code_generator.parser._imports_plan import Added, ImportProducer
-from datamodel_code_generator.parser._passes._import_binding import ReferenceExpressionHost, reference_import_target
+from datamodel_code_generator.parser._imports_plan import Added, Aliased, ImportProducer, Removed
+from datamodel_code_generator.parser._passes._import_binding import (
+    ReferenceExpressionHost,
+    reference_import_target,
+    register_reference_import,
+    shared_import_bindings,
+)
+from datamodel_code_generator.parser._passes._import_edges import (
+    _written_package,
+    module_import_edges,
+    relative_import_targets,
+)
 from datamodel_code_generator.parser._passes._shared import (
     BaseStandInHost,
     DataModelTypeHost,
@@ -64,11 +80,14 @@ from datamodel_code_generator.parser._passes._shared import (
     _context_models,
     _declares_unique_items,
     _format_tags,
+    _get_data_type_target_full_name,
+    _get_model_module_name,
     _is_discriminator_wrapper,
     _iter_discriminator_data_types,
     _named_data_types,
     _string_or_identifier_pattern,
     _unique_items_tuple,
+    definition_reads,
     get_special_path,
     site_display_name,
     unused_model_lists,
@@ -76,29 +95,34 @@ from datamodel_code_generator.parser._passes._shared import (
 from datamodel_code_generator.parser._passes._state import _PYDANTIC_FLOORS, ConfigT, ContextT, ResultT
 from datamodel_code_generator.parser._passes._warnings import warn_as_parser_base
 from datamodel_code_generator.parser._tag_plan import TagPlanHost
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import ModelResolver
 from datamodel_code_generator.types import union_members, written_union_members
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 
+    from datamodel_code_generator._format_types import PythonVersion
     from datamodel_code_generator._model_keys import ModelKey
     from datamodel_code_generator._requirements import PydanticConstruct
-    from datamodel_code_generator.imports import Imports
+    from datamodel_code_generator._target_unicode import ModulePartRow
+    from datamodel_code_generator.imports import Imports, _ImportKey
     from datamodel_code_generator.model._render_plan import RenderReady
     from datamodel_code_generator.model.base import DataModelFieldBase
     from datamodel_code_generator.model_metadata import ModelMetadata
     from datamodel_code_generator.parser._imports_plan import ModuleImportLedger
     from datamodel_code_generator.parser._model_shapes import ReuseGroups
+    from datamodel_code_generator.parser._passes._shared import ModuleNamesView
     from datamodel_code_generator.parser._passes._state import (
         FinishRun,
         ForwarderMap,
         ModuleContextView,
         ModulePath,
+        ParseConfigView,
         SortedDataModels,
         _FinalizeState,
     )
-    from datamodel_code_generator.reference import ModelType
+    from datamodel_code_generator.reference import ModelType, Reference
     from datamodel_code_generator.types import DataType
 
 __all__ = [
@@ -113,11 +137,13 @@ __all__ = [
     "builtin_name_bindings",
     "change_imported_model_name",
     "decide_config_items",
+    "import_models_of_hidden_submodules",
     "name_final_classes_of_additional_properties",
     "record_generated_class_names",
     "record_model_placement",
     "record_pydantic_floor",
     "refresh_sequence_interface_after_renames",
+    "reject_unimportable_imports",
     "remap_import_overrides",
     "remove_unused_imports",
     "remove_unused_models",
@@ -125,6 +151,7 @@ __all__ = [
     "replan_schema_validators_after_renames",
     "resolve_module_import_conflicts",
     "snapshot_model_imports",
+    "submodules_hidden_by_packages",
     "validate_explicit_field_aliases",
     "warn_about_decimal_defaults",
     "warn_about_dropped_constraints",
@@ -149,10 +176,6 @@ class ImportsHost(
         """The model type that field names are validated for."""
 
     @property
-    def imports(self) -> Imports:
-        """The imports every module shares."""
-
-    @property
     def model_resolver(self) -> ModelResolver:
         """The resolver of model and field names."""
 
@@ -173,6 +196,9 @@ class ImportsHost(
     ) -> None:
         """Merge the imports that planning the helpers added into the imports of each module."""
 
+    def _writes_module_future_annotations(self, models: list[DataModel], config: Any) -> bool:
+        """Return whether a module writes ``from __future__ import annotations`` of its own, beside shared imports."""
+
 
 class FinishHost(ReuseOptionsHost, RootModelHost, OutputOptionsHost, TagPlanHost, Protocol):
     """The options and run state of the parser that the finish passes read and write."""
@@ -185,10 +211,10 @@ class FinishHost(ReuseOptionsHost, RootModelHost, OutputOptionsHost, TagPlanHost
     typed_map_values_may_move_models: bool
 
     @property
-    def _literal_under_all_enum_reference_ids(self) -> set[int]:
-        """The ids of the references of the enums that ``--enum-field-as-literal all`` writes as Literal values.
+    def _literal_under_all_enum_reference_ids(self) -> set[ModelKey]:
+        """The model keys of the enums that ``--enum-field-as-literal all`` writes as Literal values.
 
-        Keyed by the identity of the Reference, not by model key, so a deep copy of a type is not among them (#5824).
+        A type whose Reference is a deep copy names its enum by the key of the original (#5824).
         """
 
     @property
@@ -248,10 +274,6 @@ class RenderHost(
     def _result_modules_postprocessor(self) -> Callable[..., dict[tuple[str, ...], ResultT]]:
         """The function that lays out the results of the modules under ``--treat-dot-as-module``."""
 
-    @property
-    def imports(self) -> Imports:
-        """The imports every module shares."""
-
     def _build_model_metadata(
         self, contexts: list[ContextT], model_identities: Mapping[DataModel, str]
     ) -> tuple[ModelMetadata, tuple[str, ...]]:
@@ -289,6 +311,9 @@ _IMPORT_CONFLICTS: Final = ImportProducer("import-conflicts")
 _FIELD_NAME_BINDINGS: Final = ImportProducer("field-name-bindings")
 _BUILTIN_MODULE_BINDINGS: Final = ImportProducer("builtin-module-bindings")
 _BUILTIN_SUBMODULE_BINDINGS: Final = ImportProducer("builtin-submodule-bindings")
+_SUBMODULE_IMPORT_BINDINGS: Final = ImportProducer("submodule-import-bindings")
+_HIDDEN_SUBMODULES: Final = "hidden-submodules"
+_HIDDEN_SUBMODULE_IMPORT_BINDINGS: Final = ImportProducer("hidden-submodule-import-bindings")
 _REUSED_VARIANT_LITERAL: Final = ImportProducer("reused-variant-literal")
 _IMPORT_OVERRIDES: Final = ImportProducer("import-overrides")
 
@@ -300,24 +325,50 @@ def _reserve_import_alias(name: str, reserved_names: set[str]) -> str:
     return alias
 
 
-def _bind_module_field_names(models: list[DataModel], imports: Imports, ledger: ModuleImportLedger) -> None:
+def _alias_reserved_names(
+    models: Sequence[DataModel], imports: Imports, shared_imports: Imports, *, also: Iterable[str] = ()
+) -> set[str]:
+    """Return the names an alias that a module imports a name under takes none of.
+
+    The names of its classes and fields, those its imports and the shared imports bind, and ``also``.
+    """
+    return {
+        *also,
+        *(model.class_name for model in models),
+        *(field.name for model in models for field in model.fields if field.name is not None),
+        *_iter_import_bindings(imports),
+        *_iter_import_bindings(shared_imports),
+    }
+
+
+def _bind_module_field_names(
+    models: list[DataModel],
+    imports: Imports,
+    shared_imports: Imports,
+    ledger: ModuleImportLedger,
+    target: tuple[int, int],
+) -> None:
     """Allocate aliases only where a property hides an emitted expression name.
 
-    Type aliases sit at module scope, so an import they name keeps its name beside the alias.
+    The names are those the module's imports bind and the builtin classes of the ``target`` that no import binds,
+    which a builtin import binds under the alias. An alias avoids every name the module's and the shared imports
+    bind. Type aliases sit at module scope, so an import they name keeps its name beside the alias.
     """
     field_names = {field.name for model in models for field in model.fields if field.name is not None}
     shadowable_imports = {binding: key for key, binding in _import_bindings(imports) if binding in field_names}
-    if "list" in field_names and "list" not in shadowable_imports:
-        shadowable_imports["list"] = ("builtins", "list")
+    shadowable_imports.update(
+        (name, ("builtins", name))
+        for name in sorted(field_names.difference(shadowable_imports))
+        if is_builtin_type_name(name, target)
+    )
     if not shadowable_imports:
         return
     collisions: set[str] = set()
-    reserved_names = field_names | {model.class_name for model in models}
     for model in models:
         collisions.update(_model_field_name_collisions(model, shadowable_imports))
     if not collisions:
         return
-    reserved_names.update(_iter_import_bindings(imports))
+    reserved_names = _alias_reserved_names(models, imports, shared_imports)
     type_alias_imports = {
         _import_key(import_) for model in models if isinstance(model, TypeAliasBase) for import_ in model.imports
     }
@@ -411,8 +462,9 @@ def _released_name_imports(  # noqa: PLR0914
                 init=ctx.is_init,
                 internal_modules=forwarder.released_internal_modules,
                 base_class=isinstance(data_type, BaseClassDataType),
-                treat_dot_as_module=parser.treat_dot_as_module,
+                shared_imports=parser.imports,
             )
+            target.reserve_name(resolver)
             binding = resolver.add(target.full_path, target.import_).name
             if target.import_ == released_name:
                 imported[(*final, binding)] = None
@@ -523,18 +575,18 @@ writes every Enum among them as a Literal."""
 
 
 def _msgspec_enum_clashes(
-    data_types: Iterable[DataType], literal_enum_ids: Collection[int]
+    data_types: Iterable[DataType], literal_enum_ids: Collection[ModelKey]
 ) -> tuple[_MsgspecEnumClash, ...]:
     """Return each kind and its written members of a union that msgspec decodes once its Enums are written as Literal.
 
     msgspec decodes a union only if it holds an Enum of str values as its one str-like member and an Enum of int
     values as its one int-like member, while it takes Literal values beside each other and beside str or int. A
     member of another str-like type, such as bytes, refuses a Literal of str values too, so it leaves the str side be.
-    ``literal_enum_ids`` holds the ids of the references of the Enums that ``--enum-field-as-literal all`` writes as a
-    Literal.
+    ``literal_enum_ids`` holds the model keys of the Enums that ``--enum-field-as-literal all`` writes as a Literal; the
+    Enums are told apart by model key, so a deep copy of a type names the Enum of its original.
     """
-    enums: dict[str, set[int]] = {"str": set(), "int": set()}
-    classes: dict[str, set[int]] = {"str": set(), "int": set()}
+    enums: dict[str, set[ModelKey]] = {"str": set(), "int": set()}
+    classes: dict[str, set[ModelKey]] = {"str": set(), "int": set()}
     names: dict[str, dict[str, None]] = {"str": {}, "int": {}}
     others: set[str] = set()
     refused: set[str] = set()
@@ -544,10 +596,10 @@ def _msgspec_enum_clashes(
                 if (
                     kinds := {literal_value_kind(get_raw_enum_member_value(field.default)) for field in source.fields}
                 ) in ({"str"}, {"int"}):
-                    enums[kind := kinds.pop()].add(id(source))
+                    enums[kind := kinds.pop()].add(key := model_key_of(source.reference))
                     names[kind][member.type_hint] = None
-                    if id(source.reference) not in literal_enum_ids:
-                        classes[kind].add(id(source))
+                    if key not in literal_enum_ids:
+                        classes[kind].add(key)
             elif source is None and not leaf.data_types and not leaf.enum_member_literals:
                 if leaf.type in _MSGSPEC_STR_TYPES_REFUSED_BESIDE_LITERALS:
                     refused.add("str")
@@ -564,7 +616,7 @@ def _msgspec_enum_clashes(
 
 
 def _msgspec_refused_union_enums(
-    data_type: DataType, literal_enum_ids: Collection[int]
+    data_type: DataType, literal_enum_ids: Collection[ModelKey]
 ) -> tuple[_MsgspecEnumClash, ...]:
     """Return each kind of a union msgspec refuses for an Enum, unless an alias it names is refused for that kind."""
     if not (members := union_members(data_type)) or not (clashes := _msgspec_enum_clashes(members, literal_enum_ids)):
@@ -578,7 +630,7 @@ def _msgspec_refused_union_enums(
 
 
 def _msgspec_field_enum_clashes(
-    data_types: Iterable[DataType], literal_enum_ids: Collection[int]
+    data_types: Iterable[DataType], literal_enum_ids: Collection[ModelKey]
 ) -> dict[str, _MsgspecEnumClash]:
     """Return the clash of each kind that the unions among some types are refused for, the first union's."""
     clashes: dict[str, _MsgspecEnumClash] = {}
@@ -679,19 +731,19 @@ def _msgspec_mixed_enum_message(model: Enum, *, literal_under_all: bool) -> str 
     The message recommends ``--enum-field-as-literal all`` only where that option writes the enum as a Literal
     (``literal_under_all``).
 
-    An ``IntEnum``, a ``StrEnum`` and an ``(int, Enum)`` or ``(str, Enum)`` make every value one of them, a
-    ``(float, Enum)`` or ``(bytes, Enum)`` every value a float or bytes. A plain ``Enum`` keeps the values as the
-    module writes them, where one equal to an earlier value is an alias of that member, as Python has it, so ``1`` and
-    ``True`` make one int member; msgspec skips a list or an object value, which has no hash, and refuses an enum left
-    without values.
+    The value base of an enum (``Enum.value_base``) makes every value one of its type: that of an ``IntEnum``, a
+    ``StrEnum`` and an ``(int, Enum)`` or ``(str, Enum)`` an int or a str, that of a ``(float, Enum)`` or
+    ``(bytes, Enum)`` a float or bytes. A plain ``Enum`` keeps the values as the module writes them, where one equal to
+    an earlier value is an alias of that member, as Python has it, so ``1`` and ``True`` make one int member; msgspec
+    skips a list or an object value, which has no hash, and refuses an enum left without values.
     """
     values = [value for field in model.fields if (value := get_raw_enum_member_value(field.default)) is not None]
-    value_types = {base.type for base in model.base_classes}
-    if not values or isinstance(model, (IntEnum, StrEnum)) or value_types & {"int", "str"}:
+    value_base = model.value_base
+    if not values or value_base in {"int", "str"}:
         return None
     kinds: set[str] = set()
-    if value_type := next((name for name in ("float", "bytes") if name in value_types), None):
-        kinds.add(value_type)
+    if value_base is not None:
+        kinds.add(value_base)
     else:
         members: dict[object, None] = {}
         for value in values:
@@ -730,14 +782,13 @@ def _msgspec_wide_int(values: Iterable[object]) -> int | None:
 def _msgspec_wide_int_enum_message(model: Enum) -> str | None:
     """Describe an enum holding an int that msgspec refuses (``_msgspec_wide_int``).
 
-    An ``IntEnum`` or an ``(int, Enum)`` makes every value an int, an integral float such as ``1e+19`` too; a
-    ``StrEnum`` or an enum on another value type holds no int.
+    The ``int`` value base of an ``IntEnum`` or an ``(int, Enum)`` (``Enum.value_base``) makes every value an int, an
+    integral float such as ``1e+19`` too; a ``StrEnum`` or an enum on another value type holds no int.
     """
-    value_types = {base.type for base in model.base_classes}
-    if isinstance(model, StrEnum) or value_types & {"str", "float", "bytes"}:
+    if (value_base := model.value_base) not in {None, "int"}:
         return None
     values = [get_raw_enum_member_value(field.default) for field in model.fields]
-    if isinstance(model, IntEnum) or "int" in value_types:
+    if value_base == "int":
         values = [int(value) if isinstance(value, float) and value.is_integer() else value for value in values]
     if (value := _msgspec_wide_int(values)) is None:
         return None
@@ -865,15 +916,16 @@ def _loop_error(model: DataModel, cycle: Sequence[DataModel], failure: str) -> E
 def _evaluated_data_types(model: DataModel, *, evaluates_annotations: bool) -> Iterator[DataType]:
     """Yield the data types that the statements defining a model evaluate as the module runs.
 
-    A ``type`` statement defers its value. Any other type alias evaluates it, and so does the functional TypedDict
-    with its fields; every annotation of a class is evaluated unless the module defers annotations.
+    They are the types of the fields that ``definition_reads`` reads (row ``legacy-evaluated-without-root-model``), and
+    where it reads the model's own fields, every type of the model, its bases included.
     """
-    if isinstance(model, TypeStatement):
-        return
-    if evaluates_annotations or isinstance(model, TypeAliasBase):
+    fields = definition_reads(
+        model, row="legacy-evaluated-without-root-model", evaluates_annotations=evaluates_annotations
+    )
+    if fields is model.fields:
         yield from model.all_data_types
         return
-    for field in model.fields_evaluated_at_definition():
+    for field in fields or ():
         yield from field.data_type.all_data_types
 
 
@@ -963,7 +1015,9 @@ def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleCon
                 None,
                 (
                     None if parser.use_msgspec_nullable_enum_alias else _msgspec_null_enum_message(model),
-                    _msgspec_mixed_enum_message(model, literal_under_all=id(model.reference) in literal_enum_ids),
+                    _msgspec_mixed_enum_message(
+                        model, literal_under_all=model_key_of(model.reference) in literal_enum_ids
+                    ),
                     _msgspec_wide_int_enum_message(model),
                 ),
             ):
@@ -1008,8 +1062,32 @@ def warn_about_msgspec_decoding(parser: FinishHost, contexts: Sequence[ModuleCon
                 )
 
 
+def _names_written_as_text(models: Iterable[DataModel]) -> set[str]:
+    """Return the names that the types of the models write as text: those of the types that name no model.
+
+    A dotted name binds its first name where it is written (``ipaddress`` of ``ipaddress.IPv4Address``).
+    """
+    from datamodel_code_generator._python_type_annotation import iter_python_type_expr_head_names  # noqa: PLC0415
+
+    names: set[str] = set()
+    for model in models:
+        for data_type in _named_data_types(model):
+            if data_type.reference is not None:
+                continue
+            if data_type.python_type:
+                names.update(iter_python_type_expr_head_names(data_type.python_type.expression))
+            elif data_type.type:
+                names.add(data_type.type.partition(".")[0])
+    return names
+
+
 def change_imported_model_name(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
-    """Rename the local models that an import of their module shadows; remember whether any was renamed."""
+    """Rename the local models that an import of their module shadows; remember whether any was renamed.
+
+    The imports every module writes (``--additional-imports``) shadow a model that a type of the module writes by
+    their name as text (``x-python-type``); one that no type of the module writes keeps the model's name.
+    """
+    shared_names = shared_import_bindings(parser.imports)
     for ctx in state.contexts:
         models, imports = ctx.models, ctx.imports
         imported_names = {
@@ -1017,13 +1095,16 @@ def change_imported_model_name(parser: ImportsHost[Any], state: _FinalizeState[A
             for from_, import_ in imports.items()
             for i in import_
         }
+        if shared_names and (shadowed := shared_names.intersection(model.class_name for model in models)):
+            imported_names.update(shadowed.intersection(_names_written_as_text(models)))
         for model in models:
             if model.class_name not in imported_names:  # pragma: no cover
                 continue
             if model.class_name == IMPORT_LITERAL.import_ and alias_reused_variant_literal(parser, models, imports):
                 continue
 
-            parser._graph_builder.rename_model(  # pragma: no cover  # noqa: SLF001
+            ctx.scoped_model_resolver.exclude_names.update(shared_names)
+            parser._graph_builder.rename_model(  # noqa: SLF001
                 model,
                 reference_name=parser._import_ledger.add_name(  # noqa: SLF001
                     imports,
@@ -1054,19 +1135,18 @@ def alias_reused_variant_literal(parser: ImportsHost[Any], models: list[DataMode
         or any(IMPORT_LITERAL in field.imports for field in fields if tag_fields.get(id(field)) is not field)
     ):
         return False
-    reserved_names = {
-        *(model.class_name for model in models),
-        *(field.name for field in fields if field.name is not None),
-        *bindings.values(),
-        *_iter_import_bindings(parser.imports),
-        *(
+    reserved_names = _alias_reserved_names(
+        models,
+        imports,
+        parser.imports,
+        also=(
             name
             for model in models
             for decorator in model.decorators
             for name in _string_or_identifier_pattern(decorator, parser.target_python_version).findall(decorator)
             if name
         ),
-    }
+    )
     aliased_import = Import(
         from_=IMPORT_LITERAL.from_,
         import_=IMPORT_LITERAL.import_,
@@ -1137,9 +1217,72 @@ def resolve_module_import_conflicts(parser: ImportsHost[Any], state: _FinalizeSt
             parser.data_model_type.resolve_module_import_conflicts(ctx.models, state.model_imports, ctx.imports)
 
 
+def _rebind_import(  # noqa: PLR0913
+    parser: ImportsHost[Any],
+    ctx: ModuleContextView,
+    binding: str,
+    reference: Reference,
+    import_key: _ImportKey,
+    *,
+    held_by: Literal["builtin", "submodule"],
+    producer: ImportProducer,
+) -> str:
+    """Give the import ``import_key``, which loses its name ``binding``, the name the module's resolver gives next.
+
+    The import releases ``binding`` to what keeps it (``held_by``: the builtin, a package's submodule), then takes the
+    name the resolver gives ``reference`` (``list_1``) as its alias, which is returned.
+    """
+    imports, resolver, ledger = ctx.imports, ctx.scoped_model_resolver, parser._import_ledger  # noqa: SLF001
+    ledger.release_names(imports, resolver, {binding})
+    ledger.add_name(imports, resolver, get_special_path(held_by, [binding]), binding)
+    alias = ledger.add_name(imports, resolver, [reference.path], reference.original_name).name
+    from_, import_ = import_key
+    ledger.apply_alias(imports, Import(from_=from_, import_=import_, alias=alias), producer)
+    return alias
+
+
 def _module_binding(expression: str | None) -> str | None:
     """Return the module binding of an expression ``<binding>.<Class>``, or None for another expression."""
     return expression.partition(".")[0] if expression and "." in expression else None
+
+
+def _written_reference(data_type: DataType) -> tuple[Reference, str | None] | None:
+    """Return the model a type names and the expression it writes for it, or None for a type that names none.
+
+    A reference names its model by its alias (``annotations.Item``), and an enum member literal its enum by the class
+    its members are written with (``annotations.Kind``), unless the literal is written as an alias.
+    """
+    if (reference := data_type.reference) is not None:
+        return reference, data_type.alias
+    if (
+        (reference := data_type._enum_member_literal_reference) is None  # noqa: SLF001
+        or not (literals := data_type.enum_member_literals)
+        or data_type.alias
+    ):
+        return None
+    return reference, literals[0][0]
+
+
+def _follow_renamed_enum_references(
+    parser: ImportsHost[Any], models: Iterable[DataModel], renamed: Iterable[DataType]
+) -> None:
+    """Write the enum members in the defaults of ``models`` by the new expression of their renamed enum types.
+
+    ``set_default_enum_member`` runs before the imports are named anew and writes a member by the expression its type
+    names the enum by then, so a default would keep naming the import that was renamed.
+    """
+    aliases = {
+        id(source): written[1]
+        for data_type in renamed
+        if (written := _written_reference(data_type)) is not None and isinstance(source := written[0].source, Enum)
+    }
+    if not aliases:
+        return
+    for model in models:
+        for field in model.fields:
+            for value in field.default if isinstance(field.default, list) else [field.default]:
+                if isinstance(value, Member) and id(value.enum) in aliases:
+                    parser._graph_builder.name_enum_member(field, value, aliases[id(value.enum)])  # noqa: SLF001
 
 
 def _alias_builtin_shadowing_module_imports(parser: ImportsHost[Any], ctx: ModuleContextView) -> None:
@@ -1148,12 +1291,12 @@ def _alias_builtin_shadowing_module_imports(parser: ImportsHost[Any], ctx: Modul
     ``from . import list``, which names the models of the module ``list`` (``list.Pop``), hides the builtin from the
     whole module. Such an import takes the name the module's resolver gives it once the builtin holds its own name
     (``list_1``), as module imports whose names clash with other names do, and every ``list.X`` the module writes
-    follows. A name is a builtin by the static table of every target (row ``legacy-builtins-of-any-target``), and the
-    module writes it bare when a rendered model names it other than as the module of an attribute, a store or a name a
-    function of a custom template binds included (row ``legacy-flat-bare-loads``). The class of an enum
-    member literal is written before (``import_enum_member_literal_classes``), so a binding it names keeps its name.
-    A package's own submodule keeps its name too: importing it binds the name in the package whatever the import
-    is named.
+    follows. A name is a builtin by the static table of the target, and the module writes it bare when a rendered model
+    names it other than as the module of an attribute, a store or a name a function of a custom template binds included
+    (row ``legacy-flat-bare-loads``). The class of an enum member literal is written before
+    (``import_enum_member_literal_classes``), so a binding it names keeps its name. A package's own submodule keeps its
+    name too: importing it binds the name in the package whatever the import is named. An import of the builtin itself
+    (``--type-overrides`` with ``builtins.list``) is the name's own binding, not the module import that hides it.
     """
     references = [
         data_type for model in ctx.models for data_type in _named_data_types(model) if data_type.reference is not None
@@ -1163,8 +1306,7 @@ def _alias_builtin_shadowing_module_imports(parser: ImportsHost[Any], ctx: Modul
         bindings := {
             binding
             for data_type in references
-            if (binding := _module_binding(data_type.alias)) is not None
-            and is_builtin_type_name(binding, target, rule="legacy-builtins-of-any-target")
+            if (binding := _module_binding(data_type.alias)) is not None and is_builtin_type_name(binding, target)
         }
     ):
         return
@@ -1174,38 +1316,48 @@ def _alias_builtin_shadowing_module_imports(parser: ImportsHost[Any], ctx: Modul
         for data_type in model.all_data_types
         for enum_class, _ in data_type.enum_member_literals
     )
-    imported = {binding: key for key, binding in _import_bindings(ctx.imports)}
+    imported = {binding: key for key, binding in _import_bindings(ctx.imports) if key[0] != "builtins"}
     resolver = ctx.scoped_model_resolver
     held = {reference.name: reference for reference in resolver.references.values()}
     if not (
         shadowing := {
             binding
             for binding in bindings
-            if binding in imported and binding in held and not (ctx.is_init and imported[binding][0] == ".")
+            if binding in imported
+            and binding in held
+            and not (
+                _written_package(ctx, treat_dot_as_module=parser.treat_dot_as_module) is not None
+                and imported[binding][0] == "."
+            )
         }
     ):
         return
-    ledger = parser._import_ledger  # noqa: SLF001
-    aliases: dict[str, str] = {}
+    resolver.exclude_names.update(shared_import_bindings(parser.imports))
     written = {
         name
         for model in ctx.models
         for name in _bare_loads_of(model.render(), shadowing, rule="legacy-flat-bare-loads")
     }
-    for binding in sorted(written):
-        reference = held[binding]
-        ledger.release_names(ctx.imports, resolver, {binding})
-        ledger.add_name(ctx.imports, resolver, get_special_path("builtin", [binding]), binding)
-        alias = aliases[binding] = ledger.add_name(
-            ctx.imports, resolver, [reference.path], reference.original_name
-        ).name
-        from_, import_ = imported[binding]
-        ledger.apply_alias(ctx.imports, Import(from_=from_, import_=import_, alias=alias), _BUILTIN_MODULE_BINDINGS)
+    aliases = {
+        binding: _rebind_import(
+            parser,
+            ctx,
+            binding,
+            held[binding],
+            imported[binding],
+            held_by="builtin",
+            producer=_BUILTIN_MODULE_BINDINGS,
+        )
+        for binding in sorted(written)
+    }
+    renamed: list[DataType] = []
     for data_type in references:
         if (binding := _module_binding(data_type.alias)) in aliases:
             parser._graph_builder.name_reference(  # noqa: SLF001
                 data_type, f"{aliases[binding]}{cast('str', data_type.alias)[len(binding) :]}"
             )
+            renamed.append(data_type)
+    _follow_renamed_enum_references(parser, ctx.models, renamed)
 
 
 def alias_builtin_shadowing_module_imports(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
@@ -1234,6 +1386,54 @@ def _package_submodule_names(
     return names
 
 
+def _alias_imports_hidden_by_submodules(
+    parser: ImportsHost[Any], ctx: ModuleContextView, submodule_names: Collection[str]
+) -> None:
+    """Give the imports of models a new name where a package's submodules bind the name they import them by.
+
+    ``pkg/Warning.py`` binds ``Warning`` in ``pkg/__init__.py`` once anything imports it, whatever the import is named,
+    so a model the package imports by that name (``from ..other import Warning``) or a module it imports under it
+    would name the submodule. The submodule keeps the name, as the builtin does for a module import named like it
+    (``_alias_builtin_shadowing_module_imports``), and the import takes the name the module's resolver gives it next
+    (``Warning_1``), which every use of the model follows. An import of the submodule itself keeps its name, and so
+    does that of a model named like its submodule (``from .A import A``), which binds the name once the submodule is
+    loaded.
+    """
+    imports, resolver = ctx.imports, ctx.scoped_model_resolver
+    held = {reference.name: reference for reference in resolver.references.values()}
+    users: dict[str, list[tuple[DataType, _ImportKey]]] = {}
+    for model in ctx.models:
+        for data_type in _named_data_types(model):
+            if (
+                (reference := data_type.reference) is None
+                or (import_ := imports.reference_paths.get(reference.path)) is None
+                or (binding := imports.get_effective_name(import_.from_, import_.import_)) not in submodule_names
+                or binding not in held
+                or _import_key(import_) in {(".", binding), (f".{binding}", binding)}
+            ):
+                continue
+            users.setdefault(binding, []).append((data_type, _import_key(import_)))
+    renamed: list[DataType] = []
+    if users:
+        resolver.exclude_names.update(shared_import_bindings(parser.imports))
+    for binding, binding_users in sorted(users.items()):
+        alias = _rebind_import(
+            parser,
+            ctx,
+            binding,
+            held[binding],
+            binding_users[0][1],
+            held_by="submodule",
+            producer=_SUBMODULE_IMPORT_BINDINGS,
+        )
+        for data_type, _ in binding_users:
+            parser._graph_builder.name_reference(  # noqa: SLF001
+                data_type, alias + (data_type.alias or binding)[len(binding) :]
+            )
+            renamed.append(data_type)
+    _follow_renamed_enum_references(parser, ctx.models, renamed)
+
+
 def _alias_builtins_hidden_by_submodules(
     parser: ImportsHost[Any], ctx: ModuleContextView, submodule_names: Collection[str]
 ) -> None:
@@ -1242,27 +1442,19 @@ def _alias_builtins_hidden_by_submodules(
     ``app/list.py`` binds ``list`` in ``app/__init__.py`` once anything imports it, whatever the import is named, so
     ``list[str]`` there would subscript the module. The package imports the builtin as ``list_aliased``, the alias
     form of field-name bindings, and every bare ``list`` its models and module code write follows; ``list.Pop``
-    names the submodule and keeps its name. A builtin is a name of the static table of every target (row
-    ``legacy-builtins-of-any-target``); the output writes a bare load of one for nothing but the builtin.
+    names the submodule and keeps its name. A builtin is a name of the static table of the target, and the output
+    writes a bare load of one for nothing but the builtin, unless the package defines a class of that name
+    (``Warning`` beside ``app/Warning.py``), which the load names.
     """
     target = parser.target_python_version.version_key
-    if not (
-        hidden := {
-            name for name in submodule_names if is_builtin_type_name(name, target, rule="legacy-builtins-of-any-target")
-        }
-    ):
+    class_names = {model.class_name for model in ctx.models}
+    if not (hidden := {name for name in submodule_names if is_builtin_type_name(name, target)}.difference(class_names)):
         return
     loads = {model: found for model in ctx.models if (found := _bare_loads_of(model.render(), hidden))}
     module_code = parser.data_model_type.render_module_code(ctx.models)
     if not (written := {name for found in loads.values() for name in found} | _bare_loads_of(module_code, hidden)):
         return
-    reserved = {
-        *submodule_names,
-        *(model.class_name for model in ctx.models),
-        *(field.name for model in ctx.models for field in model.fields if field.name is not None),
-        *_iter_import_bindings(ctx.imports),
-        *_iter_import_bindings(parser.imports),
-    }
+    reserved = _alias_reserved_names(ctx.models, ctx.imports, parser.imports, also=submodule_names)
     bindings = {name: _reserve_import_alias(name, reserved) for name in sorted(written)}
     parser._import_ledger.append(  # noqa: SLF001
         ctx.imports,
@@ -1279,26 +1471,269 @@ def alias_builtins_hidden_by_submodules(parser: ImportsHost[Any], state: _Finali
         state.contexts, state.forwarder_modules, treat_dot_as_module=parser.treat_dot_as_module
     )
     for ctx in state.contexts:
-        if ctx.is_init and (
-            names := submodule_names.get(written_path(ctx.module, treat_dot_as_module=parser.treat_dot_as_module)[:-1])
+        if (package := _written_package(ctx, treat_dot_as_module=parser.treat_dot_as_module)) is not None and (
+            names := submodule_names.get(package)
         ):
+            _alias_imports_hidden_by_submodules(parser, ctx, names)
             _alias_builtins_hidden_by_submodules(parser, ctx, names)
 
 
 def builtin_name_bindings(ledger: ModuleImportLedger, imports: Imports) -> dict[str, str]:
-    """Return the aliases that ``alias_builtins_hidden_by_submodules`` imported the builtins of a module under."""
+    """Return the aliases that a module's bare names take where a submodule of its package hides them.
+
+    ``alias_builtins_hidden_by_submodules`` imported the builtins under them, and ``import_models_of_hidden_submodules``
+    aliased the imports (``_alias_imports_hidden_by_loaded_submodules``); the models of the module are bound to them
+    as they are written (``bind_builtin_names``), and this is how the module code reads them.
+    """
     return {
         import_.import_: cast("str", import_.alias)
         for entry in ledger.entries(imports)
-        if entry.producer == _BUILTIN_SUBMODULE_BINDINGS and isinstance(entry.operation, Added)
-        for import_ in entry.operation.imports
+        for import_ in (
+            entry.operation.imports
+            if entry.producer == _BUILTIN_SUBMODULE_BINDINGS and isinstance(entry.operation, Added)
+            else (entry.operation.import_,)
+            if entry.producer == _HIDDEN_SUBMODULE_IMPORT_BINDINGS and isinstance(entry.operation, Aliased)
+            else ()
+        )
     }
 
 
 def bind_module_field_names(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
     """Bind the field names of each module that its imports shadow."""
     for ctx in state.contexts:
-        _bind_module_field_names(ctx.models, ctx.imports, parser._import_ledger)  # noqa: SLF001
+        _bind_module_field_names(
+            ctx.models,
+            ctx.imports,
+            parser.imports,
+            parser._import_ledger,  # noqa: SLF001
+            parser.target_python_version.version_key,
+        )
+
+
+def submodules_hidden_by_packages(
+    parser: ImportsHost[Any],
+    contexts: Sequence[ModuleContextView],
+    naming: ModuleNamesView,
+    config: ParseConfigView,
+) -> dict[ModulePath, frozenset[tuple[str, ...]]]:
+    """Return, by the file of each module, the modules it imports models from that their package hides from it.
+
+    ``from pkg import annotations`` gives what ``pkg/__init__.py`` binds as ``annotations`` once it binds the name
+    itself, not the submodule ``pkg.annotations``, which the import then never loads. The ``__init__.py`` of a package
+    that writes models binds the names of its ``__future__`` imports (``annotations``) before every other line, its
+    shared ones and on a target with native deferred annotations its own (``_writes_module_future_annotations``):
+    those hide the submodule from every module. It defines its classes after its imports, so a class hides the
+    submodule from every module but the ``__init__.py`` itself, and only where the ``__init__.py`` imports from the
+    submodule, for a type or for the class of an enum member literal: the submodule is then loaded before the class
+    takes the name, and no later import of it replaces the class. A module names the hidden modules by their module
+    names, as ``reference_import_target`` reads them.
+    """
+    treat_dot_as_module, module_names = parser.treat_dot_as_module, naming.model_path_to_module_name
+
+    def named_modules(models: Iterable[DataModel], *, literals: bool) -> set[tuple[str, ...]]:
+        return {
+            tuple(_get_data_type_target_full_name(data_type, reference, module_names).split(".")[:-1])
+            for model in models
+            for data_type in (model.all_data_types if literals else _named_data_types(model))
+            if (reference := data_type._enum_member_literal_reference if literals else data_type.reference)  # noqa: SLF001
+            is not None
+        }
+
+    shared_future = {binding for (from_, _), binding in _import_bindings(parser.imports) if from_ == "__future__"}
+    inits = {
+        package: ctx
+        for ctx in contexts
+        if ctx.models and (package := _written_package(ctx, treat_dot_as_module=treat_dot_as_module)) is not None
+    }
+    hidden: dict[ModulePath, tuple[set[tuple[str, ...]], set[tuple[str, ...]]]] = {}
+    for ctx in contexts:
+        parts = module_parts(written_path(ctx.module, treat_dot_as_module=treat_dot_as_module))
+        if not (ctx.models and parts and (init := inits.get(package := parts[:-1])) is not None):
+            continue
+        name = parts[-1]
+        modules = {tuple(_get_model_module_name(model, module_names).split(".")) for model in ctx.models}
+        if name in shared_future or (
+            name == IMPORT_ANNOTATIONS.import_ and parser._writes_module_future_annotations(init.models, config)  # noqa: SLF001
+        ):
+            for found in hidden.setdefault(package, (set(), set())):
+                found.update(modules)
+        elif any(model.class_name == name for model in init.models) and any(
+            is_within(named, module)
+            for named in named_modules(init.models, literals=False) | named_modules(init.models, literals=True)
+            for module in modules
+        ):
+            hidden.setdefault(package, (set(), set()))[1].update(modules)
+    if not hidden:
+        return {}
+    result: dict[ModulePath, frozenset[tuple[str, ...]]] = {}
+    for ctx in contexts:
+        package = _written_package(ctx, treat_dot_as_module=treat_dot_as_module)
+        modules = {
+            module
+            for hidden_package, (from_init, from_others) in hidden.items()
+            for module in (from_init if hidden_package == package else from_others)
+        }
+        if modules:
+            result[ctx.module] = frozenset(modules)
+    return result
+
+
+def _loaded_modules(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> set[str]:
+    """Return the dotted names of the modules that the written modules import or import from (``module_import_edges``).
+
+    Under ``--all-exports-scope`` each written module with models counts too: an ``__init__.py`` imports the modules
+    it exports from.
+    """
+    treat_dot_as_module = parser.treat_dot_as_module
+    edges = module_import_edges(state.contexts, treat_dot_as_module=treat_dot_as_module)
+    loaded = {target for targets in edges.values() for target in targets}
+    if state.config.all_exports_scope is not None:
+        loaded.update(
+            dotted_module(written_path(ctx.module, treat_dot_as_module=treat_dot_as_module))
+            for ctx in state.contexts
+            if ctx.models
+        )
+    return loaded
+
+
+def _alias_imports_hidden_by_loaded_submodules(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
+    """Import under an alias what a package's ``__init__.py`` imports by the name of a submodule the output loads.
+
+    Loading ``pkg/Any.py`` binds ``Any`` in ``pkg/__init__.py``, over what its ``from typing import Any`` bound, so
+    the classes of the ``__init__.py`` that name ``Any`` once it is loaded name the module, and before that
+    ``from . import Any`` gives the import, not the module. Where a written module imports the submodule or from it
+    (``_loaded_modules``), the submodule keeps the name and the import takes the alias form of field-name bindings
+    (``Any_aliased``), which every bare ``Any`` the models write follows, as the builtins a submodule hides do
+    (``_alias_builtins_hidden_by_submodules``). An import of another module of the output is a model's, which
+    ``_alias_imports_hidden_by_submodules`` names, a ``__future__`` import binds no name the code reads, and a module
+    import (``import x``) is named as the module of an attribute, which a bare load does not follow.
+    """
+    treat_dot_as_module = parser.treat_dot_as_module
+    submodule_names = _package_submodule_names(
+        state.contexts, state.forwarder_modules, treat_dot_as_module=treat_dot_as_module
+    )
+    loaded: set[str] | None = None
+    for ctx in state.contexts:
+        if not (
+            ctx.models
+            and (package := _written_package(ctx, treat_dot_as_module=treat_dot_as_module)) is not None
+            and (names := submodule_names.get(package))
+            and (
+                imported := {
+                    binding: key
+                    for key, binding in _import_bindings(ctx.imports)
+                    if binding in names and key[0] and key[0] != "__future__" and not key[0].startswith(".")
+                }
+            )
+        ):
+            continue
+        loaded = _loaded_modules(parser, state) if loaded is None else loaded
+        package_name = ".".join(package)
+        if not (
+            hidden := sorted(
+                binding
+                for binding in imported
+                if any(is_within_name(module, dotted_name(package_name, binding)) for module in loaded)
+            )
+        ):
+            continue
+        reserved = _alias_reserved_names(ctx.models, ctx.imports, parser.imports, also=names)
+        bindings = {binding: _reserve_import_alias(binding, reserved) for binding in hidden}
+        for binding, alias in bindings.items():
+            from_, name = imported[binding]
+            parser._import_ledger.apply_alias(  # noqa: SLF001
+                ctx.imports,
+                Import(from_=from_, import_=_stored_import(name)[0], alias=alias),
+                _HIDDEN_SUBMODULE_IMPORT_BINDINGS,
+            )
+        for model in ctx.models:
+            parser._graph_builder.bind_builtin_names(model, {**(model._builtin_name_bindings or {}), **bindings})  # noqa: SLF001
+
+
+def import_models_of_hidden_submodules(parser: ImportsHost[Any], state: _FinalizeState[Any]) -> None:
+    """Import the models of a submodule from the submodule where its package hides it from the module.
+
+    ``from . import annotations``, which names the models of the module ``annotations`` (``annotations.Item``), gives
+    the ``__future__`` feature where the package's ``__init__.py`` writes ``from __future__ import annotations``, and a
+    class where it defines one of that name (``submodules_hidden_by_packages``). Such a model is imported from its
+    module (``from .annotations import Item``), as ``--use-exact-imports`` imports it, under the name the module's
+    resolver gives it once the module import released its name, and every use of the model follows, the class of an
+    enum member literal (``Literal[annotations.Kind.book]``, ``_written_reference``) and the enum members that
+    ``set_default_enum_member`` wrote into defaults included (``_follow_renamed_enum_references``). A literal took the
+    place of a type that named its enum, whose import of the module stays counted, so a literal's enum drops every count
+    of its import of the module (``_held_count``). The name keeps
+    off every name the module's imports bind already: the resolver holds those that no model import took through it,
+    such as ``collections.Counter`` beside a model ``Counter``, and the shared ones are kept off as for a module named
+    like a shared import (``ReferenceImportTarget.reserve_name``). The use keeps an expression, the class name where the
+    import binds it, as the field render plans froze it written.
+    """
+    _alias_imports_hidden_by_loaded_submodules(parser, state)
+    if not (hidden := submodules_hidden_by_packages(parser, state.contexts, state, state.config)):
+        return
+    ledger, module_names = parser._import_ledger, state.model_path_to_module_name  # noqa: SLF001
+    for ctx in state.contexts:
+        if not (modules := hidden.get(ctx.module)):
+            continue
+        imports = ctx.imports
+        users = [
+            (model, data_type, reference, stale)
+            for model in ctx.models
+            for data_type in _named_data_types(model)
+            if (written := _written_reference(data_type)) is not None
+            and tuple(_get_data_type_target_full_name(data_type, reference := written[0], module_names).split(".")[:-1])
+            in modules
+            and (stale := imports.reference_paths.get(reference.path)) is not None
+            and _module_binding(written[1]) == stale.binding_name
+        ]
+        if not users:
+            continue
+        for model, *_, stale in users:
+            ledger.remove(imports, stale, ImportProducer(_HIDDEN_SUBMODULES, model))
+        for model, stale in {
+            stale.reference_path: (model, stale) for model, data_type, _, stale in users if data_type.reference is None
+        }.values():
+            ledger.remove(
+                imports, repeat(stale, _held_count(ledger, imports, stale)), ImportProducer(_HIDDEN_SUBMODULES, model)
+            )
+        resolver = ctx.scoped_model_resolver
+        ledger.release_names(
+            imports, resolver, {stale.binding_name for *_, stale in users}.difference(_iter_import_bindings(imports))
+        )
+        for name in sorted(
+            {reference.short_name for _, _, reference, _ in users}
+            .intersection(_iter_import_bindings(imports))
+            .difference(held.name for held in resolver.references.values())
+            .difference(_iter_import_bindings(parser.imports))
+        ):
+            ledger.add_name(imports, resolver, get_special_path("import", [name]), name)
+        for model, data_type, reference, _ in users:
+            expression = register_reference_import(
+                reference,
+                _get_model_module_name(model, module_names),
+                _get_data_type_target_full_name(data_type, reference, module_names),
+                imports,
+                resolver,
+                init=ctx.is_init,
+                internal_modules=state.internal_modules,
+                producer=ImportProducer(_HIDDEN_SUBMODULES, model),
+                import_ledger=ledger,
+                shared_imports=parser.imports,
+                hidden_modules=modules,
+            )
+            if data_type.reference is None:
+                parser._graph_builder.name_enum_member_literal_class(data_type, expression or reference.short_name)  # noqa: SLF001
+            else:
+                parser._graph_builder.name_reference(data_type, expression or reference.short_name)  # noqa: SLF001
+        _follow_renamed_enum_references(parser, ctx.models, [data_type for _, data_type, *_ in users])
+
+
+def _held_count(ledger: ModuleImportLedger, imports: Imports, import_: Import) -> int:
+    """Return how often the ledger of ``imports`` holds the import: the times it was added less the times removed."""
+    return sum(
+        (1 if isinstance(operation, Added) else -1) * operation.imports.count(import_)
+        for entry in ledger.entries(imports)
+        if isinstance(operation := entry.operation, Added | Removed)
+    )
 
 
 def name_final_classes_of_additional_properties(state: _FinalizeState[Any]) -> None:
@@ -1400,6 +1835,53 @@ def record_model_placement(
             )
         )
     )
+
+
+def reject_unimportable_imports(
+    module: ModulePath,
+    imports: Imports,
+    *,
+    is_init: bool,
+    target_python_version: PythonVersion,
+    treat_dot_as_module: bool,
+) -> None:
+    """Refuse a relative import of ``module``'s block that is written with a part Python cannot import by.
+
+    A part that is a keyword (a directory or file named ``class``) makes ``from .class import k`` a syntax error, and
+    ``--treat-dot-as-module`` (``treat_dot_as_module``) writes each dot of a directory or file name as a package, so
+    ``1.0`` is the packages ``_1`` and ``0``, and ``from ._1.0 import version`` is one too. The parts of the importing
+    module's own path are not written, and a relative import of them is valid. Renaming the module would move the file
+    and every other import of it, so the run fails and names the module and the part. An import is judged where its
+    block is written: a reference the parser planned and a later pass dropped (a collapsed root model) writes none.
+    Under ``--treat-dot-as-module`` a part is a name by the target's rules, as the name of a module is written; without
+    it the dots are ``_`` and a part is refused only for a keyword (``is_importable_part``). ``is_init`` makes
+    ``module`` a package ``__init__``.
+    """
+    row: ModulePartRow = "target" if treat_dot_as_module else "keyword"
+    importer = dotted_module(module)
+    for from_, target, names in relative_import_targets(importer, imports, is_init=is_init):
+        written = from_.lstrip(".").split(".") if from_.strip(".") else []
+        parts = (*written, *names)
+        unimportable = (part for part in parts if not is_importable_part(part, target_python_version, row=row))
+        if (part := next(unimportable, None)) is not None:
+            path = target if part in written else dotted_name(target, part)
+            where = f"module {stable_repr(importer)}" if importer else "the root package"
+            reason, hint = (
+                ("a Python keyword", "Rename the input.")
+                if iskeyword(part)
+                else (
+                    "not a Python identifier",
+                    (
+                        "--treat-dot-as-module writes each dot of a directory or file name as a package. Use "
+                        "--no-treat-dot-as-module, or rename the input."
+                    ),
+                )
+            )
+            msg = (
+                f"Cannot import the module {stable_repr(path)} from {where}: {stable_repr(part)} is {reason}, so the "
+                f"import is a syntax error. {hint}"
+            )
+            raise Error(msg)
 
 
 def render_modules(  # noqa: PLR0913

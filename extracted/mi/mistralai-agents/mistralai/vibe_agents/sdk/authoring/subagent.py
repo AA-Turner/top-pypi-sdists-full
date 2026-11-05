@@ -42,7 +42,9 @@ class Subagent:
     ``builtins`` merges per field instead: each field set in ``agents.Builtins(...)`` replaces the
     parent's value, and each field left out keeps it, so ``agents.Builtins(skills=False)`` turns off
     only skills. ``Builtins`` checks its own fields when it is built, so turning off
-    ``programmatic_tool_calling`` also needs ``subagents=False``. ``sandbox_access`` replaces the
+    ``programmatic_tool_calling`` also needs ``subagents=False``. Turning off ``skills`` or ``subagents``
+    drops the ones the child inherits; a child that sets its own needs the built-in on once merged,
+    which ``agents.Agent()`` checks. ``sandbox_access`` replaces the
     parent's sandbox access level in the sandbox the whole tree shares; a tree without a sandbox
     takes only ``"none"``. The tools and MCP sources a child gets, its own or inherited, are direct
     when the child has no programmatic tool calling, unless they set ``model_access``.

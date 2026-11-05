@@ -1,7 +1,24 @@
 import os
+import platform
 from pathlib import Path
 
 import pytest
+
+if platform.python_implementation() == "PyPy":
+    try:
+        from psycopg2cffi import compat
+    except ImportError:
+        pass
+    else:
+        compat.register()
+        del compat
+
+    try:
+        import pymysql  # type: ignore
+    except ImportError:
+        pass
+    else:
+        pymysql.install_as_MySQLdb()
 from sqlalchemy import MetaData
 from sqlalchemy import create_engine
 from sqlalchemy.dialects.mysql.base import MySQLDialect
@@ -76,6 +93,22 @@ def pytest_addoption(parser):
         default=False,
         help="If set to True, tests marked as long benchmarks will be run.",
     )
+    parser.addoption(
+        "--insert-select-rounds",
+        action="store",
+        type=int,
+        default=5,
+        help="Number of benchmark rounds for insert/select benchmarks.",
+    )
+
+
+@pytest.fixture
+def insert_select_rounds(request):
+    """Number of rounds used by insert/select benchmarks."""
+    rounds = request.config.getoption("--insert-select-rounds")
+    if rounds <= 0:
+        raise pytest.UsageError("--insert-select-rounds must be a positive integer.")
+    return rounds
 
 
 def pytest_configure(config):

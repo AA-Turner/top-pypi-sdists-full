@@ -5,7 +5,6 @@ Maps schema types to Pydantic v2 specific types with AwareDatetime, NaiveDatetim
 
 from __future__ import annotations
 
-import ast
 from decimal import Decimal
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -18,8 +17,10 @@ from datamodel_code_generator._python_syntax import (
     RAW_SINGLE_QUOTED_ESCAPES,
     call_text,
     keyword_argument,
+    raw_single_quoted,
     subscript_text,
 )
+from datamodel_code_generator._regex_syntax import control_escapes_keep_meaning
 from datamodel_code_generator._requirements import pydantic_target_meets
 from datamodel_code_generator.imports import (
     IMPORT_ANNOTATED,
@@ -81,7 +82,7 @@ from datamodel_code_generator.model.pydantic_v2.imports import (
 )
 from datamodel_code_generator.model.types import standard_primitive_type_map_factory
 from datamodel_code_generator.model.types import type_map_factory as _type_map_factory
-from datamodel_code_generator.python_literal import PythonCode, represent_python_value
+from datamodel_code_generator.python_literal import PythonCode, represent_python_value, stable_repr
 from datamodel_code_generator.types import (
     CONSTRAINED_DECIMAL_DEFAULT_VALUE_DESCRIPTOR,
     DECIMAL_DEFAULT_VALUE_DESCRIPTOR,
@@ -191,13 +192,8 @@ def _decimal_kwargs(kwargs: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _get_regex_literal(pattern: str) -> str:
-    escaped_regex = pattern.translate(escape_characters)
-    raw_literal = f"r'{escaped_regex}'"
-    try:
-        ast.literal_eval(raw_literal)
-    except SyntaxError:
-        return pattern
-    return PythonCode(raw_literal, pattern)
+    raw_literal = raw_single_quoted(pattern) if control_escapes_keep_meaning(pattern) else None
+    return pattern if raw_literal is None else PythonCode(raw_literal, pattern)
 
 
 class DataTypeManager(_DataTypeManagerBase):
@@ -596,7 +592,7 @@ class PydanticV2DataType(DataType):
     @staticmethod
     @override
     def _wrap_discriminator_type_hint(type_: str, discriminator: str) -> str:
-        return subscript_text("Annotated", (type_, f"Field(discriminator={discriminator!r})"))
+        return subscript_text("Annotated", (type_, f"Field(discriminator={stable_repr(discriminator)})"))
 
     def _should_wrap_with_serialize_as_any(self) -> bool:
         if not self.use_serialize_as_any:

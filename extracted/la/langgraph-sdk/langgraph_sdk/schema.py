@@ -380,6 +380,8 @@ class Run(TypedDict):
     """The run metadata."""
     multitask_strategy: MultitaskStrategy
     """Strategy to handle concurrent runs on the same thread."""
+    cancel_reason: NotRequired[str | None]
+    """Why the run was cancelled, if it was. Omitted by older servers."""
 
 
 class Cron(TypedDict):
@@ -480,6 +482,21 @@ ThreadSelectField = Literal[
     "interrupts",
 ]
 
+ThreadStateSelectField = (
+    Literal[
+        "values",
+        "next",
+        "tasks",
+        "checkpoint",
+        "metadata",
+        "created_at",
+        "parent_checkpoint",
+        "interrupts",
+    ]
+    | str
+)
+"""Also accepts `values.<key>` for a single state key, e.g. `values.messages`."""
+
 RunSelectField = Literal[
     "run_id",
     "thread_id",
@@ -490,6 +507,7 @@ RunSelectField = Literal[
     "metadata",
     "kwargs",
     "multitask_strategy",
+    "cancel_reason",
 ]
 
 CronSelectField = Literal[

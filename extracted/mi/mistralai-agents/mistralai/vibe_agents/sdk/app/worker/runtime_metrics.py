@@ -1,9 +1,11 @@
-"""Nuage-parity Session bootstrap and agent-turn metrics, and Registry skill metrics, for the Agents SDK worker."""
+"""Session bootstrap and agent-turn metrics, Registry skill metrics, completion band resolution metrics and
+sandbox metrics, for the Agents SDK worker."""
 
 import functools
 import os
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import structlog
 from opentelemetry.metrics import Counter, Histogram, get_meter
@@ -25,8 +27,20 @@ from mistralai.vibe_agents.sdk.assembly.skill_metrics import (
     SkillMaterializationOutcome,
     SkillMaterializationReason,
 )
+from mistralai.vibe_agents.sdk.sandbox.metrics import (
+    SandboxCreateOutcome,
+    SandboxCreateReason,
+    SandboxCreateSource,
+    SandboxExecOutcome,
+    SandboxKind,
+)
 
 logger = structlog.get_logger(__name__)
+
+CompletionOrgTierOutcome = Literal["resolved", "missing", "unknown", "error"]
+"""``resolved``: a known band reached the gateway. ``missing``: Albe has no row or no tier. ``unknown``: a band
+``OrgTier`` does not list. ``error``: Albe could not be read. ``missing`` and ``unknown`` schedule the completion as
+free; ``error`` fails it."""
 
 # Names, units, buckets and labels mirror Nuage's AgentRuntimeMetrics so dashboards read both engines alike.
 _METER_NAME = "agent_runtime"
@@ -67,6 +81,8 @@ _SESSION_BOOTSTRAP_DURATION_SECONDS_BUCKETS = [
     3600.0,
 ]
 
+_SANDBOX_DURATION_SECONDS_BUCKETS = [0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, 1800.0]
+
 
 @dataclass(frozen=True, slots=True)
 class _Instruments:
@@ -77,6 +93,9 @@ class _Instruments:
     skill_loads: Counter
     skill_registry_catalog_results: Counter
     skill_materialization_results: Counter
+    completion_org_tier_resolved: Counter
+    sandbox_create_duration_seconds: Histogram
+    sandbox_exec_duration_seconds: Histogram
 
 
 @functools.cache
@@ -114,6 +133,23 @@ def _instruments() -> _Instruments:
             f"{_NAMESPACE}.skill.materialization.results",
             unit="{materialization}",
             description="Discovered Registry skill installs on first use, by outcome and bounded reason.",
+        ),
+        completion_org_tier_resolved=meter.create_counter(
+            f"{_NAMESPACE}.completion_org_tier.resolved",
+            unit="{resolution}",
+            description="Completion band reads from Albe customer metadata, by outcome and forwarded band.",
+        ),
+        sandbox_create_duration_seconds=meter.create_histogram(
+            f"{_NAMESPACE}.sandbox.create.duration_seconds",
+            unit="s",
+            description="Sandbox creates for a Session, by sandbox, source, outcome and bounded reason.",
+            explicit_bucket_boundaries_advisory=_SANDBOX_DURATION_SECONDS_BUCKETS,
+        ),
+        sandbox_exec_duration_seconds=meter.create_histogram(
+            f"{_NAMESPACE}.sandbox.exec.duration_seconds",
+            unit="s",
+            description="Sandbox command executions, by sandbox and outcome.",
+            explicit_bucket_boundaries_advisory=_SANDBOX_DURATION_SECONDS_BUCKETS,
         ),
     )
 
@@ -173,6 +209,36 @@ class WorkerSkillMetrics:
         )
 
 
+class WorkerSandboxMetrics:
+    """Record sandbox metrics on a worker that enables runtime metrics."""
+
+    def record_sandbox_create(
+        self,
+        *,
+        sandbox: SandboxKind,
+        source: SandboxCreateSource,
+        outcome: SandboxCreateOutcome,
+        reason: SandboxCreateReason,
+        duration_seconds: float,
+    ) -> None:
+        _record_if_enabled(
+            "sandbox.create.duration_seconds",
+            lambda instruments: instruments.sandbox_create_duration_seconds.record(
+                duration_seconds, _attributes(sandbox=sandbox, source=source, outcome=outcome, reason=reason)
+            ),
+        )
+
+    def record_sandbox_exec(
+        self, *, sandbox: SandboxKind, outcome: SandboxExecOutcome, duration_seconds: float
+    ) -> None:
+        _record_if_enabled(
+            "sandbox.exec.duration_seconds",
+            lambda instruments: instruments.sandbox_exec_duration_seconds.record(
+                duration_seconds, _attributes(sandbox=sandbox, outcome=outcome)
+            ),
+        )
+
+
 def record_agent_loop_started() -> None:
     _record("agent_loop.started", lambda instruments: instruments.agent_loop_started.add(1, _attributes()))
 
@@ -188,6 +254,13 @@ def record_session_bootstrap(duration_seconds: float) -> None:
     _record(
         "session.bootstrap.duration_seconds",
         lambda instruments: instruments.session_bootstrap_duration_seconds.record(duration_seconds, _attributes()),
+    )
+
+
+def record_completion_org_tier(outcome: CompletionOrgTierOutcome, band: str = "") -> None:
+    _record_if_enabled(
+        "completion_org_tier.resolved",
+        lambda instruments: instruments.completion_org_tier_resolved.add(1, _attributes(outcome=outcome, band=band)),
     )
 
 
@@ -307,4 +380,4 @@ class WorkflowRuntimeMetrics:
         return max(self._now_unix_ms() - started, 0) / 1000
 
 
-__all__ = ["AGENT_ENGINE", "WorkerSkillMetrics", "WorkflowRuntimeMetrics", "turn_outcome"]
+__all__ = ["AGENT_ENGINE", "WorkerSandboxMetrics", "WorkerSkillMetrics", "WorkflowRuntimeMetrics", "turn_outcome"]

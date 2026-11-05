@@ -287,7 +287,7 @@ fn test_guacd_parser_invalid_terminator() {
     // it should report InvalidFormat because the terminator is wrong.
     match GuacdParser::peek_instruction(invalid_data) {
         Err(PeekError::InvalidFormat(msg)) => {
-            assert!(msg.contains("Expected instruction terminator ';' but found '!'"));
+            assert!(msg.contains("Expected instruction terminator ';' but found a different byte"));
         }
         other => {
             panic!(
@@ -315,7 +315,7 @@ fn test_guacd_parser_missing_terminators() {
     assert_eq!(
         GuacdParser::peek_instruction(data_incomplete_valid_prefix),
         Err(PeekError::InvalidFormat(
-            "Expected instruction terminator ';' but found 'A' at buffer position 16 (instruction content was: '4.test,7.invalid')".to_string()
+            "Expected instruction terminator ';' but found a different byte at buffer position 16 (instruction content withheld, 16 bytes)".to_string()
         ))
     );
 
@@ -325,8 +325,9 @@ fn test_guacd_parser_missing_terminators() {
          Err(PeekError::InvalidFormat(msg)) => {
             // Based on the test log, the actual error message is different from the prior manual trace predicted.
             // Adjusting to match the observed panic log to see if this specific check can pass.
-            assert!(msg.contains("Expected instruction terminator ';' but found 'A' at buffer position 16"));
-            assert!(msg.contains("(instruction content was: '4.test,7.invalid')"));
+            assert!(msg.contains("Expected instruction terminator ';' but found a different byte at buffer position 16"));
+            assert!(msg.contains("instruction content withheld"));
+            assert!(!msg.contains("invalid"), "instruction bytes leaked: {msg}");
         }
         other => panic!("Peek failed on data with missing terminator after valid prefix: {:?}. Expected InvalidFormat.", other),
     }
@@ -343,7 +344,7 @@ fn test_guacd_parser_missing_terminators() {
             );
             assert!(
                 msg.contains(
-                    "Expected instruction terminator ';' but found '1' at buffer position 12"
+                    "Expected instruction terminator ';' but found a different byte at buffer position 12"
                 ),
                 "Error message details mismatch: {}",
                 msg
@@ -2115,4 +2116,65 @@ fn test_original_log_error_cases() {
         }
         Err(e) => panic!("Corrected Japanese instruction should work: {:?}", e),
     };
+}
+
+/// Parser errors travel into ERROR-level logs (`HandshakeError::Parse`), and the instructions
+/// they describe can be `connect` with a password. No message may contain instruction bytes.
+#[test]
+fn parser_errors_never_echo_instruction_bytes() {
+    const SECRET: &str = "Sy7hetic-Pa55w0rd-DO-NOT-LOG";
+    // Wrong terminator after a complete-looking connect (byte-count prefix on non-ASCII).
+    let bad_terminator = format!("7.connect,3.rdp,{}.{}X;", SECRET.len() - 1, SECRET);
+    // Non-integer length fields, in the opcode and in an argument.
+    let bad_opcode_len = format!("x{SECRET}.connect;");
+    let bad_arg_len = format!("7.connect,{SECRET}.abc;");
+    for data in [&bad_terminator, &bad_opcode_len, &bad_arg_len] {
+        match GuacdParser::peek_instruction(data.as_bytes()) {
+            Err(PeekError::InvalidFormat(msg)) => {
+                assert!(!msg.contains("Pa55w0rd"), "peek error leaked: {msg}")
+            }
+            other => panic!("expected InvalidFormat for {data:?}, got {other:?}"),
+        }
+    }
+    // The content parser (no terminator) has its own messages.
+    for content in [
+        format!("7.connect,{SECRET}.abc"),
+        format!("x{SECRET}.connect"),
+        format!("7.connectX{SECRET}"),
+    ] {
+        let e = GuacdParser::parse_instruction_content(content.as_bytes())
+            .expect_err("malformed content must fail");
+        let msg = format!("{e:?} / {e}");
+        assert!(!msg.contains("Pa55w0rd"), "content error leaked: {msg}");
+    }
+    // The zero-allocation validator has its own terminator message.
+    let data = format!("7.connect,3.rdp,{}.{}X;", SECRET.len() - 1, SECRET);
+    match GuacdParser::validate_and_detect_special(data.as_bytes()) {
+        Err(PeekError::InvalidFormat(msg)) => {
+            assert!(!msg.contains("Pa55w0rd"), "validator leaked: {msg}");
+            assert!(msg.contains("instruction content withheld"), "{msg}");
+        }
+        other => panic!("expected InvalidFormat, got {other:?}"),
+    }
+}
+
+/// An invalid UTF-8 start byte is reported by position only, never by value.
+#[test]
+fn invalid_utf8_start_byte_error_does_not_echo_the_byte() {
+    for data in [&b"7.connect,2.\xff\xff;"[..], &b"7.connect,2.\xfe\xfe;"[..]] {
+        for result in [
+            GuacdParser::peek_instruction(data).map(|_| ()),
+            GuacdParser::validate_and_detect_special(data).map(|_| ()),
+        ] {
+            match result {
+                Err(PeekError::Utf8Error(msg)) => {
+                    assert!(
+                        !msg.to_ascii_uppercase().contains("0X"),
+                        "byte value echoed: {msg}"
+                    );
+                }
+                other => panic!("expected Utf8Error, got {other:?}"),
+            }
+        }
+    }
 }

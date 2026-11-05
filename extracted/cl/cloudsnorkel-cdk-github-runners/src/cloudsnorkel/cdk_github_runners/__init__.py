@@ -633,6 +633,7 @@ Configuration problems that we can detect up-front fail the orchestrator with a 
    2. If you see too many errors, make sure you're only sending `workflow_job` events
 5. When using GitHub app, make sure there are active installations in `github.auth.app.installations`
 6. If runners start but never pick up a job and get stopped with `IdleRunner`, their runner version may be too old. Runners can't update themselves, and GitHub stops sending jobs to runners that are not updated within 30 days of a new runner release, or right away for a critical security update. [Rebuild your runner images](#rebuilding-runner-images) to fix it
+7. If organization-level runners never pick up jobs from public repositories, check the runner group settings. By default, only private repositories can use runners in a runner group. You can allow public repositories in the [runner group repository access settings](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/managing-access-to-self-hosted-runners-using-groups#changing-which-repositories-can-access-a-runner-group), but make sure you understand the [security risks](#job-isolation) first
 
 All logs are saved in CloudWatch.
 
@@ -681,10 +682,11 @@ Other useful metrics to track:
 1. Use `GitHubRunners.metricJobCompleted()` to get a metric for the number of completed jobs broken down by labels and job success.
 2. Use `GitHubRunners.metricTime()` to get a metric for the total time a runner is running. This includes the overhead of starting the runner.
 3. Use `GitHubRunners.metricStolenRunners()` to get a metric for number of runners detected as stolen by another job. Anything over zero can indicate a misconfiguration or GitHub webhook issues.
+4. Use `GitHubRunners.metricJobsMatchingMultipleProviders()` to get a metric for the number of jobs whose labels matched more than one provider and may run on any of them. Anything over zero means some workflows should ask for more labels.
 
-Use `GitHubRunners.createDashboard()` to get a CloudWatch dashboard with all of these metrics in one place. It shows
-completed jobs by status, failed jobs by runner label, runners that failed to start, runner time, webhook activity, and
-recent errors from the logs.
+Use `GitHubRunners.createDashboard()` to get a CloudWatch dashboard with all of these metrics in one place. It's split
+into sections for jobs, runners, runner assignment and management functions. Each section explains what its numbers
+mean and which ones to alarm on.
 
 ## Known Issues
 
@@ -2796,7 +2798,7 @@ class GitHubRunners(
         :param idle_timeout: (experimental) Time to wait before stopping a runner that remains idle. If the user cancelled the job, or if another runner stole it, this stops the runner to avoid wasting resources. Default: 5 minutes
         :param log_options: (experimental) Logging options for the state machine that manages the runners. Default: no logs
         :param providers: (experimental) List of runner providers to use. At least one provider is required. Provider will be selected when its label matches the labels requested by the workflow job. Default: CodeBuild, Lambda and Fargate runners with all the defaults (no VPC or default account VPC)
-        :param provider_selector: (experimental) Optional Lambda function to customize provider selection logic and label assignment. - The function receives the webhook payload along with default provider and its labels as {@link ProviderSelectorInput } - The function returns a selected provider and its labels as {@link ProviderSelectorResult } - You can decline to provision a runner by returning undefined as the provider selector result - You can fully customize the labels for the about-to-be-provisioned runner (add, remove, modify, dynamic labels, etc.) - Labels don't have to match the labels originally configured for the provider, but see warnings below - This function will be called synchronously during webhook processing, so it should be fast and efficient (webhook limit is 30 seconds total) **WARNING: It is your responsibility to ensure the selected provider's labels match the job's required labels. If you return the wrong labels, the runner will be created but GitHub Actions will not assign the job to it.** **WARNING: Provider selection is not a guarantee that a specific provider will be assigned for the job. GitHub Actions may assign the job to any runner with matching labels. The provider selector only determines which provider's runner will be *created*, but GitHub Actions may route the job to any available runner with the required labels.** **For reliable provider assignment based on job characteristics, consider using repo-level runner registration where you can control which runners are available for specific repositories. This information is also available while using the setup wizard.
+        :param provider_selector: (experimental) Optional Lambda function to customize provider selection logic and label assignment. - The function receives the webhook payload along with default provider and its labels as {@link ProviderSelectorInput } - The function returns a selected provider and its labels as {@link ProviderSelectorResult } - You can decline to provision a runner by returning undefined as the provider in the selector result - You can fully customize the labels for the about-to-be-provisioned runner (add, remove, modify, dynamic labels, etc.) - Labels don't have to match the labels originally configured for the provider, but see warnings below - This function will be called synchronously during webhook processing, so it should be fast and efficient (webhook limit is 30 seconds total) **WARNING: It is your responsibility to ensure the selected provider's labels match the job's required labels. If you return the wrong labels, the runner will be created but GitHub Actions will not assign the job to it.** **WARNING: Provider selection is not a guarantee that a specific provider will be assigned for the job. GitHub Actions may assign the job to any runner with matching labels. The provider selector only determines which provider's runner will be *created*, but GitHub Actions may route the job to any available runner with the required labels.** **For reliable provider assignment based on job characteristics, consider using repo-level runner registration where you can control which runners are available for specific repositories. This information is also available while using the setup wizard.
         :param require_self_hosted_label: (experimental) Whether to require the ``self-hosted`` label. If ``true``, the runner will only start if the workflow job explicitly requests the ``self-hosted`` label. Be careful when setting this to ``false``. Avoid setting up providers with generic label requirements like ``linux`` as they may match workflows that are not meant to run on self-hosted runners. Default: true
         :param retry_options: (experimental) Options to retry operation in case of failure like missing capacity, or API quota issues. GitHub jobs time out after not being able to get a runner for 24 hours. You should not retry for more than 24 hours. Retries use full jitter, so total time spent waiting is about half the sum of min(interval * backoffRate ^ attempt, maxDelay) over all attempts. Default: retry 210 times over a bit more than 24 hours
         :param security_group: (deprecated) Security group attached to all management functions. Use this with to provide access to GitHub Enterprise Server hosted inside a VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting.
@@ -2840,20 +2842,16 @@ class GitHubRunners(
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Dashboard":
         '''(experimental) Creates a CloudWatch dashboard with the metrics you need to know if your runners are healthy.
 
-        It answers the questions you're most likely to ask:
+        It's split into sections, each with a short explanation of what its numbers mean and which ones to watch:
 
-        - Are jobs running and passing? See "Jobs completed by status".
-        - Which runner is broken? See "Failed jobs by runner label".
-        - Are jobs stuck because runners fail to start? See "Runner executions".
-        - Why were runners stopped before getting a job? See "Stopped runners by reason".
-        - Why are runners failing to start? See "Recent failed attempts".
-        - How long do runners take (and therefore cost)? See "Runner time".
-        - Is GitHub reaching the webhook at all? See "Webhook".
-        - Is any of our code failing? See "Lambda errors".
-        - What exactly went wrong? See "Recent errors".
+        - **Jobs**: are jobs running and passing, and which runner is failing them?
+        - **Runners**: do runners start, how long do they take (and therefore cost), and why do they fail to start?
+        - **Runner assignment**: are runners taken by jobs they weren't started for, do jobs match more than one provider, and why
+          were runners stopped before getting a job?
+        - **Management functions (orchestration)**: is GitHub reaching the webhook, and is any of our code failing?
 
-        **WARNING:** this method calls {@link metricJobCompleted}, {@link metricStolenRunners} and {@link metricStoppedRunners} which create metric filters.
-        These resources may incur cost.
+        **WARNING:** this method calls {@link metricJobCompleted}, {@link metricStolenRunners}, {@link metricStoppedRunners} and
+        {@link metricJobsMatchingMultipleProviders} which create metric filters. These resources may incur cost.
 
         This dashboard is very basic. Pull requests and issues are welcome to improve it.
 
@@ -2877,6 +2875,7 @@ class GitHubRunners(
         - "Ignored webhook" helps understand why runners aren't started
         - "Ignored jobs based on labels" helps debug label matching issues
         - "Webhook started runners" helps understand which runners were started
+        - "Jobs matching multiple providers" lists jobs that need more labels so they match only one provider
         - "Warm runner status" and "Warm runner errors" (when warm runners are configured)
 
         :param prefix: Prefix for the query definitions. Defaults to "GitHub Runners".
@@ -2898,6 +2897,9 @@ class GitHubRunners(
         Runner images are rebuilt every week by default. This provides the latest GitHub Runner version and software updates.
 
         If you want to be sure you are using the latest runner version, you can use this topic to be notified when a build fails.
+
+        Email subscribers get a short summary with the failure reason and a link to the logs. Other subscribers get the original
+        JSON notification from CodeBuild or EC2 Image Builder.
 
         When the image builder is defined in a separate stack (e.g. in a split-stacks setup), pass that stack or construct
         as the optional scope so the topic and failure-notification aspects are created in the same stack as the image
@@ -3019,6 +3021,66 @@ class GitHubRunners(
         )
 
         return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricJobCompleted", [props]))
+
+    @jsii.member(jsii_name="metricJobsMatchingMultipleProviders")
+    def metric_jobs_matching_multiple_providers(
+        self,
+        *,
+        account: typing.Optional[builtins.str] = None,
+        color: typing.Optional[builtins.str] = None,
+        dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        id: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        region: typing.Optional[builtins.str] = None,
+        stack_account: typing.Optional[builtins.str] = None,
+        stack_region: typing.Optional[builtins.str] = None,
+        statistic: typing.Optional[builtins.str] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
+        visible: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
+        '''(experimental) Metric for the number of jobs whose labels matched more than one provider.
+
+        We start a runner from the first matching provider, but GitHub may give such a job a runner from any of them, including one started for
+        another job. Stolen runner detection starts another runner for the job left behind, but the job itself may run on a provider you didn't
+        expect. Anything over zero means some workflows ask for too few labels. Add labels to those jobs so they match only one provider. Use the
+        "Jobs matching multiple providers" CloudWatch Logs Insights query created by {@link createLogsInsightsQueries} to find them.
+
+        Jobs routed by a provider selector are not counted, as the selector picks the provider.
+
+        **WARNING:** this method creates a metric filter. This resource may incur cost.
+
+        :param account: Account which this metric comes from. Default: - Deployment account.
+        :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
+        :param dimensions_map: Dimensions of the metric. Default: - No dimensions.
+        :param id: Unique identifier for this metric when used in dashboard widgets. The id can be used as a variable to represent this metric in math expressions. Valid characters are letters, numbers, and underscore. The first character must be a lowercase letter. Default: - No ID
+        :param label: Label for this metric when added to a Graph in a Dashboard. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the entire displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. Default: - No label
+        :param period: The period over which the specified statistic is applied. Default: Duration.minutes(5)
+        :param region: Region which this metric comes from. Default: - Deployment region.
+        :param stack_account: Account of the stack this metric is attached to. Default: - Deployment account.
+        :param stack_region: Region of the stack this metric is attached to. Default: - Deployment region.
+        :param statistic: What function to use for aggregating. Use the ``aws_cloudwatch.Stats`` helper class to construct valid input strings. Can be one of the following: - "Minimum" | "min" - "Maximum" | "max" - "Average" | "avg" - "Sum" | "sum" - "SampleCount | "n" - "pNN.NN" - "tmNN.NN" | "tm(NN.NN%:NN.NN%)" - "iqm" - "wmNN.NN" | "wm(NN.NN%:NN.NN%)" - "tcNN.NN" | "tc(NN.NN%:NN.NN%)" - "tsNN.NN" | "ts(NN.NN%:NN.NN%)" Default: Average
+        :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
+        :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
+
+        :stability: experimental
+        '''
+        props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
+            account=account,
+            color=color,
+            dimensions_map=dimensions_map,
+            id=id,
+            label=label,
+            period=period,
+            region=region,
+            stack_account=stack_account,
+            stack_region=stack_region,
+            statistic=statistic,
+            unit=unit,
+            visible=visible,
+        )
+
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricJobsMatchingMultipleProviders", [props]))
 
     @jsii.member(jsii_name="metricLambdaErrors")
     def metric_lambda_errors(
@@ -3384,7 +3446,7 @@ class GitHubRunnersProps:
         :param idle_timeout: (experimental) Time to wait before stopping a runner that remains idle. If the user cancelled the job, or if another runner stole it, this stops the runner to avoid wasting resources. Default: 5 minutes
         :param log_options: (experimental) Logging options for the state machine that manages the runners. Default: no logs
         :param providers: (experimental) List of runner providers to use. At least one provider is required. Provider will be selected when its label matches the labels requested by the workflow job. Default: CodeBuild, Lambda and Fargate runners with all the defaults (no VPC or default account VPC)
-        :param provider_selector: (experimental) Optional Lambda function to customize provider selection logic and label assignment. - The function receives the webhook payload along with default provider and its labels as {@link ProviderSelectorInput } - The function returns a selected provider and its labels as {@link ProviderSelectorResult } - You can decline to provision a runner by returning undefined as the provider selector result - You can fully customize the labels for the about-to-be-provisioned runner (add, remove, modify, dynamic labels, etc.) - Labels don't have to match the labels originally configured for the provider, but see warnings below - This function will be called synchronously during webhook processing, so it should be fast and efficient (webhook limit is 30 seconds total) **WARNING: It is your responsibility to ensure the selected provider's labels match the job's required labels. If you return the wrong labels, the runner will be created but GitHub Actions will not assign the job to it.** **WARNING: Provider selection is not a guarantee that a specific provider will be assigned for the job. GitHub Actions may assign the job to any runner with matching labels. The provider selector only determines which provider's runner will be *created*, but GitHub Actions may route the job to any available runner with the required labels.** **For reliable provider assignment based on job characteristics, consider using repo-level runner registration where you can control which runners are available for specific repositories. This information is also available while using the setup wizard.
+        :param provider_selector: (experimental) Optional Lambda function to customize provider selection logic and label assignment. - The function receives the webhook payload along with default provider and its labels as {@link ProviderSelectorInput } - The function returns a selected provider and its labels as {@link ProviderSelectorResult } - You can decline to provision a runner by returning undefined as the provider in the selector result - You can fully customize the labels for the about-to-be-provisioned runner (add, remove, modify, dynamic labels, etc.) - Labels don't have to match the labels originally configured for the provider, but see warnings below - This function will be called synchronously during webhook processing, so it should be fast and efficient (webhook limit is 30 seconds total) **WARNING: It is your responsibility to ensure the selected provider's labels match the job's required labels. If you return the wrong labels, the runner will be created but GitHub Actions will not assign the job to it.** **WARNING: Provider selection is not a guarantee that a specific provider will be assigned for the job. GitHub Actions may assign the job to any runner with matching labels. The provider selector only determines which provider's runner will be *created*, but GitHub Actions may route the job to any available runner with the required labels.** **For reliable provider assignment based on job characteristics, consider using repo-level runner registration where you can control which runners are available for specific repositories. This information is also available while using the setup wizard.
         :param require_self_hosted_label: (experimental) Whether to require the ``self-hosted`` label. If ``true``, the runner will only start if the workflow job explicitly requests the ``self-hosted`` label. Be careful when setting this to ``false``. Avoid setting up providers with generic label requirements like ``linux`` as they may match workflows that are not meant to run on self-hosted runners. Default: true
         :param retry_options: (experimental) Options to retry operation in case of failure like missing capacity, or API quota issues. GitHub jobs time out after not being able to get a runner for 24 hours. You should not retry for more than 24 hours. Retries use full jitter, so total time spent waiting is about half the sum of min(interval * backoffRate ^ attempt, maxDelay) over all attempts. Default: retry 210 times over a bit more than 24 hours
         :param security_group: (deprecated) Security group attached to all management functions. Use this with to provide access to GitHub Enterprise Server hosted inside a VPC. **Note:** This only affects management functions that interact with GitHub. Lambda functions that help with runner image building and don't interact with GitHub are NOT affected by this setting.
@@ -3542,7 +3604,7 @@ class GitHubRunnersProps:
 
         - The function receives the webhook payload along with default provider and its labels as {@link ProviderSelectorInput }
         - The function returns a selected provider and its labels as {@link ProviderSelectorResult }
-        - You can decline to provision a runner by returning undefined as the provider selector result
+        - You can decline to provision a runner by returning undefined as the provider in the selector result
         - You can fully customize the labels for the about-to-be-provisioned runner (add, remove, modify, dynamic labels, etc.)
         - Labels don't have to match the labels originally configured for the provider, but see warnings below
         - This function will be called synchronously during webhook processing, so it should be fast and efficient (webhook limit is 30 seconds total)

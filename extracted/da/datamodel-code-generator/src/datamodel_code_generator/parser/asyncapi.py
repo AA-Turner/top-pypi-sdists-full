@@ -16,7 +16,12 @@ from pydantic import Field, StrictStr, ValidationError
 from typing_extensions import Unpack, override
 
 from datamodel_code_generator import Error, InputFileType, snooper_to_methods
-from datamodel_code_generator._document_reader import CHANNEL_OPERATIONS, as_mapping, string_keys
+from datamodel_code_generator._document_reader import (
+    CHANNEL_OPERATIONS,
+    as_mapping,
+    is_multi_format_schema_object,
+    string_keys,
+)
 from datamodel_code_generator._json_pointer import escape_token
 from datamodel_code_generator._json_schema import definition_ref
 from datamodel_code_generator._name_words import (
@@ -36,6 +41,7 @@ from datamodel_code_generator.parser.jsonschema import (
 )
 from datamodel_code_generator.parser.openapi import OpenAPIParser
 from datamodel_code_generator.parser.schema_version import OpenAPISchemaFeatures, detect_asyncapi_version
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import is_url
 from datamodel_code_generator.util import BaseModel, create_module_getattr
 
@@ -203,20 +209,11 @@ def _schema_format_media_type(schema_format: str) -> str:
     return schema_format.split(";", maxsplit=1)[0].strip().lower()
 
 
-def _is_multi_format_schema_object_candidate(raw_schema: YamlValue) -> bool:
-    if not isinstance(raw_schema, dict):
-        return False
-    if "schemaFormat" in raw_schema:
-        return True
-    fixed_keys = {key for key in raw_schema if isinstance(key, str) and not key.startswith("x-")}
-    return fixed_keys == {"schema"}
-
-
 def _parse_multi_format_schema_object(
     raw_schema: YamlValue,
     path: list[str],
 ) -> MultiFormatSchemaObject | None:
-    if not _is_multi_format_schema_object_candidate(raw_schema):
+    if not is_multi_format_schema_object(raw_schema):
         return None
     try:
         return MultiFormatSchemaObject.model_validate(raw_schema)
@@ -233,10 +230,9 @@ def _parse_multi_format_schema_object(
 
 def _unsupported_schema_format_error(schema_format: str, path: list[str]) -> Error:
     msg = (
-        f"Unsupported AsyncAPI schemaFormat {schema_format!r} at {_path_to_string(path)}. "
-        "Supported embedded schema formats are AsyncAPI Schema Object, JSON Schema, "
-        "OpenAPI Schema Object, Avro, Protocol Buffers, and XML Schema. RAML and custom schema "
-        "formats are not supported inside AsyncAPI documents."
+        f"Unsupported AsyncAPI schemaFormat {stable_repr(schema_format)} at {_path_to_string(path)}. Supported "
+        "embedded schema formats are AsyncAPI Schema Object, JSON Schema, OpenAPI Schema Object, Avro, Protocol "
+        "Buffers, and XML Schema. RAML and custom schema formats are not supported inside AsyncAPI documents."
     )
     return Error(msg)
 
@@ -316,9 +312,12 @@ class AsyncAPIParser(OpenAPIParser):
         self._collect_discriminator_document(self.raw_obj)
 
     def _collect_discriminator_document(self, raw: dict[str, Any]) -> None:
-        """Retain AsyncAPI's component-only policy when reference loading indexes documents."""
+        """Retain AsyncAPI's component-only policy when reference loading indexes documents.
+
+        The components are read as ``_iter_asyncapi_schemas`` reads them: a value that is no object holds no schema.
+        """
         self._discriminator_documents.add(f"{'/'.join(self.model_resolver.current_root)}#")
-        for schema_name, schema in as_mapping(raw.get("components", {}).get("schemas", {})).items():
+        for schema_name, schema in as_mapping(as_mapping(raw.get("components")).get("schemas")).items():
             if not isinstance(schema, dict):
                 continue
             self._register_discriminator_schema(f"#/components/schemas/{schema_name}", schema)
@@ -443,8 +442,8 @@ class AsyncAPIParser(OpenAPIParser):
             case "asyncapi" | "jsonschema" | "openapi":
                 if not isinstance(raw_schema, (dict, bool)):
                     msg = (
-                        f"AsyncAPI schemaFormat {schema_format or 'default AsyncAPI schema'!r} "
-                        f"requires a schema object at {_path_to_string(path)}"
+                        f"AsyncAPI schemaFormat {stable_repr(schema_format or 'default AsyncAPI schema')} requires a "
+                        f"schema object at {_path_to_string(path)}"
                     )
                     raise Error(msg)
                 return [self._schema(name, raw_schema, path, location=location)]

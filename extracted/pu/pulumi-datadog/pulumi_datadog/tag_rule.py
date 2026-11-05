@@ -38,7 +38,7 @@ class TagRuleArgs:
         :param pulumi.Input[_builtins.str] scope: The scope the rule applies within. Typically an environment, team, or organization-level identifier used to limit where the rule is enforced.
         :param pulumi.Input[_builtins.str] source: The telemetry source that the tag rule applies to. This field cannot be updated after creation; changing it forces a new resource. Valid values are `logs`, `spans`, `metrics`, `rum`, `feed`.
         :param pulumi.Input[_builtins.str] tag_key: The tag key that the rule governs (for example, `service`).
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tag_value_patterns: One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A pattern made up only of wildcards (for example a bare `*`) is rejected by the API.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tag_value_patterns: One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A bare `*` accepts any value, so `["*"]` with `required = true` means the tag must be present with any value, and `["*"]` with `negated = true` means the tag must be absent. A bare `*` cannot be combined with `required` and `negated` both `false` (the rule would have no effect) or both `true` (no value could comply).
         :param pulumi.Input[_builtins.bool] enabled: Whether the rule is currently enforced. Defaults to `true`.
         :param pulumi.Input[_builtins.bool] force_blocking_on_create: Set to `true` to allow creating a rule with `rule_type` set to `blocking`. The Datadog API only accepts `surfacing` at creation time, so the provider creates the rule as `surfacing` and then immediately updates it to `blocking`, which makes the create non-atomic: if the update fails, a `surfacing` rule is left behind and the resource is marked tainted. This field is only read during creation and is not sent to the API; changing it afterwards produces a diff that has no effect.
         :param pulumi.Input[_builtins.bool] hard_delete: Whether destroying this resource permanently deletes the tag rule. When set to `false` the rule is soft-deleted instead, which keeps it recoverable and preserves its historical compliance score data. This field is only read during deletion and is not sent to the API on create or update. Defaults to `true`.
@@ -126,7 +126,7 @@ class TagRuleArgs:
     @pulumi.getter(name="tagValuePatterns")
     def tag_value_patterns(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
         """
-        One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A pattern made up only of wildcards (for example a bare `*`) is rejected by the API.
+        One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A bare `*` accepts any value, so `["*"]` with `required = true` means the tag must be present with any value, and `["*"]` with `negated = true` means the tag must be absent. A bare `*` cannot be combined with `required` and `negated` both `false` (the rule would have no effect) or both `true` (no value could comply).
         """
         return pulumi.get(self, "tag_value_patterns")
 
@@ -231,7 +231,7 @@ class _TagRuleState:
         :param pulumi.Input[_builtins.str] scope: The scope the rule applies within. Typically an environment, team, or organization-level identifier used to limit where the rule is enforced.
         :param pulumi.Input[_builtins.str] source: The telemetry source that the tag rule applies to. This field cannot be updated after creation; changing it forces a new resource. Valid values are `logs`, `spans`, `metrics`, `rum`, `feed`.
         :param pulumi.Input[_builtins.str] tag_key: The tag key that the rule governs (for example, `service`).
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tag_value_patterns: One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A pattern made up only of wildcards (for example a bare `*`) is rejected by the API.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tag_value_patterns: One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A bare `*` accepts any value, so `["*"]` with `required = true` means the tag must be present with any value, and `["*"]` with `negated = true` means the tag must be absent. A bare `*` cannot be combined with `required` and `negated` both `false` (the rule would have no effect) or both `true` (no value could comply).
         :param pulumi.Input[_builtins.int] version: A monotonically increasing version counter that is incremented on each update.
         """
         if created_at is not None:
@@ -439,7 +439,7 @@ class _TagRuleState:
     @pulumi.getter(name="tagValuePatterns")
     def tag_value_patterns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
         """
-        One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A pattern made up only of wildcards (for example a bare `*`) is rejected by the API.
+        One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A bare `*` accepts any value, so `["*"]` with `required = true` means the tag must be present with any value, and `["*"]` with `negated = true` means the tag must be absent. A bare `*` cannot be combined with `required` and `negated` both `false` (the rule would have no effect) or both `true` (no value could comply).
         """
         return pulumi.get(self, "tag_value_patterns")
 
@@ -501,6 +501,17 @@ class TagRule(pulumi.CustomResource):
             ],
             rule_type="surfacing",
             required=True)
+        # Require the tag to be present with any value. A bare `*` accepts every
+        # value, so it must be paired with `required = true` (or with `negated = true`
+        # to require the tag to be absent instead).
+        team = datadog.TagRule("team",
+            name="team must be set",
+            source="logs",
+            scope="org",
+            tag_key="team",
+            tag_value_patterns=["*"],
+            rule_type="surfacing",
+            required=True)
         # Create a blocking tag rule, which rejects telemetry that violates it.
         # The Datadog API only accepts `surfacing` at creation time, so the provider
         # creates the rule and then immediately updates it to `blocking`. Because that
@@ -537,7 +548,7 @@ class TagRule(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] scope: The scope the rule applies within. Typically an environment, team, or organization-level identifier used to limit where the rule is enforced.
         :param pulumi.Input[_builtins.str] source: The telemetry source that the tag rule applies to. This field cannot be updated after creation; changing it forces a new resource. Valid values are `logs`, `spans`, `metrics`, `rum`, `feed`.
         :param pulumi.Input[_builtins.str] tag_key: The tag key that the rule governs (for example, `service`).
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tag_value_patterns: One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A pattern made up only of wildcards (for example a bare `*`) is rejected by the API.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tag_value_patterns: One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A bare `*` accepts any value, so `["*"]` with `required = true` means the tag must be present with any value, and `["*"]` with `negated = true` means the tag must be absent. A bare `*` cannot be combined with `required` and `negated` both `false` (the rule would have no effect) or both `true` (no value could comply).
         """
         ...
     @overload
@@ -566,6 +577,17 @@ class TagRule(pulumi.CustomResource):
                 "staging",
                 "dev",
             ],
+            rule_type="surfacing",
+            required=True)
+        # Require the tag to be present with any value. A bare `*` accepts every
+        # value, so it must be paired with `required = true` (or with `negated = true`
+        # to require the tag to be absent instead).
+        team = datadog.TagRule("team",
+            name="team must be set",
+            source="logs",
+            scope="org",
+            tag_key="team",
+            tag_value_patterns=["*"],
             rule_type="surfacing",
             required=True)
         # Create a blocking tag rule, which rejects telemetry that violates it.
@@ -702,7 +724,7 @@ class TagRule(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] scope: The scope the rule applies within. Typically an environment, team, or organization-level identifier used to limit where the rule is enforced.
         :param pulumi.Input[_builtins.str] source: The telemetry source that the tag rule applies to. This field cannot be updated after creation; changing it forces a new resource. Valid values are `logs`, `spans`, `metrics`, `rum`, `feed`.
         :param pulumi.Input[_builtins.str] tag_key: The tag key that the rule governs (for example, `service`).
-        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tag_value_patterns: One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A pattern made up only of wildcards (for example a bare `*`) is rejected by the API.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] tag_value_patterns: One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A bare `*` accepts any value, so `["*"]` with `required = true` means the tag must be present with any value, and `["*"]` with `negated = true` means the tag must be absent. A bare `*` cannot be combined with `required` and `negated` both `false` (the rule would have no effect) or both `true` (no value could comply).
         :param pulumi.Input[_builtins.int] version: A monotonically increasing version counter that is incremented on each update.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
@@ -726,6 +748,44 @@ class TagRule(pulumi.CustomResource):
         __props__.__dict__["tag_value_patterns"] = tag_value_patterns
         __props__.__dict__["version"] = version
         return TagRule(resource_name, opts=opts, __props__=__props__)
+
+    @staticmethod
+    def exists(id: pulumi.Input[str],
+            opts: Optional[pulumi.ResourceOptions] = None,
+            created_at: pulumi.Input[Optional[_builtins.str]] = None,
+            created_by: pulumi.Input[Optional[_builtins.str]] = None,
+            enabled: pulumi.Input[Optional[_builtins.bool]] = None,
+            force_blocking_on_create: pulumi.Input[Optional[_builtins.bool]] = None,
+            hard_delete: pulumi.Input[Optional[_builtins.bool]] = None,
+            modified_at: pulumi.Input[Optional[_builtins.str]] = None,
+            modified_by: pulumi.Input[Optional[_builtins.str]] = None,
+            name: pulumi.Input[Optional[_builtins.str]] = None,
+            negated: pulumi.Input[Optional[_builtins.bool]] = None,
+            required: pulumi.Input[Optional[_builtins.bool]] = None,
+            rule_type: pulumi.Input[Optional[_builtins.str]] = None,
+            scope: pulumi.Input[Optional[_builtins.str]] = None,
+            source: pulumi.Input[Optional[_builtins.str]] = None,
+            tag_key: pulumi.Input[Optional[_builtins.str]] = None,
+            tag_value_patterns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            version: pulumi.Input[Optional[_builtins.int]] = None) -> pulumi.Output[bool]:
+        __props__: dict = {}
+        __props__["createdAt"] = created_at
+        __props__["createdBy"] = created_by
+        __props__["enabled"] = enabled
+        __props__["forceBlockingOnCreate"] = force_blocking_on_create
+        __props__["hardDelete"] = hard_delete
+        __props__["modifiedAt"] = modified_at
+        __props__["modifiedBy"] = modified_by
+        __props__["name"] = name
+        __props__["negated"] = negated
+        __props__["required"] = required
+        __props__["ruleType"] = rule_type
+        __props__["scope"] = scope
+        __props__["source"] = source
+        __props__["tagKey"] = tag_key
+        __props__["tagValuePatterns"] = tag_value_patterns
+        __props__["version"] = version
+        return pulumi.runtime.exists_resource(None, 'datadog:index/tagRule:TagRule', id, __props__, opts or pulumi.ResourceOptions())
 
     @_builtins.property
     @pulumi.getter(name="createdAt")
@@ -843,7 +903,7 @@ class TagRule(pulumi.CustomResource):
     @pulumi.getter(name="tagValuePatterns")
     def tag_value_patterns(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
-        One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A pattern made up only of wildcards (for example a bare `*`) is rejected by the API.
+        One or more patterns that valid values for the tag key must match. At least one pattern is required. These are not regular expressions: the API restricts pattern characters to `A-Za-z0-9_:-.,/*`, with `*` acting as a wildcard. A bare `*` accepts any value, so `["*"]` with `required = true` means the tag must be present with any value, and `["*"]` with `negated = true` means the tag must be absent. A bare `*` cannot be combined with `required` and `negated` both `false` (the rule would have no effect) or both `true` (no value could comply).
         """
         return pulumi.get(self, "tag_value_patterns")
 

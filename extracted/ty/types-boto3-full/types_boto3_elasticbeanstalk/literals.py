@@ -26,6 +26,7 @@ __all__ = (
     "ActionHistoryStatusType",
     "ActionStatusType",
     "ActionTypeType",
+    "AmiArchitectureType",
     "ApplicationVersionStatusType",
     "ArchitectureTypeType",
     "ComputeTypeType",
@@ -64,6 +65,7 @@ __all__ = (
 ActionHistoryStatusType = Literal["Completed", "Failed", "Unknown"]
 ActionStatusType = Literal["Pending", "Running", "Scheduled", "Unknown"]
 ActionTypeType = Literal["InstanceRefresh", "PlatformUpdate", "Unknown"]
+AmiArchitectureType = Literal["arm64", "x86_64"]
 ApplicationVersionStatusType = Literal[
     "Building", "Failed", "Processed", "Processing", "Unprocessed"
 ]

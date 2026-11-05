@@ -46,7 +46,15 @@ import weakref
 from datetime import datetime, timezone
 from typing import Any, Callable, NamedTuple, Optional
 
-from ..errors import AuthError, Conflict, InternalError, InvalidRequest, SequencesError, Unavailable
+from ..errors import (
+    NOT_THE_PLATFORM,
+    AuthError,
+    Conflict,
+    InternalError,
+    InvalidRequest,
+    SequencesError,
+    Unavailable,
+)
 from . import act_size
 from .transport import DEFAULT_TIMEOUT_S, Transport
 from .warn import warn
@@ -233,12 +241,9 @@ class DirectConnection(_ObservationStream, _Episodes, _seat._KeptSeat):
 
     def __init__(self, gateway: Transport, model: str, *,
                  timeout_s: Optional[float] = None,
-                 max_reconnects: int = 5, teleop: Optional[Any] = None, planner: Optional[str] = None) -> None:
+                 max_reconnects: int = 5, teleop: Optional[Any] = None) -> None:
         self._gateway = gateway
         self._model = model
-
-
-        self._planner = planner
 
 
 
@@ -694,6 +699,11 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         return body
 
     @property
+    def platform_answered(self) -> bool:
+        """Whether a word of the platform's has come on this connection (Transport.answered)."""
+        return bool(getattr(self._gateway, "answered", True))
+
+    @property
     def session(self) -> str:
         """This client's session: what its connects name it by, and its ready polls too, so the platform answers a poll
         for this robot - queued when its deployment is full - rather than for any robot."""
@@ -929,7 +939,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         """The body of one POST /v1/act/connect, the session marked as having reached it. Under _lock. `again`: a
         connect, not a renewal, of a robot that was connected before - one whose seat went with a worker that went away
         is then seated by the platform as a robot moving off it (a free seat beside robots first), never as a new one."""
-        request = {"model": self._planner or self._model, **({"policy": self._model} if self._planner else {}),
+        request = {"model": self._model,
                    "session": self._session, "standby": True, **({"move": True} if move else {}),
                    **({"switched": True} if self._switched else {}),
 
@@ -1476,6 +1486,8 @@ def _refused_in(exc: BaseException) -> str:
     credit or over its requests a minute - `place` - its deployment missing, stopped or refusing it - else `gateway`:
     not reached, or erring."""
     status = getattr(exc, "status", None)
+    if (getattr(exc, "details", None) or {}).get("reason") == NOT_THE_PLATFORM:
+        return "gateway"
     if status in (401, 402, 403, 429):
         return "auth"
     if status in (404, 409, 422):

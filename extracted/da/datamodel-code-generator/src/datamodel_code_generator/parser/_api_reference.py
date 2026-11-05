@@ -4,20 +4,16 @@ from __future__ import annotations
 
 from collections.abc import Sequence  # noqa: TC003 - Public annotations support get_type_hints().
 from functools import cached_property, lru_cache
-from urllib.parse import quote, unquote
+from urllib.parse import quote
 
 from typing_extensions import override
 
 from datamodel_code_generator import SchemaParseError
-from datamodel_code_generator._json_pointer import (
-    NONCANONICAL_ESCAPE,
-    NONCANONICAL_PERCENT,
-    escape_token,
-    fragment_tokens,
-)
+from datamodel_code_generator._json_pointer import escape_token, pointer_opening, reference_tokens
 from datamodel_code_generator._source import YamlValue  # noqa: TC001 - Public annotations support get_type_hints().
 from datamodel_code_generator._url_redaction import redact_reference
 from datamodel_code_generator.parser._schema_reading import split_json_pointer
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import (
     SPECIAL_PATH_MARKER,
     ModelResolver,
@@ -27,18 +23,12 @@ from datamodel_code_generator.reference import (
 
 
 def pointer_tokens(ref: str) -> tuple[str, ...] | None:
-    """Decode a URI fragment once, distinguishing named anchors from pointers."""
-    fragment = ref.partition("#")[2]
-    msg = f"API_REF_NONCANONICAL_POINTER: {redact_reference(ref)!r}"
-    if NONCANONICAL_PERCENT.search(fragment):
-        raise SchemaParseError(msg, path=[ref])
+    """Read a URI fragment strictly (``reference_tokens``), distinguishing named anchors from pointers."""
     try:
-        decoded = unquote(fragment, errors="strict")
-    except UnicodeError as exc:
+        return reference_tokens(ref.partition("#")[2], strict=True)
+    except ValueError as exc:
+        msg = f"API_REF_NONCANONICAL_POINTER: {stable_repr(redact_reference(ref))}"
         raise SchemaParseError(msg, path=[ref], original_error=exc) from exc
-    if (tokens := fragment_tokens(decoded)) and NONCANONICAL_ESCAPE.search(decoded):
-        raise SchemaParseError(msg, path=[ref])
-    return tokens
 
 
 def check_pointer_interpretation(raw: dict[str, YamlValue], original: str, resolved: str) -> None:
@@ -46,10 +36,9 @@ def check_pointer_interpretation(raw: dict[str, YamlValue], original: str, resol
     if (tokens := pointer_tokens(original)) is None:
         return
     fragment = original.partition("#")[2]
-    if fragment[:3].lower() == "%2f":
-        fragment = "/" + fragment[3:]
-    if tuple(split_json_pointer(raw, fragment)) != tokens:
-        msg = f"API_REF_NONCANONICAL_POINTER: {redact_reference(original)!r}"
+    pointer = fragment if (opening := pointer_opening(fragment)) is None else "/" + fragment[opening:]
+    if tuple(split_json_pointer(raw, pointer)) != tokens:
+        msg = f"API_REF_NONCANONICAL_POINTER: {stable_repr(redact_reference(original))}"
         raise SchemaParseError(msg, path=[resolved])
 
 

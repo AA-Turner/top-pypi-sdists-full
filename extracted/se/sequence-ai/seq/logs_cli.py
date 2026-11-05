@@ -256,7 +256,7 @@ def _machine_name(m: dict) -> str:
 def _machine_price(m: dict) -> Optional[str]:
     """What an hour of a machine costs its owner, as the platform says it: one worker's price on its card, said as a
     worker's as `seq policy status` says it ("$0.9612/h a worker": the card with its CPU and memory, more than the card
-    alone), for a machine that serves or checks a deploy; "billed with its eval" for an eval's instance, which its eval
+    alone), for a machine that serves or checks a deploy; "billed with its eval" for an eval's machine, which its eval
     bills for what its run used. None where the platform gave no price: a machine whose purpose is not recorded (it could
     have been either), a card it does not price. No machine is said to be free: every one the platform starts for its
     user is billed from when it starts, and no replica check runs any more.
@@ -305,9 +305,8 @@ def format_events(page: dict, deployment: str, *, flags: str = "") -> str:
     """The log as events, a line each: when, the machine that wrote it and what that machine was for ("a0001 · deploy
     check", _machine_name), what happened - a robot's acts in one run and a print the policy repeated folded into one
     with when they ended (seq policy logs --all: every one), what the policy printed marked when it was while it loaded
-    or on its stderr - and how long it is kept. First the machines themselves (_machines_said). A composite's planning,
-    which a gateway sent beside the first page (`planner`), is said no more: a policy plans no more
-."""
+    or on its stderr - and how long it is kept. First the machines themselves (_machines_said). The policy's planning, which a
+    gateway sends beside the first page (`plan`: plans, failed, p50_ms, p95_ms, cost_usd), is not printed here."""
     machines = {m["machine"]: m for m in page.get("machines") or [] if isinstance(m, dict) and m.get("machine")}
     lines = _machines_said(list(machines.values()))
     named = {n: _machine_name(m) for n, m in machines.items()}

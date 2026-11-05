@@ -50,8 +50,7 @@ class VectorIndexes(WMLResource):
         sample_questions: list[str] | None = None,
         **kwargs: Any,
     ) -> dict:
-        """
-        Creates a new Vector Index Asset.
+        """Create a new Vector Index Asset.
 
         :param name: name for vector index asset
         :type name: str
@@ -113,7 +112,7 @@ class VectorIndexes(WMLResource):
 
         WMLResource._validate_type(name, "name", str)
         WMLResource._validate_type(description, "description", str, False)
-        WMLResource._validate_type(store, "store", dict, False)
+        WMLResource._validate_type(store, "store", [dict, str], False)
         WMLResource._validate_type(settings, "settings", dict, False)
 
         data_assets = kwargs.pop("data_assets", None)
@@ -125,7 +124,7 @@ class VectorIndexes(WMLResource):
         status = kwargs.pop("status", None)
         WMLResource._validate_type(status, "status", str, False)
 
-        payload = self._prepare_payload_create(
+        payload = self._drop_nones_from_payload(
             name=name,
             description=description,
             data_assets=data_assets,
@@ -138,7 +137,7 @@ class VectorIndexes(WMLResource):
         )
 
         response = self._client.httpx_client.post(
-            url=self._client.service_instance._href_definitions.get_vector_indexes_href(),
+            url=self._client._href_definitions.get_vector_indexes_href(),
             json=payload,
             params=self._client._params(),
             headers=self._client._get_headers(),
@@ -146,41 +145,91 @@ class VectorIndexes(WMLResource):
 
         return self._handle_response(201, "create asset", response)
 
-    @staticmethod
-    def _prepare_payload_create(
-        name: str | None = None,
+    def create_transactional(
+        self,
+        name: str,
+        *,
         description: str | None = None,
+        store: str | dict[str, Any] | None = None,
         data_assets: list[str] | None = None,
-        store: dict | None = None,
-        settings: dict | None = None,
-        build: dict | None = None,
-        tags: list[str] | None = None,
+        settings: dict[str, Any] | None = None,
         sample_questions: list[str] | None = None,
-        status: str | None = None,
     ) -> dict:
-        """Prepare payload based on the provided data."""
-        payload: dict[str, Any] = {}
+        """Create a new Vector Index asset using transactional API.
 
-        if name is not None:
-            payload["name"] = name
-        if description is not None:
-            payload["description"] = description
-        if data_assets is not None:
-            payload["data_assets"] = data_assets
-        if store is not None:
-            payload["store"] = store
-        if settings is not None:
-            payload["settings"] = settings
-        if build is not None:
-            payload["build"] = build
-        if tags is not None:
-            payload["tags"] = tags
-        if sample_questions is not None:
-            payload["sample_questions"] = sample_questions
-        if status is not None:
-            payload["status"] = status
+        :param name: name of the vector index asset
+        :type name: str
 
-        return payload
+        :param description: description of the vector index asset, defaults to None
+        :type description: str, optional
+
+        :param store: vector store settings
+        :type store: str | dict, optional
+
+        :param data_assets: IDs of data assets used in the vector index, defaults to None
+        :type data_assets: list[str], optional
+
+        :param settings: settings of vector index, defaults to None
+        :type settings: dict, optional
+
+        :param sample_questions: sample asked questions, defaults to None
+        :type sample_questions: list[str], optional
+
+        :return: metadata of the created Vector Index asset
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            vector_index_details = vector_indexes.create_transactional(
+                "test_sdk_vector_index",
+                description="Description",
+                store={
+                    "type": "watsonx.data",
+                    "connection_id": "<connection_id>",
+                    "index": "<index_name>",
+                    "new_index": False,
+                    "database": "default",
+                },
+                data_assets=[
+                    "713259df-0540-4301-982e-693a81da462c",
+                    "713259df-0540-4301-982e-693a81da573d",
+                ],
+                settings={
+                    "embedding_model_id": "<model_id>",
+                    "top_k": 1,
+                    "schema_fields": {"text": "text"},
+                },
+                sample_questions=["summarize the document, name of the author"],
+            )
+
+        """
+
+        self._validate_type(name, "name", str)
+        self._validate_type(description, "description", str, False)
+        self._validate_type(store, "store", [dict, str], False)
+        self._validate_type(data_assets, "data_assets", list, False)
+        self._validate_type(settings, "settings", dict, False)
+        self._validate_type(sample_questions, "sample_questions", list, False)
+
+        payload = self._drop_nones_from_payload(
+            name=name,
+            description=description,
+            store=store,
+            data_assets=data_assets,
+            settings=settings,
+            sample_questions=sample_questions,
+        )
+
+        response = self._client.httpx_client.post(
+            self._client._href_definitions.get_transactional_vector_indexes_href(),
+            json=payload,
+            params=self._client._params(),
+            headers=self._client._get_headers(),
+        )
+
+        return self._handle_response(201, "create asset", response)
 
     def update(
         self,
@@ -195,7 +244,7 @@ class VectorIndexes(WMLResource):
     ) -> dict:
         """Update a Vector Index Asset with the given id.
 
-        :param index_id: Vector Index ids
+        :param index_id: ID of the vector index asset
         :type index_id: str
 
         :param name: name for vector index asset, defaults to None
@@ -225,7 +274,7 @@ class VectorIndexes(WMLResource):
         :param status: the status of the vector index, defaults to None
         :type status: str | None, optional
 
-        :return: metadata of the created Vector Index Asset
+        :return: metadata of the updated Vector Index Asset
         :rtype: dict
 
         **Example:**
@@ -252,7 +301,7 @@ class VectorIndexes(WMLResource):
         status = kwargs.pop("status", None)
         WMLResource._validate_type(status, "status", str, False)
 
-        payload = self._prepare_payload_create(
+        payload = self._drop_nones_from_payload(
             name=name,
             description=description,
             data_assets=data_assets,
@@ -265,8 +314,94 @@ class VectorIndexes(WMLResource):
         )
 
         response = self._client.httpx_client.patch(
-            url=self._client.service_instance._href_definitions.get_vector_index_href(
-                index_id
+            url=self._client._href_definitions.get_vector_index_href(index_id),
+            json=payload,
+            params=self._client._params(),
+            headers=self._client._get_headers(),
+        )
+
+        return self._handle_response(200, "update asset", response)
+
+    def update_transactional(
+        self,
+        vector_index_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        store: str | dict[str, Any] | None = None,
+        data_assets: list[str] | None = None,
+        settings: dict[str, Any] | None = None,
+        sample_questions: list[str] | None = None,
+        build: dict[str, Any] | None = None,
+        status: str | None = None,
+    ) -> dict:
+        """Update a Vector Index asset with the given ID using transactional API.
+
+        :param vector_index_id: ID of the vector index asset
+        :type vector_index_id: str
+
+        :param name: name of the vector index asset
+        :type name: str, optional
+
+        :param description: description of the vector index asset, defaults to None
+        :type description: str, optional
+
+        :param store: vector store settings
+        :type store: str | dict, optional
+
+        :param data_assets: IDs of data assets used in the vector index, defaults to None
+        :type data_assets: list[str], optional
+
+        :param settings: settings of vector index, defaults to None
+        :type settings: dict, optional
+
+        :param sample_questions: sample asked questions, defaults to None
+        :type sample_questions: list[str], optional
+
+        :param build: the associated build to process the data for external vector stores, defaults to None
+        :type build: dict, optional
+
+        :param status: the status of the vector index, defaults to None
+        :type status: str, optional
+
+        :return: metadata of the updated Vector Index asset
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            vector_index_details = vector_indexes.update_transactional(
+                vector_index_id,
+                name="new_vector_index_name",
+                description="new_vector_index_description",
+            )
+
+        """
+
+        self._validate_type(name, "name", str, False)
+        self._validate_type(description, "description", str, False)
+        self._validate_type(store, "store", [dict, str], False)
+        self._validate_type(data_assets, "data_assets", list, False)
+        self._validate_type(settings, "settings", dict, False)
+        self._validate_type(sample_questions, "sample_questions", list, False)
+        self._validate_type(build, "build", dict, False)
+        self._validate_type(status, "status", str, False)
+
+        payload = self._drop_nones_from_payload(
+            name=name,
+            description=description,
+            store=store,
+            data_assets=data_assets,
+            settings=settings,
+            sample_questions=sample_questions,
+            build=build,
+            status=status,
+        )
+
+        response = self._client.httpx_client.patch(
+            self._client._href_definitions.get_transactional_vector_index_href(
+                vector_index_id
             ),
             json=payload,
             params=self._client._params(),
@@ -276,12 +411,12 @@ class VectorIndexes(WMLResource):
         return self._handle_response(200, "update asset", response)
 
     def get_details(self, index_id: str) -> dict:
-        """Get details of Vector Index Asset with given `index_id`.
+        """Get details of Vector Index Asset with the given ID.
 
-        :param index_id: Vector Index id
+        :param index_id: ID of the vector index asset
         :type index_id: str
 
-        :return: details of Vector Index Asset with given index_id
+        :return: details of the Vector Index Asset with the given ID
         :rtype: dict
 
         **Example:**
@@ -292,14 +427,39 @@ class VectorIndexes(WMLResource):
 
         """
         response = self._client.httpx_client.get(
-            url=self._client.service_instance._href_definitions.get_vector_index_href(
-                index_id
+            url=self._client._href_definitions.get_vector_index_href(index_id),
+            params=self._client._params(),
+            headers=self._client._get_headers(),
+        )
+
+        return self._handle_response(200, "get asset", response)
+
+    def get_details_transactional(self, vector_index_id: str) -> dict:
+        """Get details of Vector Index asset with the given ID using transactional API.
+
+        :param vector_index_id: ID of the vector index asset
+        :type vector_index_id: str
+
+        :return: details of vector index asset with the given ID
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            vector_indexes.get_details_transactional(vector_index_id)
+
+        """
+
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_transactional_vector_index_status_href(
+                vector_index_id
             ),
             params=self._client._params(),
             headers=self._client._get_headers(),
         )
 
-        return self._handle_response(200, "create asset", response)
+        return self._handle_response(200, "get asset", response)
 
     def delete(self, index_id: str) -> Literal["SUCCESS"]:
         """Delete a vector index with the given id.
@@ -307,7 +467,7 @@ class VectorIndexes(WMLResource):
         :param index_id: Vector Index id
         :type index_id: str
 
-        :return: "SUCCESS" if delete successfully
+        :return: "SUCCESS" if deletion succeeded
         :rtype: str
         :raises WMLClientError: if deletion failed
 
@@ -315,14 +475,12 @@ class VectorIndexes(WMLResource):
 
         .. code-block:: python
 
-            vector_indexes.delete(index_id)
+            vector_indexes.delete(vector_index_id)
 
         """
 
         response = self._client.httpx_client.delete(
-            url=self._client.service_instance._href_definitions.get_vector_index_href(
-                index_id
-            ),
+            url=self._client._href_definitions.get_vector_index_href(index_id),
             params=self._client._params(),
             headers=self._client._get_headers(),
         )
@@ -340,7 +498,7 @@ class VectorIndexes(WMLResource):
         :rtype: list
         """
         headers = self._client._get_headers()
-        url = self._client.service_instance._href_definitions.get_vector_indexes_all_href()
+        url = self._client._href_definitions.get_vector_indexes_all_href()
         json_data: dict[str, int | str] = {
             "query": "asset.asset_type:vector_index",
             "sort": "-asset.created_at<string>",
@@ -370,21 +528,20 @@ class VectorIndexes(WMLResource):
         return vector_indexes_list
 
     def list(self, *, limit: int | None = None) -> pandas.DataFrame:
-        """List all available Vector Index Assets in the DataFrame format.
+        """List all available Vector Index assets in the ``DataFrame`` format.
 
-        :param limit: limit number of fetched records, defaults to None.
+        :param limit: limit number of fetched records, defaults to None
         :type limit: int, optional
 
-        :return: DataFrame of fundamental properties of available Vector Index Assets.
-        :rtype: pandas.core.frame.DataFrame
+        :return: ``DataFrame`` of fundamental properties of available Vector Index assets
+        :rtype: pandas.DataFrame
 
         **Example:**
 
         .. code-block:: python
 
-            vector_indexes.list(
-                limit=5
-            )  # list of 5 recently created vector index assets
+            # list of 5 recently created vector index assets
+            df = vector_indexes.list(limit=5)
 
         """
 

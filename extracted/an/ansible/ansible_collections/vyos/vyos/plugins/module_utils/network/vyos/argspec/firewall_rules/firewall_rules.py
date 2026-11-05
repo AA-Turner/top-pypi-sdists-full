@@ -25,9 +25,7 @@
 The arg spec for the vyos_firewall_rules module
 """
 
-
 from __future__ import absolute_import, division, print_function
-
 
 __metaclass__ = type
 
@@ -56,6 +54,8 @@ class Firewall_rulesArgs(object):  # pylint: disable=R0903
                                 "reject",
                                 "accept",
                                 "jump",
+                                "return",
+                                "continue",
                             ],
                             "type": "str",
                         },
@@ -83,6 +83,7 @@ class Firewall_rulesArgs(object):  # pylint: disable=R0903
                                         "continue",
                                         "return",
                                         "jump",
+                                        "offload",
                                         "queue",
                                         "synproxy",
                                     ],
@@ -210,6 +211,7 @@ class Firewall_rulesArgs(object):  # pylint: disable=R0903
                                     "required": True,
                                     "type": "int",
                                 },
+                                "offload_target": {"type": "str"},
                                 "outbound_interface": {
                                     "options": {
                                         "group": {"type": "str"},

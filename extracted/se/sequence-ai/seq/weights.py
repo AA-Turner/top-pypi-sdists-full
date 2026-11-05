@@ -37,7 +37,7 @@ class Weights:
     template's, unchanged, its machines read the platform's read-only copy of that version - nothing copied, nothing
     billed as storage; with any line of its code changed, the deployment keeps a copy of its own, billed as storage.
     Your own weights are an hf:// repo or a volume you uploaded with `seq volume put`
-    (weights=seq.Volume.from_name("my-ckpt")).
+    (weights=seq.Volume.from_name("my_ckpt_user")).
 
 
 """
@@ -57,7 +57,7 @@ def validate_weights_uri(uri) -> str:
     empty bucket/repo, a single-slash scheme (`gs:/x`), `..` traversal, an `hf://` missing a repo, and any
     unsupported scheme.
 
-    An uploaded volume is accepted as `seq.Volume.from_name("my-ckpt")` or `"vol://my-ckpt[@v<n>]"` — what
+    An uploaded volume is accepted as `seq.Volume.from_name("my_ckpt_user")` or `"vol://my_ckpt_user[@v<n>]"` — what
     `seq volume put` made; the platform resolves the name under the deploying account."""
     from seq.volume import Volume
 

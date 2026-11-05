@@ -28,6 +28,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListBackupsPaginator,
+    ListBulkOperationsPaginator,
     ListTablesPaginator,
     ListTagsOfResourcePaginator,
     QueryPaginator,
@@ -40,6 +41,8 @@ from .type_defs import (
     BatchGetItemOutputTypeDef,
     BatchWriteItemInputTypeDef,
     BatchWriteItemOutputTypeDef,
+    CancelBulkOperationInputTypeDef,
+    CancelBulkOperationOutputTypeDef,
     CreateBackupInputTypeDef,
     CreateBackupOutputTypeDef,
     CreateGlobalTableInputTypeDef,
@@ -56,6 +59,8 @@ from .type_defs import (
     DeleteTableOutputTypeDef,
     DescribeBackupInputTypeDef,
     DescribeBackupOutputTypeDef,
+    DescribeBulkOperationInputTypeDef,
+    DescribeBulkOperationOutputTypeDef,
     DescribeContinuousBackupsInputTypeDef,
     DescribeContinuousBackupsOutputTypeDef,
     DescribeContributorInsightsInputTypeDef,
@@ -96,6 +101,8 @@ from .type_defs import (
     KinesisStreamingDestinationOutputTypeDef,
     ListBackupsInputTypeDef,
     ListBackupsOutputTypeDef,
+    ListBulkOperationsInputTypeDef,
+    ListBulkOperationsOutputTypeDef,
     ListContributorInsightsInputTypeDef,
     ListContributorInsightsOutputTypeDef,
     ListExportsInputTypeDef,
@@ -122,6 +129,8 @@ from .type_defs import (
     ScanOutputTypeDef,
     SearchVectorsInputTypeDef,
     SearchVectorsOutputTypeDef,
+    StartBulkPutItemsInputTypeDef,
+    StartBulkPutItemsOutputTypeDef,
     TagResourceInputTypeDef,
     TransactGetItemsInputTypeDef,
     TransactGetItemsOutputTypeDef,
@@ -148,6 +157,7 @@ from .type_defs import (
     UpdateTimeToLiveOutputTypeDef,
 )
 from .waiter import (
+    BulkOperationCompletedWaiter,
     ContributorInsightsEnabledWaiter,
     ExportCompletedWaiter,
     ImportCompletedWaiter,
@@ -268,6 +278,16 @@ class DynamoDBClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#batch_write_item)
         """
 
+    def cancel_bulk_operation(
+        self, **kwargs: Unpack[CancelBulkOperationInputTypeDef]
+    ) -> CancelBulkOperationOutputTypeDef:
+        """
+        Cancels an in-progress bulk operation asynchronously.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/cancel_bulk_operation.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#cancel_bulk_operation)
+        """
+
     def create_backup(
         self, **kwargs: Unpack[CreateBackupInputTypeDef]
     ) -> CreateBackupOutputTypeDef:
@@ -341,6 +361,16 @@ class DynamoDBClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/describe_backup.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#describe_backup)
+        """
+
+    def describe_bulk_operation(
+        self, **kwargs: Unpack[DescribeBulkOperationInputTypeDef]
+    ) -> DescribeBulkOperationOutputTypeDef:
+        """
+        Describes the specified bulk operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/describe_bulk_operation.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#describe_bulk_operation)
         """
 
     def describe_continuous_backups(
@@ -554,6 +584,18 @@ class DynamoDBClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#list_backups)
         """
 
+    def list_bulk_operations(
+        self, **kwargs: Unpack[ListBulkOperationsInputTypeDef]
+    ) -> ListBulkOperationsOutputTypeDef:
+        """
+        Lists bulk operations that started within the past 90 days for the current
+        Amazon Web Services account and Amazon Web Services Region, with the most
+        recent operations first.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/list_bulk_operations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#list_bulk_operations)
+        """
+
     def list_contributor_insights(
         self, **kwargs: Unpack[ListContributorInsightsInputTypeDef]
     ) -> ListContributorInsightsOutputTypeDef:
@@ -680,6 +722,18 @@ class DynamoDBClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/search_vectors.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#search_vectors)
+        """
+
+    def start_bulk_put_items(
+        self, **kwargs: Unpack[StartBulkPutItemsInputTypeDef]
+    ) -> StartBulkPutItemsOutputTypeDef:
+        """
+        Starts an asynchronous bulk operation that reads items from Amazon S3 and
+        writes them to an existing DynamoDB table, so you can efficiently load or
+        migrate large datasets.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/start_bulk_put_items.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#start_bulk_put_items)
         """
 
     def tag_resource(
@@ -828,6 +882,17 @@ class DynamoDBClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_bulk_operations"]
+    ) -> ListBulkOperationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_tables"]
     ) -> ListTablesPaginator:
         """
@@ -868,6 +933,17 @@ class DynamoDBClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/get_paginator.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["bulk_operation_completed"]
+    ) -> BulkOperationCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/client/#get_waiter)
         """
 
     @overload  # type: ignore[override]

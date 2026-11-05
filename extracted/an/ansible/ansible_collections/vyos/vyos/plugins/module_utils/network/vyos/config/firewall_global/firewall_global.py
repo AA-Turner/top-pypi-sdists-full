@@ -10,14 +10,13 @@ is compared to the provided configuration (as dict) and the command set
 necessary to bring the current configuration to it's desired end-state is
 created
 """
-from __future__ import absolute_import, division, print_function
 
+from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
 from copy import deepcopy
 
-from ansible.module_utils.six import iteritems
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.cfg.base import (
     ConfigBase,
 )
@@ -28,13 +27,16 @@ from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.u
 
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.facts import Facts
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.utils.utils import (
-    list_diff_want_only,
     in_target_not_none,
+    list_diff_want_only,
 )
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.utils.version import (
     LooseVersion,
 )
-from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.vyos import get_os_version
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.vyos import (
+    get_os_version,
+    load_config,
+)
 
 
 class Firewall_global(ConfigBase):
@@ -75,6 +77,13 @@ class Firewall_global(ConfigBase):
         warnings = list()
         commands = list()
 
+        try:
+            self._module.params["comment"]
+        except KeyError:
+            comment = []
+        else:
+            comment = self._module.params["comment"]
+
         if self.state in self.ACTION_STATES:
             existing_firewall_global_facts = self.get_firewall_global_facts()
         else:
@@ -82,6 +91,12 @@ class Firewall_global(ConfigBase):
 
         if self.state in self.ACTION_STATES or self.state == "rendered":
             commands.extend(self.set_config(existing_firewall_global_facts))
+
+        if commands and self._module._diff:
+            commit = not self._module.check_mode
+            diff = load_config(self._module, commands, commit=commit, comment=comment)
+            if diff:
+                result["diff"] = {"prepared": str(diff)}
 
         if commands and self.state in self.ACTION_STATES:
             if not self._module.check_mode:
@@ -190,7 +205,7 @@ class Firewall_global(ConfigBase):
             "twa_hazards_protection",
         )
         if want:
-            for key, val in iteritems(want):
+            for key, val in want.items():
                 if val and key in b_set and not have:
                     commands.append(self._form_attr_cmd(attr=key, opr=False))
                 elif val and key in b_set and have and key in have and have[key] != val:
@@ -200,7 +215,7 @@ class Firewall_global(ConfigBase):
         elif not want and have:
             commands.append(self._compute_command(opr=False))
         elif have:
-            for key, val in iteritems(have):
+            for key, val in have.items():
                 if val and key in b_set:
                     commands.append(self._form_attr_cmd(attr=key, opr=False))
                 else:
@@ -226,6 +241,8 @@ class Firewall_global(ConfigBase):
             commands.extend(self._render_state_policy(key, w, h, opr=opr))
         elif key == "route_redirects":
             commands.extend(self._render_route_redirects(key, w, h, opr=opr))
+        elif key == "zone":
+            commands.extend(self._render_zone(key, w, h, opr=opr))
         return commands
 
     def _add_global_attr(self, w, h, opr=True):
@@ -247,7 +264,7 @@ class Firewall_global(ConfigBase):
             "twa_hazards_protection",
         )
         if w_fg:
-            for key, val in iteritems(w_fg):
+            for key, val in w_fg.items():
                 if opr and key in l_set and not (h and self._is_w_same(w_fg, h, key)):
                     commands.append(
                         self._form_attr_cmd(attr=key, val=self._bool_to_str(val), opr=opr),
@@ -281,13 +298,13 @@ class Firewall_global(ConfigBase):
         if h:
             h_ping = h.get(attr) or {}
         if self._is_root_del(w[attr], h_ping, attr):
-            for item, value in iteritems(h[attr]):
+            for item, value in h[attr].items():
                 if not opr and item in l_set:
                     commands.append(self._form_attr_cmd(attr=item, opr=opr))
         elif w[attr]:
             if h and attr in h.keys():
                 h_ping = h.get(attr) or {}
-            for item, value in iteritems(w[attr]):
+            for item, value in w[attr].items():
                 if (
                     opr
                     and item in l_set
@@ -351,7 +368,7 @@ class Firewall_global(ConfigBase):
                     cmd = self._compute_command(key="group", attr="ipv6-" + attr, opr=opr)
                 else:
                     cmd = self._compute_command(key="group", attr=attr, opr=opr)
-                for key, val in iteritems(want):
+                for key, val in want.items():
                     if val:
                         if opr and key in l_set and not (h and self._is_w_same(want, h, key)):
                             if key == "name":
@@ -369,11 +386,19 @@ class Firewall_global(ConfigBase):
                                 )
                         elif not opr and key in l_set:
                             if key == "name" and self._is_grp_del(h, want, key):
-                                if commands[-1] == cmd + " " + want["name"] + " " + self._grp_type(attr):
+                                if len(commands) > 0 and commands[-1] == cmd + " " + want[
+                                    "name"
+                                ] + " " + self._grp_type(
+                                    attr,
+                                ):
                                     commands.pop()
                                 commands.append(cmd + " " + want["name"])
                                 continue
-                            if not (h and in_target_not_none(h, key)) and not self._is_grp_del(h, want, "name"):
+                            if not (h and in_target_not_none(h, key)) and not self._is_grp_del(
+                                h,
+                                want,
+                                "name",
+                            ):
                                 commands.append(cmd + " " + want["name"] + " " + key)
                         elif key == "members":
                             commands.extend(
@@ -435,11 +460,7 @@ class Firewall_global(ConfigBase):
                     )
             elif not opr and not have:
                 commands.append(
-                    cmd
-                    + " "
-                    + name
-                    + " "
-                    + self._grp_type(type),
+                    cmd + " " + name + " " + self._grp_type(type),
                 )
         return commands
 
@@ -476,7 +497,7 @@ class Firewall_global(ConfigBase):
             if want:
                 for w in want:
                     h = self.search_attrib_in_have(have, w, "connection_type")
-                    for key, val in iteritems(w):
+                    for key, val in w.items():
                         if val and key != "connection_type":
                             if opr and key in l_set and not (h and self._is_w_same(w, h, key)):
                                 if key == "log" and LooseVersion(
@@ -549,8 +570,8 @@ class Firewall_global(ConfigBase):
                     else:
                         afi = None
                     afi = None
-                for key, val in iteritems(w):
-                    if val and key != "afi":
+                for key, val in w.items():
+                    if val is not None and key != "afi":
                         if opr and key in l_set and not (h and self._is_w_same(w, h, key)):
                             commands.append(
                                 self._form_attr_cmd(
@@ -607,7 +628,7 @@ class Firewall_global(ConfigBase):
         if w[attr]:
             if h and attr in h.keys():
                 h_red = h.get(attr) or {}
-            for item, value in iteritems(w[attr]):
+            for item, value in w[attr].items():
                 if opr and item in l_set and not (h_red and self._is_w_same(w[attr], h_red, item)):
                     commands.append(
                         self._form_attr_cmd(
@@ -673,7 +694,7 @@ class Firewall_global(ConfigBase):
             cmd = "set firewall "
         if (
             attr
-            and key != "group"
+            and key not in ["group", "zone"]
             and LooseVersion(get_os_version(self._module)) >= LooseVersion("1.4")
         ):
             cmd += "global-options "
@@ -791,3 +812,324 @@ class Firewall_global(ConfigBase):
         elif attrib == "validation":
             regex = "source-validation"
         return regex
+
+    def _render_zone(self, attr, w, h, opr):
+        """
+        This function forms the commands for group list/members attributes based on the 'opr'.
+        :param attr: attribute name.
+        :param w: the desired config.
+        :param h: the target config.
+        :param opr: True/False.
+        :return: generated list of commands.
+        """
+        commands = []
+        h_grp = []
+        w_grp = []
+        l_set = ("name", "description", "default_action", "default_log", "local_zone")
+        if w:
+            w_grp = w.get(attr) or []
+        if h:
+            h_grp = h.get(attr) or []
+
+        if w_grp:
+            for want in w_grp:
+                h = self.search_attrib_in_have(h_grp, want, "name")
+
+                cmd = self._compute_command(key="zone", attr="", opr=opr)
+
+                if not opr and self._is_grp_del(h, want, "name"):
+                    commands.append(cmd + " " + want["name"])
+                    continue
+
+                for key, val in want.items():
+                    if val:
+                        if opr and key in l_set and not (h and self._is_w_same(want, h, key)):
+                            if key == "name":
+                                pass
+                            elif isinstance(val, bool):
+                                commands.append(
+                                    cmd + " " + want["name"] + " " + key.replace("_", "-"),
+                                )
+                            else:
+                                commands.append(
+                                    cmd
+                                    + " "
+                                    + want["name"]
+                                    + " "
+                                    + key.replace("_", "-")
+                                    + " '"
+                                    + str(want[key])
+                                    + "'",
+                                )
+                        elif not opr and key in l_set:
+                            if not (h and in_target_not_none(h, key)) and not self._is_grp_del(
+                                h,
+                                want,
+                                "name",
+                            ):
+                                commands.append(
+                                    cmd + " " + want["name"] + " " + key.replace("_", "-"),
+                                )
+                        elif key == "interfaces":
+                            commands.extend(
+                                self._render_interfaces(
+                                    key,
+                                    want,
+                                    h,
+                                    opr,
+                                    cmd,
+                                    want["name"],
+                                    attr,
+                                ),
+                            )
+                        elif key == "intra_zone_filtering":
+                            commands.extend(
+                                self._render_izf(
+                                    key,
+                                    want,
+                                    h,
+                                    opr,
+                                    cmd,
+                                    want["name"],
+                                    attr,
+                                ),
+                            )
+                        elif key == "sources":
+                            commands.extend(
+                                self._render_sources(
+                                    key,
+                                    want,
+                                    h,
+                                    opr,
+                                    cmd,
+                                    want["name"],
+                                    attr,
+                                ),
+                            )
+        return commands
+
+    def _render_interfaces(self, attr, w, h, opr, cmd, name, type):
+        """
+        This function forms the commands for interfaces
+        based on the 'opr'.
+        :param attr: attribute name.
+        :param w: the desired config.
+        :param h: the target config.
+        :param cmd: commands to be prepend.
+        :param name: name of group.
+        :param type: group type.
+        :return: generated list of commands.
+        """
+        commands = []
+        have = []
+        if w:
+            want = w.get(attr) or []
+        if h:
+            have = h.get(attr) or []
+
+        # VyOS 1.5.0 GA moved 'interface' under a new 'member' node
+        # ("set firewall zone <name> member interface <ifname>"). 1.4.x and
+        # 1.5-rolling snapshots predating this change still use the bare
+        # 'interface' node. Known limitation: a 1.5-rolling build reporting
+        # "1.5" that predates this change will incorrectly get the new
+        # syntax -- accepted trade-off, see PR notes.
+        if LooseVersion(get_os_version(self._module)) >= LooseVersion("1.5"):
+            iface_kw = "member interface"
+        else:
+            iface_kw = "interface"
+
+        if want:
+            if opr:
+                interfaces = list_diff_want_only(want, have)
+
+                for interface in interfaces:
+                    commands.append(
+                        cmd + " " + name + " " + iface_kw + " " + interface,
+                    )
+            elif not opr and have:
+                interfaces = list_diff_want_only(want, have)
+                for interface in interfaces:
+                    commands.append(
+                        cmd + " " + name + " " + iface_kw + " " + interface,
+                    )
+            elif not opr and not have:
+                for interface in want:
+                    commands.append(
+                        cmd + " " + name + " " + iface_kw + " " + interface,
+                    )
+        else:
+            self._module.fail_json(msg={"want": want, "have": have, "opr": opr})
+
+        return commands
+
+    def _render_izf(self, attr, w, h, opr, cmd, name, type):
+        """
+        This function forms the commands for intra zone filtering
+        based on the 'opr'.
+        :param attr: attribute name.
+        :param w: the desired config.
+        :param h: the target config.
+        :param cmd: commands to be prepend.
+        :param name: name of group.
+        :param type: group type.
+        :return: generated list of commands.
+        """
+        commands = []
+        have = []
+        if w:
+            want = w.get(attr) or []
+        if h:
+            have = h.get(attr) or []
+
+        if want:
+            if opr:
+                izfs = self._dict_diff(want, have)
+                for izf in izfs:
+                    commands.append(
+                        cmd
+                        + " "
+                        + name
+                        + " intra-zone-filtering "
+                        + izf[0].replace(".", " ")
+                        + " "
+                        + izf[1],
+                    )
+            elif not opr and have:
+                izfs = self._dict_diff(want, have)
+
+                for izf in izfs:
+                    commands.append(
+                        cmd + " " + name + " intra-zone-filtering " + izf[0].replace(".", " "),
+                    )
+            elif not opr and not have:
+                commands.append(
+                    cmd + " " + name + " intra-zone-filtering",
+                )
+        return commands
+
+    def _dict_diff(self, want, have, path=""):
+        """
+        Recursively find keys/values in `want` that differ or are missing in `have`.
+        Returns list of tuples: (full_path, value_in_want)
+        """
+        diffs = []
+
+        have = have or {}
+
+        for key, want_val in want.items():
+            current_path = f"{path}.{key.replace('_', '-')}" if path else key.replace("_", "-")
+
+            if key not in have:
+                if isinstance(want_val, dict):
+                    diffs.extend(self._dict_diff(want_val, {}, current_path))
+                elif isinstance(want_val, list):
+                    for i, item in enumerate(want_val):
+                        if isinstance(item, dict):
+                            diffs.extend(self._dict_diff(item, {}, f"{current_path}[{i}]"))
+                        else:
+                            diffs.append((f"{current_path}[{i}]", item))
+                else:
+                    diffs.append((current_path, want_val))
+
+            else:
+                have_val = have[key]
+
+                if isinstance(want_val, dict) and isinstance(have_val, dict):
+                    diffs.extend(self._dict_diff(want_val, have_val, current_path))
+
+                elif isinstance(want_val, list) and isinstance(have_val, list):
+                    for i, item in enumerate(want_val):
+                        if i >= len(have_val):
+                            diffs.append((f"{current_path}[{i}]", item))
+                        elif isinstance(item, dict) and isinstance(have_val[i], dict):
+                            diffs.extend(
+                                self._dict_diff(item, have_val[i], f"{current_path}[{i}]"),
+                            )
+                        elif item != have_val[i]:
+                            diffs.append((f"{current_path}[{i}]", item))
+
+                elif want_val != have_val:
+                    diffs.append((current_path, want_val))
+
+        return diffs
+
+    def _render_sources(self, attr, w, h, opr, cmd, name, type):
+        """
+        This function forms the commands for sources (from)
+        based on the 'opr'.
+        :param attr: attribute name.
+        :param w: the desired config.
+        :param h: the target config.
+        :param cmd: commands to be prepend.
+        :param name: name of group.
+        :param type: group type.
+        :return: generated list of commands.
+        """
+        commands = []
+        have = []
+        if w:
+            want = w.get(attr) or []
+        if h:
+            have = h.get(attr) or []
+
+        have_index = {item["zone"]: item for item in have}
+
+        for item1 in want:
+            zone = item1["zone"]
+
+            if zone in have_index:
+                item2 = have_index[zone]
+
+                wfw = item1.get("firewall", {})
+                hfw = item2.get("firewall", {})
+                if wfw:
+                    if opr:
+                        sources = self._dict_diff(wfw, hfw)
+                        for source in sources:
+                            commands.append(
+                                cmd
+                                + " "
+                                + name
+                                + " from "
+                                + zone
+                                + " firewall "
+                                + source[0].replace("_", "-")
+                                + " "
+                                + source[1],
+                            )
+                    elif not opr and hfw:
+                        sources = self._dict_diff(wfw, hfw)
+                        for source in sources:
+                            commands.append(
+                                cmd
+                                + " "
+                                + name
+                                + " from "
+                                + zone
+                                + " firewall "
+                                + source[0].replace("_", "-"),
+                            )
+                    elif not opr and not hfw:
+                        commands.append(
+                            cmd + " " + name + " from " + zone,
+                        )
+            elif opr:
+                wfw = item1.get("firewall", {})
+                for key, val in wfw.items():
+                    if val:
+                        commands.append(
+                            cmd
+                            + " "
+                            + name
+                            + " from "
+                            + zone
+                            + " firewall "
+                            + key.replace("_", "-")
+                            + " "
+                            + val,
+                        )
+            elif not opr:
+                commands.append(
+                    cmd + " " + name + " from " + zone,
+                )
+        return commands

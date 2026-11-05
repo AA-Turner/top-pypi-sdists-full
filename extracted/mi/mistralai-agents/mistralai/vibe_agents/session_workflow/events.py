@@ -1,6 +1,6 @@
 """Session event types.
 
-Any runtime implementing the SessionWorkflow contract emits durable public
+Each Mistral runtime implementing the SessionWorkflow contract emits durable public
 session-history rows via `Task(SESSION_EVENT_TASK_TYPE, state=...)`, where
 `state` is a serialized concrete workflow-session event variant. Those events
 land on NATS + Abraxas Postgres through the Workflows platform and are lazily

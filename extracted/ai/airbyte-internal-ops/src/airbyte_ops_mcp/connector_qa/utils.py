@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Set
 
 from airbyte_ops_mcp.connector_ops.utils import (
-    Connector,  # type: ignore
+    Connector,
 )
 from airbyte_ops_mcp.connector_qa import consts
 

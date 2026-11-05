@@ -57,6 +57,11 @@ class ListCompletedJobsResponse200ItemRawFlow:
         cache_ignore_s3_path (Union[Unset, bool]):
         delete_after_secs (Union[Unset, int]): If set, delete the flow job's args, result and logs after this many
             seconds following job completion
+        timeout (Union[Unset, int]): Wall-clock limit in seconds for the whole flow run, counted from its start and
+            including time spent sleeping or suspended at an approval. It also applies when the flow is called as a subflow
+            step, unless that step sets its own timeout, which replaces it. It is checked periodically, so a run can go a
+            few seconds past it. When it expires, the running steps are cancelled, the failure module runs if there is one,
+            and the flow ends cancelled with a timeout error. A calling flow sees the subflow step fail with that error.
         flow_env (Union[Unset, ListCompletedJobsResponse200ItemRawFlowFlowEnv]): Environment variables available to all
             steps. Values can be strings, JSON values, or special references: '$var:path' (workspace variable) or
             '$res:path' (resource).
@@ -88,6 +93,7 @@ class ListCompletedJobsResponse200ItemRawFlow:
     cache_ttl: Union[Unset, float] = UNSET
     cache_ignore_s3_path: Union[Unset, bool] = UNSET
     delete_after_secs: Union[Unset, int] = UNSET
+    timeout: Union[Unset, int] = UNSET
     flow_env: Union[Unset, "ListCompletedJobsResponse200ItemRawFlowFlowEnv"] = UNSET
     priority: Union[Unset, float] = UNSET
     early_return: Union[Unset, str] = UNSET
@@ -128,6 +134,7 @@ class ListCompletedJobsResponse200ItemRawFlow:
         cache_ttl = self.cache_ttl
         cache_ignore_s3_path = self.cache_ignore_s3_path
         delete_after_secs = self.delete_after_secs
+        timeout = self.timeout
         flow_env: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.flow_env, Unset):
             flow_env = self.flow_env.to_dict()
@@ -190,6 +197,8 @@ class ListCompletedJobsResponse200ItemRawFlow:
             field_dict["cache_ignore_s3_path"] = cache_ignore_s3_path
         if delete_after_secs is not UNSET:
             field_dict["delete_after_secs"] = delete_after_secs
+        if timeout is not UNSET:
+            field_dict["timeout"] = timeout
         if flow_env is not UNSET:
             field_dict["flow_env"] = flow_env
         if priority is not UNSET:
@@ -278,6 +287,8 @@ class ListCompletedJobsResponse200ItemRawFlow:
 
         delete_after_secs = d.pop("delete_after_secs", UNSET)
 
+        timeout = d.pop("timeout", UNSET)
+
         _flow_env = d.pop("flow_env", UNSET)
         flow_env: Union[Unset, ListCompletedJobsResponse200ItemRawFlowFlowEnv]
         if isinstance(_flow_env, Unset):
@@ -323,6 +334,7 @@ class ListCompletedJobsResponse200ItemRawFlow:
             cache_ttl=cache_ttl,
             cache_ignore_s3_path=cache_ignore_s3_path,
             delete_after_secs=delete_after_secs,
+            timeout=timeout,
             flow_env=flow_env,
             priority=priority,
             early_return=early_return,

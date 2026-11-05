@@ -20,10 +20,13 @@ from __future__ import annotations
 CONTEXT_ENV = frozenset(
     {
         "PROBE_CONFIG_PATH",
+        # The opt-out of Probe's entries in each agent's sandbox config (service-only M3).
+        "PROBE_SANDBOX_ACCESS",
         "CLAUDE_CONFIG_DIR",
         "CODEX_HOME",
         "PI_CODING_AGENT_DIR",
         "KIMI_CODE_HOME",
+        "PROBE_CURSOR_HOME",
         "XDG_CONFIG_HOME",
         "XDG_STATE_HOME",
         "XDG_DATA_HOME",
@@ -70,6 +73,30 @@ CREDENTIAL_ENV = frozenset(
 )
 #: `base_url` reaches the child as this variable (`probe.sdk.settings.settings.resolve`).
 BASE_URL_ENV = "PROBE_BASE_URL"
+#: `1` on a child the Probe service starts for a FENCED caller (a sandboxed agent, another network
+#: namespace: `policy.confined`), else `0`: `action.run` sets it, and `cli.run` for a command it
+#: runs. Never the caller's: not in CONTEXT_ENV, so a request's `context` cannot name it.
+#: `probe uninstall` reads it (`probe.cli.install.uninstall.run`): a fenced caller never discards
+#: unsent research, and never forces.
+CALLER_FENCED_ENV = "PROBE_CALLER_FENCED"
+#: Never a fenced caller's (service-only D2, #4274): where a child sends the stored login (its
+#: endpoint, the config naming one) and through what (proxies, CA files: `SSL_CERT_FILE` replaces
+#: the trusted CAs). A fenced caller's child takes the machine's own instead (its login shell's,
+#: its CLI config). The one list: `probe.service.actions.caller.Fence` and the delivery service read it.
+FENCE_ENDPOINT_NAMES = frozenset({
+    "PROBE_CONFIG_PATH", "PROBE_BASE_URL", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy",
+    "https_proxy", "no_proxy", "all_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE",
+    "NODE_EXTRA_CA_CERTS", "GIT_SSL_CAINFO", "XDG_CONFIG_HOME",
+})
+#: What only the service sets on a `probe` command it runs (`cli.run`): the shim it serves and
+#: that shim's start time (`probe.foundation.caller`), whether its caller is fenced, and its
+#: launcher channel (`probe.sdk.run.launch.program`). Never the request's word (the command child
+#: drops them from it), never the program `probe exec` starts (the shim's own child).
+#: A fenced caller's command: the folder it may write in (`cli/fenced_paths.py`), the working folder of
+#: the coding agent whose session it runs under, as this service read it (never the caller's word).
+CALLER_WORKSPACE_ENV = "PROBE_CALLER_WORKSPACE"
+SERVICE_OWNED_ENV = ("PROBE_CALLER_PID", "PROBE_CALLER_START", CALLER_FENCED_ENV, CALLER_WORKSPACE_ENV,
+                     "PROBE_LAUNCHER_FD")
 MAX_CONTEXT_VALUE = 4096
 
 #: `hooks.run`'s `lane`s and the hook event each one serves: `hooks/dispatch.py`
@@ -86,10 +113,35 @@ HOOK_LANES = {
     "stop": "Stop",
     "turn-started": "TurnStarted",
 }
+#: `hooks.run {routes: "service"}` (codex-capture-fixes PR 3): the service runs
+#: the event from its own copy of Probe's routes, for a frozen hook shim
+#: (`service/hooks/proxy/DESIGN.md` holds the v1 contract). `routes` is the field
+#: that tells this shape from the `plugin_root` one.
+HOOK_ROUTES_SERVICE = "service"
+#: The proxy contract's version: a request or queue file names it as `v` (1 when left out).
+HOOK_PROXY_V = 1
+#: `hooks.run {routes: "service", v: 2}`: an extension's event (pi), answered with actions (`hook_actions`).
+#: Not frozen (the extension updates with the CLI); v1 above is untouched.
+HOOK_PROXY_V2 = 2
+#: v2's `reply`: the answer carries `actions` beside v1's four keys (`hook_actions`).
+HOOK_REPLY_ACTIONS = "actions"
+#: A proxied event's name (the harness's own `hook_event_name`) is at most this long.
+MAX_HOOK_EVENT_NAME = 64
 #: `hooks.run`'s `timeout_ms` when the caller names none: plan D28's wait, the
 #: one a dispatcher gives a warm host before it runs the event itself.
 HOOK_WAIT_MS = 300
 MAX_HOOK_WAIT_MS = 60_000
+#: `hooks.run {plugin_root}`'s `options` (passed after the lane): what a harness-run dispatcher
+#: forwards (`hooks/dispatch.py` UNSHOWN). Never `--record-keeping`: only the queue runs that.
+HOOK_RUN_OPTIONS = frozenset({"--unshown"})
+#: `hooks.run {plugin_root, harness}`'s `root_env`: the variable the harness named the plugin's
+#: folder by, which its routes read (`$ROOT`): Codex's, or Claude Code's (Kimi's adapter sets it too).
+HOOK_RUN_ROOT_ENVS = frozenset({"PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT"})
+#: `hooks.run {plugin_root, harness, wait}`: a held wait the service runs as slices (Claude Code's Stop
+#: wake from the plugin's own `claude-reads.json`, service-only task 13), on the stop lane only.
+HOOK_RUN_WAITS = frozenset({"reads"})
+#: `statusline.render`'s payload (the status-line command's stdin, a string) is at most this long.
+MAX_STATUSLINE_PAYLOAD = 256 * 1024
 #: `hooks.run`'s `env` (the session's environment, as a harness hands its
 #: hooks theirs): at most this many variables, each value at most this long,
 #: as a recorder's (`recorders.MAX_ENV`).
@@ -116,6 +168,8 @@ HOOK_QUEUE_ENV_NAMES = frozenset(
         "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy", "all_proxy",
         "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS", "CURL_CA_BUNDLE",
         "GIT_SSL_CAINFO",
+        # A fenced caller's queued event (service-only D2, `caller.Fence`): never a user site of its own.
+        "PYTHONNOUSERSITE",
     }
 )
 HOOK_QUEUE_ENV_PREFIXES = ("PROBE_", "CLAUDE", "CODEX_", "KIMI_", "PI_", "XDG_", "LC_")
@@ -148,12 +202,10 @@ def hook_queue_env(env: dict) -> dict:
     return kept
 
 #: `outbox.drain` / `box.watch`'s `env`: the caller's environment as far as
-#: the SDK's drainer and box watcher read it (its PROBE_* settings and knobs,
-#: where config and state live, the interpreter's own variables, the network's
-#: proxy and certificates), so the child runs as the detached one the caller
-#: would have forked. Never a credential (`secret_env`): the drainer delivers
-#: with the stored login, as the outbox's ops already pin it, and a caller
-#: holding a credential in its environment keeps forking its own drainer.
+#: the service's drain and box watcher read it (its PROBE_* settings and knobs,
+#: where config and state live, the network's proxy and certificates). A
+#: credential travels only by its own name (`CREDENTIAL_ENV`, plan D11): into
+#: that child's environment, never stored; `secret_env` names stay refused.
 RUNTIME_ENV_NAMES = frozenset(
     {
         "PATH",
@@ -189,6 +241,28 @@ def secret_env(name: str) -> bool:
 def runtime_env_name(name: str) -> bool:
     """A variable `outbox.drain` / `box.watch` take in `env`."""
     return (name in RUNTIME_ENV_NAMES or name.startswith(RUNTIME_ENV_PREFIXES)) and not secret_env(name)
+
+
+#: What a fenced caller's request may never set for the service's work (plan D25, H-2): where its
+#: HTTP goes and whom it trusts (proxies, CAs, the API's address, the config that names it, by
+#: PROBE_CONFIG_PATH or by XDG_CONFIG_HOME, which moves the same file). The service's own are used
+#: instead. One list for every gate: `api.call`, `outbox.drain`, `box.watch`, and the machine
+#: service's `Fence` (lane L1).
+#: `FENCE_ENDPOINT_NAMES` (above), and every name of these shapes, in either case (`https_proxy`, `SSL_*`).
+FENCE_ENDPOINT_SUFFIXES = ("_PROXY",)
+FENCE_ENDPOINT_PREFIXES = ("SSL_",)
+
+
+def is_fence_endpoint_name(name: str) -> bool:
+    """A variable a fenced caller's request may not pass on (`FENCE_ENDPOINT_NAMES`)."""
+    upper = name.upper()
+    return upper in FENCE_ENDPOINT_NAMES or upper.endswith(FENCE_ENDPOINT_SUFFIXES) or upper.startswith(
+        FENCE_ENDPOINT_PREFIXES)
+
+
+def drop_fence_endpoint_names(env: dict) -> dict:
+    """`env` without what a fenced caller may not set (`is_fence_endpoint_name`)."""
+    return {name: value for name, value in env.items() if not is_fence_endpoint_name(name)}
 
 
 #: `session.register`'s optional `report_env` (crash-report plan B2): whether

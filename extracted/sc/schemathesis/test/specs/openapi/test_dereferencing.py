@@ -81,33 +81,6 @@ def test_request_body_relative_reference_to_declared_id(ctx, identifier, referen
     assert [body for body in bodies if not validator.is_valid(body)] == []
 
 
-@pytest.mark.hypothesis_nested
-def test_request_body_reference_into_fragment_of_declared_id(ctx):
-    operation = ctx.openapi.load_operation(
-        "POST /items",
-        {
-            "requestBody": {
-                "required": True,
-                "content": {"application/json": {"schema": {"$ref": "https://example.invalid/text.json#/$defs/Code"}}},
-            },
-            "responses": {"200": {"description": "OK"}},
-        },
-        version="3.1.0",
-        components={
-            "schemas": {
-                "Text": {
-                    "$id": "https://example.invalid/text.json",
-                    "$defs": {"Code": {"type": "string", "enum": ["alpha"]}},
-                }
-            }
-        },
-    )
-
-    @run_given(case=operation.as_strategy(), max_examples=3)
-    def test(case):
-        assert case.body == "alpha"
-
-
 def _object_with_own_code(uri, code):
     return {
         "$id": uri,
@@ -164,8 +137,19 @@ def _object_with_own_code(uri, code):
             },
             {"a": {"code": "alpha"}, "b": {"code": "beta"}},
         ),
+        (
+            "3.1.0",
+            {"$ref": "https://example.invalid/text.json#/$defs/Code"},
+            {
+                "Text": {
+                    "$id": "https://example.invalid/text.json",
+                    "$defs": {"Code": {"type": "string", "enum": ["alpha"]}},
+                }
+            },
+            "alpha",
+        ),
     ],
-    ids=["defs", "draft-4-definitions", "nested-resource", "named-resources"],
+    ids=["defs", "draft-4-definitions", "nested-resource", "named-resources", "fragment-of-named-resource"],
 )
 def test_request_body_reference_into_own_definitions_of_declared_id(ctx, version, schema, schemas, expected):
     operation = ctx.openapi.load_operation(
@@ -464,6 +448,24 @@ def test_path_item_reference_is_resolved(ctx):
         assert isinstance(case.body, str)
 
 
+def test_path_item_reference_chain_is_resolved(ctx, tmp_path):
+    (tmp_path / "items.json").write_text(json.dumps({"get": {"responses": {"200": {"description": "OK"}}}}))
+    root = tmp_path / "root.json"
+    root.write_text(
+        json.dumps(
+            ctx.openapi.build_schema(
+                {"/items": {"$ref": "#/x-paths/alias"}}, **{"x-paths": {"alias": {"$ref": "items.json"}}}
+            )
+        )
+    )
+    schema = schemathesis.openapi.from_path(str(root))
+
+    assert [result.ok().label for result in schema.get_all_operations()] == ["GET /items"]
+    assert schema.statistic.operations.total == 1
+    assert schema.find_operation_by_reference("#/paths/~1items/get").label == "GET /items"
+    assert schema["/items"]["GET"].label == "GET /items"
+
+
 def test_nullable_enum_without_null_keeps_null_out(ctx):
     operation = ctx.openapi.load_operation(
         "GET /users",
@@ -679,6 +681,40 @@ def test_uncommon_type_in_generation(ctx, testdir, key, expected):
             pass
 
         test()
+
+
+def test_parameter_ref_chain_repeating_pointer_across_files(ctx, tmp_path):
+    (tmp_path / "other.json").write_text(
+        json.dumps(
+            {
+                "components": {
+                    "parameters": {
+                        "Alias": {"$ref": "#/components/parameters/Limit"},
+                        "Limit": {"name": "limit", "in": "query", "required": True, "schema": {"type": "integer"}},
+                    }
+                }
+            }
+        )
+    )
+    root = tmp_path / "root.json"
+    root.write_text(
+        json.dumps(
+            ctx.openapi.build_schema(
+                {
+                    "/items": {
+                        "get": {
+                            "parameters": [{"$ref": "#/components/parameters/Limit"}],
+                            "responses": {"200": {"description": "OK"}},
+                        }
+                    }
+                },
+                components={"parameters": {"Limit": {"$ref": "other.json#/components/parameters/Alias"}}},
+            )
+        )
+    )
+    operation = schemathesis.openapi.from_path(str(root))["/items"]["GET"]
+
+    assert [(parameter.name, parameter.location) for parameter in operation.iter_parameters()] == [("limit", "query")]
 
 
 def test_global_security_schemes_with_custom_scope(ctx, testdir, cli, snapshot_cli):

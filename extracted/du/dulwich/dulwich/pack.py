@@ -132,7 +132,7 @@ import threading
 import warnings
 import zlib
 from collections.abc import Callable, Iterable, Iterator, Sequence, Set
-from hashlib import sha1, sha256
+from hashlib import sha256
 from itertools import chain
 from os import SEEK_END
 from struct import unpack_from
@@ -146,6 +146,14 @@ from typing import (
     Protocol,
     TypeVar,
 )
+
+if TYPE_CHECKING:
+    from hashlib import sha1
+else:
+    try:
+        from sha1dc import sha1
+    except ImportError:
+        from hashlib import sha1
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -287,6 +295,9 @@ class DeltaCycle(UnresolvedDeltas):
 
 class ObjectContainer(Protocol):
     """Protocol for objects that can contain git objects."""
+
+    #: Depth cap for tree traversals performed through this container.
+    max_tree_depth: int | None
 
     def add_object(self, obj: ShaFile) -> None:
         """Add a single object to this object store."""
@@ -1374,6 +1385,13 @@ class PackIndex1(FilePackIndex):
         self._fan_out_table = self._read_fan_out_table(0)
         self.hash_size = self.object_format.oid_length
         self._entry_size = 4 + self.hash_size
+        file_size = len(self._contents)
+        minimum_size = 0x100 * 4 + len(self) * self._entry_size
+        if file_size < minimum_size:
+            raise AssertionError(
+                f"pack index claims {len(self)} objects but file is only "
+                f"{file_size} bytes (needs at least {minimum_size})"
+            )
 
     def _unpack_entry(self, i: int) -> tuple[RawObjectID, int, None]:
         base_offset = (0x100 * 4) + (i * self._entry_size)
@@ -1431,6 +1449,20 @@ class PackIndex2(FilePackIndex):
         self._pack_offset_largetable_offset = self._pack_offset_table_offset + 4 * len(
             self
         )
+        # Reject claims the file is obviously too small to back. A corrupt
+        # (or hostile) ``.idx`` with fanout[-1] = 0xFFFFFFFF would otherwise
+        # make lookups hit struct errors deep in the call chain or silently
+        # return empty names from out-of-range slices. The trailer (pack +
+        # index checksums) is not required here: its hash function can
+        # differ from the object hash, so its size is not known from the
+        # header alone.
+        file_size = len(self._contents)
+        minimum_size = self._pack_offset_largetable_offset
+        if file_size < minimum_size:
+            raise AssertionError(
+                f"pack index claims {len(self)} objects but file is only "
+                f"{file_size} bytes (needs at least {minimum_size})"
+            )
 
     def _unpack_entry(self, i: int) -> tuple[RawObjectID, int, int]:
         return (
@@ -1549,6 +1581,13 @@ class PackIndex3(FilePackIndex):
         self._pack_offset_largetable_offset = self._pack_offset_table_offset + 4 * len(
             self
         )
+        file_size = len(self._contents)
+        minimum_size = self._pack_offset_largetable_offset
+        if file_size < minimum_size:
+            raise AssertionError(
+                f"pack index claims {len(self)} objects but file is only "
+                f"{file_size} bytes (needs at least {minimum_size})"
+            )
 
     def _unpack_entry(self, i: int) -> tuple[RawObjectID, int, int]:
         return (

@@ -79,7 +79,7 @@ def transform_trans(op, a, b):
     return np.dot(op, P.T)
 
 
-class SPGElement():
+class SPGElement:
     '''
     Matrix representation of space group operations
 
@@ -93,7 +93,7 @@ class SPGElement():
     '''
     def __init__(self,
                  rot=np.eye(3, dtype=np.int32),
-                 trans=np.zeros((3)), dimension=3):
+                 trans=np.zeros(3), dimension=3):
         self.rot = np.asarray(rot)
         self.trans = np.asarray(trans)
         self.dimension = dimension
@@ -334,36 +334,3 @@ class SpaceGroup(lib.StreamObject):
             logger.debug(self, message)
             for op in ops:
                 logger.debug(self, op.__str__())
-
-if __name__ == "__main__":
-    from pyscf.pbc import gto
-    cell = gto.Cell()
-    cell.atom = """
-      Cu 1.000000     1.00000      0.0000
-      O  0.000000     1.00000      0.0000
-      O  1.000000     2.00000      0.0000
-      Cu 1.000000     3.00000      0.0000
-      O  1.000000     4.00000      0.0000
-      O  2.000000     3.00000      0.0000
-      Cu 3.000000     3.00000      0.0000
-      O  4.000000     3.00000      0.0000
-      O  3.000000     2.00000      0.0000
-      Cu 3.000000     1.00000      0.0000
-      O  3.000000     0.00000      0.0000
-      O  2.000000     1.00000      0.0000
-    """
-    cell.a = [[4.0, 0., 0.], [0., 4.0, 0.], [0., 0., 16.0]]
-    cell.verbose = 5
-    cell.dimension = 3
-    cell.magmom = [1., 1., -1., -1., 1., -1., 1., 1., -1., -1., 1., -1.]
-    cell.build()
-    sg = SpaceGroup(cell)
-    #sg.backend = 'spglib'
-    sg.build()
-    print(sg.groupname['point_group_symbol'])
-    print(sg.ops[0])
-    print(hash(sg.ops[0]))
-    sg.ops.reverse()
-    print(sg.ops[0])
-    sg.ops.sort()
-    print(sg.ops[0])

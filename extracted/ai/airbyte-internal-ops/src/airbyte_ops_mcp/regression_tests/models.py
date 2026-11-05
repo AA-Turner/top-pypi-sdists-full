@@ -234,7 +234,7 @@ class MessageSummary:
         kind = message.type
         self.message_counts[kind] += 1
         if kind is AirbyteMessageType.RECORD:
-            self.record_counts_per_stream[message.record.stream] += 1
+            self.record_counts_per_stream[message.record.stream] += 1  # ty: ignore[unresolved-attribute]
         elif kind is AirbyteMessageType.STATE and message.state is not None:
             _fold_state(self.final_states, message.state)
         elif kind is AirbyteMessageType.TRACE and message.trace is not None:
@@ -413,7 +413,7 @@ class ExecutionResult:
     def get_records_per_stream(self, stream: str) -> Iterator[AirbyteMessage]:
         """Get records for a specific stream."""
         for message in self.get_records():
-            if message.record.stream == stream:
+            if message.record.stream == stream:  # ty: ignore[unresolved-attribute]
                 yield message
 
     def get_states(self) -> Iterator[AirbyteMessage]:

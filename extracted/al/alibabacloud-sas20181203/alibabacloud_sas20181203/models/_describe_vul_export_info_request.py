@@ -14,6 +14,7 @@ class DescribeVulExportInfoRequest(DaraModel):
         # 
         # This parameter is required.
         self.export_id = export_id
+        # The ID of the resource directory account.
         self.resource_directory_account_id = resource_directory_account_id
 
     def validate(self):

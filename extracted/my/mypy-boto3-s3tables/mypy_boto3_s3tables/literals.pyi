@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_s3tables.literals import IcebergCompactionStrategyType
+    from mypy_boto3_s3tables.literals import CompressionCodecType
 
-    data: IcebergCompactionStrategyType = "auto"
+    data: CompressionCodecType = "gzip"
     ```
 """
 
@@ -22,14 +22,24 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "CompressionCodecType",
+    "DataFileFormatType",
+    "FindingCategoryType",
     "IcebergCompactionStrategyType",
     "IcebergNullOrderType",
     "IcebergSortDirectionType",
+    "IncompatibleValuesPolicyType",
     "JobStatusType",
     "ListNamespacesPaginatorName",
     "ListTableBucketsPaginatorName",
+    "ListTableMigrationsPaginatorName",
     "ListTablesPaginatorName",
     "MaintenanceStatusType",
+    "MigrationFailureCodeType",
+    "MigrationRequestedStateType",
+    "MigrationSourceTypeType",
+    "MigrationStateType",
+    "MigrationTypeType",
     "OpenTableFormatType",
     "PaginatorName",
     "ReplicationStatusType",
@@ -46,16 +56,48 @@ __all__ = (
     "TableRecordExpirationJobStatusType",
     "TableRecordExpirationStatusType",
     "TableTypeType",
+    "UnmatchedSourceFieldsPolicyType",
 )
 
+CompressionCodecType = Literal["gzip", "snappy", "uncompressed", "zstd"]
+DataFileFormatType = Literal["parquet"]
+FindingCategoryType = Literal["access", "data", "internal", "metadata"]
 IcebergCompactionStrategyType = Literal["auto", "binpack", "sort", "z-order"]
 IcebergNullOrderType = Literal["nulls-first", "nulls-last"]
 IcebergSortDirectionType = Literal["asc", "desc"]
+IncompatibleValuesPolicyType = Literal["fail", "setNull"]
 JobStatusType = Literal["Disabled", "Failed", "Not_Yet_Run", "Successful"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
 ListTableBucketsPaginatorName = Literal["list_table_buckets"]
+ListTableMigrationsPaginatorName = Literal["list_table_migrations"]
 ListTablesPaginatorName = Literal["list_tables"]
 MaintenanceStatusType = Literal["disabled", "enabled"]
+MigrationFailureCodeType = Literal[
+    "destinationPermissions",
+    "internalError",
+    "objectCompatibilityReport",
+    "objectMigrationReport",
+    "reportBucketNotSupported",
+    "resourceNotFound",
+    "rolePermissions",
+    "sourceNotSupported",
+    "sourcePermissions",
+    "tableCompatibilityReport",
+]
+MigrationRequestedStateType = Literal["cancelled", "queued"]
+MigrationSourceTypeType = Literal["glueTable"]
+MigrationStateType = Literal[
+    "cancelled",
+    "cancelling",
+    "failed",
+    "migrating",
+    "new",
+    "pendingReview",
+    "planning",
+    "queued",
+    "succeeded",
+]
+MigrationTypeType = Literal["start", "sync"]
 OpenTableFormatType = Literal["ICEBERG"]
 ReplicationStatusType = Literal["completed", "failed", "pending"]
 SSEAlgorithmType = Literal["AES256", "aws:kms"]
@@ -70,12 +112,16 @@ TableMaintenanceTypeType = Literal["icebergCompaction", "icebergSnapshotManageme
 TableRecordExpirationJobStatusType = Literal["Disabled", "Failed", "NotYetRun", "Successful"]
 TableRecordExpirationStatusType = Literal["disabled", "enabled"]
 TableTypeType = Literal["aws", "customer"]
+UnmatchedSourceFieldsPolicyType = Literal["drop", "fail"]
 S3TablesServiceName = Literal["s3tables"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -148,6 +194,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -175,6 +222,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -220,12 +268,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -250,6 +298,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -264,8 +313,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -292,6 +339,9 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -344,6 +394,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -359,10 +410,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -380,6 +431,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -395,6 +447,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -422,6 +475,8 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -443,7 +498,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -464,6 +518,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -472,7 +527,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",
@@ -499,4 +553,6 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_namespaces", "list_table_buckets", "list_tables"]
+PaginatorName = Literal[
+    "list_namespaces", "list_table_buckets", "list_table_migrations", "list_tables"
+]

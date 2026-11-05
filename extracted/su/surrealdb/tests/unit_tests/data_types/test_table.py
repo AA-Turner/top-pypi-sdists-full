@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 from surrealdb.data import cbor
 from surrealdb.data.types.table import Table
+from surrealdb.types import Value
 
 
 # Unit tests for Table class
@@ -29,6 +31,17 @@ def test_table_equality() -> None:
     assert table1 == table2
     assert table1 != table3
     assert table1 != "users"
+
+
+def test_table_hashable() -> None:
+    """Table defines __eq__, so it must define a consistent __hash__ to
+    remain usable as a dict key / set member (issue #9)."""
+    table1 = Table("users")
+    table2 = Table("users")
+
+    assert hash(table1) == hash(table2)
+    assert table1 in {table2}
+    assert {table1: "value"}[Table("users")] == "value"
 
 
 # Unit tests for encoding
@@ -112,11 +125,13 @@ def test_table_in_array_roundtrip() -> None:
 
 # Database fixture
 @pytest.fixture
-async def surrealdb_connection():  # type: ignore[misc]
-    url = "ws://localhost:8000/rpc"
+async def surrealdb_connection(
+    ws_url: str,
+) -> AsyncGenerator[AsyncWsSurrealConnection, None]:
+    url = ws_url
     password = "root"
     username = "root"
-    vars_params = {"username": username, "password": password}
+    vars_params: dict[str, Value] = {"username": username, "password": password}
     database_name = "test_db"
     namespace = "test_ns"
     connection = AsyncWsSurrealConnection(url)
@@ -130,8 +145,13 @@ async def surrealdb_connection():  # type: ignore[misc]
 
 
 # Database send+receive tests
+#
+# These were marked `xfail(reason="Waiting for a fix in SurrealDB")`. The fix
+# arrived: all three pass on 2.0.5, 2.3.10 and 3.2.3. An `xfail` that always
+# passes reports `xpassed`, which is not a failure, so the marker was hiding
+# the one thing it should have surfaced - that the round trip now works, and
+# would go unnoticed if it broke again.
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Waiting for a fix in SurrealDB")
 async def test_table_db_roundtrip(surrealdb_connection: Any) -> None:
     """Test sending Table to SurrealDB and receiving it back."""
     table = Table("users")
@@ -139,12 +159,11 @@ async def test_table_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE table_tests:test1 SET table_ref = $val;",
         vars={"val": table},
     )
-    result = await surrealdb_connection.query("SELECT * FROM table_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM table_tests;").first()
     assert result[0]["table_ref"] == table
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Waiting for a fix in SurrealDB")
 async def test_multiple_tables_db_roundtrip(surrealdb_connection: Any) -> None:
     """Test sending multiple Table objects to SurrealDB."""
     tables = {
@@ -156,14 +175,13 @@ async def test_multiple_tables_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE table_tests:test2 SET t1 = $table1, t2 = $table2, t3 = $table3;",
         vars=tables,
     )
-    result = await surrealdb_connection.query("SELECT * FROM table_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM table_tests;").first()
     assert result[0]["t1"] == tables["table1"]
     assert result[0]["t2"] == tables["table2"]
     assert result[0]["t3"] == tables["table3"]
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason="Waiting for a fix in SurrealDB")
 async def test_table_in_array_db_roundtrip(surrealdb_connection: Any) -> None:
     """Test sending array of Table objects to SurrealDB."""
     tables_array = [
@@ -175,5 +193,5 @@ async def test_table_in_array_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE table_tests:test3 SET tables = $val;",
         vars={"val": tables_array},
     )
-    result = await surrealdb_connection.query("SELECT * FROM table_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM table_tests;").first()
     assert result[0]["tables"] == tables_array

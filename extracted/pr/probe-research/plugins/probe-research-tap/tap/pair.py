@@ -1,0 +1,195 @@
+"""`python -m tap pair <pairing-token>` — exchange pairing token for a bearer.
+
+POSTs to ${API}/agent-tap/pair with {pairing_token, os, hostname}. On
+success the response carries {device_id, device_token, customer_id}; we
+write the bearer to ${PLUGIN_DIR}/.token (mode 0600) and persist
+device_id/customer_id/paired_at to meta. Any prior last_401_at is cleared.
+
+Re-pair behavior: if a prior pairing exists on this device, its server-side
+device entry is revoked AFTER the new pairing succeeds — so a re-pair never
+leaves an orphan device row in the user's dashboard. The order matters: we
+revoke the old bearer only once we know the new one works, otherwise a bad
+pairing token would strand the user with no working pairing at all.
+"""
+
+from __future__ import annotations
+
+import json
+import platform
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+from tap import config as cfg
+from tap import httpclient
+from tap.storage import Storage
+
+
+def _os_label() -> str:
+    p = platform.system().lower()
+    if p == "darwin":
+        return "macos"
+    return p
+
+
+def _hostname() -> str:
+    """The name this machine was GIVEN, not the one the network is using today.
+
+    MIRRORS `probe.sdk.settings.device.hostname()`. It is duplicated rather than imported
+    because the tap is a separate plugin package living in the agent's plugin
+    cache -- it cannot import the CLI, the same reason `tap/config.py::load_token`
+    is mirrored by `capabilities.capture_token_sources`. Any change there must
+    change here; `tests/test_pair_hostname.py` asserts the two agree.
+
+    `socket.gethostname()` returns the TRANSIENT name, which on macOS follows the
+    DHCP lease. A laptop that joined a captive WiFi paired as
+    `visitor-10-59-125-182`, and that is the name its capture row wore in the
+    dashboard from then on -- unrecognisable, and different again on the next
+    network. The CLI stopped doing this in 0.134.0; the capture surface is the
+    other half of the same machine.
+    """
+    for candidate in _configured_hostnames():
+        name = candidate.split(".")[0].strip()
+        if name and name.lower() != "not set":
+            return name
+    try:
+        name = socket.gethostname().split(".")[0].strip()
+    except OSError:
+        name = ""
+    return name or "unknown-host"
+
+
+def _configured_hostnames() -> list[str]:
+    """Stable machine names this platform can offer, best first."""
+    if sys.platform == "darwin":
+        try:
+            done = subprocess.run(
+                ["/usr/sbin/scutil", "--get", "LocalHostName"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return []
+        return [done.stdout.strip()] if done.returncode == 0 else []
+    try:
+        # ValueError as well as OSError: a `/etc/hostname` that is not valid
+        # UTF-8 raises UnicodeDecodeError, and letting it escape would fail the
+        # pairing rather than fall back to the transient name.
+        return [Path("/etc/hostname").read_text(encoding="utf-8").strip()]
+    except (OSError, ValueError):
+        return []
+
+
+def _revoke_old_pairing(bearer: str) -> None:
+    """Best-effort server-side revoke of a prior pairing's bearer.
+
+    Runs after a successful new pair, so:
+      - Success → old device is cleanly retired in the dashboard.
+      - Halt (401: already revoked / unknown) → benign no-op, no message.
+      - Anything else → warn the user that the old device may linger;
+        the new pairing is unaffected.
+    """
+    url = cfg.api_base_url() + cfg.REVOKE_PATH
+    body = json.dumps({"reason": cfg.REVOKE_REASON_REPAIR}).encode("utf-8")
+    resp = httpclient.post_json(url, body, bearer=bearer)
+    if resp.classification == httpclient.Classification.SUCCESS:
+        print("Revoked previous pairing on this device.")
+        return
+    if resp.classification == httpclient.Classification.HALT:
+        return  # old token already revoked or unknown — nothing to clean up
+    msg = resp.error or f"http {resp.status}"
+    print(
+        f"warning: could not revoke previous pairing ({msg}); the old device "
+        "may still appear in your dashboard's Devices list — revoke it manually "
+        "if it sticks around.",
+        file=sys.stderr,
+    )
+
+
+def run(pairing_token: str) -> int:
+    if not pairing_token:
+        print("error: pairing token required", file=sys.stderr)
+        return 2
+
+    # Capture the old bearer BEFORE the new pair runs. If we picked it up
+    # after writing the new .token we'd just be reading our own new token
+    # back; capturing now keeps the two cleanly separated.
+    old_bearer = cfg.load_token()
+
+    # The backend host comes from the pairing token's `iss` claim (env can
+    # still override). No hardcoded fallback — see cfg.base_url_from_pairing_token.
+    try:
+        base = cfg.pair_base_url(pairing_token)
+    except ValueError as exc:
+        print(f"pair failed: {exc}", file=sys.stderr)
+        return 1
+
+    body = json.dumps({
+        "pairing_token": pairing_token,
+        "os": _os_label(),
+        "hostname": _hostname(),
+    }).encode("utf-8")
+
+    url = base + cfg.PAIR_PATH
+    resp = httpclient.post_json(url, body)
+
+    if resp.classification == httpclient.Classification.HALT:
+        print(
+            "pairing token rejected by server (request a fresh one from the dashboard)",
+            file=sys.stderr,
+        )
+        return 1
+    if resp.classification != httpclient.Classification.SUCCESS:
+        msg = resp.error or f"status {resp.status}"
+        print(f"pair failed: {msg}", file=sys.stderr)
+        return 1
+
+    data = httpclient.parse_json(resp)
+    device_id = data.get("device_id", "")
+    device_token = data.get("device_token", "")
+    customer_id = data.get("customer_id", "")
+    if not device_id or not device_token:
+        print("pair response missing device_id or device_token", file=sys.stderr)
+        return 1
+
+    # Pin the host this pairing used so the daemon (and the old-pairing revoke
+    # below) reach the same backend without re-deriving or guessing.
+    cfg.persist_api_base_url(base)
+
+    cfg.write_token(device_token)
+
+    storage = Storage(cfg.state_db_path())
+    try:
+        storage.set_meta("device_id", device_id)
+        storage.set_meta("customer_id", customer_id)
+        storage.set_meta("paired_at", str(int(time.time())))
+        storage.delete_meta("last_401_at")
+        storage.delete_meta("last_401_token_sha256")
+    finally:
+        storage.close()
+
+    # New pairing committed. Now retire the old server-side device, if any.
+    # Skipped on first-ever pair (no old_bearer) and when the old happens to
+    # equal the new (defensive — server-side mints are random so this should
+    # never match in practice).
+    if old_bearer and old_bearer != device_token:
+        _revoke_old_pairing(old_bearer)
+
+    print(f"Paired. device_id={device_id}")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = argv if argv is not None else sys.argv[2:]
+    if len(argv) != 1:
+        print("usage: python -m tap pair <pairing-token>", file=sys.stderr)
+        return 2
+    return run(argv[0])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

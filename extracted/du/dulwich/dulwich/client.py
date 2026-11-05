@@ -71,11 +71,13 @@ __all__ = [
     "SubprocessWrapper",
     "TCPGitClient",
     "TraditionalGitClient",
+    "TransportNotAllowed",
     "Urllib3HttpGitClient",
     "apply_bundle_uri",
     "build_fetch_request_v2",
     "build_ls_refs_request_v2",
     "check_for_proxy_bypass",
+    "check_transport_allowed",
     "check_wants",
     "default_local_git_client_cls",
     "default_urllib3_manager",
@@ -902,17 +904,43 @@ class _v1ReceivePackHeader:
             yield None
 
 
+# Bytes passed through unchanged when sanitising sideband progress/error
+# messages: TAB, LF, CR, BS (used by progress to redraw a line) and the
+# printable-ASCII range. Everything else (notably ESC = 0x1b, which starts
+# ANSI control sequences) is replaced with ``?`` so a hostile remote cannot
+# clear the terminal, change its title or inject colour via sideband text.
+_SIDEBAND_SAFE_BYTES = frozenset((0x08, 0x09, 0x0A, 0x0D, *range(0x20, 0x7F)))
+
+
+def _sanitize_sideband_message(data: bytes) -> bytes:
+    """Replace terminal control bytes in sideband data with ``?``.
+
+    Mirrors git's ``sideband.c`` ``maybe_colorize_sideband``/``SIDEBAND_HIDE``
+    handling (CVE-2024-52005): the remote controls the bytes written to the
+    user's terminal, so escape sequences must not pass through.
+    """
+    if all(b in _SIDEBAND_SAFE_BYTES for b in data):
+        return data
+    return bytes(b if b in _SIDEBAND_SAFE_BYTES else 0x3F for b in data)
+
+
 def _read_side_band64k_data(pkt_seq: Iterable[bytes]) -> Iterator[tuple[int, bytes]]:
     """Read per-channel data.
 
-    This requires the side-band-64k capability.
+    This requires the side-band-64k capability. Data on the progress and
+    fatal-error channels is passed through :func:`_sanitize_sideband_message`
+    so a hostile remote cannot inject terminal control sequences into
+    whatever a caller writes the bytes to.
 
     Args:
       pkt_seq: Sequence of packets to read
     """
     for pkt in pkt_seq:
         channel = ord(pkt[:1])
-        yield channel, pkt[1:]
+        data = pkt[1:]
+        if channel in (SIDE_BAND_CHANNEL_PROGRESS, SIDE_BAND_CHANNEL_FATAL):
+            data = _sanitize_sideband_message(data)
+        yield channel, data
 
 
 def find_capability(
@@ -5785,6 +5813,76 @@ def get_transport_and_path(
             quiet=quiet,
             include_tags=include_tags,
         ), path
+
+
+class TransportNotAllowed(Exception):
+    """Raised when the transport for a location is forbidden by policy."""
+
+    def __init__(self, protocol: str) -> None:
+        """Initialize TransportNotAllowed.
+
+        Args:
+          protocol: Name of the forbidden transport protocol
+        """
+        self.protocol = protocol
+        super().__init__(f"transport '{protocol}' not allowed")
+
+
+def _transport_protocol(client: GitClient) -> str:
+    """Return the name used in ``protocol.<name>.allow`` for a client."""
+    if isinstance(client, TCPGitClient):
+        return "git"
+    if isinstance(client, SSHGitClient):
+        return "ssh"
+    if isinstance(client, AbstractHttpGitClient):
+        return urlparse(client._base_url).scheme
+    return "file"
+
+
+def check_transport_allowed(
+    client: GitClient,
+    config: Config | None = None,
+    from_user: bool = True,
+) -> None:
+    """Check that the transport protocol used by a client is allowed.
+
+    ``protocol.<name>.allow`` takes precedence over ``protocol.allow``.
+    ``always`` permits the transport, ``never`` refuses it and ``user``
+    permits it only when the transport was initiated by the user. The
+    default is ``always`` for http, https, git and ssh, and ``user`` for
+    everything else, notably the file transport.
+
+    Args:
+      client: Client as returned by get_transport_and_path
+      config: Optional config to read protocol.*.allow settings from
+      from_user: Whether this transport was directly initiated by the
+        user (e.g. a URL they passed to clone) rather than by dulwich
+        itself (e.g. a submodule URL read from .gitmodules)
+
+    Raises:
+      TransportNotAllowed: If policy forbids using this transport
+    """
+    protocol = _transport_protocol(client)
+    policy = None
+    if config is not None:
+        for section in ((b"protocol", protocol.encode("ascii")), (b"protocol",)):
+            try:
+                policy = config.get(section, b"allow")
+                break
+            except KeyError:
+                pass
+    if policy is None:
+        policy = b"always" if protocol in ("http", "https", "git", "ssh") else b"user"
+    policy = policy.lower()
+    if policy == b"always":
+        return
+    if policy == b"never":
+        raise TransportNotAllowed(protocol)
+    if policy == b"user":
+        if not from_user:
+            raise TransportNotAllowed(protocol)
+        return
+    raise ValueError(f"unknown value for config protocol.allow: {policy.decode()!r}")
 
 
 DEFAULT_GIT_CREDENTIALS_PATHS = [

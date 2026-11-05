@@ -24,7 +24,6 @@ AssertionEvidenceSpanType = Literal[
 ]
 
 ASSERTIONS_PATH = "/api/sdk/traces/assertions"
-_CODE_DRAFT_SAVE_TIMEOUT_SECONDS = 300.0
 SEARCH_PATH = "/api/sdk/traces/search"
 
 
@@ -59,11 +58,8 @@ class SpanTarget(TypedDict):
 TraceTarget = OutputTarget | SpanTarget
 
 
-AssertionKind = Literal["judge", "code", "hybrid"]
-
-
 class AssertionCode(TypedDict):
-    """Code that decides an assertion's verdict from a run's spans instead of the LLM judge.
+    """Code that decides an assertion's verdict from a run's spans, or hands the decision to the LLM judge.
 
     ``source`` is the body of an async TypeScript function (plain JavaScript
     also works) called with ``spans`` (each ``{name, index, hasData}``, in
@@ -71,12 +67,17 @@ class AssertionCode(TypedDict):
     data with ``await named("span name")``, which returns
     ``{name, index, input, output, metadata}`` for each span with that name,
     or ``await span.data()``. It returns ``"pass"``, ``"fail"``, or
-    ``"defer"`` (hybrid assertions only: hand the rest to the LLM judge), or
-    ``{result, reason}``. It gets one second of compute and may load the data
-    of at most 50 spans within ten seconds. ``spanNames`` lists
-    every span name the code expects a correct run to produce; a name missing
-    from a replay and from the function's other sampled replays marks the code
-    broken instead of failing the replay.
+    ``"defer"``, or ``{result, reason}``. ``"pass"`` and ``"fail"`` decide
+    the verdict with no judge call. ``"defer"`` hands the decision to the LLM
+    judge, and may be returned as ``{result: "defer", reason, data}``, where
+    ``reason`` and ``data`` are both optional and ``data`` is what the code
+    found that the judge needs to decide (such as the sent email's subject
+    and body). The judge reads the reason and data alongside the run. Code
+    that throws counts as ``"defer"`` with no data. It gets one second of
+    compute and may load the data of at most 50 spans within ten seconds.
+    ``spanNames`` lists every span name the code expects a correct run to
+    produce; a name missing from a replay and from the function's other
+    sampled replays marks the code broken instead of failing the replay.
     """
 
     source: str
@@ -96,7 +97,6 @@ class TraceAssertion(ApprovalFields):
     passCriteria: str | None
     failCriteria: str | None
     targetOnEvaluatedTrace: TraceTarget | None
-    kind: AssertionKind
     code: AssertionCode | None
     codeBrokenReason: str | None
     source: TraceAssertionSource
@@ -141,31 +141,10 @@ class AssertionRewrite(TypedDict):
     error: str | None
 
 
-class AssertionCodeDraft(TypedDict):
-    """Whether Bitfab wrote code for an assertion that asked for it.
-
-    ``status`` is ``written`` when code of ``requestedKind`` was saved and ran
-    on the trace, with ``reason`` None. It is ``not_written`` when no working
-    code could be written: the assertion was saved as a ``"judge"`` assertion
-    without code and ``reason`` says why. Reword the assertion and ask again,
-    or send the code yourself.
-    """
-
-    requestedKind: Literal["code", "hybrid"]
-    status: Literal["written", "not_written"]
-    reason: str | None
-
-
 class SavedTraceAssertion(TraceAssertion):
-    """An assertion returned by a save, with what the guided rewrite did to the entry sent for it.
-
-    ``codeDraft`` reports on an entry that sent ``kind`` ``"code"`` or
-    ``"hybrid"`` with no ``code`` for Bitfab to write, and is None for every
-    other entry.
-    """
+    """An assertion returned by a save, with what the guided rewrite did to the entry sent for it."""
 
     rewrite: AssertionRewrite
-    codeDraft: AssertionCodeDraft | None
 
 
 class ReadTraceAssertion(TraceAssertion):
@@ -486,18 +465,12 @@ class SaveAssertion(TypedDict):
 
     Omit ``category_id`` to preserve the existing category, or pass ``None`` to
     clear it. ``category_assertion_id`` is a deprecated alias for ``category_id``;
-    when both are set, ``category_id`` wins. ``kind`` says who decides the
-    assertion: ``"judge"`` (the LLM judge), ``"code"`` (``code`` decides every
-    replay), or ``"hybrid"`` (``code`` decides what it can and returns
-    ``"defer"`` for the rest). Send ``"code"`` or ``"hybrid"`` with ``code``
-    to set the code yourself, or without ``code`` on an assertion that has none
-    yet to have Bitfab write it: the text is checked by the guided rewrite
-    (unless skipped), code of that kind is written and run on this trace, and
-    the save waits for both. The returned ``codeDraft`` says whether working
-    code was written. At most 10 assertions per save may ask for code this
-    way, and a save that asks for any waits up to five minutes. Omit both to keep them, or pass ``kind="judge"`` to remove the
-    code. Code that cannot run on this trace, or that returns ``"defer"`` for a
-    ``"code"`` assertion, is refused.
+    when both are set, ``category_id`` wins. Pass ``code`` to set the
+    assertion's code, ``None`` to remove it so the LLM judge decides every
+    run, or omit it to keep the current code. The code is run on this trace
+    before saving, and the save is refused when it throws, runs out of time,
+    or returns something other than a result. Bitfab may also write code for
+    an assertion on its own after the save, in the background.
     """
 
     category_id: NotRequired[str | None]
@@ -508,7 +481,6 @@ class SaveAssertion(TypedDict):
     passCriteria: NotRequired[str | None]
     failCriteria: NotRequired[str | None]
     targetOnEvaluatedTrace: NotRequired[TraceTarget | None]
-    kind: NotRequired[AssertionKind]
     code: NotRequired[AssertionCode | None]
     justification: NotRequired[Justification | None]
     categoryJustification: NotRequired[Justification | None]
@@ -620,19 +592,6 @@ def _save_assertions_payload(
         "source": source,
         "guidedRewrite": not skip_guided_rewrite,
     }
-
-
-def _asks_bitfab_to_write_code(assertion: SaveAssertion) -> bool:
-    return assertion.get("kind") in ("code", "hybrid") and "code" not in assertion
-
-
-def _save_request_options(updates: list[TraceAssertionsUpdate]) -> dict[str, float]:
-    asks = any(
-        _asks_bitfab_to_write_code(assertion)
-        for update in updates
-        for assertion in update["assertions"]
-    )
-    return {"timeout": _CODE_DRAFT_SAVE_TIMEOUT_SECONDS} if asks else {}
 
 
 def _trace_assertions_path(trace_id: str, suffix: str = "") -> str:
@@ -776,10 +735,7 @@ class TracesClient:
         back with ``rewrite["status"] == "pending"`` while Bitfab checks it
         against the writing rules in the background and, when it breaks
         one, rewrites it in place, usually within a minute. Read the result
-        later with ``get_assertions``, whose rows carry ``rewrite``. Entries
-        that ask Bitfab to write their code are checked and given code before
-        the call returns, so their ``rewrite`` and ``codeDraft`` are final.
-        Pass ``skip_guided_rewrite=True`` to save the text exactly as sent with
+        later with ``get_assertions``, whose rows carry ``rewrite``. Pass ``skip_guided_rewrite=True`` to save the text exactly as sent with
         no check.
         """
         return self.save_assertions_all(
@@ -811,17 +767,16 @@ class TracesClient:
         says whether the text was rewritten, left unchanged, or could not be
         checked. Save every text in ``rewrite["separateAssertions"]`` as its
         own assertion, and act on anything in ``rewrite["unresolved"]``.
-        Entries that ask Bitfab to write their code are checked and given code
-        before the call returns, so their ``rewrite`` and ``codeDraft`` are
-        final. Pass ``skip_guided_rewrite=True`` to save the text exactly as
-        sent with no check.
+        An entry's ``code`` is run on its trace before anything is saved, and
+        code that throws, runs out of time, or returns something other than a
+        result refuses the save. Pass ``skip_guided_rewrite=True`` to save the
+        text exactly as sent with no check.
         """
         if not updates:
             return []
         result = self._http_client.request(
             ASSERTIONS_PATH,
             _save_assertions_payload(updates, source, skip_guided_rewrite),
-            **_save_request_options(updates),
         )
         return list(result["assertions"])
 

@@ -1,18 +1,16 @@
 use derive_where::derive_where;
-use nom::{Parser, branch::alt, character::complete::space1, combinator::map, multi::fold_many0};
 
 use crate::{
 	Input,
 	context::Context,
-	error::ParseError,
+	error::PResult,
 	lossless::TokenKind,
 	node::{
 		Element, Elements, Sequence,
 		block::{inline_block, list::indent},
 	},
 	scope::Scope,
-	span::{Span, Syntax, WithSpan, WithToken, attach},
-	unparse::Unparse,
+	span::{Span, Syntax},
 };
 
 use super::{Type, indented};
@@ -54,63 +52,44 @@ pub struct Item<S: Span, N> {
 	pub content: Sequence<S, N>,
 }
 
-impl<S, N> Unparse for Item<S, N>
-where
-	S: Span,
-	N: Unparse,
-{
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		Unparse::fmt(&self.content, f)
-	}
-}
-
-fn content<'data, S, E>(
-	context: Context,
+fn content<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
 	item_indent: usize,
-) -> impl Parser<Input<'data>, Output = Elements<'data, S>, Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	move |data| {
-		let context = context.clone();
-		let (data, first_content) =
-			// TODO: verify that InlineBlockRule is correct here (possibly should be BlockRule)
-			map(inline_block(context.clone().with_scope(Scope::Block)), Element::Paragraph).span().parse_complete(data)?;
+) -> PResult<Elements<'data, S>> {
+	// TODO: verify that InlineBlockRule is correct here (possibly should be BlockRule)
+	let block_context = context.clone().with_scope(Scope::Block);
+	let first_content =
+		input.spanned(|input| inline_block(input, &block_context).map(Element::Paragraph))?;
 
-		fold_many0(
-			(
-				context
-					.clone()
-					.line_prefix()
-					.token::<S>(TokenKind::QuotePrefix),
-				alt((
-					// first check if the next item is indented enough to be considered a child list
-					map(indented(context.clone(), item_indent), Element::List).span(),
-					// then we can continue parsing current list items
-					map(
-						(
-							indent(item_indent).token::<S>(TokenKind::Indent),
-							inline_block(context.with_scope(Scope::Block)),
-						),
-						|(indent, mut content): (_, Elements<'data, S>)| {
-							content.span.attach(indent);
-							Element::Paragraph(content)
-						},
-					)
-					.span(),
-				)),
-			),
-			move || (vec![first_content.clone()], S::Syntax::default()),
-			|(mut nodes, syntax), (prefix, node)| {
-				nodes.push(node);
-				(nodes, syntax.join(prefix))
-			},
-		)
-		.span()
-		.map(attach)
-		.parse_complete(data)
-	}
+	input.spanned_with_syntax(|input| {
+		let mut nodes = vec![first_content];
+		let mut syntax = S::Syntax::default();
+		while let Some((prefix, node)) = input.attempt(|input| {
+			let prefix =
+				input.token::<S, _>(TokenKind::QuotePrefix, |input| context.line_prefix(input))?;
+			// first check if the next item is indented enough to be considered a child list
+			let list = input.attempt(|input| {
+				input.spanned(|input| indented(input, context, item_indent).map(Element::List))
+			})?;
+			let node = match list {
+				Some(list) => list,
+				// then we can continue parsing current list items
+				None => input.spanned(|input| {
+					let indent = input
+						.token::<S, _>(TokenKind::Indent, |input| indent(input, item_indent))?;
+					let mut paragraph = inline_block::<S>(input, &block_context)?;
+					paragraph.span.attach(indent);
+					Ok(Element::Paragraph(paragraph))
+				})?,
+			};
+			Ok((prefix, node))
+		})? {
+			nodes.push(node);
+			syntax.append(prefix);
+		}
+		Ok((nodes, syntax))
+	})
 }
 
 /// Parse a list item with a current indent level. The indent level can be 0 or detected with
@@ -118,17 +97,17 @@ where
 ///
 /// ```
 /// # use discord_markdown::{
+/// #    Input,
 /// #    node::Element,
 /// #    node::block::list::item::{Item, item},
 /// # };
-/// # use nom::Parser;
 /// use discord_markdown::{context::Context, node::block::list::{start_type, Type}, spanned_vec};
 ///
-/// let (rem, (kind, item)) = item::<(), nom::error::Error<_>>(Context::default(), 0, start_type)
-///     .parse_complete("1. foo".into())
+/// let mut input = Input::from("1. foo");
+/// let (kind, item) = item::<()>(&mut input, &Context::default(), 0, start_type)
 ///     .expect("should parse");
 ///
-/// assert_eq!(rem, "");
+/// assert_eq!(input, "");
 /// assert_eq!(kind, Type::Ordered(1.try_into().unwrap()));
 /// assert_eq!(
 ///     item,
@@ -137,25 +116,19 @@ where
 ///     }
 /// );
 /// ```
-pub fn item<'data, S, E>(
-	context: Context,
+///
+/// # Errors
+/// If the content does not begin with a list item at that indent level.
+pub fn item<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
 	indent_amount: usize,
-	parse_type: impl Parser<Input<'data>, Output = Type, Error = E>,
-) -> impl Parser<Input<'data>, Output = (Type, Item<S, Element<'data, S>>), Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	(
-		indent(indent_amount).token::<S>(TokenKind::Indent),
-		parse_type.with_token::<S>(TokenKind::ListMarker),
-		space1.token::<S>(TokenKind::Whitespace),
-		content(context, indent_amount + INDENT_STEP),
-	)
-		.map(
-			|(indent, (kind, marker), space, mut content): (_, _, _, Elements<'data, S>)| {
-				content.span.attach(indent.join(marker).join(space));
-				(kind, Item { content })
-			},
-		)
+	parse_type: impl FnOnce(&mut Input<'data>) -> PResult<Type>,
+) -> PResult<(Type, Item<S, Element<'data, S>>)> {
+	let indent = input.token::<S, _>(TokenKind::Indent, |input| indent(input, indent_amount))?;
+	let (kind, marker) = input.with_token::<S, _>(TokenKind::ListMarker, parse_type)?;
+	let space = input.token::<S, _>(TokenKind::Whitespace, Input::space1)?;
+	let mut body = content::<S>(input, context, indent_amount + INDENT_STEP)?;
+	body.span.attach(indent.join(marker).join(space));
+	Ok((kind, Item { content: body }))
 }

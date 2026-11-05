@@ -34,6 +34,7 @@ from datamodel_code_generator import (
     DanglingRefWarning,
     DataModelType,
     Error,
+    FieldTypeCollisionStrategy,
     GeneratedModules,
     HTTPBackend,
     InputFileType,
@@ -57,6 +58,7 @@ from datamodel_code_generator.arguments import _dataclass_arguments, arg_parser
 from datamodel_code_generator.config import GenerateConfig
 from datamodel_code_generator.deprecations import DEPRECATIONS, Deprecation
 from datamodel_code_generator.format import CodeFormatter, Formatter, PythonVersion
+from datamodel_code_generator.json_config import JsonConfigError, load_json_config_field
 from datamodel_code_generator.model.pydantic_v2 import UnionMode
 from datamodel_code_generator.parser import LiteralType
 from datamodel_code_generator.parser.mcp import convert_mcp_tools_to_jsonschema
@@ -93,6 +95,7 @@ from tests.main.conftest import (
     EXPECTED_MAIN_PATH,
     JSON_SCHEMA_DATA_PATH,
     OPEN_API_DATA_PATH,
+    PROTOBUF_DATA_PATH,
     PYTHON_DATA_PATH,
     TIMESTAMP,
     _optional_test_parsed_source_cache,
@@ -751,20 +754,58 @@ def test_model_graph_check_reports_a_copied_reference(
 
 
 @pytest.mark.parametrize(
-    ("input_name", "options"),
+    ("input_path", "options"),
     [
-        pytest.param("ref_type_has_null.json", {"omit_redundant_reference_null": True}, id="null"),
-        pytest.param("numeric_constraint_precision/non_finite_multiple_of.json", {}, id="dropped-multiple-of"),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "ref_type_has_null.json", {"omit_redundant_reference_null": True}, id="null"
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "numeric_constraint_precision/non_finite_multiple_of.json",
+            {},
+            id="dropped-multiple-of",
+        ),
+        pytest.param(OPEN_API_DATA_PATH / "redundant_reference_null.yaml", {}, id="no-default"),
     ],
 )
 def test_a_deep_copied_type_keeps_what_its_site_recorded(
-    monkeypatch: pytest.MonkeyPatch, recwarn: pytest.WarningsRecorder, input_name: str, options: dict[str, bool]
+    monkeypatch: pytest.MonkeyPatch, recwarn: pytest.WarningsRecorder, input_path: Path, options: dict[str, bool]
 ) -> None:
     """A custom parser that types a field with a deep copy of its type keeps what the site recorded on the type.
 
     ``--omit-redundant-reference-null`` marks the None of ``nullOnlyRef`` as the one the schema it references admits,
     and a ``multipleOf`` of 1e400 that Pydantic refuses is recorded on its type for the warning of the field; the copy
-    carries those records, so the output and the warnings are the ones without the copy.
+    carries those records, so the output and the warnings are the ones without the copy. A copied root model that
+    declares no default keeps declaring none: up to 0.88.0 the copy of its default marker was written as the default of
+    ``Use.name_d`` (``Field(<object object at 0x...>)``).
+    """
+    from copy import deepcopy
+
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+
+    class CopyingParser(OpenAPIParser if input_path.is_relative_to(OPEN_API_DATA_PATH) else JsonSchemaParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            for model in self.results:
+                for field in model.fields:
+                    self.generation_store.replace_field_type(field, deepcopy(field.data_type))
+
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, "0")
+    parser = CopyingParser(input_path, formatters=[Formatter.BUILTIN], **options)
+    assert_output(cast("str", parser.parse()))
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(warning.message) for warning in recwarn if warning.category is UserWarning)
+        ),
+        name="warnings",
+    )
+
+
+def test_a_deep_copied_union_leaves_out_what_its_members_hold(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A custom parser that types a field with a deep copy of its union leaves out the keywords its members hold.
+
+    The copy names the root models of the branches by their model keys, so ``--field-constraints`` leaves the
+    keywords beside the union out of the field as it does without the copy (#5824).
     """
     from copy import deepcopy
 
@@ -775,18 +816,50 @@ def test_a_deep_copied_type_keeps_what_its_site_recorded(
             super().parse_raw()
             for model in self.results:
                 for field in model.fields:
+                    if field.required:
+                        self.generation_store.replace_field_type(field, deepcopy(field.data_type))
+
+    monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, "0")
+    parser = CopyingParser(
+        JSON_SCHEMA_DATA_PATH / "field_constraint_sites" / "union_root_keywords.json",
+        formatters=[Formatter.BUILTIN],
+        field_constraints=True,
+    )
+    assert_output(cast("str", parser.parse()))
+
+
+def test_a_deep_copied_type_keeps_the_msgspec_union_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A custom parser that types a field with a deep copy of its type keeps the hint of the msgspec union warning.
+
+    The copy names the enums its original names by their model keys, so the warnings about the unions msgspec refuses
+    still recommend ``--enum-field-as-literal all``, which writes those enums as Literal values (#5824).
+    """
+    from copy import deepcopy
+
+    from datamodel_code_generator.model import get_data_model_types
+
+    class CopyingParser(OpenAPIParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            for model in self.results:
+                for field in model.fields:
                     self.generation_store.replace_field_type(field, deepcopy(field.data_type))
 
     monkeypatch.setenv(CHECK_MODEL_GRAPH_ENV, "0")
-    parser = CopyingParser(JSON_SCHEMA_DATA_PATH / input_name, formatters=[Formatter.BUILTIN], **options)
-    assert_output(cast("str", parser.parse()))
-    assert_output(
-        "".join(
-            f"{message}\n"
-            for message in dict.fromkeys(str(warning.message) for warning in recwarn if warning.category is UserWarning)
-        ),
-        name="warnings",
-    )
+    model_types = get_data_model_types(DataModelType.MsgspecStruct, PythonVersion.PY_310)
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        CopyingParser(
+            OPEN_API_DATA_PATH / "msgspec_enum_unions.yaml",
+            formatters=[Formatter.BUILTIN],
+            data_model_type=model_types.data_model,
+            data_model_root_type=model_types.root_model,
+            data_model_field_type=model_types.field_model,
+            data_type_manager_type=model_types.data_type_manager,
+            dump_resolve_reference_action=model_types.dump_resolve_reference_action,
+            reuse_model=True,
+        ).parse()
+    assert_output("".join(f"{message}\n" for message in dict.fromkeys(str(warning.message) for warning in recorded)))
 
 
 @pytest.mark.parametrize("flag", ["check", "report", "off"])
@@ -917,6 +990,122 @@ def test_reference_built_outside_the_resolver_names_the_model_at_its_path() -> N
     assert_output(cast("str", parser.parse()))
 
 
+@pytest.mark.parametrize(
+    "output_model_type",
+    [DataModelType.PydanticV2BaseModel, DataModelType.PydanticV2Dataclass],
+    ids=["model", "dataclass"],
+)
+@pytest.mark.parametrize("keyless_fields", [None, {"bars"}], ids=["all", "some"])
+def test_reference_built_outside_the_resolver_renames_the_model_at_its_path(
+    output_model_type: DataModelType, keyless_fields: set[str] | None
+) -> None:
+    """A custom parser that types fields with a Reference it builds itself, under ``rename-type``.
+
+    A field named like its type hides it. The model at the path of the references is renamed once, and the fields
+    that name it by a reference of their own use the new name, as they do for the references the resolver builds.
+    The parser types every field this way, or only the fields it names, so that a class holds the model by both
+    kinds of reference.
+    """
+    from datamodel_code_generator.model import get_data_model_types
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+    from datamodel_code_generator.reference import Reference
+
+    class KeylessParser(JsonSchemaParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            for model in self.results:
+                for field in model.fields:
+                    if keyless_fields is not None and field.name not in keyless_fields:
+                        continue
+                    for data_type in field.data_type.all_data_types:
+                        if (reference := data_type.reference) is not None and reference.source is not None:
+                            keyless = Reference(path=reference.path, name=reference.name)
+                            self.generation_store.replace_data_type_ref(data_type, keyless)
+
+    model_types = get_data_model_types(output_model_type)
+    parser = KeylessParser(
+        JSON_SCHEMA_DATA_PATH / "same_name_reference_fields" / "shared.json",
+        data_model_type=model_types.data_model,
+        data_model_root_type=model_types.root_model,
+        data_model_field_type=model_types.field_model,
+        data_type_manager_type=model_types.data_type_manager,
+        dump_resolve_reference_action=model_types.dump_resolve_reference_action,
+        field_type_collision_strategy=FieldTypeCollisionStrategy("rename-type"),
+        formatters=[Formatter.BUILTIN],
+    )
+    assert_output(cast("str", parser.parse()))
+
+
+def test_reference_built_outside_the_resolver_renames_the_model_that_replaced_a_root_model() -> None:
+    """A custom parser that types one field with a Reference it builds itself, under ``rename-type`` and collapse.
+
+    The ``parent`` strategy gives the inner model the path and the name of the root model it replaces, which stays
+    among the parsed models, after the inner model, at that path. The reference names the model that is emitted
+    there: it and the field that names the model by a reference of the resolver use one new name, and the class is
+    written, where the root model that collapse left is no class.
+    """
+    from datamodel_code_generator.model import get_data_model_types
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+    from datamodel_code_generator.reference import Reference
+
+    class KeylessParser(JsonSchemaParser):
+        def parse_raw(self) -> None:
+            super().parse_raw()
+            for model in self.results:
+                for field in model.fields:
+                    if field.name != "bars":
+                        continue
+                    for data_type in field.data_type.all_data_types:
+                        if (reference := data_type.reference) is not None and reference.source is not None:
+                            keyless = Reference(path=reference.path, name=reference.name)
+                            self.generation_store.replace_data_type_ref(data_type, keyless)
+
+    model_types = get_data_model_types(DataModelType.PydanticV2BaseModel)
+    parser = KeylessParser(
+        JSON_SCHEMA_DATA_PATH / "same_name_reference_fields" / "collapsed_root.json",
+        data_model_type=model_types.data_model,
+        data_model_root_type=model_types.root_model,
+        data_model_field_type=model_types.field_model,
+        data_type_manager_type=model_types.data_type_manager,
+        dump_resolve_reference_action=model_types.dump_resolve_reference_action,
+        field_type_collision_strategy=FieldTypeCollisionStrategy("rename-type"),
+        collapse_root_models=True,
+        collapse_root_models_name_strategy=CollapseRootModelsNameStrategy.Parent,
+        formatters=[Formatter.BUILTIN],
+    )
+    assert_output(cast("str", parser.parse()))
+
+
+def test_reference_built_outside_the_resolver_names_no_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A custom parser that types a field named like its type with a Reference to a path where no model is.
+
+    ``rename-type`` has no model to rename, so the field keeps the type it names. The parser retypes the field in
+    its ``_process_single_module``, outside the passes, so the finality check (`0` here) does not report the write.
+    """
+    from typing_extensions import override
+
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+    from datamodel_code_generator.reference import Reference
+    from datamodel_code_generator.types import DataType
+
+    class NowhereParser(JsonSchemaParser):
+        @override
+        def _process_single_module(self, *args: Any) -> Any:
+            leaf = next(model for model in args[1] if model.class_name == "Leaf")
+            self.generation_store.replace_field_type(
+                leaf.fields[0], DataType(reference=Reference(path="#/Nowhere", name="Bar"))
+            )
+            return super()._process_single_module(*args)
+
+    monkeypatch.setenv(CHECK_FACT_FINALITY_ENV, "0")
+    parser = NowhereParser(
+        JSON_SCHEMA_DATA_PATH / "same_name_reference_fields" / "speed.json",
+        field_type_collision_strategy=FieldTypeCollisionStrategy("rename-type"),
+        formatters=[Formatter.BUILTIN],
+    )
+    assert_output(cast("str", parser.parse()))
+
+
 def test_process_single_module_override_passes_a_module_name_map_of_its_own() -> None:
     """A custom parser whose ``_process_single_module`` hands the base implementation a copy of the module names.
 
@@ -985,6 +1174,31 @@ def test_snooper_to_methods_without_pysnooper(mocker: MockerFixture, monkeypatch
     monkeypatch.setitem(sys.modules, "pysnooper", None)
     mock = mocker.Mock()
     assert snooper_to_methods()(mock) == mock
+
+
+def test_debug_without_pysnooper_names_a_command_a_shell_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Write the pip command that installs the debug extra as a shell runs it, with no prompt glued to it.
+
+    Up to 0.88.0 the hint wrote ``$pip install ...``, which a shell runs as the command ``$pip``, expanded to nothing.
+    """
+    monkeypatch.setitem(sys.modules, "pysnooper", None)
+    with pytest.raises(Exception, match=re.escape("Please run `pip install 'datamodel-code-generator[debug]'` to use")):
+        run_main_with_args(["--debug", "--input", str(JSON_SCHEMA_DATA_PATH / "person.json")])
+
+
+def test_protobuf_without_grpc_tools_names_the_command_that_installs_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Tell the pip command that installs the protobuf extra, where up to 0.88.0 the hint named only its requirement."""
+    monkeypatch.setitem(sys.modules, "grpc_tools", None)
+    run_main_with_args(
+        ["--input", str(PROTOBUF_DATA_PATH / "proto3_optional.proto"), "--input-file-type", "protobuf"],
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains=(
+            "protobuf input requires grpcio-tools. Please run `pip install 'datamodel-code-generator[protobuf]'`."
+        ),
+    )
 
 
 @pytest.mark.parametrize(argnames="no_color", argvalues=[False, True])
@@ -3510,6 +3724,123 @@ def test_main_rejects_additional_import_injection_in_extra_template_data(
     assert_output(capsys.readouterr().err, EXPECTED_MAIN_PATH / "additional_imports_invalid.txt")
 
 
+@pytest.mark.parametrize(
+    ("option", "value", "message"),
+    [
+        pytest.param(
+            "--base-class",
+            "mypkg.1x",
+            "base_class must be a Python import path composed of identifiers: 'mypkg.1x'",
+            id="base-class",
+        ),
+        pytest.param(
+            "--base-class-map",
+            '{"Person": ["mypkg.Base", "mypkg.class"]}',
+            "base_class_map must be a Python import path composed of identifiers: 'mypkg.class'",
+            id="base-class-map",
+        ),
+        pytest.param(
+            "--type-overrides",
+            '{"Person.firstName": "mypkg.1x"}',
+            "type_overrides must be a Python import path composed of identifiers: 'mypkg.1x'",
+            id="type-overrides",
+        ),
+        pytest.param(
+            "--class-decorators",
+            "@mypkg.1x(letter_case=LetterCase.CAMEL)",
+            "class_decorators must be a Python import path composed of identifiers: 'mypkg.1x'",
+            id="class-decorators",
+        ),
+        pytest.param(
+            "--class-decorators",
+            "@mypkg . class  # comment",
+            "class_decorators must be a Python import path composed of identifiers: 'mypkg.class'",
+            id="class-decorators-spaced-dot-comment",
+        ),
+        pytest.param(
+            "--class-decorators",
+            "@mypkg.deco if flag else other",
+            "class_decorators must be a Python import path composed of identifiers: 'mypkg.deco if flag else other'",
+            id="class-decorators-expression",
+        ),
+        pytest.param(
+            "--class-decorators",
+            '@mypkg."""deco',
+            'class_decorators must be a Python import path composed of identifiers: \'@mypkg."""deco\'',
+            id="class-decorators-unterminated-string",
+        ),
+        pytest.param(
+            "--class-decorators",
+            "@mypkg.deco\n  (flag)",
+            "class_decorators must be a Python import path composed of identifiers: '@mypkg.deco\\n  (flag)'",
+            id="class-decorators-indented-line",
+        ),
+        pytest.param(
+            "--class-decorators",
+            "@\nmypkg.deco",
+            "class_decorators must be a Python import path composed of identifiers: '@\\nmypkg.deco'",
+            id="class-decorators-line-break-before-path",
+        ),
+    ],
+)
+def test_main_refuses_named_path_with_non_identifier_part(
+    output_file: Path, capsys: pytest.CaptureFixture[str], option: str, value: str, message: str
+) -> None:
+    """Refuse an option that names a Python object by a dotted path with a part that is not an identifier (#6109).
+
+    ``mypkg.1x`` wrote ``from mypkg import 1x`` or ``@mypkg.1x``, which does not parse. A decorator's path is its tokens
+    before the arguments of its call, without comments and the whitespace around a dot; a decorator that does not
+    tokenize there, or that a line break outside its parentheses splits, is refused as a whole.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[option, value],
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains=message,
+        output_should_not_exist=True,
+    )
+
+
+def test_generate_revalidates_mutated_named_paths() -> None:
+    """Refuse a base class path set on a public config after it was validated, as the parser reads it (#6109)."""
+    config = GenerateConfig(input_file_type=InputFileType.JsonSchema)
+    config.base_class = "mypkg.1x"
+    with pytest.raises(Error, match=r"base_class must be a Python import path composed of identifiers: 'mypkg\.1x'"):
+        generate(JSON_SCHEMA_DATA_PATH / "person.json", config=config)
+
+
+def test_main_named_paths_keep_what_follows_a_path(output_file: Path) -> None:
+    """Keep the decorators and type overrides whose text after a path, or around it, is no path (#6109).
+
+    A decorator's path ends at its first bracket after its opening parentheses, so a call, a subscript and parentheses
+    are written as given, and a comment or whitespace around a dot is no part of it; a type override that spells an
+    annotation names no class to import, and an empty base class names none.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "person.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--class-decorators",
+            (
+                "@(mypkg.deco),mypkg.deco(letter_case=LetterCase.CAMEL),@registry[0].register,"
+                "@deprecated  # comment,@mypkg . decorator"
+            ),
+            "--additional-imports",
+            "mypkg,mypkg.LetterCase,mypkg.deprecated,mypkg.registry",
+            "--type-overrides",
+            '{"Person.firstName": "str | None"}',
+            "--base-class-map",
+            '{"Person": ""}',
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
 @pytest.mark.cli_doc(
     options=["--type-overrides"],
     option_description="""Replace schema model types with custom Python types via JSON mapping.
@@ -3707,6 +4038,75 @@ def test_type_overrides_model_level_base_class(
     finally:
         for module_name in module_names:
             sys.modules.pop(module_name, None)
+
+
+@pytest.mark.parametrize("value", ["typing.Literal[1.5]", "str | None", "list[int]", "None"])
+def test_type_overrides_model_level_base_class_refuses_annotation(
+    output_file: Path, capsys: pytest.CaptureFixture[str], value: str
+) -> None:
+    """Refuse a model-level override that replaces a base class with an annotation that is no class.
+
+    Up to 0.88.0 the annotation was written as the base, such as ``class Child(Literal[1.5]):``, and the module failed
+    to import.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "type_overrides_base_class.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        expected_exit=Exit.ERROR,
+        file_should_not_exist=output_file,
+        capsys=capsys,
+        expected_stderr_contains=f"--type-overrides 'Base': {value!r} is no class, so it cannot replace Base as a base",
+        extra_args=["--type-overrides", json.dumps({"Base": value}), "--formatters", "builtin"],
+    )
+
+
+def test_type_overrides_model_level_base_class_takes_bare_class_name(output_file: Path) -> None:
+    """Replace a base class with a bare class name, such as ``Decimal``, as with its class path ``decimal.Decimal``."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "type_overrides_base_class.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "dataclasses.dataclass",
+            "--type-overrides",
+            json.dumps({"Base": "Decimal"}),
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize("value", ["Any", "typing.Any"])
+def test_type_overrides_model_level_base_class_refuses_any_before_python_311(
+    output_file: Path, capsys: pytest.CaptureFixture[str], value: str
+) -> None:
+    """Refuse ``typing.Any`` as a base class for a target before Python 3.11, which cannot subclass it.
+
+    Up to 0.88.0 ``class Child(Any):`` was written, and the module failed to import before Python 3.11.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "type_overrides_base_class.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        expected_exit=Exit.ERROR,
+        file_should_not_exist=output_file,
+        capsys=capsys,
+        expected_stderr_contains=(
+            f"--type-overrides 'Base': {value!r} is no class before Python 3.11, so it cannot replace Base as a base"
+        ),
+        extra_args=[
+            "--type-overrides",
+            json.dumps({"Base": value}),
+            "--target-python-version",
+            "3.10",
+            "--formatters",
+            "builtin",
+        ],
+    )
 
 
 @freeze_time(TIMESTAMP)
@@ -4417,6 +4817,47 @@ def test_all_exports_collision_resolved_successfully(output_dir: Path) -> None:
             "minimal-prefix",
         ],
         expected_directory=EXPECTED_MAIN_PATH / "openapi" / "all_exports_collision_success",
+    )
+
+
+@pytest.mark.parametrize(
+    ("schema", "strategy", "export", "payload"),
+    [
+        pytest.param(
+            "all_exports_equal_prefixed_names", "full-prefix", "FooBarModel", {"b": "x"}, id="equal-prefixes-kept"
+        ),
+        pytest.param(
+            "all_exports_equal_prefixed_names", "full-prefix", "FooBarModel1", {"a": "x"}, id="equal-prefixes-added"
+        ),
+        pytest.param("all_exports_prefixed_name_of_export", "minimal-prefix", "FooBar", {"a": "x"}, id="minimal-kept"),
+        pytest.param(
+            "all_exports_prefixed_name_of_export", "minimal-prefix", "FooBar1", {"c": True}, id="minimal-added"
+        ),
+        pytest.param("all_exports_prefixed_name_of_export", "full-prefix", "FooBar", {"a": "x"}, id="full-kept"),
+        pytest.param("all_exports_prefixed_name_of_export", "full-prefix", "FooBar1", {"c": True}, id="full-added"),
+    ],
+)
+def test_all_exports_export_displaced_by_a_prefixed_name_takes_the_next_free_name(
+    output_dir: Path, schema: str, strategy: str, export: str, payload: dict[str, object]
+) -> None:
+    """Keep every export when a prefixed name is also the name of another export.
+
+    The name keeps the export it referred to; the export it displaced takes the next free name.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / f"{schema}.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--disable-timestamp",
+            "--all-exports-scope",
+            "recursive",
+            "--all-exports-collision-strategy",
+            strategy,
+        ],
+        runtime_validation_module="",
+        runtime_validation_model_name=export,
+        runtime_validation_data=payload,
     )
 
 
@@ -5178,6 +5619,68 @@ def test_ruff_batch_formatting_directory(output_dir: Path) -> None:
         output_path=output_dir,
         extra_args=["--formatters", "ruff-check", "ruff-format", "--disable-timestamp"],
         expected_directory=EXPECTED_MAIN_PATH / "jsonschema" / "all_exports_multi_file_ruff",
+        skip_code_validation=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("encoding", "formatters"),
+    [
+        pytest.param("utf-16", ["ruff-format"], id="utf-16-format"),
+        pytest.param("latin-1", ["ruff-format"], id="latin-1-format"),
+        pytest.param("latin-1", ["ruff-check", "ruff-format"], id="latin-1-check-format"),
+    ],
+)
+def test_ruff_formats_directory_written_in_another_encoding(
+    encoding: str, formatters: list[str], tmp_path: Path, output_dir: Path
+) -> None:
+    """Run Ruff over a model directory that is written in an encoding Ruff cannot read.
+
+    Ruff reads and writes UTF-8 only. It sees the files as UTF-8, and they are written in the requested encoding.
+    """
+    (source := tmp_path / "modular.yaml").write_bytes(
+        (OPEN_API_DATA_PATH / "modular.yaml").read_text(encoding="utf-8").encode(encoding)
+    )
+    run_main_and_assert(
+        input_path=source,
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            *("--encoding", encoding, "--custom-file-header", "# Café"),
+            *("--formatters", *formatters, "--disable-timestamp"),
+        ],
+        skip_code_validation=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("encoding", "formatters"),
+    [
+        pytest.param("utf-16", ["ruff-format"], id="utf-16-format"),
+        pytest.param("latin-1", ["ruff-format"], id="latin-1-format"),
+        pytest.param("latin-1", ["ruff-check"], id="latin-1-check"),
+        pytest.param("latin-1", ["ruff-check", "ruff-format"], id="latin-1-check-format"),
+    ],
+)
+def test_ruff_formats_file_written_in_another_encoding(
+    encoding: str, formatters: list[str], tmp_path: Path, output_file: Path
+) -> None:
+    """Run Ruff over a model file with a non-ASCII description that is written in an encoding Ruff cannot read.
+
+    Ruff reads and writes UTF-8 only. It is given the code as UTF-8, and the file is written in the requested encoding.
+    """
+    schema = {
+        "title": "Pet",
+        "type": "object",
+        "description": "Café",
+        "properties": {"name": {"type": "string", "description": "Café"}, "tag": {"type": "integer"}},
+    }
+    (source := tmp_path / "pet.json").write_bytes(json.dumps(schema, ensure_ascii=False).encode(encoding))
+    run_main_and_assert(
+        input_path=source,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--encoding", encoding, "--formatters", *formatters, "--disable-timestamp"],
         skip_code_validation=True,
     )
 
@@ -7116,6 +7619,20 @@ def test_aliases_unparsable_json(
         expected_stderr_contains=message,
         file_should_not_exist=output_file,
     )
+
+
+def test_json_config_depth_limit_applies_to_a_file_object() -> None:
+    """Refuse a file object that nests deeper than the field allows, as the same text given as a string is.
+
+    Only the Python API can give a file object, so the command line cannot reach it.
+    """
+    text = '{"a":' * 70 + "1" + "}" * 70
+    messages = []
+    for source in (text, StringIO(text)):
+        with pytest.raises(JsonConfigError) as error:
+            load_json_config_field("client_protocols", source)
+        messages.append(str(error.value))
+    assert_output("\n".join(messages) + "\n")
 
 
 def test_default_values_non_dict(output_file: Path, capsys: pytest.CaptureFixture[str]) -> None:

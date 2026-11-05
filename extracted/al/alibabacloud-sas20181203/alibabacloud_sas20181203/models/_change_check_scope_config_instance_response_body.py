@@ -12,7 +12,7 @@ class ChangeCheckScopeConfigInstanceResponseBody(DaraModel):
         request_id: str = None,
         success: bool = None,
     ):
-        # The status code returned by the request.
+        # The status code returned by the operation.
         self.code = code
         # The message returned for the request.
         self.message = message

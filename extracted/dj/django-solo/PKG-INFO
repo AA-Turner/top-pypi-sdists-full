@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-solo
-Version: 2.5.1
+Version: 2.6.0
 Summary: Django Solo helps working with singletons
 Author: lazybird
 Maintainer-email: John Hagen <johnthagen@gmail.com>
@@ -8,23 +8,22 @@ License-Expression: CC-BY-3.0
 Project-URL: Homepage, https://github.com/lazybird/django-solo/
 Project-URL: Source, https://github.com/lazybird/django-solo/
 Project-URL: Changelog, https://github.com/lazybird/django-solo/blob/master/CHANGES
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: django>=4.2
-Requires-Dist: typing-extensions>=4.0.1; python_version < "3.11"
+Requires-Dist: django>=5.2
 Dynamic: license-file
 
 
@@ -80,7 +79,7 @@ from solo.models import SingletonModel
 
 
 class SiteConfiguration(SingletonModel):
-    site_name = models.CharField(max_length=255, default='Site Name')
+    site_name = models.CharField(max_length=255, default="Site Name")
     maintenance_mode = models.BooleanField(default=False)
 
     def __str__(self):
@@ -104,6 +103,7 @@ admin.site.register(SiteConfiguration, SingletonModelAdmin)
 ```python
 # There is only one item in the table, you can get it this way:
 from .models import SiteConfiguration
+
 config = SiteConfiguration.objects.get()
 
 # get_solo will create the item if it does not already exist
@@ -241,7 +241,7 @@ You can change the name `get_solo` using the
 `GET_SOLO_TEMPLATE_TAG_NAME` setting.
 
 ```python
-GET_SOLO_TEMPLATE_TAG_NAME = 'get_config'
+GET_SOLO_TEMPLATE_TAG_NAME = "get_config"
 ```
 
 ### Admin override flag
@@ -262,16 +262,16 @@ could define the `CACHES` and the `SOLO_CACHE` settings like this:
 
 ```python
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-        'LOCATION': '127.0.0.1:11211',
+    "default": {
+        "BACKEND": "django.core.cache.backends.memcached.MemcachedCache",
+        "LOCATION": "127.0.0.1:11211",
     },
-    'local': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    "local": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     },
 }
 
-SOLO_CACHE = 'local'
+SOLO_CACHE = "local"
 ```
 
 Caching will be disabled if set to `None`.
@@ -282,7 +282,7 @@ Caching will be disabled if set to `None`.
 The cache timeout in seconds.
 
 ```python
-SOLO_CACHE_TIMEOUT = 60*5  # 5 mins
+SOLO_CACHE_TIMEOUT = 60 * 5  # 5 mins
 ```
 
 ### Cache prefix
@@ -290,7 +290,7 @@ SOLO_CACHE_TIMEOUT = 60*5  # 5 mins
 The prefix to use for the cache key.
 
 ```python
-SOLO_CACHE_PREFIX = 'solo'
+SOLO_CACHE_PREFIX = "solo"
 ```
 
 Getting the code

@@ -3,7 +3,7 @@ and never change), its EVENT_* string aliases and the emit_* wrappers that shape
 
 from __future__ import annotations
 
-from probe.analytics.generated import Event
+from probe.analytics.generated import Event, ProductSurface
 from probe.analytics.context import detached_context, outbox_context
 from probe.analytics.outcomes import InvokedBy, PrivateUvReason, Via
 from probe.analytics import sender  # call through the module: one binding for tests to patch
@@ -61,13 +61,14 @@ EVENT_EXCEPTION = Event.EXCEPTION.value
 SERVICE_EVENTS = frozenset({EVENT_SERVICE_STARTED, EVENT_SERVICE_STATE, EVENT_SERVICE_STOPPED, EVENT_LIFEBOAT_ACTED})
 
 
-def emit_report_undeliverable(*, family: str, reason: str, base_url: str | None) -> bool:
+def emit_report_undeliverable(*, family: str, reason: str, base_url: str | None,
+                              surface: ProductSurface) -> bool:
     """`service.report_undeliverable`: the report (`family`, `reason`, both
     slugs) could not go because the API refused every credential here, or none
     is held. Gated like every client event (opt-out, hosted backend only). True
     when it was handed to the sender. Never raises."""
     try:
-        context = detached_context(base_url, via=Via.SERVICE)
+        context = detached_context(base_url, via=Via.SERVICE, surface=surface)
         if not context.enabled:
             return False
         context.emit(EVENT_REPORT_UNDELIVERABLE, family=str(family)[:64], reason=str(reason)[:64])
@@ -86,7 +87,7 @@ def emit_service_event(event: str, props: dict, *, base_url: str | None) -> bool
     try:
         if event not in SERVICE_EVENTS:
             return False
-        context = detached_context(base_url, via=Via.SERVICE)
+        context = detached_context(base_url, via=Via.SERVICE, surface=ProductSurface.SERVICE)
         if not context.enabled:
             return False
         context.emit(event, **props)
@@ -98,6 +99,7 @@ def emit_service_event(event: str, props: dict, *, base_url: str | None) -> bool
 def emit_outbox_drained(
     *,
     base_url: str | None,
+    surface: ProductSurface,
     outcome: str,  # an OutboxOutcome; defined at the producer, sdk.outbox_worker
     delivered: int,
     dead_lettered: int,
@@ -114,7 +116,7 @@ def emit_outbox_drained(
     "run not found" (`errors.names_no_such_run`), so the loss alert can tell a
     write naming no run from a 404 that lost it for reasons of ours."""
     try:
-        outbox_context(base_url).emit(
+        outbox_context(base_url, surface=surface).emit(
             EVENT_OUTBOX_DRAINED,
             outcome=str(outcome),
             delivered=delivered,
@@ -132,6 +134,7 @@ def emit_outbox_drained(
 def emit_outbox_rescued(
     *,
     base_url: str | None,
+    surface: ProductSurface,
     credentials: int,
     writes: int,
     delivered: int,
@@ -142,7 +145,7 @@ def emit_outbox_rescued(
     many of their writes, and what its pass did with them; counts only.
     Never raises."""
     try:
-        outbox_context(base_url).emit(
+        outbox_context(base_url, surface=surface).emit(
             EVENT_OUTBOX_RESCUED,
             credentials=credentials,
             writes=writes,
@@ -154,7 +157,7 @@ def emit_outbox_rescued(
         pass  # observability must never become observable
 
 
-def emit_outbox_discarded(counts, *, reason: str, interactive: bool = False) -> bool:
+def emit_outbox_discarded(counts, *, reason: str, surface: ProductSurface, interactive: bool = False) -> bool:
     """Report writes set aside (`DiscardReason`), from a `journal.DiscardCounts`:
     counts and enqueue dates only, never a fingerprint, key, body, name or path.
     Gated on the server the writes were pinned to (one, hosted), like every
@@ -165,7 +168,7 @@ def emit_outbox_discarded(counts, *, reason: str, interactive: bool = False) -> 
     try:
         if not counts.writes:
             return False
-        context = detached_context(counts.base_url, via=Via.OUTBOX)
+        context = detached_context(counts.base_url, via=Via.OUTBOX, surface=surface)
         if not context.enabled:
             return False
         if interactive:
@@ -187,7 +190,7 @@ def emit_outbox_discarded(counts, *, reason: str, interactive: bool = False) -> 
         return False  # observability must never become observable
 
 
-def emit_outbox_restored(counts) -> bool:
+def emit_outbox_restored(counts, *, surface: ProductSurface) -> bool:
     """Report the one-time restore of set-aside writes, from a `journal.RestoreCounts`: how many
     went back in the queue (and uploads), the enqueue days, what stayed aside by reason
     (`KeptAside`; ``bytes_gone`` on its own too), how many the login check set aside again and
@@ -195,7 +198,7 @@ def emit_outbox_restored(counts) -> bool:
     name or path. Gated like every outbox event on the one server the writes were pinned to
     (hosted) and the person's switches. True when it was handed to the sender. Never raises."""
     try:
-        context = detached_context(counts.base_url, via=Via.OUTBOX)
+        context = detached_context(counts.base_url, via=Via.OUTBOX, surface=surface)
         if not context.enabled:
             return False
         days = sorted(counts.by_enqueue_day.items(), reverse=True)
@@ -235,14 +238,15 @@ DELIVERY_SUMMARY_FIELDS = frozenset(
 )
 
 
-def emit_delivery_summary(*, base_url: str | None, flush: bool = False, **counts) -> None:
+def emit_delivery_summary(*, base_url: str | None, surface: ProductSurface, flush: bool = False,
+                          **counts) -> None:
     """Report one training process's delivery counts. Never raises; gated on
     the telemetry opt-out and the caller's backend like every outbox event.
     ``flush``: send now (the caller is exiting and the sender's own exit flush
     may already have run); waits at most the sender's flush bound."""
     try:
         props = {key: value for key, value in counts.items() if key in DELIVERY_SUMMARY_FIELDS}
-        context = detached_context(base_url, via=Via.OUTBOX)
+        context = detached_context(base_url, via=Via.OUTBOX, surface=surface)
         context.emit(EVENT_DELIVERY_SUMMARY, **props)
         if flush and context.enabled:
             sender._flush_at_exit()
@@ -251,7 +255,8 @@ def emit_delivery_summary(*, base_url: str | None, flush: bool = False, **counts
 
 
 def emit_outbox_stuck(
-    status: dict, *, auth_blocked_since: str | None, spool_dir: str | None, base_url: str | None
+    status: dict, *, auth_blocked_since: str | None, spool_dir: str | None, base_url: str | None,
+    surface: ProductSurface,
 ) -> bool:
     """Report a stuck queue, at most once per :data:`STUCK_REPORT_INTERVAL_S`.
 
@@ -263,7 +268,7 @@ def emit_outbox_stuck(
     try:
         if not stuck_status(status, auth_blocked_since=auth_blocked_since):
             return False
-        context = outbox_context(base_url)
+        context = outbox_context(base_url, surface=surface)
         if not context.enabled:  # killswitch or self-host: report nothing, stamp nothing
             return False
         if not stuck_report_due(spool_dir):
@@ -286,13 +291,13 @@ def emit_outbox_stuck(
         return False  # observability must never become observable
 
 
-def emit_outbox_pause_lifted(status: dict, *, base_url: str | None) -> bool:
+def emit_outbox_pause_lifted(status: dict, *, base_url: str | None, surface: ProductSurface) -> bool:
     """Report a pause that no longer held being lifted (its end passed, or an
     older CLI's endless one), with the writes it held (the outbox status read
     before the lift). Sent beside the command's own context, never as it
     (`detached_context`). Never raises; True when it was handed to the sender."""
     try:
-        context = detached_context(base_url, via=Via.OUTBOX)
+        context = detached_context(base_url, via=Via.OUTBOX, surface=surface)
         if not context.enabled:
             return False
         context.emit(
@@ -311,6 +316,7 @@ def emit_capture_repair_applied(
     outcome: str,
     locks_lifted: int,
     base_url: str | None,
+    surface: ProductSurface,
     kept_off: list[str] | None = None,
     confirmed: bool | None = None,
     unsupported: list[str] | None = None,
@@ -321,7 +327,7 @@ def emit_capture_repair_applied(
     the command's own context, never as it (`detached_context`). Never raises;
     True when it was handed to the sender."""
     try:
-        context = detached_context(base_url, via=Via.COMMAND)
+        context = detached_context(base_url, via=Via.COMMAND, surface=surface)
         if not context.enabled:
             return False
         context.emit(
@@ -348,12 +354,13 @@ def emit_settings_remote_applied(
     unsupported: bool,
     reported: bool,
     base_url: str | None,
+    surface: ProductSurface,
 ) -> bool:
     """Report a staff settings change this machine applied (`EVENT_SETTINGS_REMOTE_APPLIED`).
     Sent beside the command's own context, never as it (`detached_context`). Never
     raises; True when it was handed to the sender."""
     try:
-        context = detached_context(base_url, via=Via.COMMAND)
+        context = detached_context(base_url, via=Via.COMMAND, surface=surface)
         if not context.enabled:
             return False
         context.emit(
@@ -372,14 +379,14 @@ def emit_settings_remote_applied(
 
 
 def emit_private_uv(*, outcome: str, reason: str, uv_version: str, is_configured_index: bool,
-                    base_url: str | None) -> bool:
+                    base_url: str | None, surface: ProductSurface) -> bool:
     """`updates.private_uv`: an update found no `uv`, or only an older copy of Probe's own, and
     tried to install the pinned one (`outcome`, a `PrivateUvOutcome`; `reason`, a
     `PrivateUvReason` or "" when installed: never free text, which could carry an index URL's
     token). Flushed at once: the update
     execs the new release next, and an exec runs no atexit. True when sent. Never raises."""
     try:
-        context = detached_context(base_url, via=Via.COMMAND)
+        context = detached_context(base_url, via=Via.COMMAND, surface=surface)
         if not context.enabled:
             return False
         allowed = {str(member) for member in PrivateUvReason}

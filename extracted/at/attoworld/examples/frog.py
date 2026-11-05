@@ -1,10 +1,10 @@
 # /// script
 # requires-python = ">=3.14"
 # dependencies = [
-#     "attoworld>=2026.2.6",
-#     "marimo>=0.23.8",
+#     "attoworld>=2026.2.10",
+#     "marimo>=0.23.10",
 #     "numpy>=2.4.6",
-#     "pyside6>=6.11.1",
+#     "pyside6; sys_platform != 'emscripten'",
 # ]
 # [tool.marimo.display]
 # theme = "dark"
@@ -12,24 +12,30 @@
 
 import marimo
 
-__generated_with = "0.23.9"
+__generated_with = "0.25.2"
 app = marimo.App(width="medium", app_title="Frog")
 
 
 @app.cell
-async def _():
+def _():
     import marimo as mo
+    import matplotlib.pyplot as plt
+    import attoworld as aw
+    import numpy as np
+    import pathlib
+    import time
 
+    return aw, mo, np, pathlib, plt, time
+
+
+@app.cell
+def _(mo):
     # check if running in a browser for extra setup
     import sys
     is_in_web_notebook = sys.platform == "emscripten"
     if is_in_web_notebook:
-        import micropip
         import zipfile
         mo._runtime.context.get_context().marimo_config["runtime"]["output_max_bytes"] = 10000000000
-        await micropip.install(
-            "https://nickkarpowicz.github.io/wheels/attoworld-2026.2.5-cp312-cp312-emscripten_3_1_58_wasm32.whl"
-        )
         def display_download_link_from_file(
             path, output_name, mime_type="text/plain"
         ):
@@ -45,22 +51,10 @@ async def _():
     else:
         from PySide6.QtWidgets import QApplication, QFileDialog
         qtapp = QApplication(sys.argv)
-    import matplotlib.pyplot as plt
-    import attoworld as aw
-    import numpy as np
-    import pathlib
-    import time
-
     return (
         QFileDialog,
-        aw,
         display_download_link_from_file,
         is_in_web_notebook,
-        mo,
-        np,
-        pathlib,
-        plt,
-        time,
         zipfile,
     )
 
@@ -936,6 +930,59 @@ def _(
         dazzler_phase_custom_filtered,
         dazzler_phase_custom_filtered_negative,
     )
+
+
+@app.cell
+def _(help_cb, mo):
+    dials_gdd_max_box = mo.ui.number(start=0, value=1000, label="GDD range (fs^2)")
+    dials_tod_max_box = mo.ui.number(start=0, value=10000, label="TOD range (fs^3)")
+    dials_fod_max_box = mo.ui.number(start=0, value=100000, label="FOD range (fs^4)")
+    dials_sign_flip = mo.ui.checkbox(label="Flip time axis")
+    dials_run = mo.ui.run_button(label="Find values")
+    mo.output.append(mo.md("### Optimized phase expansion:"))
+    if help_cb.value:
+        mo.output.append(mo.md("Calculate a set of phase parameters to optimize the pulse intensity."))
+    mo.output.append(dials_gdd_max_box)
+    mo.output.append(dials_tod_max_box)
+    mo.output.append(dials_fod_max_box)
+    mo.output.append(dials_sign_flip)
+    mo.output.append(dials_run)
+    return dials_run, dials_sign_flip
+
+
+@app.cell
+def _(aw, dials_run, dials_sign_flip, mo, np, plt, result):
+    mo.stop(not dials_run.value)
+    if result is not None:
+        _multiplier = 1
+        if dials_sign_flip.value:
+            _multiplier = -1
+        optimized_dials = result.spectrum.get_optimized_phase_series(800, _multiplier, 200, 2000, 2e4)
+        mo.output.append(mo.md(f"GDD: {optimized_dials[0]} fs^2"))
+        mo.output.append(mo.md(f"TOD: {optimized_dials[1]} fs^3"))
+        mo.output.append(mo.md(f"FOD: {optimized_dials[2]} fs^4"))
+
+        plt.plot(np.abs(np.fft.ifft(result.spectrum.spectrum)) ** 2, label="Original")
+        plt.plot(
+            np.abs(
+                np.fft.ifft(
+                    result.spectrum.to_applied_phase_series(
+                        800.0,
+                        _multiplier,
+                        0.0,
+                        optimized_dials[0],
+                        optimized_dials[1],
+                        optimized_dials[2],
+                    ).spectrum
+                )
+            )
+            ** 2,
+            label="Optimized"
+        )
+        plt.legend()
+
+        aw.plot.showmo()
+    return
 
 
 @app.cell

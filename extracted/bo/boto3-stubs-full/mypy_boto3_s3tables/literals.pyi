@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_s3tables.literals import IcebergCompactionStrategyType
+    from mypy_boto3_s3tables.literals import CompressionCodecType
 
-    data: IcebergCompactionStrategyType = "auto"
+    data: CompressionCodecType = "gzip"
     ```
 """
 
@@ -22,14 +22,24 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "CompressionCodecType",
+    "DataFileFormatType",
+    "FindingCategoryType",
     "IcebergCompactionStrategyType",
     "IcebergNullOrderType",
     "IcebergSortDirectionType",
+    "IncompatibleValuesPolicyType",
     "JobStatusType",
     "ListNamespacesPaginatorName",
     "ListTableBucketsPaginatorName",
+    "ListTableMigrationsPaginatorName",
     "ListTablesPaginatorName",
     "MaintenanceStatusType",
+    "MigrationFailureCodeType",
+    "MigrationRequestedStateType",
+    "MigrationSourceTypeType",
+    "MigrationStateType",
+    "MigrationTypeType",
     "OpenTableFormatType",
     "PaginatorName",
     "ReplicationStatusType",
@@ -46,16 +56,48 @@ __all__ = (
     "TableRecordExpirationJobStatusType",
     "TableRecordExpirationStatusType",
     "TableTypeType",
+    "UnmatchedSourceFieldsPolicyType",
 )
 
+CompressionCodecType = Literal["gzip", "snappy", "uncompressed", "zstd"]
+DataFileFormatType = Literal["parquet"]
+FindingCategoryType = Literal["access", "data", "internal", "metadata"]
 IcebergCompactionStrategyType = Literal["auto", "binpack", "sort", "z-order"]
 IcebergNullOrderType = Literal["nulls-first", "nulls-last"]
 IcebergSortDirectionType = Literal["asc", "desc"]
+IncompatibleValuesPolicyType = Literal["fail", "setNull"]
 JobStatusType = Literal["Disabled", "Failed", "Not_Yet_Run", "Successful"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
 ListTableBucketsPaginatorName = Literal["list_table_buckets"]
+ListTableMigrationsPaginatorName = Literal["list_table_migrations"]
 ListTablesPaginatorName = Literal["list_tables"]
 MaintenanceStatusType = Literal["disabled", "enabled"]
+MigrationFailureCodeType = Literal[
+    "destinationPermissions",
+    "internalError",
+    "objectCompatibilityReport",
+    "objectMigrationReport",
+    "reportBucketNotSupported",
+    "resourceNotFound",
+    "rolePermissions",
+    "sourceNotSupported",
+    "sourcePermissions",
+    "tableCompatibilityReport",
+]
+MigrationRequestedStateType = Literal["cancelled", "queued"]
+MigrationSourceTypeType = Literal["glueTable"]
+MigrationStateType = Literal[
+    "cancelled",
+    "cancelling",
+    "failed",
+    "migrating",
+    "new",
+    "pendingReview",
+    "planning",
+    "queued",
+    "succeeded",
+]
+MigrationTypeType = Literal["start", "sync"]
 OpenTableFormatType = Literal["ICEBERG"]
 ReplicationStatusType = Literal["completed", "failed", "pending"]
 SSEAlgorithmType = Literal["AES256", "aws:kms"]
@@ -70,6 +112,7 @@ TableMaintenanceTypeType = Literal["icebergCompaction", "icebergSnapshotManageme
 TableRecordExpirationJobStatusType = Literal["Disabled", "Failed", "NotYetRun", "Successful"]
 TableRecordExpirationStatusType = Literal["disabled", "enabled"]
 TableTypeType = Literal["aws", "customer"]
+UnmatchedSourceFieldsPolicyType = Literal["drop", "fail"]
 S3TablesServiceName = Literal["s3tables"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -510,4 +553,6 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_namespaces", "list_table_buckets", "list_tables"]
+PaginatorName = Literal[
+    "list_namespaces", "list_table_buckets", "list_table_migrations", "list_tables"
+]

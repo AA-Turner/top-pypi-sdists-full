@@ -26,6 +26,49 @@ def snapshot_file(source, destination, *, verbatim: bool = False) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+#: The outbox a fenced caller's drain drains (`set_fenced_root`): it sends only bytes staged there.
+_FENCED_ROOT: list = []
+
+
+def set_fenced_root(directory: str) -> None:
+    """This drain serves a fenced caller (`env.CALLER_FENCED_ENV`, H1): from now on it sends only
+    bytes staged in `directory`'s own stores (`need_staged_bytes`), never a file an op names."""
+    _FENCED_ROOT[:] = [os.path.realpath(directory)]
+
+
+def is_drain_fenced() -> bool:
+    from probe.foundation.service_api.env import CALLER_FENCED_ENV
+
+    return bool(_FENCED_ROOT) or os.environ.get(CALLER_FENCED_ENV) == "1"
+
+
+def need_staged_bytes(path: str | Path) -> Path:
+    """`path`, when this drain may send its bytes: always, unless it serves a fenced caller (H1).
+    Then only a regular file (never a link) in its outbox's `blobs/` or `multipart/staged/`, by
+    its real path: an op the caller wrote may name `~/.aws/credentials`, or a link to it, as its
+    source. ValidationError otherwise (the op is dead-lettered, nothing is read)."""
+    from ... import errors
+
+    path = Path(path)
+    if not is_drain_fenced():
+        return path
+    if not _FENCED_ROOT:
+        raise errors.ValidationError("a fenced caller's drain names no outbox", status=422)
+    root = _FENCED_ROOT[0]
+    try:
+        is_link = path.is_symlink() or not path.is_file()
+    except OSError:
+        is_link = True
+    real = os.path.realpath(path)
+    parent = os.path.dirname(real)
+    is_staged = os.path.basename(parent) == "blobs" or (
+        os.path.basename(parent) == "staged" and os.path.basename(os.path.dirname(parent)) == "multipart")
+    if is_link or not real.startswith(root + os.sep) or not is_staged:
+        raise errors.ValidationError(
+            f"a fenced caller's drain sends only bytes staged in its outbox, never {str(path)[:200]!r}", status=422)
+    return Path(real)
+
+
 class UploadQueueMixin:
     """Part of Journal: its methods run with `self` the Journal; fold_parts() copies them into Journal."""
 

@@ -1,9 +1,11 @@
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
 
 from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 from surrealdb.data import cbor
+from surrealdb.types import Value
 
 
 # Unit tests for encoding integers
@@ -150,11 +152,13 @@ def test_numbers_in_dict_roundtrip() -> None:
 
 # Database fixture
 @pytest.fixture
-async def surrealdb_connection():  # type: ignore[misc]
-    url = "ws://localhost:8000/rpc"
+async def surrealdb_connection(
+    ws_url: str,
+) -> AsyncGenerator[AsyncWsSurrealConnection, None]:
+    url = ws_url
     password = "root"
     username = "root"
-    vars_params = {"username": username, "password": password}
+    vars_params: dict[str, Value] = {"username": username, "password": password}
     database_name = "test_db"
     namespace = "test_ns"
     connection = AsyncWsSurrealConnection(url)
@@ -176,7 +180,7 @@ async def test_positive_int_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE number_tests:test1 SET value = $val;",
         vars={"val": test_int},
     )
-    result = await surrealdb_connection.query("SELECT * FROM number_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM number_tests;").first()
     assert result[0]["value"] == test_int
 
 
@@ -188,7 +192,7 @@ async def test_negative_int_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE number_tests:test2 SET value = $val;",
         vars={"val": test_int},
     )
-    result = await surrealdb_connection.query("SELECT * FROM number_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM number_tests;").first()
     assert result[0]["value"] == test_int
 
 
@@ -199,7 +203,7 @@ async def test_zero_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE number_tests:test3 SET value = $val;",
         vars={"val": 0},
     )
-    result = await surrealdb_connection.query("SELECT * FROM number_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM number_tests;").first()
     assert result[0]["value"] == 0
 
 
@@ -211,7 +215,7 @@ async def test_large_int_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE number_tests:test4 SET value = $val;",
         vars={"val": test_int},
     )
-    result = await surrealdb_connection.query("SELECT * FROM number_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM number_tests;").first()
     assert result[0]["value"] == test_int
 
 
@@ -224,7 +228,7 @@ async def test_float_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE number_tests:test5 SET value = $val;",
         vars={"val": test_float},
     )
-    result = await surrealdb_connection.query("SELECT * FROM number_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM number_tests;").first()
     assert result[0]["value"] == test_float
 
 
@@ -236,7 +240,7 @@ async def test_negative_float_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE number_tests:test6 SET value = $val;",
         vars={"val": test_float},
     )
-    result = await surrealdb_connection.query("SELECT * FROM number_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM number_tests;").first()
     assert result[0]["value"] == test_float
 
 
@@ -247,6 +251,6 @@ async def test_mixed_numbers_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE number_tests:test7 SET int_val = $int_val, float_val = $float_val;",
         vars={"int_val": 100, "float_val": 99.99},
     )
-    result = await surrealdb_connection.query("SELECT * FROM number_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM number_tests;").first()
     assert result[0]["int_val"] == 100
     assert result[0]["float_val"] == 99.99

@@ -16,7 +16,7 @@ use regex::{Regex, RegexBuilder};
 use sonic_rs::json;
 
 use crate::output::{click_error, eline, usage_error, CliExit, Out};
-use crate::target::py_path;
+use crate::target::{discover, py_path};
 use crate::DiscoveryOpts;
 
 const USAGE: &str = "cc-transcript grep [OPTIONS] PATTERN [PATHS]...";
@@ -382,13 +382,24 @@ pub fn run(args: GrepArgs) -> Result<(), CliExit> {
             );
         }
     };
+    let root = args.discovery.validated_root(USAGE, HELP_PATH)?;
     let plan = ScanPlan {
         paths: args
             .paths
             .iter()
             .map(|path| py_path(&path.to_string_lossy()))
             .collect(),
-        root: args.discovery.validated_root(USAGE, HELP_PATH)?,
+        listed: args.paths.is_empty().then(|| {
+            discover(
+                &root,
+                args.discovery.project.as_deref(),
+                args.discovery.contains.as_deref(),
+            )
+            .into_iter()
+            .map(|transcript| (transcript.path, transcript.mtime))
+            .collect()
+        }),
+        root,
         project: args.discovery.project.clone(),
         contains: args.discovery.contains.clone(),
         source_limit: args.discovery.effective_limit(),
@@ -400,6 +411,9 @@ pub fn run(args: GrepArgs) -> Result<(), CliExit> {
         emitter: Emitter::new(args.scan_json, timeout_ms, &mut session.budget, &cancel)?,
         files: 0,
     };
+    if reducer.streams() {
+        reducer.survey(plan.sources(), session.budget.limits.deadline_unix_ms);
+    }
     let mut outcome = session.each_source(&plan, |session, path| {
         if reducer.streams() {
             if let Some(control) = reducer.scan_stream(

@@ -2,7 +2,17 @@
 
 from __future__ import annotations
 
+import enum
+from enum import IntEnum
+
 from .wire import invalid_params
+
+
+class _StrEnum(str, enum.Enum):  # noqa: UP042 -- enum.StrEnum is 3.11+, the tap runs on older pythons
+    """3.11's `enum.StrEnum` on any python (this file is the tap's, run by the system python)."""
+
+    __str__ = str.__str__
+    __format__ = str.__format__
 
 
 class DesktopOp:
@@ -88,9 +98,9 @@ class Cap:
     methods, for a client that must not rely on it where an older service
     (same method, older code) does not. A service from before `caps` sends none."""
 
-    #: `action.run` refuses a caller in a sandbox, whatever client kind it
-    #: names (`refused: sandboxed`). The CLI hands a wizard action only to a
-    #: service that says so: an older one would run it outside the sandbox.
+    #: Said by every service since `action.run` refused a caller in a sandbox;
+    #: an older CLI hands a wizard action only to a service that says it. Since
+    #: service-only D2 a fenced caller's action runs (outside its fence).
     ACTION_SANDBOX = "action.sandbox"
     #: The service decides when the desktop app checks for its update and
     #: never launches the app to do it: `update.check_now` with `app` answers
@@ -103,9 +113,63 @@ class Cap:
     #: writes a setting to the file and never waits on an action for it. An older service would leave
     #: the file unread, so the app sends today's `action.run` instead.
     SETTINGS_KEEPER = "settings.keeper"
+    #: `hooks.run {routes: "service"}` v1 (`service/hooks/proxy/DESIGN.md`): the
+    #: service runs a frozen hook shim's events from its own copy of Probe's
+    #: routes, and drains the shim's queue files. A migration to the shim checks
+    #: it (and one capability call) before it removes a harness's old plugins.
+    HOOKS_PROXY = "hooks.proxy.v1"
+    #: `hooks.run {routes: "service", v: 2, reply: "actions"}` and `hooks.ack`: pi's extension
+    #: forwards its events here and applies the actions; without it, pi runs its own code.
+    HOOKS_PROXY_V2 = "hooks.proxy.v2"
 
 
-CAPS = frozenset({Cap.ACTION_SANDBOX, Cap.UPDATE_APP, Cap.SETTINGS_KEEPER})
+    #: The service drains outbox journals with its own code (plan D8): `outbox.drain`
+    #: needs no interpreter of the caller's, and `service.hello`'s `outbox_journals`
+    #: lists the journal versions it reads (`wire.OUTBOX_JOURNALS`).
+    OUTBOX_JOURNAL = "outbox.journal.v1"
+    #: `api.call`, `files.hash` and `credentials.hold` (plan D10, D20, D21): a training
+    #: process sends no HTTP and hashes nothing itself.
+    SDK_RELAY = "sdk.relay.v1"
+
+
+CAPS = frozenset({
+    Cap.ACTION_SANDBOX, Cap.UPDATE_APP, Cap.SETTINGS_KEEPER, Cap.HOOKS_PROXY, Cap.HOOKS_PROXY_V2,
+    Cap.OUTBOX_JOURNAL, Cap.SDK_RELAY,
+})
+#: What a delivery service (the SDK's own, `probe.sdk.delivery.service`) serves: the SDK's parts only.
+DELIVERY_CAPS = frozenset({Cap.OUTBOX_JOURNAL, Cap.SDK_RELAY})
+
+
+class ServiceRole(_StrEnum):
+    """What a service runs, chosen once at its start (`python -m probe.service --role`)."""
+
+    #: Everything: sessions, hooks, recorders, updates, keeper units (an installed CLI's).
+    MACHINE = "machine"
+    #: Started by the SDK where no CLI is installed (no `runtime.json`): drains, `api.call`,
+    #: `files.hash`, `credentials.hold`, telemetry only. No updater, keeper, recorders or Codex trust.
+    DELIVERY = "delivery"
+
+
+class RelayFailure:
+    """`api.call`'s `{failed: <kind>, message}`: no HTTP answer came, and why. The SDK raises
+    the httpx error of the same kind, so its retries and error mapping stay as they are."""
+
+    CONNECT = "connect"  # never reached the server: safe to resend
+    TIMEOUT = "timeout"  # sent, no answer in time
+    PROTOCOL = "protocol"  # the answer broke off
+    #: Never sent: the caller's deadline passed while it waited for a thread (M3).
+    EXPIRED = "expired"
+    #: Never sent: a caller in a sandbox named an address it may not reach (plan D25).
+    REFUSED = "refused"
+    #: The body passed `max_bytes`, or was too big for the answer with no `body_sink`.
+    TOO_LARGE = "too_large"
+    OTHER = "other"
+
+
+RELAY_FAILURES = frozenset({
+    RelayFailure.CONNECT, RelayFailure.TIMEOUT, RelayFailure.PROTOCOL, RelayFailure.EXPIRED, RelayFailure.REFUSED,
+    RelayFailure.TOO_LARGE, RelayFailure.OTHER,
+})
 
 
 class NotesMode:
@@ -150,6 +214,10 @@ class Action:
     #: `{"state": "on"|"off", "agents": [<agent>] | null}`: session transcripts on or
     #: off (`probe capture`); a `result` row per agent, `actual` its `transcript_state`.
     CAPTURE = "capture"
+    #: `probe doctor` (never `--fix`): one `result` row, `actual` `{"output", "truncated"}`.
+    DOCTOR = "doctor"
+    #: `{"app_version": <str> | null}`: `probe doctor --bundle --send --json`'s object as the `result` row's `actual`.
+    DEBUG_LOG = "debug_log"
 
 
 ACTIONS = frozenset(
@@ -163,6 +231,8 @@ ACTIONS = frozenset(
         Action.SESSION_DEFAULT,
         Action.WORKSPACE_LIMIT,
         Action.CAPTURE,
+        Action.DOCTOR,
+        Action.DEBUG_LOG,
     }
 )
 
@@ -379,9 +449,9 @@ class BackgroundState:
 
 
 class BackgroundRefusal:
-    """`{accepted: false, reason}`: the caller forks its own process, as before."""
+    """`{accepted: false, reason}`: nothing started; the journal waits for the next ask."""
 
-    SANDBOXED = "sandboxed"  # the caller is in a sandbox: its work would run outside it
+    SANDBOXED = "sandboxed"  # an older service's refusal of a fenced caller (outbox.drain and box.watch are served now)
     BUSY = "busy"  # this service runs as many as it takes
     FAILING = "failing"  # a child for it exited at its start lately
     STOPPING = "stopping"  # this service is on its way out
@@ -408,9 +478,11 @@ class Client:
     CLI = "cli"
     #: A training process's SDK handing off its background work (plan Q5).
     SDK = "sdk"
+    #: A frozen hook shim handing over a harness's hook event (`hooks.run {routes: "service"}`).
+    HOOK = "hook"
 
 
-CLIENTS = frozenset({Client.APP, Client.TAP, Client.PI, Client.CLI, Client.SDK})
+CLIENTS = frozenset({Client.APP, Client.TAP, Client.PI, Client.CLI, Client.SDK, Client.HOOK})
 
 
 class Mode:
@@ -559,10 +631,16 @@ class RefusedReason:
     #: Any method that runs or stores work (the service's `Policy.WORK`) on a
     #: connection whose opener has exited (plan D9).
     CALLER_GONE = "caller_gone"
-    #: Any method that runs or stores work, from a caller the service cannot
-    #: rule out being in a sandbox: what it asks for would run (or stop)
-    #: outside it, with the context it chose.
+    #: A WORK method this service does not serve to a caller it cannot rule out
+    #: being in a sandbox (the service's `policy.FENCED_WORK` lists those it does,
+    #: service-only D2); an older service refused every WORK method so.
     SANDBOXED = "sandboxed"
+    #: `service.stop` while other `probe` commands run (`cli.run`): stopping would end them.
+    COMMANDS_RUNNING = "commands_running"
+    #: `cli.run` while Probe is being uninstalled (the uninstall barrier is up).
+    UNINSTALLING = "uninstalling"
+    #: A method this service's role does not run (a `delivery` service, plan T35).
+    ROLE = "role"
     #: `desktop.request`: no child could start (no CLI interpreter). Nothing ran.
     CLI_UNAVAILABLE = "cli_unavailable"
     #: `desktop.request`: as many requests as it takes at once are running or
@@ -584,6 +662,28 @@ class BusyHolder:
     #: A `desktop.request` change whose child still runs (`data.holder.changes`:
     #: how many), also one its caller stopped waiting for.
     DESKTOP = "desktop"
+
+
+class ShimExit(IntEnum):
+    """The `probe` shim's own exit statuses (service-only T39); any other is its command's."""
+
+    OK = 0
+    #: No service answered, even after `ensure` (sysexits EX_UNAVAILABLE).
+    UNAVAILABLE = 69
+    #: The service went away while the command ran (EX_SOFTWARE).
+    SERVICE_LOST = 70
+    #: An update kept the command from starting (EX_TEMPFAIL, as the update barrier's busy).
+    UPDATING = 75
+
+
+class CommandStdio:
+    """`cli.run`'s `stdio`: the caller's own fds (a terminal, pipes), or output captured into the answer."""
+
+    FDS = "fds"
+    CAPTURE = "capture"
+
+
+COMMAND_STDIOS = frozenset({CommandStdio.FDS, CommandStdio.CAPTURE})
 
 
 #: `update.app_result`'s `error` is kept to this many characters.

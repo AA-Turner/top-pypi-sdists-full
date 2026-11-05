@@ -1,8 +1,8 @@
 """
 `seq benchmark cancel <name>`: the benchmark's registration in flight stops now.
 
-Its check's machine, if its check began, ends at once, and what its machines ran until then is billed, as GCE and AWS
-bill a machine stopped; the
+Its check's machine, if its check began, ends at once, and what its machines ran until then is billed, each machine up
+to its stop; the
 version it was registering is marked failed (canceled), and an eval runs the version before it, when one passed its
 check. Before it, the only stop
 was `seq benchmark rm`, which deleted the benchmark - a version that passed its check too.

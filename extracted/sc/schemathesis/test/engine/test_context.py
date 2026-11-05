@@ -120,7 +120,7 @@ def test_successful_relogin_resets_breaker_streak():
 
     state.note_refresh_failure()
     state.note_refresh_failure()
-    state.note_replay(500, "GET /a")
+    state.note_replay(500, "GET /a", succeeded=False)
     state.note_refresh_failure()
 
     assert state.disabled is False
@@ -129,8 +129,8 @@ def test_successful_relogin_resets_breaker_streak():
 def test_reauth_count_only_counts_successful_recovery():
     state = _reauth_state()
 
-    state.note_replay(403, "GET /a")
-    state.note_replay(200, "GET /a")
+    state.note_replay(403, "GET /a", succeeded=False)
+    state.note_replay(200, "GET /a", succeeded=True)
 
     assert state.reauth_count == 1
 
@@ -140,6 +140,22 @@ def test_retry_on_statuses_empty_by_default(ctx):
     engine = EngineContext(schema=schema, stop_event=threading.Event())
 
     assert engine.reauth.retry_on_statuses == frozenset()
+
+
+def test_retry_on_statuses_default_to_unauthenticated_status(ctx):
+    schema = _simple_schema(ctx)
+
+    @schema.auth()
+    class TokenAuth:
+        def get(self, case, context):
+            return "token"
+
+        def set(self, case, data, context):
+            case.headers = case.headers or {}
+            case.headers["Authorization"] = f"Bearer {data}"
+
+    engine = EngineContext(schema=schema, stop_event=threading.Event())
+    assert engine.reauth.retry_on_statuses == frozenset({401})
 
 
 def test_retry_on_statuses_unions_dynamic_scheme_and_registered_auth_provider(ctx):

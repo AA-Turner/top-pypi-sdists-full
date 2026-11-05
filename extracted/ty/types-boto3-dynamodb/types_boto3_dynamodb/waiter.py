@@ -12,6 +12,7 @@ Usage::
 
     from types_boto3_dynamodb.client import DynamoDBClient
     from types_boto3_dynamodb.waiter import (
+        BulkOperationCompletedWaiter,
         ContributorInsightsEnabledWaiter,
         ExportCompletedWaiter,
         ImportCompletedWaiter,
@@ -23,6 +24,7 @@ Usage::
     session = Session()
     client: DynamoDBClient = session.client("dynamodb")
 
+    bulk_operation_completed_waiter: BulkOperationCompletedWaiter = client.get_waiter("bulk_operation_completed")
     contributor_insights_enabled_waiter: ContributorInsightsEnabledWaiter = client.get_waiter("contributor_insights_enabled")
     export_completed_waiter: ExportCompletedWaiter = client.get_waiter("export_completed")
     import_completed_waiter: ImportCompletedWaiter = client.get_waiter("import_completed")
@@ -39,6 +41,7 @@ import sys
 from botocore.waiter import Waiter
 
 from .type_defs import (
+    DescribeBulkOperationInputWaitTypeDef,
     DescribeContributorInsightsInputWaitTypeDef,
     DescribeExportInputWaitTypeDef,
     DescribeImportInputWaitTypeDef,
@@ -54,6 +57,7 @@ else:
 
 
 __all__ = (
+    "BulkOperationCompletedWaiter",
     "ContributorInsightsEnabledWaiter",
     "ExportCompletedWaiter",
     "ImportCompletedWaiter",
@@ -61,6 +65,21 @@ __all__ = (
     "TableExistsWaiter",
     "TableNotExistsWaiter",
 )
+
+
+class BulkOperationCompletedWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/waiter/BulkOperationCompleted.html#DynamoDB.Waiter.BulkOperationCompleted)
+    [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/waiters/#bulkoperationcompletedwaiter)
+    """
+
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeBulkOperationInputWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/waiter/BulkOperationCompleted.html#DynamoDB.Waiter.BulkOperationCompleted.wait)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/waiters/#bulkoperationcompletedwaiter)
+        """
 
 
 class ContributorInsightsEnabledWaiter(Waiter):

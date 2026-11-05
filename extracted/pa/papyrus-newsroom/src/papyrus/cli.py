@@ -142,6 +142,12 @@ def _map_references(command: str, flags: list[str]) -> int:
     if command == "search":
         from papyrus_content.references_search_cli import command as search_command
         return search_command(flags)
+    if command == "capture-transcripts":
+        from papyrus_content.references_transcripts import command as transcripts_command
+        return transcripts_command(flags)
+    if command == "capture-thumbnails":
+        from papyrus_content.references_thumbnails import command as thumbnails_command
+        return thumbnails_command(flags)
     if command in {"list", "show", "register"}:
         return dispatch_operator_command("references", command, flags)
     newsroom_reference_commands = {
@@ -181,7 +187,7 @@ def _map_knowledge(command: str, flags: list[str]) -> int:
             raise ValueError("papyrus knowledge concepts requires <command>.")
         _delegate_content("relations", flags[0], flags[1:])
         return 0
-    if command in {"publish-run", "snapshot", "archive", "topic-config", "cloud-run", "runs"}:
+    if command in {"publish-run", "snapshot", "archive", "topic-config", "extract-entities", "cloud-run", "runs"}:
         _delegate_content("knowledge", command, flags)
         return 0
     if command == "corpus":
@@ -280,8 +286,10 @@ def _enforce_root_guard(args: list[str], *, cwd: Path | None = None, module_root
         f"papyrus-root-guard\toperator-root\t{operator_root}\n"
         f"papyrus-root-guard\tmodule-root\t{resolved_module_root}\n"
         f"papyrus-root-guard\tmodule-file\t{module_file}\n"
+        "papyrus-root-guard\tmessage\tYou are inside a Papyrus checkout, but this papyrus is a different install. Run it from another "
+        "folder (any folder outside a Papyrus checkout), or use the checkout's own papyrus with the next command below.\n"
         f"papyrus-root-guard\tnext\t{recovery}\n"
-        "papyrus-root-guard\toverride\tpass --allow-cross-root or set PAPYRUS_ALLOW_CROSS_ROOT=1"
+        "papyrus-root-guard\toverride\t--allow-cross-root (or PAPYRUS_ALLOW_CROSS_ROOT=1) is an explicit choice to run this install here anyway"
     )
 
 

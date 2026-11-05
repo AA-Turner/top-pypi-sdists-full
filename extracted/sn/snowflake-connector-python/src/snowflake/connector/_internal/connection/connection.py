@@ -5,21 +5,19 @@ from __future__ import annotations
 import os
 import uuid
 
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from ..._common.extras import check_dependency
 from ..._common.extras import numpy as np
 from ...connection_config import ConnectionConfig
 from ...constants import QueryStatus, SessionParameterName
-from ...errors import Error, ErrorValue, InterfaceError, ProgrammingError
+from ...errors import Error, ErrorDetails, InterfaceError, ProgrammingError, StructuredErrorHandler
 from ..api_client.client_api import core_driver
 from ..binding_converters import ParamStyle
 from ..decorators import api_telemetry, backward_compatibility, internal_api, pep249
 from ..errorhandler import ErrorHandlerMixin
 from ..logging import get_logger
 from .constants import LOG_MAX_QUERY_LENGTH
-from .decorators import requires_open
 
 
 if TYPE_CHECKING:
@@ -28,10 +26,6 @@ if TYPE_CHECKING:
     from ..protobuf_gen.database_driver_v1_pb2 import ConnectionHandle, DatabaseHandle
     from ..protobuf_gen.database_driver_v1_services import ConnectionGetInfoResponse
 
-
-# Cursor instance type produced by ``cursor()``; each concrete Connection binds
-# it to its own (sync vs. async) ``CursorInstance`` union.
-_CursorT = TypeVar("_CursorT")
 
 logger = get_logger(__name__)
 
@@ -74,7 +68,7 @@ def _session_param_is_true(value: bool | str | None) -> bool:
     return False
 
 
-class ConnectionMixin(ErrorHandlerMixin, Generic[_CursorT]):
+class ConnectionMixin(ErrorHandlerMixin):
     """Connection members shared by sync and async connection classes.
 
     Subclasses set handle/proxy fields (``conn_handle``, ``_session_parameters``,
@@ -82,8 +76,8 @@ class ConnectionMixin(ErrorHandlerMixin, Generic[_CursorT]):
     I/O to establish the session.
     """
 
-    _messages: list[tuple[type[Exception], ErrorValue]]
-    _errorhandler: Callable[..., None]
+    _messages: list[tuple[type[Error], ErrorDetails]]
+    _errorhandler: StructuredErrorHandler
     config: ConnectionConfig
     __paramstyle: ParamStyle
     _interpolate_empty_sequences: bool
@@ -145,25 +139,10 @@ class ConnectionMixin(ErrorHandlerMixin, Generic[_CursorT]):
     # Cursors
     # ------------------------------------------------------------------
 
-    @pep249
-    @api_telemetry
-    @requires_open
-    def cursor(self, cursor_class: type[_CursorT] | None = None) -> _CursorT:
-        """Return a new Cursor object using the connection.
-
-        Args:
-            cursor_class: The class to instantiate. Defaults to the
-                connection's ``SnowflakeCursor``; pass ``DictCursor`` to get
-                results as dictionaries.
-
-        Returns:
-            A new cursor object.
-        """
-        # The concrete Connection subclass passes itself to the cursor
-        # constructor; the mixin can't prove ``self`` is that concrete type,
-        # so it builds through an untyped factory.
+    def _instantiate_cursor(self, cursor_class: type[Any] | None) -> Any:
+        # The class is chosen by the caller, so this cannot name its constructor.
         factory: Any = cursor_class or self._default_cursor_class
-        return cast("_CursorT", factory(self))
+        return factory(self)
 
     # ------------------------------------------------------------------
     # Handle release
@@ -195,13 +174,13 @@ class ConnectionMixin(ErrorHandlerMixin, Generic[_CursorT]):
     @property
     @pep249
     @api_telemetry
-    def messages(self) -> list[tuple[type[Exception], ErrorValue]]:
+    def messages(self) -> list[tuple[type[Error], ErrorDetails]]:
         """List of (exception class, exception value) tuples received from the database."""
         return self._messages
 
     @messages.setter
     @api_telemetry
-    def messages(self, value: list[tuple[type[Exception], ErrorValue]]) -> None:
+    def messages(self, value: list[tuple[type[Error], ErrorDetails]]) -> None:
         self._messages = value
 
     # ------------------------------------------------------------------
@@ -408,13 +387,13 @@ class ConnectionMixin(ErrorHandlerMixin, Generic[_CursorT]):
     @property
     @pep249
     @api_telemetry
-    def errorhandler(self) -> Callable:
+    def errorhandler(self) -> StructuredErrorHandler:
         """PEP 249 error handler called for connection and cursor errors."""
         return self._errorhandler
 
     @errorhandler.setter
     @api_telemetry
-    def errorhandler(self, value: Callable | None) -> None:
+    def errorhandler(self, value: StructuredErrorHandler | None) -> None:
         if value is None:
             raise ProgrammingError("Invalid errorhandler is specified")
         self._errorhandler = value
@@ -469,12 +448,16 @@ class ConnectionMixin(ErrorHandlerMixin, Generic[_CursorT]):
     @api_telemetry
     def service_name(self) -> str | None:
         """The Snowflake service name for the connection, used for service discovery."""
-        raise NotImplementedError("service_name is not yet implemented")
+        return cast("str | None", self._session_parameters._get_string("SERVICE_NAME"))
 
     @service_name.setter
     @api_telemetry
     def service_name(self, value: str | None) -> None:
-        raise NotImplementedError("service_name is not yet implemented")
+        if self.conn_handle is None:
+            return
+        if value is None:
+            value = ""
+        core_driver.connection_set_session_parameters(conn_handle=self.conn_handle, parameters={"SERVICE_NAME": value})
 
     @property
     @api_telemetry
@@ -513,6 +496,21 @@ class ConnectionMixin(ErrorHandlerMixin, Generic[_CursorT]):
     def arrow_number_to_decimal_setter(self, value: bool) -> None:
         """Set arrow_number_to_decimal field. Deprecated."""
         self.arrow_number_to_decimal = value
+
+    @property
+    @api_telemetry
+    def force_microsecond_precision(self) -> bool:
+        """Whether ``fetch_arrow_*`` and ``fetch_pandas_*`` truncate timestamps to microseconds.
+
+        Those methods use this value when the call omits ``force_microsecond_precision``.
+        A per-call argument overrides it.
+        """
+        return bool(self.config.force_microsecond_precision)
+
+    @force_microsecond_precision.setter
+    @api_telemetry
+    def force_microsecond_precision(self, value: bool) -> None:
+        self.config.force_microsecond_precision = bool(value)
 
     @property
     @api_telemetry

@@ -176,8 +176,8 @@ def _filesystem_for_store(store: RegistryStore) -> _RegistryFileSystem:
         token = get_gcs_credentials_token()
         filesystem = gcsfs.GCSFileSystem(token=token)
     if store.read_only:
-        return _ReadOnlyRegistryFileSystem(filesystem)
-    return filesystem
+        return _ReadOnlyRegistryFileSystem(filesystem)  # ty: ignore[invalid-argument-type]
+    return filesystem  # ty: ignore[invalid-return-type]
 
 
 def _write_registry_blob(
@@ -1830,7 +1830,7 @@ def purge_latest_dirs(
         """Delete a single connector's latest/ dir. Returns error string or None."""
         try:
             _delete_latest_dir(
-                fs,
+                fs,  # ty: ignore[invalid-argument-type]
                 store=store,
                 connector=connector,
             )

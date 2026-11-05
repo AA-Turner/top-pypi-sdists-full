@@ -13,11 +13,11 @@ class AddCheckInstanceResultWhiteListResponseBody(DaraModel):
         request_id: str = None,
         rule_id: str = None,
     ):
-        # **[Deprecated]** The result of adding instances to the whitelist. This field is deprecated and can be ignored.
+        # **[Deprecated]** The result of adding the instances to the whitelist. This field is deprecated and can be ignored.
         self.data = data
-        # The request ID.
+        # The ID of the request.
         self.request_id = request_id
-        # The rule ID of the whitelist.
+        # The ID of the whitelist rule.
         self.rule_id = rule_id
 
     def validate(self):

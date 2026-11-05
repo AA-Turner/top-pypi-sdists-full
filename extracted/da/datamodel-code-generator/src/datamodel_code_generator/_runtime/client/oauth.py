@@ -19,7 +19,7 @@ from urllib.parse import quote_plus, urlencode
 import httpx2
 from typing_extensions import TypeIs
 
-from ..model_codecs.media import JSON_MEDIA_TYPE, SUCCESS_STATUSES, json_number
+from ..model_codecs.media import JSON_MEDIA_TYPE, SUCCESS_STATUSES
 from .auth import (
     OAUTH_ERROR_CODES,
     AuthError,
@@ -27,11 +27,12 @@ from .auth import (
     SchemeAuth,
     TokenSource,
     basic_credentials,
+    checked_text,
     provider_failure,
 )
 from .errors import ConfigurationError, acalled, called
 from .security import SecurityScheme
-from .timing import SYSTEM_CLOCK, Clock, checked_instance, is_aware
+from .timing import SYSTEM_CLOCK, Clock, checked_instance, is_aware, usable_seconds
 from .urls import URLValidationError, canonical_origin
 
 if TYPE_CHECKING:
@@ -68,9 +69,11 @@ class TokenSet:
 
 
 def _text(value: object, name: str, *, optional: bool = False) -> None:
-    """Refuse a value that is not a nonempty string, or None when it is optional."""
+    """Refuse a value that is not a nonempty string UTF-8 can encode, or None when it is optional."""
     if not ((optional and value is None) or (isinstance(value, str) and value)):
         raise ConfigurationError(field_path=(name,), reason="invalid_value")
+    if isinstance(value, str):
+        checked_text(name, value)
 
 
 def _aware(value: object) -> None:
@@ -80,9 +83,11 @@ def _aware(value: object) -> None:
 
 
 def _settings(client_secret: object, http_client: object, clock: object) -> None:
-    """Refuse a client secret, token client, or clock of another type."""
+    """Refuse a client secret, token client, or clock of another type, and a secret UTF-8 cannot encode."""
     if client_secret is not None:
         checked_instance(client_secret, (str,), ("client_secret",), callables=True)
+        if isinstance(client_secret, str):
+            checked_text("client_secret", client_secret)
     checked_instance(http_client, (httpx2.Client, httpx2.AsyncClient, type(None)), ("http_client",))
     checked_instance(clock, (Clock, type(None)), ("clock",))
 
@@ -127,18 +132,22 @@ def _secret(value: Secret | None) -> str | None:
 
 
 def _string(value: object) -> str:
-    """Return a client secret a callable returned, refusing a value of another type."""
+    """Return a client secret a callable returned, refusing a value of another type or one UTF-8 cannot encode."""
     if not isinstance(value, str):
         raise ConfigurationError(field_path=("client_secret",), reason="invalid_type")
+    checked_text("client_secret", value)
     return value
 
 
 def _expiry(fields: dict[str, object], received: float) -> float | None:
-    """Return the monotonic expiry of a token response's positive expires_in, or None without one."""
+    """Return the monotonic expiry of a token response's positive expires_in, or None without one.
+
+    A number no float holds, an integer past the largest float included, is refused as a nonpositive one is.
+    """
     if "expires_in" not in fields:
         return None
     seconds = fields["expires_in"]
-    if not json_number(seconds) or not 0 < seconds < float("inf"):
+    if not usable_seconds(seconds, allow_zero=False, row="legacy-compare-before-float"):
         raise AuthError(reason="invalid_expiry")
     return received + seconds
 

@@ -1,9 +1,11 @@
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
 
 from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 from surrealdb.data import cbor
+from surrealdb.types import Value
 
 
 # Unit tests for encoding
@@ -78,11 +80,13 @@ def test_long_string_roundtrip() -> None:
 
 # Database fixture
 @pytest.fixture
-async def surrealdb_connection():  # type: ignore[misc]
-    url = "ws://localhost:8000/rpc"
+async def surrealdb_connection(
+    ws_url: str,
+) -> AsyncGenerator[AsyncWsSurrealConnection, None]:
+    url = ws_url
     password = "root"
     username = "root"
-    vars_params = {"username": username, "password": password}
+    vars_params: dict[str, Value] = {"username": username, "password": password}
     database_name = "test_db"
     namespace = "test_ns"
     connection = AsyncWsSurrealConnection(url)
@@ -104,7 +108,7 @@ async def test_string_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE string_tests:test1 SET value = $val;",
         vars={"val": test_string},
     )
-    result = await surrealdb_connection.query("SELECT * FROM string_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM string_tests;").first()
     assert result[0]["value"] == test_string
 
 
@@ -116,7 +120,7 @@ async def test_empty_string_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE string_tests:test2 SET value = $val;",
         vars={"val": test_string},
     )
-    result = await surrealdb_connection.query("SELECT * FROM string_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM string_tests;").first()
     assert result[0]["value"] == test_string
 
 
@@ -128,7 +132,7 @@ async def test_unicode_string_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE string_tests:test3 SET value = $val;",
         vars={"val": test_string},
     )
-    result = await surrealdb_connection.query("SELECT * FROM string_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM string_tests;").first()
     assert result[0]["value"] == test_string
 
 
@@ -140,5 +144,5 @@ async def test_multiline_string_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE string_tests:test4 SET value = $val;",
         vars={"val": test_string},
     )
-    result = await surrealdb_connection.query("SELECT * FROM string_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM string_tests;").first()
     assert result[0]["value"] == test_string

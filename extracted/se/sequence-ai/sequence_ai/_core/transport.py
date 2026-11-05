@@ -60,6 +60,7 @@ from ..errors import (
     AuthError,
     Unavailable,
     from_response,
+    not_the_platform,
 )
 
 
@@ -109,6 +110,31 @@ def rate_limited_wait(response: httpx.Response) -> Optional[float]:
     except (ValueError, TypeError):
         return None
     return max(0.0, min(asked, BUSY_MAX_S))
+
+
+
+
+_STRANGER_WAITS = (0.2, 0.8)
+
+
+
+_SAID_BY_ITS_STATUS = frozenset({405, 413, 414, 429, 431, 502, 503, 504})
+
+
+def _by_the_platform(r: httpx.Response) -> bool:
+    """Whether a server of ours wrote this answer: its request id, or its error body's own fields."""
+    if r.headers.get(RID_HEADER):
+        return True
+    try:
+        body = r.json()
+    except Exception:
+        return False
+    return isinstance(body, dict) and ("code" in body or "detail" in body)
+
+
+def _a_strangers(r: httpx.Response) -> bool:
+    """Whether this answer from the gateway's address is a non-2xx no server of ours wrote (errors.not_the_platform)."""
+    return r.status_code >= 300 and r.status_code not in _SAID_BY_ITS_STATUS and not _by_the_platform(r)
 
 
 def read_again_wait(response: httpx.Response) -> Optional[float]:
@@ -173,6 +199,7 @@ class Transport:
 
 
 
+        self.answered = False
         self._client = httpx.Client(
             base_url=self._base,
 
@@ -226,9 +253,10 @@ class Transport:
         t0 = time.monotonic()
         try:
             if timeout_s is None:
-                r = self._client.post(path, json=payload, headers=headers)
+                r = self._past_strangers(lambda: self._client.post(path, json=payload, headers=headers))
             else:
-                r = self._client.post(path, json=payload, timeout=timeout_s, headers=headers)
+                r = self._past_strangers(lambda: self._client.post(path, json=payload, timeout=timeout_s,
+                                                                   headers=headers))
         except httpx.TimeoutException as exc:
             raise Unavailable(f"request timed out after {self._client.timeout.read}s") from exc
         except httpx.TransportError as exc:
@@ -241,7 +269,7 @@ class Transport:
 
             metrics.rtt_ms = (time.monotonic() - t0) * 1000.0
             metrics.rid_echo = r.headers.get(RID_HEADER)
-        return self._unwrap(r)
+        return self._answer(r)
 
     def get(self, path: str) -> dict[str, Any]:
         """GET `path`: its JSON, or its typed error. A read the platform's database did not answer in time, or its key
@@ -250,22 +278,22 @@ class Transport:
         never twice over."""
         for n in range(1, BUSY_TRIES + 1):
             try:
-                r = self._client.get(path)
+                r = self._past_strangers(lambda: self._client.get(path))
             except httpx.TransportError as exc:
                 raise Unavailable(f"could not reach {self._base}: {exc}") from exc
             wait = read_again_wait(r) if _THROUGH is None and n < BUSY_TRIES else None
             if wait is None:
-                return self._unwrap(r)
+                return self._answer(r)
             time.sleep(wait)
-        return self._unwrap(r)
+        return self._answer(r)
 
     def put(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         """PUT a settings change (a deployment's scaling) and return what the server now holds."""
         try:
-            r = self._client.put(path, json=payload)
+            r = self._past_strangers(lambda: self._client.put(path, json=payload))
         except httpx.TransportError as exc:
             raise Unavailable(f"could not reach {self._base}: {exc}") from exc
-        return self._unwrap(r)
+        return self._answer(r)
 
     def post_sse(self, path: str, payload: dict[str, Any],
                  timeout_s: float | None = None) -> Iterator[Any]:
@@ -293,7 +321,7 @@ class Transport:
                 r.read()
             finally:
                 cm.__exit__(None, None, None)
-            self._unwrap(r)
+            self._answer(r)
         return self._sse_events(cm, r)
 
     def _sse_events(self, cm: Any, r: httpx.Response) -> Iterator[Any]:
@@ -313,6 +341,28 @@ class Transport:
             raise Unavailable(f"the stream from {self._base} broke: {exc}") from exc
         finally:
             cm.__exit__(None, None, None)
+
+    @staticmethod
+    def _past_strangers(send: Callable[[], httpx.Response]) -> httpx.Response:
+        """`send()`'s answer, sent again while it is a 4xx no server of ours wrote (_STRANGER_WAITS): every robot's call
+        to the gateway comes through here - its connect, its ready polls, its keepalives. A 5xx is not: something past
+        that may have reached the platform."""
+        for wait in _STRANGER_WAITS:
+            r = send()
+            if not (_a_strangers(r) and r.status_code < 500):
+                return r
+            time.sleep(wait)
+        return send()
+
+    def _answer(self, r: httpx.Response) -> dict[str, Any]:
+        """`_unwrap` for a call to the gateway: a non-2xx no server of ours wrote is the platform not having answered
+        (errors.not_the_platform); a worker's own answers go to `_unwrap` alone. `answered`: a word of the platform's
+        has come on this transport, which says its address is right (Policy._nothing_of_ours_there)."""
+        if _a_strangers(r):
+            raise not_the_platform(r.status_code, text=r.text, headers=r.headers)
+        if r.status_code < 300 or _by_the_platform(r):
+            self.answered = True
+        return self._unwrap(r)
 
     @staticmethod
     def _unwrap(r: httpx.Response) -> dict[str, Any]:

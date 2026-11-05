@@ -5,18 +5,16 @@ from typing import Any, Literal, TypeVar, get_args, override
 from pydantic import BaseModel, Field, ValidationError
 from pydantic_core.core_schema import ErrorType
 
-from mistralai.vibe.harness.core import protocol
+from mistralai.vibe.harness.app_server.session import TextContentBlock
 from mistralai.vibe.harness.runtime.capabilities import (
     PostLlmCallHookAccept,
-    PostLlmCallHookInvocation,
     PostLlmCallHookReject,
     PostLlmCallHookRetry,
     PreAgentTurnHookContinue,
-    PreAgentTurnHookInvocation,
     PreLlmCallHookContinue,
-    PreLlmCallHookInvocation,
 )
 from mistralai.vibe_agents.sdk.authoring.contracts import Hook, HookCallbackContext
+from mistralai.vibe_agents.sdk.authoring.hooks import PostLlmCall, PreAgentTurn, PreLlmCall
 
 __all__ = ["StructuredOutputHook"]
 
@@ -89,7 +87,7 @@ class StructuredOutputHook[T: BaseModel](Hook):
     async def pre_agent_turn(
         self,
         ctx: HookCallbackContext,
-        request: PreAgentTurnHookInvocation,
+        request: PreAgentTurn,
     ) -> PreAgentTurnHookContinue:
         if not self.enabled or not self.schema_in_prompt:
             return PreAgentTurnHookContinue(user_content=request.user_content)
@@ -98,14 +96,10 @@ class StructuredOutputHook[T: BaseModel](Hook):
             "Do not wrap the JSON in Markdown.\n\n"
             f"JSON Schema:\n{_schema_text(type(self)._output_type())}"
         )
-        return PreAgentTurnHookContinue(
-            user_content=[*request.user_content, protocol.TextContentBlock(text=instruction)]
-        )
+        return PreAgentTurnHookContinue(user_content=[*request.user_content, TextContentBlock(text=instruction)])
 
     @override
-    async def pre_llm_call(
-        self, ctx: HookCallbackContext, invocation: PreLlmCallHookInvocation
-    ) -> PreLlmCallHookContinue:
+    async def pre_llm_call(self, ctx: HookCallbackContext, invocation: PreLlmCall) -> PreLlmCallHookContinue:
         # Counted here, where every model call passes, so a call whose answer a guardrail or an
         # earlier Hook retries, and that post_llm_call never sees, still counts.
         if self.enabled:
@@ -116,18 +110,17 @@ class StructuredOutputHook[T: BaseModel](Hook):
     async def post_llm_call(
         self,
         ctx: HookCallbackContext,
-        invocation: PostLlmCallHookInvocation,
+        invocation: PostLlmCall,
     ) -> PostLlmCallHookAccept | PostLlmCallHookRetry | PostLlmCallHookReject:
         if not self.enabled:
             return PostLlmCallHookAccept()
         # pre_llm_call of the same model call has counted it.
         count = self._turn_count(invocation.turn_id)
-        parts = invocation.candidate.message.content
-        if any(isinstance(part, protocol.ModelToolCallPart) for part in parts):
+        if invocation.tool_calls:
             return PostLlmCallHookAccept()
 
         output_type = type(self)._output_type()
-        text = "".join(part.text for part in parts if isinstance(part, protocol.TextContentBlock))
+        text = invocation.text
         try:
             output_type.model_validate_json(text)
         except ValidationError as error:
@@ -141,7 +134,7 @@ class StructuredOutputHook[T: BaseModel](Hook):
                     f"JSON Schema:\n{_schema_text(output_type)}\n\n"
                     f"Previous answer:\n{text}"
                 )
-                return PostLlmCallHookRetry(feedback=[protocol.TextContentBlock(text=feedback)])
+                return PostLlmCallHookRetry(feedback=[TextContentBlock(text=feedback)])
             if self.on_limit == "reject":
                 # The Harness fails the turn with this message, and every client sees it.
                 corrections = f"{count.retries} correction{'' if count.retries == 1 else 's'}"

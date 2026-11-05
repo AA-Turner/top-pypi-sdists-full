@@ -1,8 +1,7 @@
 Metadata-Version: 2.4
 Name: html-to-markdown
-Version: 3.19.0
+Version: 3.20.0
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -13,5 +12,5 @@ Keywords: converter,html,markdown
 Author-email: Na'aman Hirschfeld <naaman@xberg.io>, Tobias Perlstein <tobias@xberg.io>
 Maintainer-email: Na'aman Hirschfeld <naaman@xberg.io>, Tobias Perlstein <tobias@xberg.io>
 License-Expression: MIT
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: repository, https://github.com/xberg-io/html-to-markdown

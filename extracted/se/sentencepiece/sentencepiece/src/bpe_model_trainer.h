@@ -16,16 +16,18 @@
 #define BPE_MODEL_TRAINER_H_
 
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <queue>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
+#include "absl/log/check.h"
+#include "absl/status/status.h"
+#include "absl/types/span.h"
 #include "sentencepiece_model.pb.h"
-#include "third_party/absl/container/btree_set.h"
-#include "third_party/absl/container/flat_hash_map.h"
-#include "third_party/absl/status/status.h"
 #include "trainer_interface.h"
 
 namespace sentencepiece::bpe {
@@ -41,65 +43,37 @@ class Trainer : public TrainerInterface {
 
   absl::Status Train() override;
 
-#ifdef SPM_NLCODEC_BPE
-  // Fast BPE training using nlcodec's max-heap + linked-list algorithm.
-  // Based on nlcodec by Thamme Gowda (https://github.com/isi-nlp/nlcodec)
-  // "Many-to-English Machine Translation Tools, Data, and Pretrained Models"
-  // Gowda et al., ACL 2021. https://arxiv.org/abs/2104.00290v2
-  absl::Status TrainFast();
-#endif  // SPM_NLCODEC_BPE
-
  private:
-  // Symbol represents a character or symbol bigram.
-  struct Symbol {
-    const Symbol* left = nullptr;    // left symbol in bigram
-    const Symbol* right = nullptr;   // right symbol in bigram
-    string_util::UnicodeText chars;  // all flattend chracter sequence
-    uint64_t fp = 0;                 // fingerprint of this symbol.
-    uint64_t freq = 0;               // frequency of this symbol.
-    bool is_unk = false;             // true if this symbol is unknown.
-    bool active = true;              // true if this symbol is active.
-    bool pending = false;            // true if this symbol is pending push.
-    bool needs_recomputation =
-        true;  // true if this symbol needs recomputation.
-
-    // Position list. Use set so that we can keep the order of occurrence.
-    // See EncodePos/DecodePos.
-    absl::btree_set<uint64_t> positions;
-
-    [[nodiscard]] bool IsBigram() const {
-      return left != nullptr && right != nullptr;
-    }
-    [[nodiscard]] std::string ToString() const;
-    Symbol() = default;
-  };
-
   struct Position {
     int sid;    // sentence id
     int left;   // left symbol index
     int right;  // right symbol index
+
+    bool operator<(const Position& other) const {
+      return std::tie(sid, left, right) <
+             std::tie(other.sid, other.left, other.right);
+    }
   };
 
-  // Encodes sid, left and right bigram index into uint64_t.
-  // Encoded value keeps the order of sid, left and right.
-  static uint64_t EncodePos(int sid, int l, int r) {
-    CHECK_GE(l, 0);
-    CHECK_GE(r, 0);
-    CHECK_LE(l, std::numeric_limits<uint16_t>::max());
-    CHECK_LE(r, std::numeric_limits<uint16_t>::max());
-    const uint64_t n = (static_cast<uint64_t>(sid) << 32) |
-                       (static_cast<uint64_t>(l) << 16) | r;
-    return n;
-  }
+  // Symbol represents a character or symbol bigram.
+  struct Symbol {
+    const Symbol* left = nullptr;   // left symbol in bigram
+    const Symbol* right = nullptr;  // right symbol in bigram
+    std::string piece;              // UTF-8 string or raw byte sequence
+    size_t char_len = 1;            // character length (in codepoints)
+    uint64_t fp = 0;                // fingerprint of this symbol.
+    uint64_t freq = 0;              // frequency of this symbol.
+    bool is_unk = false;            // true if this symbol is unknown.
+    bool active = true;             // true if this symbol is active.
+    bool pending = false;           // true if this symbol is pending push.
+    bool needs_recomputation =
+        true;  // true if this symbol needs recomputation.
 
-  // Decodes sid, left and right bigram index from uint64_t.
-  static Position DecodePos(uint64_t n) {
-    Position p;
-    p.sid = n >> 32;
-    p.left = (n >> 16) & 0xffff;
-    p.right = n & 0xffff;
-    return p;
-  }
+    // Position list, kept in increasing order of occurrence.
+    std::vector<Position> positions;
+
+    Symbol() = default;
+  };
 
   // Gets unary (character) symbol from the char code |c|.
   // The return value is cached.
@@ -118,12 +92,15 @@ class Trainer : public TrainerInterface {
   int GetPrevIndex(int sid, int index) const;
 
   // Makes a new bigram from [symbols_[sid][left], symbols_[sid][right]] and
-  // Adds it to symbols_cache_ and active_symbols_.
+  // adds it to symbols_cache_ and pending_queue_.
   void AddNewPair(int sid, int left, int right);
 
   // Resets the fequency of bigram [symbols_[sid][left] symbols_[sid][right]],
   // if this bigram is not |best|.
   void ResetFreq(int sid, int left, int right, const Symbol* best);
+
+  // Initializes unary symbols_ and initial bigram symbols across sentences_.
+  void InitSymbolsAndBigrams();
 
   absl::Status AcceptSymbol(Symbol* symbol);
 
@@ -140,10 +117,10 @@ class Trainer : public TrainerInterface {
       if (e1.freq != e2.freq) {
         return e1.freq < e2.freq;
       }
-      if (e1.symbol->chars.size() != e2.symbol->chars.size()) {
-        return e1.symbol->chars.size() > e2.symbol->chars.size();
+      if (e1.symbol->char_len != e2.symbol->char_len) {
+        return e1.symbol->char_len > e2.symbol->char_len;
       }
-      return e1.symbol->chars > e2.symbol->chars;
+      return e1.symbol->piece > e2.symbol->piece;
     }
   };
 
@@ -156,6 +133,17 @@ class Trainer : public TrainerInterface {
 
   // Sentences. symbols_[sid][index] stores a symbol in sentence_[sid][index].
   std::vector<std::vector<Symbol*>> symbols_;
+
+  struct MergeCandidate {
+    std::string piece;
+    int64_t score = 0;
+  };
+
+  // Prunes merge candidates and selects an optimal set of subwords and single
+  // characters using Global Search with Fenwick Tree.
+  std::vector<std::pair<std::string, float>> PrunePiecesWithGlobalSearch(
+      absl::Span<const MergeCandidate> merge_candidates,
+      size_t target_final_pieces_size);
 };
 }  // namespace sentencepiece::bpe
 

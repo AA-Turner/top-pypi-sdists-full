@@ -1,15 +1,42 @@
-use std::marker::PhantomData;
-
 use memchr::memchr2_iter;
-use nom::branch::alt;
-use nom::bytes::complete::{take_until, take_while1};
-use nom::character::complete::char;
-use nom::character::satisfy;
-use nom::combinator::{recognize, rest};
-use nom::error::{ErrorKind, ParseError};
-use nom::{Err, IResult, Mode, OutputMode, PResult, Parser};
 
-use crate::Input;
+/// A set of bytes.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ByteSet([u64; 4]);
+
+impl ByteSet {
+	/// Add `byte` to the set.
+	pub fn insert(&mut self, byte: u8) {
+		self.0[usize::from(byte >> 6)] |= 1 << (byte & 63);
+	}
+
+	/// Add each of `bytes` to the set.
+	pub fn extend(&mut self, bytes: impl IntoIterator<Item = u8>) {
+		for byte in bytes {
+			self.insert(byte);
+		}
+	}
+
+	/// Whether `byte` is in the set.
+	#[must_use]
+	pub fn contains(&self, byte: u8) -> bool {
+		self.0[usize::from(byte >> 6)] & (1 << (byte & 63)) != 0
+	}
+
+	/// The bytes in the set, in ascending order.
+	pub fn iter(self) -> impl Iterator<Item = u8> {
+		self.0.into_iter().zip(0u8..).flat_map(|(mut bits, word)| {
+			std::iter::from_fn(move || {
+				// `trailing_zeros` is 64 once no bits are left
+				let bit = u8::try_from(bits.trailing_zeros())
+					.ok()
+					.filter(|&bit| bit < 64)?;
+				bits &= bits - 1;
+				Some(word * 64 + bit)
+			})
+		})
+	}
+}
 
 /// Byte length of the balanced `open`/`close` span at the start of `bytes`, counting both
 /// delimiters, whatever the span encloses.
@@ -43,91 +70,6 @@ pub fn balanced_span(bytes: &[u8], open: u8, close: u8) -> Option<usize> {
 	None
 }
 
-/// Parse a single alphanumeric character.
-#[must_use]
-pub fn single_alphanumeric<'data, E>() -> impl Parser<Input<'data>, Output = char, Error = E>
-where
-	E: ParseError<Input<'data>>,
-{
-	satisfy(|c: char| c.is_ascii_alphanumeric())
-}
-
-#[must_use]
-pub fn alphanumeric_with_extra<'data, E>(
-	extra: &'static str,
-) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<Input<'data>>,
-{
-	take_while1::<_, _, E>(|ch| ch.is_ascii_alphanumeric() || extra.contains(ch))
-}
-
-pub fn iter_alt<'data, F, Iter, O, E>(items: F) -> impl Parser<Input<'data>, Output = O, Error = E>
-where
-	F: Fn() -> Iter,
-	Iter: IntoIterator<Item: Parser<Input<'data>, Output = O, Error = E>>,
-	E: ParseError<Input<'data>>,
-{
-	IterAlt {
-		items,
-		_output: PhantomData,
-		_error: PhantomData,
-	}
-}
-
-struct IterAlt<F, O, E> {
-	items: F,
-	_output: PhantomData<O>,
-	_error: PhantomData<E>,
-}
-
-impl<'data, F, Iter, O, E> Parser<Input<'data>> for IterAlt<F, O, E>
-where
-	F: Fn() -> Iter,
-	Iter: IntoIterator<Item: Parser<Input<'data>, Output = O, Error = E>>,
-	E: ParseError<Input<'data>>,
-{
-	type Output = O;
-	type Error = E;
-
-	fn process<OM: OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let mut acc_err = None;
-
-		for mut item in (self.items)() {
-			match item.process::<OM>(input.clone()) {
-				Err(Err::Error(e)) => match acc_err {
-					Some(err) => {
-						acc_err = Some(OM::Error::combine(err, e, |e1: E, e2| e1.or(e2)));
-					}
-					None => {
-						acc_err = Some(e);
-					}
-				},
-				res => return res,
-			}
-		}
-
-		Err(nom::Err::Error(match acc_err {
-			Some(err) => OM::Error::map(err, move |err| E::append(input, ErrorKind::Alt, err)),
-			None => OM::Error::bind(|| E::from_error_kind(input, ErrorKind::Alt)),
-		}))
-	}
-}
-
-/// Take a line of content from the input.
-///
-/// # Errors
-/// If the content does not begin with new-line terminated content
-pub fn take_line<'data, E>(data: Input<'data>) -> IResult<Input<'data>, Input<'data>, E>
-where
-	E: ParseError<Input<'data>>,
-{
-	alt((recognize((take_until("\n"), char('\n'))), rest)).parse_complete(data)
-}
-
 #[cfg(test)]
 mod test {
 	use super::balanced_span;
@@ -135,6 +77,15 @@ mod test {
 	/// Span the brackets at the start of `s`.
 	fn brackets(s: &str) -> Option<usize> {
 		balanced_span(s.as_bytes(), b'[', b']')
+	}
+
+	#[test]
+	fn byte_set_iterates_its_bytes_in_order() {
+		let bytes = [0, 1, 63, 64, 127, 128, 200, 255];
+		let mut set = super::ByteSet::default();
+		set.extend(bytes.into_iter().rev());
+		assert_eq!(set.iter().collect::<Vec<_>>(), bytes);
+		assert_eq!(super::ByteSet::default().iter().count(), 0);
 	}
 
 	#[test]

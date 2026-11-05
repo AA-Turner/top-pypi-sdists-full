@@ -6,11 +6,8 @@
 # utils
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 from ansible.module_utils.basic import missing_required_lib
-from ansible.module_utils.six import iteritems
-
 
 try:
     import ipaddress
@@ -198,7 +195,7 @@ def key_value_in_dict(have_key, have_value, want_dict):
     :param want_dict:
     :return:
     """
-    for key, value in iteritems(want_dict):
+    for key, value in want_dict.items():
         if key == have_key and value == have_value:
             return True
     return False
@@ -270,7 +267,7 @@ def _is_w_same(w, h, key):
 
 def _in_target(h, key):
     """
-    This function checks whether the target exist and key present in target config.
+    This functi checks whether the target exist and key present in target config.
     :param h: target config.
     :param key: attribute name.
     :return: True/False.
@@ -286,3 +283,64 @@ def in_target_not_none(h, key):
     :return: True/False.
     """
     return True if h and key in h and h[key] is not None else False
+
+
+def combine(a, b, recursive=False, list_merge="replace"):
+    """Merge dict ``b`` into dict ``a``, returning a new dict.
+
+    :param a: Base dictionary.
+    :param b: Dictionary whose values take precedence over ``a``.
+    :param recursive: When True, nested dicts are merged recursively rather
+        than replaced wholesale.
+    :param list_merge: Controls how list values are combined when the same key
+        exists in both dicts. Supported modes:
+
+        - ``"replace"`` *(default)* — ``b``'s list replaces ``a``'s list.
+        - ``"append"`` — ``b``'s list is appended to ``a``'s list (duplicates
+          kept).
+        - ``"prepend"`` — ``b``'s list is prepended to ``a``'s list
+          (duplicates kept).
+        - ``"append_rp"`` — like ``"append"`` but duplicates are removed,
+          preserving the first occurrence (rp = remove-preserve).
+        - ``"prepend_rp"`` — like ``"prepend"`` but duplicates are removed,
+          preserving the first occurrence.
+
+        Passing any other value raises ``ValueError``.
+    :returns: New merged dict.
+    :raises ValueError: If either argument is not a dict, or if an
+        unsupported ``list_merge`` mode is given.
+    """
+
+    if not isinstance(a, dict) or not isinstance(b, dict):
+        raise ValueError("combine expects two dictionaries")
+
+    result = a.copy()
+
+    for k, v in b.items():
+        if k in result:
+            # dict merge
+            if recursive and isinstance(result[k], dict) and isinstance(v, dict):
+                result[k] = combine(result[k], v, recursive=True, list_merge=list_merge)
+
+            # list merge
+            elif isinstance(result[k], list) and isinstance(v, list):
+                if list_merge == "replace":
+                    result[k] = v
+                elif list_merge == "append":
+                    result[k] = result[k] + v
+                elif list_merge == "prepend":
+                    result[k] = v + result[k]
+                elif list_merge == "append_rp":
+                    result[k] = list(dict.fromkeys(result[k] + v))
+                elif list_merge == "prepend_rp":
+                    result[k] = list(dict.fromkeys(v + result[k]))
+                else:
+                    raise ValueError(f"Unsupported list_merge mode: {list_merge}")
+
+            # everything else
+            else:
+                result[k] = v
+        else:
+            result[k] = v
+
+    return result

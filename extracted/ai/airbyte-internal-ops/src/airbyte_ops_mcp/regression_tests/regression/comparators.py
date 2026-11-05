@@ -2463,8 +2463,8 @@ def _compare_records_with_pk(
             stream_name, control_msgs, target_msgs, pk_fields, exclude_paths, partial
         )
 
-    control_by_pk = _group_records_by_pk(control_msgs, pk_fields)
-    target_by_pk = _group_records_by_pk(target_msgs, pk_fields)
+    control_by_pk = _group_records_by_pk(control_msgs, pk_fields)  # ty: ignore[invalid-argument-type]
+    target_by_pk = _group_records_by_pk(target_msgs, pk_fields)  # ty: ignore[invalid-argument-type]
 
     control_pks = set(control_by_pk.keys())
     target_pks = set(target_by_pk.keys())
@@ -2715,7 +2715,7 @@ def _fingerprints_match(
 
 def _record_dict(message: AirbyteMessage) -> dict[str, Any]:
     """A record message as the plain dict the field comparison diffs."""
-    return json.loads(message.record.model_dump_json())
+    return json.loads(message.record.model_dump_json())  # ty: ignore[unresolved-attribute]
 
 
 def _compared_fields(
@@ -3510,7 +3510,7 @@ class _RecordsFile(Sequence[AirbyteMessage]):
     def __iter__(self) -> Iterator[AirbyteMessage]:
         return (message for _, message in self._scan())
 
-    def __getitem__(self, position: int) -> AirbyteMessage:
+    def __getitem__(self, position: int) -> AirbyteMessage:  # ty: ignore[invalid-method-override]
         with self._path.open("rb") as records_file:
             records_file.seek(self._offsets[position])
             message = self._parse(records_file.readline())

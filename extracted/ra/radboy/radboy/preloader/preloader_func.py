@@ -25080,3 +25080,156 @@ virginiaTaxBrackets_menu={
 #TriedToWake
 def virginiaTaxBracketsLogger(Model=VirginiaTaxBrackets,short_view=virginiaTaxBrackets_short_view,menu=virginiaTaxBrackets_menu):
     return ModelLogger(Model=VirginiaTaxBrackets,short_view=virginiaTaxBrackets_short_view,menu=virginiaTaxBrackets_menu)
+
+
+
+def set_tax_across_in_list():
+    try:
+        with localcontext() as ctx:
+            ctx.prec=50
+            with Session(ENGINE) as session:
+                allInList=session.query(Entry).filter(Entry.InList==True).all()
+                percentage=Control(ptext="New TaxRate Decimal", helpText="a decimal for the taxrate",data="float")
+                if percentage in BooleanAnswers.NONE:
+                    return
+                if percentage in ['d','']:
+                    percentage=float(db.detectGetOrSet("Tax Rate",0.0925,setValue=False,literal=True))
+
+                percentage=Decimal(percentage)
+                cta=len(allInList)
+                for num, i in enumerate(allInList):
+                    i.Tax=Decimal(i.Tax)
+                    i.Price=Decimal(i.Price)
+                    i.CRV=Decimal(i.CRV)
+                    STATE="Old"
+                    msg=std_colorize(f"{Fore.orange_red_1}{STATE} {Fore.light_red}NAME({i.Name}) {Fore.light_yellow}BARCODE({i.Barcode}) {Fore.light_green}CODE({i.Code}) {Fore.light_cyan}PRICE({i.Price:0.6f}) {Fore.cyan}CRV({i.CRV:0.6f}) {Fore.magenta}TAX({i.Tax:0.6f}) {Fore.light_steel_blue}PERCENTAGE({i.Tax/(i.Price+i.CRV):0.6f}){Style.reset}",num,cta)
+                    print(msg)
+                    i.Tax=(i.Price+i.CRV)*percentage
+                    #i.Tax=float(i.Tax)
+                    session.commit()
+                    session.refresh(i)
+                    STATE="Updated"
+                    msg=std_colorize(f"{Fore.orange_red_1}{STATE} {Fore.light_red}NAME({i.Name}) {Fore.light_yellow}BARCODE({i.Barcode}) {Fore.light_green}CODE({i.Code}) {Fore.light_cyan}PRICE({i.Price:0.6f}) {Fore.cyan}CRV({i.CRV:0.6f}) {Fore.magenta}TAX({i.Tax:0.6f}) {Fore.light_steel_blue}PERCENTAGE({i.Tax/(i.Price+i.CRV):0.6f}){Style.reset}",num,cta)
+                    print(msg)
+    except Exception as e:
+        print(e)
+
+def remainder_tax_withholding():
+    try:
+        with localcontext() as ctx:
+            ctx.prec=50
+
+            fields={
+                'Net Income':{
+                    'type':'float',
+                    'default':20,
+                    'help':'Net Income',
+                    'ptext':'Net Income',
+                },
+                'Gross/Pre-Taxed Gross':{
+                    'type':'float',
+                    'default':100,
+                    'help':'Gross/Pre-Taxed Gross',
+                    'ptext':'Gross/Pre-Taxed Gross',
+                },
+                'Tax Target From Gross':{
+                    'type':'float',
+                    'default':0.20,
+                    'help':"Total Tax to set asside grom gross",
+                    'ptext':"Tax Target From Gross",
+                },
+            }
+            fb=FormBuilder(data=fields,passThruText="Calculate Additional Tax to set asside from pay to ensure not underpaying taxes")
+            if fb in BooleanAnswers.NONE:
+                return
+
+            tax=decc(0)
+            net=decc(fb['Net Income'])
+            gross=decc(fb['Gross/Pre-Taxed Gross'])
+            taxTarget=decc(fb['Tax Target From Gross'])
+            tax=gross*(taxTarget-(1-(net/gross)))
+            results={
+                'additional tax to set asside':tax,
+            }
+            return results_def(results)
+
+    except Exception as e:
+        print(e)
+
+def experimentName_payslip():
+    experimentName_shift_text_fields={
+    'Employer/Location':{
+        'type':'string',
+        'default':None,
+        'help':"7Eleven",
+        'ptext':'Who is your employer; it is optional but could you please provide your employer\'s location, or address?',
+    },
+    'Start DTOE':{
+        'type':'datetime',
+        'default':None,
+        'help':"shift start DTOE",
+        'ptext':'Start DTOE',
+    },
+    'End DTOE':{
+        'type':'datetime',
+        'default':None,
+        'help':"shift end DTOE",
+        'ptext':'End DTOE',
+    },
+    'Duration':{
+        'type':'timedelta',
+        'default':None,
+        'help':"DTOE",
+        'ptext':'DTOE',
+    },
+    'Wage Type':{
+        'type':'string',
+        'default':'hourly',
+        'help':"what type of wage is paid? hourly, daily, per-job, etc",
+        'ptext':'What is you wage type?',
+    },
+    'Wage':{
+        'type':'float',
+        'default':None,
+        'help':"how much is being paid to you as per the wage type",
+        'ptext':'Wage/Pay-Rate/Hourly-Rate/Per-Job/etc...',
+    },
+    'Pay Period Length in Days':{
+        'type':'float',
+        'default':None,
+        'help':"how long is your pay-period in days?",
+        'ptext':'Pay-Period-Length',
+    },
+    'PayDay DTOE':{
+        'type':'datetime',
+        'default':None,
+        'help':"PayDay DTOE",
+        'ptext':'End DTOE',
+    },
+    'Pre-Tax Gross':{
+        'type':'float',
+        'default':None,
+        'help':"Gross after pre-tax deductions",
+        'ptext':'Pre-Tax Gross',
+    },
+    'Net Income':{
+        'type':'float',
+        'default':None,
+        'help':"Net Income after taxes",
+        'ptext':'Net Income',
+    },
+    'Remainder to Put Asside For Additional Taxes':{
+        'type':'float',
+        'default':None,
+        'help':"Remainder to Put Asside For Additional for target tax rate",
+        'ptext':'Remainder to Put Asside For Additional for target tax rate',
+    },
+    'Target Tax Rate':{
+        'type':'float',
+        'default':0.20,
+        'help':"Target Tax Rate",
+        'ptext':'Target Tax Rate',
+    },
+    }
+
+    return experimentName_Text(name='experimentName_payslip',fields=experimentName_shift_text_fields)

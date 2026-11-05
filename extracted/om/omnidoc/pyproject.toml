@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "omnidoc"
-version = "0.1.7"
+version = "0.1.8"
 description = "OmniDoc: world-leading AI office suite. Any-format conversion, layout-preserving translation in 38 languages, structured content extraction, native AI MCP for every document. Website: https://omnidoc.top/"
 readme = "README.md"
 requires-python = ">=3.9"

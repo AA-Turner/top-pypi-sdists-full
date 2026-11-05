@@ -470,7 +470,7 @@ def list_connectors(
     connector_type_filter: set[str] | None = None
     if connector_type:
         try:
-            connector_type_filter = _parse_connector_types(connector_type)
+            connector_type_filter = _parse_connector_types(connector_type)  # ty: ignore[invalid-assignment]
         except ValueError as e:
             exit_with_error(str(e))
 
@@ -896,7 +896,7 @@ def get_version(
     try:
         new_version = calculate_new_version(
             current_version=current_version,
-            bump_type=bump_type,
+            bump_type=bump_type,  # ty: ignore[invalid-argument-type]
         )
     except (InvalidVersionError, ValueError) as e:
         exit_with_error(str(e))
@@ -1509,7 +1509,7 @@ def changelog_check(
     else:
         result = check_changelog(
             repo_path=repo_path,
-            connector_name=connector_name,
+            connector_name=connector_name,  # ty: ignore[invalid-argument-type]
             lookback_days=lookback_days,
         )
         _print_check_result(result)
@@ -1606,7 +1606,7 @@ def changelog_fix(
     else:
         result = fix_changelog_dates(
             repo_path=repo_path,
-            connector_name=connector_name,
+            connector_name=connector_name,  # ty: ignore[invalid-argument-type]
             dry_run=dry_run,
             lookback_days=lookback_days,
         )

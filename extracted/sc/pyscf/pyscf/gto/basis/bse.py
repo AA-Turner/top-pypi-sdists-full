@@ -126,9 +126,9 @@ def _print_basis_information(basis):
     version = basis['version']
     revision_description = basis['revision_description']
     revision_date = basis['revision_date']
-    print('{} basis set, version {}'.format(name, version))
-    print('Last revised on {}'.format(revision_date))
-    print('Revision description: {}'.format(revision_description))
+    print(f'{name} basis set, version {version}')
+    print(f'Last revised on {revision_date}')
+    print(f'Revision description: {revision_description}')
 
 def get_basis(name, elements):
     '''
@@ -171,32 +171,3 @@ def autoabs(name, elements):
     obs = basis_set_exchange.api.get_basis(name, elements)
     auxbs = manip.autoabs_basis(obs)
     return _orbital_basis(auxbs)[0]
-
-if __name__ == '__main__':
-    from basis_set_exchange import api, references
-
-    # Get reference data
-    reference_data = api.get_reference_data()
-    #print(references)
-
-    o631gbas = api.get_basis('6-31g', elements='O')
-    #print('O 6-31G basis, BSE format\n{}'.format(o631gbas))
-    _print_basis_information(o631gbas)
-    o631gorb, o631gref = _orbital_basis(o631gbas)
-    print('O 6-31G orbital basis, PySCF format\n{}'.format(o631gorb))
-    print('Literature references')
-    for ref in o631gref:
-        print(references.reference_text(ref, reference_data[ref]))
-    print('')
-
-    nalanl2dzbas = api.get_basis('lanl2dz', elements='Na')
-    #print('Na LANL2DZ basis, BSE format\n{}'.format(nalanl2dzbas))
-    _print_basis_information(nalanl2dzbas)
-    nalanl2dzorb, nalanl2dzref = _orbital_basis(nalanl2dzbas)
-    print('Na LANL2DZ orbital basis, PySCF format\n{}'.format(nalanl2dzorb))
-    nalanl2dzecp = _ecp_basis(nalanl2dzbas)
-    print('Na LANL2DZ ECP basis, PySCF format\n{}'.format(nalanl2dzecp))
-    print('Literature references')
-    for ref in nalanl2dzref:
-        print(references.reference_text(ref, reference_data[ref]))
-    print('')

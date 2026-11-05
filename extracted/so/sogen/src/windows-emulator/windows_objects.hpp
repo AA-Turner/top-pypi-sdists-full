@@ -1,6 +1,7 @@
 #pragma once
 
 #include "handles.hpp"
+#include "io_device.hpp"
 #include "memory_manager.hpp"
 #include "filesystem/guest_file.hpp"
 
@@ -263,6 +264,7 @@ namespace sogen
     // across Windows builds (unlike the builtin control-class atoms, which vary per build and are
     // resolved through SERVERINFO.atomSysClass), so matching this canonical name is portable.
     inline constexpr std::u16string_view builtin_dialog_class_name = u"#32770";
+    inline constexpr uint16_t builtin_dialog_class_atom = 0x8002;
 
     inline std::u16string_view normalize_builtin_window_class_name(const std::u16string_view class_name)
     {
@@ -890,6 +892,8 @@ namespace sogen
         uint32_t file_mode{}; // FileModeInformation
         uint8_t drive_number{'c' - 'a' + 1};
         std::vector<directory_change_watch> change_watches{};
+        std::optional<device_completion_association> completion_association{};
+        ULONG completion_notification_flags{};
 
         bool is_file() const
         {
@@ -910,6 +914,8 @@ namespace sogen
             buffer.write(this->drive_number);
             buffer.write(this->handle);
             buffer.write_vector(this->change_watches);
+            buffer.write_optional(this->completion_association);
+            buffer.write(this->completion_notification_flags);
         }
 
         void deserialize_object(utils::buffer_deserializer& buffer) override
@@ -921,6 +927,8 @@ namespace sogen
             buffer.read(this->drive_number);
             buffer.read(this->handle);
             buffer.read_vector(this->change_watches);
+            buffer.read_optional(this->completion_association);
+            buffer.read(this->completion_notification_flags);
         }
     };
 

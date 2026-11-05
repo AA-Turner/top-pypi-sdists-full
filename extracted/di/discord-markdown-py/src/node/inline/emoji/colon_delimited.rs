@@ -5,19 +5,12 @@
 //! [`discord_emoji`], this module normalizes those colon-delimited emoji into their real
 //! characters.
 
-use std::marker::PhantomData;
+use discord_emoji::{EMOJI_BY_SHORTNAME, is_shortname_char};
 
-use discord_emoji::{EMOJI_BY_SHORTNAME, EMOJI_SHORTNAME_CHARS};
-use nom::{
-	IResult, Parser,
-	branch::alt,
-	bytes::complete::{tag, take_while_m_n, take_while1},
-	combinator::recognize,
-	error::ParseError,
-	sequence::delimited,
+use crate::{
+	Input,
+	error::{Fail, PResult},
 };
-
-use crate::Input;
 
 /// The delimiter for colon-delimited emoji.
 pub const DELIMITER: &str = ":";
@@ -26,74 +19,48 @@ pub const DELIMITER: &str = ":";
 ///
 /// # Errors
 /// If the content does not begin with a colon-delimited emoji.
-#[must_use]
-pub fn emoji<'data, E>() -> impl Parser<Input<'data>, Output = &'static str, Error = E>
-where
-	E: ParseError<Input<'data>>,
-{
-	ColonDelimitedParser(PhantomData)
+pub fn emoji(input: &mut Input) -> PResult<&'static str> {
+	input.tag(DELIMITER)?;
+	let name = match input.attempt(|input| {
+		input.recognize(|input| {
+			emoji_chars(input)?;
+			input.tag("::")?;
+			skin_tone(input)
+		})
+	})? {
+		Some(name) => name,
+		None => emoji_chars(input)?,
+	};
+	input.tag(DELIMITER)?;
+
+	EMOJI_BY_SHORTNAME.get(name).copied().ok_or(Fail::NoMatch)
 }
 
-struct ColonDelimitedParser<E>(PhantomData<E>);
-
-impl<'data, E> Parser<Input<'data>> for ColonDelimitedParser<E>
-where
-	E: ParseError<Input<'data>>,
-{
-	type Output = &'static str;
-	type Error = E;
-
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		delimited(
-			tag(DELIMITER),
-			alt((
-				recognize((parse_emoji_chars, tag("::"), parse_skin_tone())),
-				parse_emoji_chars,
-			)),
-			tag(DELIMITER),
-		)
-		.map_opt(|name| EMOJI_BY_SHORTNAME.get(name.content).copied())
-		.process::<OM>(input)
-	}
+fn emoji_chars<'data>(input: &mut Input<'data>) -> PResult<&'data str> {
+	input.take_while1(is_shortname_char)
 }
 
-fn parse_emoji_chars<'data, E>(input: Input<'data>) -> IResult<Input<'data>, Input<'data>, E>
-where
-	E: ParseError<Input<'data>>,
-{
-	take_while1(|ch| EMOJI_SHORTNAME_CHARS.contains(&ch)).parse_complete(input)
-}
-
-fn parse_skin_tone<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<Input<'data>>,
-{
+fn skin_tone(input: &mut Input) -> PResult<()> {
+	input.tag("skin-tone-")?;
 	// Multi-person emoji have up to 25 tones, one per pair of skin tones.
-	recognize((
-		tag("skin-tone-"),
-		take_while_m_n(1, 2, |ch: char| ch.is_ascii_digit()),
-	))
+	let digits = input.bytes().take(2).take_while(u8::is_ascii_digit).count();
+	if digits == 0 {
+		return Err(Fail::NoMatch);
+	}
+	input.advance(digits);
+	Ok(())
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
-	use crate::test_utils::handle_nom_err;
+	use crate::test_utils::run;
 
 	use super::emoji;
 
 	#[test]
 	fn basic_parse() {
 		let s = ":foot:";
-		let (rem, res) = emoji()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("able to parse");
+		let (rem, res) = run(s, emoji).expect("able to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(res, "🦶");
@@ -102,11 +69,7 @@ mod test {
 	#[test]
 	fn parse_with_skin_tone() {
 		let s = ":foot::skin-tone-1:";
-		let (rem, res) = emoji()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("able to parse");
+		let (rem, res) = run(s, emoji).expect("able to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(res, "🦶🏻");
@@ -115,11 +78,7 @@ mod test {
 	#[test]
 	fn parse_with_two_digit_skin_tone() {
 		let s = ":couple_mm::skin-tone-20:";
-		let (rem, res) = emoji()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("able to parse");
+		let (rem, res) = run(s, emoji).expect("able to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(res, "👨🏾‍❤️‍👨🏿");
@@ -128,6 +87,6 @@ mod test {
 	#[test]
 	fn rejects_three_digit_skin_tone() {
 		let s = ":couple_mm::skin-tone-200:";
-		assert!(emoji::<()>().parse_complete(s.into()).is_err());
+		assert!(run(s, emoji).is_err());
 	}
 }

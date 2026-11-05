@@ -5,7 +5,7 @@ import hashlib
 import os
 import subprocess
 from typing import Any
-from ....recording_rules import ignore as _ignore
+from ....recording_rules import recording_rules as _ignore
 from ... import owndirs as _owndirs
 from probe.sdk.capture.code.sources.directory import (
     DEFAULT_MAX_DIRECTORY_ENTRIES,
@@ -92,8 +92,12 @@ def capture_manifest(
     scan_budget_bytes: int | None = DEFAULT_MAX_UPLOAD_BYTES,
     ignore: _ignore.IgnoreRules | None = None,
     probe_remote: bool = True,
+    should_use_git: bool = True,
 ) -> dict[str, Any]:
     """Classify each captured file as bytes-to-upload or too-large-to-copy.
+
+    ``should_use_git=False`` runs no git at all (a fenced caller's command: git runs what the
+    repository's config names): the tree is walked as a plain directory.
 
     ``probe_remote=False`` skips `ls-remote` (the one network call): ``base_commit`` and
     ``remote`` read None, as for a tree with no pushed base. Run open passes it and asks
@@ -160,7 +164,7 @@ def capture_manifest(
             ignore=ignore,
         )
 
-    if not is_git_repo(cwd):
+    if not should_use_git or not is_git_repo(cwd):
         return as_directory()
     try:
         tracked = set(_git_paths(cwd, "ls-files", "-z", "--cached"))
@@ -202,8 +206,6 @@ def capture_manifest(
                 own_tops.add(top)
                 continue
         full = os.path.join(cwd, path)
-        if ignored.config_excluded(path):
-            continue  # a researcher's `.probe.config`: not even its name is recorded
         cache_top = caches.top(path)
         if cache_top is not None:
             cache_tops.add(cache_top)
@@ -314,7 +316,7 @@ def capture_manifest(
         "n_pending_upload": sum(1 for e in entries if e["source"] == "blob"),
         "n_referenced_offsite": sum(1 for e in entries if e["source"] == "reference"),
         "n_withheld": sum(1 for e in entries if e["source"] == "withheld"),
-        "skipped": ignored.unnamed(skipped),
+        "skipped": skipped,
         **({"n_probeignore": ignored.count} if ignored.count else {}),
     }
 from probe.sdk.capture.code.code import (  # noqa: E402 -- pieces need each other; the front door loads this one first

@@ -65,6 +65,10 @@ class RunsMixin:
         # 2.8: this handle writes under a lease (its beats and its close go to
         # /writers/{session}); None keeps the run-level heartbeat.
         run._lease = lease
+        # The OOM count at open, for a wrapper's `finish(exit_code=-9)` (`_status_for_exit`).
+        from ....run.launch.oom import OomCounter
+
+        run._oom_counter = OomCounter()
         # 0205. Marks every beat this handle sends as coming from inside the
         # work. Set only by the env-attach path; a launcher's handle leaves it
         # False so its beats keep the run live without claiming the job itself
@@ -196,7 +200,7 @@ class RunsMixin:
             run_kw["config"] = _coerce.to_config(run_kw["config"])
         if ignore is not None:
             # Checked before the run exists, so a bad value opens nothing.
-            from ....recording_rules import ignore as _ignore
+            from ....recording_rules import recording_rules as _ignore
 
             try:
                 ignore = _ignore.normalize(ignore)

@@ -1,7 +1,7 @@
 Metadata-Version: 2.5
 Name: schemathesis
-Version: 4.33.0
-Summary: Adaptive API testing for OpenAPI and GraphQL
+Version: 4.33.1
+Summary: Adaptive API testing for OpenAPI, GraphQL, and gRPC
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/schemathesis/schemathesis
@@ -11,7 +11,7 @@ Author-email: Dmitry Dygalo <dmitry@dygalo.dev>
 Maintainer-email: Dmitry Dygalo <dmitry@dygalo.dev>
 License-Expression: MIT
 License-File: LICENSE
-Keywords: adaptive,fuzzing,graphql,hypothesis,openapi,pytest,testing
+Keywords: adaptive,fuzzing,graphql,grpc,hypothesis,openapi,pytest,testing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Framework :: Hypothesis
@@ -79,7 +79,7 @@ Requires-Dist: seaborn>=0.13; extra == 'dev'
 Requires-Dist: strawberry-graphql[fastapi]>=0.109.0; extra == 'dev'
 Requires-Dist: syrupy<5.5,>=5.4; extra == 'dev'
 Requires-Dist: tomli-w>=1.2.0; extra == 'dev'
-Requires-Dist: tracecov>=0.21; extra == 'dev'
+Requires-Dist: tracecov>=0.26; extra == 'dev'
 Requires-Dist: trustme<2.0,>=0.9.0; extra == 'dev'
 Requires-Dist: uvicorn<1.0,>=0.20; extra == 'dev'
 Requires-Dist: webfuzzing-commons==0.13.0; extra == 'dev'
@@ -97,7 +97,7 @@ Provides-Extra: profiling
 Requires-Dist: pyinstrument>=5.1; extra == 'profiling'
 Provides-Extra: scripts
 Requires-Dist: seaborn>=0.13; extra == 'scripts'
-Requires-Dist: tracecov>=0.21; extra == 'scripts'
+Requires-Dist: tracecov>=0.26; extra == 'scripts'
 Provides-Extra: tests
 Requires-Dist: allure-pytest>=2.13.0; extra == 'tests'
 Requires-Dist: allure-python-commons>=2.13.0; extra == 'tests'
@@ -147,7 +147,7 @@ Description-Content-Type: text/markdown
 
 > **Catch API bugs before your users do.**
 
-Schemathesis tests OpenAPI, GraphQL and gRPC APIs by generating inputs from your schema, adapting to server responses, and chaining operations into realistic workflows.
+Schemathesis tests OpenAPI, GraphQL, and gRPC APIs by generating inputs from your schema, adapting to server responses, and chaining operations into realistic workflows.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/schemathesis/schemathesis/master/img/demo.gif" alt="Schemathesis automatically finding a server error"/>
@@ -174,8 +174,6 @@ uvx schemathesis run https://your-api.com/openapi.json
 uvx --from 'schemathesis[grpc]' schemathesis run grpc://localhost:50051
 ```
 
-Without reflection, or for TLS and metadata, see the [gRPC guide](https://schemathesis.readthedocs.io/en/stable/guides/grpc/).
-
 Schemathesis sends real requests that create, change and delete data. Point it at a dev or staging environment, not production.
 
 ## What problems does it solve?
@@ -192,12 +190,12 @@ Schemathesis sends real requests that create, change and delete data. Point it a
 
 - ⚙️ **Config file** - auth, phases, and per-operation overrides in [`schemathesis.toml`](https://schemathesis.readthedocs.io/en/stable/configuration/). No Python.
 - 🔐 **Authentication** - static headers, Basic, per-security-scheme credentials, or [custom refresh logic](https://schemathesis.readthedocs.io/en/stable/guides/auth/).
-- 🔗 **Stateful testing** - [operation links inferred from your OpenAPI schema, or the GraphQL type graph](https://schemathesis.readthedocs.io/en/stable/explanations/stateful/), no manual wiring.
+- 🔗 **Stateful testing** - [operation links inferred from your schema](https://schemathesis.readthedocs.io/en/stable/explanations/stateful/), no manual wiring.
 - 🧠 **Adaptive testing** - [learns constraints, ids, and auth from responses](https://schemathesis.readthedocs.io/en/stable/explanations/adaptive-testing/), reusing them mid-run.
 - ✅ **Custom checks** - [assert your own business rules](https://schemathesis.readthedocs.io/en/stable/guides/extending/#custom-validation-checks) next to the built-in ones.
 - 📖 **Fuzz dictionaries** - [mix real ids, wordlists, or LLM-generated payloads](https://schemathesis.readthedocs.io/en/stable/guides/fuzz-dictionary/) into generated data.
 - 🐌 **Rate limiting** - cap the request rate, or use `auto` to follow [`Retry-After` on 429](https://schemathesis.readthedocs.io/en/stable/reference/configuration/#rate-limit).
-- 📊 **Reports** - an [offline HTML page](https://schemathesis.readthedocs.io/en/stable/guides/html-report/) with every failure and its `curl` command, plus [JUnit, VCR, HAR, NDJSON, JSON](https://schemathesis.readthedocs.io/en/stable/reference/configuration/#reporting), and [Allure](https://schemathesis.readthedocs.io/en/stable/guides/allure/).
+- 📊 **Reports** - an [offline HTML page](https://schemathesis.readthedocs.io/en/stable/guides/html-report/) with every failure and a command to reproduce it, plus [JUnit, NDJSON, JSON, VCR, HAR](https://schemathesis.readthedocs.io/en/stable/reference/configuration/#reporting), and [Allure](https://schemathesis.readthedocs.io/en/stable/guides/allure/).
 - 🎯 **Schema coverage** - [keyword-level coverage report](https://schemathesis.readthedocs.io/en/stable/guides/coverage/) showing which constraints your tests exercised.
 - 🔁 **Replay & baseline** - [re-run past failures](https://schemathesis.readthedocs.io/en/stable/guides/crash-reproduction/) and [fail CI only on new ones](https://schemathesis.readthedocs.io/en/stable/guides/baseline/).
 

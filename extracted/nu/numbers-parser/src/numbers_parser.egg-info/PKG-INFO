@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numbers-parser
-Version: 4.22.0
+Version: 4.22.2
 Summary: Read and write Apple Numbers spreadsheets
 Author-email: Jon Connell <python@figsandfudge.com>
 License-Expression: MIT
@@ -313,9 +313,9 @@ Columns of data can have a number of transformations applied to them. The primar
 
 ```text
 usage: csv2numbers [-h] [-V] [--whitespace] [--reverse] [--no-header]
-                   [--day-first] [--date COLUMNS] [--rename COLUMNS-MAP]
-                   [--transform COLUMNS-MAP] [--delete COLUMNS]
-                   [-o [FILENAME ...]]
+                   [--day-first] [--date COLUMNS] [--encoding ENCODING]
+                   [--rename COLUMNS-MAP] [--transform COLUMNS-MAP]
+                   [--delete COLUMNS] [-o [FILENAME ...]]
                    [csvfile ...]
 
 positional arguments:
@@ -404,7 +404,6 @@ Current known limitations of `numbers-parser` which may be implemented in the fu
 - New tables are inserted with a fixed offset below the last table in a worksheet which does not take into account title or caption size
 - Captions can be created and edited as of numbers-parser version 4.12, but cannot be styled. New captions adopt the first caption style available in the current document
 - Formulas cannot be written to a document
-- Pivot tables are unsupported and saving a document with a pivot table issues a UnsupportedWarning (see [issue 73](https://github.com/masaccio/numbers-parser/issues/73) for details).
 - Tables which have been saved grouped cannot be safely edited as references to written cells refer to the ungrouped cell rows rather than the row number in the groups.
 
 The following limitations are expected to always remain:

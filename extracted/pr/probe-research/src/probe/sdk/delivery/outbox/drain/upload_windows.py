@@ -235,10 +235,16 @@ def _many_item(journal, op: dict, client: Any):
         or not upload_many.available(client)
     ):
         return None
-    source = journal.blob_path(op) or Path(upload["src_path"])
+    from ...journal.uploads import is_drain_fenced, need_staged_bytes
+
+    source = journal.blob_path(op)
+    if source is None and is_drain_fenced():
+        return None  # sent alone, where its source file is refused (H1)
+    source = source or Path(upload["src_path"])
     try:
         if not source.is_file():
             return None
+        need_staged_bytes(source)  # a fenced caller's: alone, `_execute` dead-letters it (H1)
         view = json.loads(json.dumps(op))
         for value in view.values():
             unstorable.has_nul(value)

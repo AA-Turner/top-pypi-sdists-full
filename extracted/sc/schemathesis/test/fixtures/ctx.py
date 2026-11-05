@@ -241,6 +241,14 @@ class OpenAPIApps:
     def stateful_users(self, *modifiers: Modifier[openapi_stateful.UserStore]) -> OpenAPIServer:
         return _start(self.parent, openapi_stateful.stateful_users(*modifiers))
 
+    def replay_inferred_list_link(
+        self, *, item_ids: list[int], failing: bool, consumer: Literal["path", "body"] = "path"
+    ) -> OpenAPIServer:
+        return _start(
+            self.parent,
+            openapi_stateful.replay_inferred_list_link(item_ids=item_ids, failing=failing, consumer=consumer),
+        )
+
     def flaky_branch_blocks(self) -> OpenAPIServer:
         return _start(self.parent, openapi_stateful.flaky_branch_blocks())
 
@@ -525,8 +533,8 @@ class GraphQLApps:
     def use_after_create(self) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.use_after_create())
 
-    def generic_id_pool(self) -> GraphQLServer:
-        return _start(self.parent, graphql_bookstore.generic_id_pool())
+    def generic_id_pool(self, *, fixed: bool = False) -> GraphQLServer:
+        return _start(self.parent, graphql_bookstore.generic_id_pool(fixed=fixed))
 
     def input_object_pool(self) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.input_object_pool())
@@ -542,6 +550,9 @@ class GraphQLApps:
 
     def relay_connection(self) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.relay_connection())
+
+    def unknown_id_failure(self) -> GraphQLServer:
+        return _start(self.parent, graphql_bookstore.unknown_id_failure())
 
     def tombstone_pool(self) -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.tombstone_pool())
@@ -588,6 +599,7 @@ class GrpcApps:
         tls: bool = False,
         client_auth: bool = False,
         reflection: str | None = "v1alpha",
+        reflection_services: tuple[str, ...] = ("pkg.Users", "pkg.Admin", "grpc.health.v1.Health"),
         undescribed_services: tuple[str, ...] = (),
         reflection_imports: bool = True,
         unserved_files: tuple[str, ...] = (),
@@ -604,6 +616,7 @@ class GrpcApps:
             tls=tls,
             client_auth=client_auth,
             reflection_version=reflection,
+            reflection_services=reflection_services,
             undescribed_services=undescribed_services,
             reflection_imports=reflection_imports,
             unserved_files=unserved_files,
@@ -628,10 +641,10 @@ class GrpcApps:
 
         return self._serve(side_effects())
 
-    def library(self) -> GrpcServer:
+    def library(self, *, fixed: bool = False) -> GrpcServer:
         from test.apps.catalog.grpc.users import library
 
-        return self._serve(library())
+        return self._serve(library(fixed=fixed))
 
     def envelope(self) -> GrpcServer:
         from test.apps.catalog.grpc.users import envelope

@@ -2,7 +2,7 @@ from collections.abc import AsyncGenerator
 
 import pytest
 
-from surrealdb import UnexpectedResponseError
+from surrealdb import StringRecordId, UnexpectedResponseError
 from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 
 
@@ -30,13 +30,13 @@ async def test_transaction_commit(
     txn = await session.begin_transaction()
 
     await txn.create(
-        "session_txn_test:committed",
+        StringRecordId("session_txn_test:committed"),
         {"name": "txn-commit", "value": 42},
     )
 
     before_commit = await session.query(
         "SELECT * FROM session_txn_test WHERE id = session_txn_test:committed;"
-    )
+    ).first()
     assert isinstance(before_commit, list)
     assert len(before_commit) == 0
 
@@ -44,7 +44,7 @@ async def test_transaction_commit(
 
     after_commit = await session.query(
         "SELECT * FROM session_txn_test WHERE id = session_txn_test:committed;"
-    )
+    ).first()
     assert isinstance(after_commit, list)
     assert len(after_commit) == 1
     assert after_commit[0].get("name") == "txn-commit"
@@ -67,7 +67,7 @@ async def test_transaction_cancel(
     txn = await session.begin_transaction()
 
     await txn.create(
-        "session_txn_test:cancelled",
+        StringRecordId("session_txn_test:cancelled"),
         {"name": "txn-cancel", "value": 99},
     )
 
@@ -75,7 +75,7 @@ async def test_transaction_cancel(
 
     after_cancel = await session.query(
         "SELECT * FROM session_txn_test WHERE id = session_txn_test:cancelled;"
-    )
+    ).first()
     assert isinstance(after_cancel, list)
     assert len(after_cancel) == 0
 
@@ -96,26 +96,27 @@ async def test_transaction_query_select(
     txn = await session.begin_transaction()
 
     await txn.create(
-        "session_txn_test:txn_query",
+        StringRecordId("session_txn_test:txn_query"),
         {"name": "txn-query", "value": 1},
     )
-    result = await txn.query("SELECT * FROM session_txn_test:txn_query;")
+    result = await txn.query("SELECT * FROM session_txn_test:txn_query;").first()
     assert isinstance(result, list)
     assert len(result) == 1
     assert result[0].get("name") == "txn-query"
 
-    selected = await txn.select("session_txn_test:txn_query")
+    selected = await txn.select(StringRecordId("session_txn_test:txn_query"))
     assert selected is not None
     assert selected.get("name") == "txn-query"
 
     await txn.commit()
     await session.close_session()
 
+
 @pytest.mark.asyncio
 async def test_transaction_begin_uuid_v3(
-        async_ws_connection: AsyncWsSurrealConnection,
-        connection_params: dict,
-        setup_table: None,
+    async_ws_connection: AsyncWsSurrealConnection,
+    connection_params: dict,
+    setup_table: None,
 ) -> None:
     session = await async_ws_connection.new_session()
     await session.use(

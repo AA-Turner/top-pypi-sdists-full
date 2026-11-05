@@ -25,6 +25,8 @@ fn main() {
 
 	let mut prototypes_by_source = Map::new();
 	let mut sources_by_prototype = HashMap::<String, Vec<char>>::new();
+	let mut ascii_prototypes: Vec<String> =
+		(0..128u8).map(|byte| char::from(byte).into()).collect();
 
 	for line in data.lines() {
 		if line.is_empty() || line.starts_with("#") {
@@ -42,6 +44,9 @@ fn main() {
 		let origin = char_from_hex(origin.trim());
 		let destination = str_from_hex(destination.trim());
 
+		if origin.is_ascii() {
+			ascii_prototypes[origin as usize].clone_from(&destination);
+		}
 		prototypes_by_source.entry(origin, format!("\"{}\"", destination.escape_unicode()));
 		sources_by_prototype
 			.entry(destination)
@@ -58,6 +63,19 @@ fn main() {
 pub static PROTOTYPES_BY_SOURCE: phf::Map<char, &'static str> = {};
 "#,
 		prototypes_by_source.build()
+	)
+	.expect("unable to write target file");
+
+	write!(
+		&mut dest,
+		r#"/// The prototype of each ASCII character, which is the character itself when it has none.
+pub static ASCII_PROTOTYPES: [&str; 128] = [{}];
+"#,
+		ascii_prototypes
+			.iter()
+			.map(|prototype| format!("\"{}\"", prototype.escape_unicode()))
+			.collect::<Vec<_>>()
+			.join(", ")
 	)
 	.expect("unable to write target file");
 

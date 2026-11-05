@@ -22,8 +22,8 @@ description = "H2O Python Clients Authentication Helpers"
 license = "Apache-2.0"
 name = "h2o-authn"
 readme = "README.md"
-requires-python = ">=3.9"
-version = "3.1.0"
+requires-python = ">=3.11"
+version = "4.0.0"
 
 [project.urls]
 Documentation = "https://github.com/h2oai/authn-py#readme"
@@ -38,11 +38,11 @@ discovery = ["h2o-cloud-discovery>=1.1,<4.0"]
 
 [[tool.hatch.envs.test.matrix]]
 httpx = ["httpx0.23", "httpx0.24", "httpx0.25", "httpx0.26", "httpx0.27", "httpx0.28"]
-python = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+python = ["3.11", "3.12", "3.13"]
 
 [[tool.hatch.envs.test.matrix]]
 httpx = ["httpx0.25", "httpx0.26", "httpx0.27", "httpx0.28"]
-python = ["3.14"]
+python = ["3.14", "3.15"]
 
 [tool.hatch.envs.test.overrides]
 matrix.httpx.dependencies = [
@@ -56,10 +56,10 @@ matrix.httpx.dependencies = [
 
 [tool.hatch.envs.test]
 dependencies = [
-  "pytest-asyncio~=0.21",
-  "pytest~=7.2",
+  "pytest-asyncio~=1.4",
+  "pytest~=9.1",
   "respx>=0.16",
-  "time-machine~=2.10",
+  "time-machine~=3.5",
 ]
 dev-mode = false
 features = ["discovery"]
@@ -73,8 +73,8 @@ template = "test"
 
 [tool.hatch.envs.lint]
 dependencies = [
-  "mypy~=1.1",
-  "ruff==0.1.11",
+  "mypy~=2.4",
+  "ruff==0.17",
 ]
 features = ["discovery"]
 
@@ -99,16 +99,17 @@ dependencies = [
 generate = "pydoc-markdown"
 
 [tool.ruff]
-extend-select = ["I", "B", "A", "ERA"]
 line-length = 88 # Same as black.
 src = ["src", "test"]
-target-version = "py37"
 
 [tool.ruff.format]
 docstring-code-format = true
 skip-magic-trailing-comma = true
 
-[tool.ruff.isort]
+[tool.ruff.lint]
+extend-select = ["I", "B", "A", "ERA"]
+
+[tool.ruff.lint.isort]
 case-sensitive = false
 force-single-line = true
 force-sort-within-sections = true

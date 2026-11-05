@@ -124,9 +124,9 @@ def general(mydf, mo_coeffs, kpts=None,
 
     if gamma_point(kptijkl) and allreal:
         ao = mydf._numint.eval_ao(cell, coords, kpti)[0]
-        if ((iden_coeffs(mo_coeffs[0], mo_coeffs[1]) and
+        if (iden_coeffs(mo_coeffs[0], mo_coeffs[1]) and
              iden_coeffs(mo_coeffs[0], mo_coeffs[2]) and
-             iden_coeffs(mo_coeffs[0], mo_coeffs[3]))):
+             iden_coeffs(mo_coeffs[0], mo_coeffs[3])):
             moiT = mojT = numpy.asarray(lib.dot(mo_coeffs[0].T,ao.T), order='C')
             ao = None
             max_memory = max_memory - moiT.nbytes*1e-6
@@ -391,7 +391,7 @@ def ao2mo_7d(mydf, mo_coeff_kpts, kpts=None, factor=1, out=None):
     fswap = lib.H5TmpFile()
     kconserv = kpts_helper.get_kconserv(cell, kpts)
     for uniq_id, kpt in enumerate(uniq_kpts):
-        q = uniq_kpts[uniq_id]
+        q = kpt
         adapted_ji_idx = numpy.where(uniq_inverse == uniq_id)[0]
         ki = adapted_ji_idx[0] // nkpts
         kj = adapted_ji_idx[0] % nkpts
@@ -446,39 +446,3 @@ def _iskconserv(cell, kpts):
         s = 1./(2*numpy.pi)*numpy.dot(dk, cell.lattice_vectors().T)
         s_int = s.round(0)
         return abs(s - s_int).sum() < 1e-9
-
-
-if __name__ == '__main__':
-    import pyscf.pbc.gto as pgto
-    from pyscf.pbc import df
-
-    L = 5.
-    n = 11
-    cell = pgto.Cell()
-    cell.a = numpy.diag([L,L,L])
-    cell.mesh = numpy.array([n,n,n])
-
-    cell.atom = '''He    3.    2.       3.
-                   He    1.    1.       1.'''
-    #cell.basis = {'He': [[0, (1.0, 1.0)]]}
-    #cell.basis = '631g'
-    #cell.basis = {'He': [[0, (2.4, 1)], [1, (1.1, 1)]]}
-    cell.basis = 'ccpvdz'
-    cell.verbose = 0
-    cell.build(0,0)
-
-    nao = cell.nao_nr()
-    numpy.random.seed(1)
-    kpts = numpy.random.random((4,3))
-    kpts[3] = -numpy.einsum('ij->j', kpts[:3])
-    with_df = df.FFTDF(cell)
-    with_df.kpts = kpts
-    mo =(numpy.random.random((nao,nao)) +
-         numpy.random.random((nao,nao))*1j)
-    eri = with_df.get_eri(kpts).reshape((nao,)*4)
-    eri0 = numpy.einsum('pjkl,pi->ijkl', eri , mo.conj())
-    eri0 = numpy.einsum('ipkl,pj->ijkl', eri0, mo       )
-    eri0 = numpy.einsum('ijpl,pk->ijkl', eri0, mo.conj())
-    eri0 = numpy.einsum('ijkp,pl->ijkl', eri0, mo       ).reshape(nao**2,-1)
-    eri1 = with_df.ao2mo(mo, kpts)
-    print(abs(eri1-eri0.reshape(eri1.shape)).sum())

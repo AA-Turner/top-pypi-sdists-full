@@ -1,24 +1,18 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, sync::LazyLock};
 
-use enumset::{EnumSet, EnumSetType};
-use global_terminal_sequence::{GlobalTerminalSequence, GlobalTerminalSequenceSet};
-use nom::Parser;
-use terminal_sequence::TerminalSequence;
+use enumset::{EnumSet, EnumSetType, enum_set};
 
-use crate::{
-	error::ParseError,
-	scope::line_prefix::{LINE_PREFIX_SCOPES, LinePrefix},
-};
+use crate::error::{Fail, PResult};
 
 use super::{
 	Input,
-	node::inline::link,
+	node::{block::quote, inline::link},
 	syntax::{Syntax, SyntaxSet},
+	util::ByteSet,
 };
 
-mod global_terminal_sequence;
-mod line_prefix;
-mod terminal_sequence;
+/// The scopes that require a prefix at the start of each of their lines.
+pub const LINE_PREFIX_SCOPES: ScopeSet = enum_set!(Scope::Quote);
 
 /// A region of input that a parser has entered, which shapes how the parsers inside it behave.
 ///
@@ -49,56 +43,111 @@ pub enum Scope {
 	MaskedLinkLink,
 }
 
+/// What ends a [`Scope`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Terminal {
+	/// Nothing: the scope runs to the end of its parent.
+	None,
+	/// A line ending, or the end of the input.
+	LineEnd,
+	/// This byte.
+	Byte(u8),
+}
+
 impl Scope {
-	/// Get the terminal character for this scope, upon which any child parsers should immediately
-	/// yield back to the parent parser. The parent should attempt to consume this character before
-	/// yielding to its parent.
+	/// Whether this scope terminates every parser inside it at `input`, not only its own.
 	///
-	/// This is distinct from [`Scope::terminal_sequence`] in that this applies to _any_ child
-	/// parser, whereas the former method only applies to the current scope. Practically this
-	/// means that [`Scope::terminal_sequence`] serves to terminate a scope only when no other
-	/// syntax has started.
-	///
-	/// This behavior is entirely useful in the context of [`super::node::Element::Paragraph`] nodes
-	/// which terminate on newline but do not force children to terminate on newline. No other scopes
-	/// rely on this behavior; the vast majority of scopes should match
-	/// [`Scope::terminal_sequence`] with this value.
-	///
-	/// The default behavior falls back to [`Scope::terminal_sequence`], which most scopes should
-	/// leave as-is.
+	/// This differs from [`Scope::ends_at`] only for [`Scope::InlineBlock`]: a paragraph ends at a
+	/// line ending, but does not force the syntax inside it to.
 	// TODO: investigate if we can consolidate everything to a global terminal somehow
 	#[must_use]
-	pub fn global_terminal_sequence<'data, E>(
-		self,
-	) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-	where
-		E: ParseError<'data>,
-	{
-		GlobalTerminalSequence(self, PhantomData)
+	pub fn ends_everything_at(self, input: &Input) -> bool {
+		self != Self::InlineBlock && self.ends_at(input)
 	}
 
-	/// Define the terminal sequence of the scope. This is a parser that matches whatever
-	/// denotes the end of the scope.
+	/// Whether this scope's terminal sequence begins `input`.
 	#[must_use]
-	pub fn terminal_sequence<'data, E>(
-		self,
-	) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-	where
-		E: ParseError<'data>,
-	{
-		TerminalSequence(self, PhantomData)
+	pub fn ends_at(self, input: &Input) -> bool {
+		let mut lookahead = *input;
+		self.terminal_sequence(&mut lookahead).is_ok()
 	}
 
-	/// The prefix this scope requires at the start of each of its lines. Scopes that are not
-	/// containers match the empty string; see [`LinePrefix`].
+	/// What ends this scope.
 	#[must_use]
-	pub fn line_prefix<'data, E>(
-		self,
-	) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-	where
-		E: ParseError<'data>,
-	{
-		LinePrefix(self, PhantomData)
+	pub fn terminal(self) -> Terminal {
+		match self {
+			Self::None | Self::QuoteRest => Terminal::None,
+			Self::InlineBlock | Self::Block | Self::Quote => Terminal::LineEnd,
+			Self::AutoLink => Terminal::Byte(link::auto::TERMINAL),
+			Self::MaskedLinkText => Terminal::Byte(link::masked::TEXT_TERMINAL),
+			Self::MaskedLinkLink => Terminal::Byte(link::masked::LINK_TERMINAL),
+		}
+	}
+
+	/// Consume whatever denotes the end of the scope.
+	///
+	/// # Errors
+	/// If the input does not begin with it.
+	pub fn terminal_sequence(self, input: &mut Input) -> PResult<()> {
+		match self.terminal() {
+			Terminal::None => Err(Fail::NoMatch),
+			Terminal::LineEnd => input.line_ending_or_eof().map(|_| ()),
+			Terminal::Byte(byte) => input.byte(byte),
+		}
+	}
+
+	/// Add every byte that can begin [`Self::terminal_sequence`], or the opener of this scope's
+	/// [`Self::bracket_delimiters`], to `bytes`. The end of the input is a terminal too, but has no
+	/// byte.
+	pub fn insert_boundary_bytes(self, bytes: &mut ByteSet) {
+		match self.terminal() {
+			Terminal::None => {}
+			Terminal::LineEnd => bytes.extend(*b"\n\r"),
+			Terminal::Byte(byte) => bytes.insert(byte),
+		}
+		bytes.extend(self.bracket_delimiters().map(|(open, _)| open));
+	}
+
+	/// Whether `byte` is one that [`Self::insert_boundary_bytes`] adds for any scope.
+	#[must_use]
+	pub fn is_boundary_byte(byte: u8) -> bool {
+		static BOUNDARIES: LazyLock<ByteSet> = LazyLock::new(|| {
+			let mut bytes = ByteSet::default();
+			for scope in ScopeSet::all() {
+				scope.insert_boundary_bytes(&mut bytes);
+			}
+			bytes
+		});
+
+		BOUNDARIES.contains(byte)
+	}
+
+	/// Consume the prefix this scope requires at the start of each of its lines. Scopes that are
+	/// not containers consume nothing.
+	///
+	/// # Errors
+	/// If the input does not begin with the prefix.
+	pub fn line_prefix<'data>(self, input: &mut Input<'data>) -> PResult<&'data str> {
+		match self {
+			// `>` plus exactly one space on a content line, or a bare `>` on an otherwise empty
+			// line. The latter leaves the line ending for the block loop to turn into an
+			// `Element::Empty`.
+			//
+			// Only one space belongs to the prefix: the rest is content, and multi-line block rules
+			// need it to measure their own indentation. Consuming it greedily would flatten
+			// `>   - bar` onto column zero, which would flatten lists.
+			Self::Quote => input.recognize(|input| {
+				input.char(quote::LINE_PREFIX)?;
+				if !input.at_line_end() {
+					input.satisfy(|ch| matches!(ch, ' ' | '\t'))?;
+				}
+				Ok(())
+			}),
+			scope => {
+				debug_assert!(!LINE_PREFIX_SCOPES.contains(scope));
+				Ok("")
+			}
+		}
 	}
 
 	/// Whether this scope is a container that requires a prefix at the start of each of its
@@ -135,13 +184,18 @@ impl Scope {
 /// A set of scopes.
 pub type ScopeSet = EnumSet<Scope>;
 
-/// Parse global terminals.
-#[must_use]
-pub fn global_terminals<'data, E>(
-	set: ScopeSet,
-) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<'data>,
-{
-	GlobalTerminalSequenceSet(set, PhantomData)
+#[cfg(test)]
+mod test {
+	use enumset::enum_set;
+
+	use super::{LINE_PREFIX_SCOPES, Scope};
+
+	#[test]
+	fn set_consistency() {
+		assert_eq!(
+			enum_set!(Scope::Quote),
+			LINE_PREFIX_SCOPES,
+			"if this test fails, update either the set or the logic"
+		);
+	}
 }

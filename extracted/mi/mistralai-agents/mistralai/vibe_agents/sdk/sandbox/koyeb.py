@@ -4,18 +4,22 @@ import asyncio
 import base64
 import gzip
 import hashlib
+import json
 import math
+import re
 import shlex
 import time
 import uuid
 import warnings
-from collections.abc import Mapping
-from contextlib import suppress
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager, suppress
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, Self, cast
 from uuid import UUID
 
 import httpx
+import structlog
+import temporalio.activity
 import temporalio.workflow
 from pydantic import BaseModel, Field, JsonValue, SecretStr, model_validator
 from temporalio.exceptions import ApplicationError
@@ -26,6 +30,7 @@ from mistralai.vibe.harness.runtime.hosts.workflows.sandbox import (
     SANDBOX_EXECUTE_ACTIVITY_TIMEOUT,
     WorkflowSandboxExecuteRequest,
     WorkflowSandboxExecuteResult,
+    WorkflowSandboxLostError,
     WorkflowSandboxReadFileRequest,
     WorkflowSandboxReadFileResult,
     WorkflowSandboxUnavailableError,
@@ -52,6 +57,7 @@ from mistralai.vibe.harness.runtime.hosts.workflows.sandbox_files import (
 from mistralai.vibe.harness.runtime.hosts.workflows.sandbox_resources import WorkflowSandboxResource
 from mistralai.vibe.harness.runtime.http import build_ssl_context
 from mistralai.vibe.harness.runtime.model import RuntimeModel
+from mistralai.vibe.harness.runtime.sandbox_loss import is_sandbox_lost_error
 from mistralai.vibe.harness.runtime.session.configuration import DeclaredBashMaxTimeout
 from mistralai.vibe_agents.sdk.app.config import (
     DEFAULT_SESSION_LIFETIME_SECONDS,
@@ -77,6 +83,7 @@ from .koyeb_proxy import (
     build_github_proxy_token_renewal,
     build_github_proxy_token_renewal_command,
 )
+from .metrics import NOOP_SANDBOX_METRICS, SandboxMetrics, is_cancellation, sandbox_create_failure_reason
 from .proxy_environment import bootstrap_command, with_proxy_environment
 from .proxy_integrations import (
     GitHubProxyConfig,
@@ -97,6 +104,8 @@ from .refusal import (
 if TYPE_CHECKING:
     from mistralai.vibe_agents.sdk.assembly.sandbox import AgentsSdkSandbox
 
+logger = structlog.get_logger(__name__)
+
 _PROXY_SETUP_TIMEOUT_SECONDS = 60
 _SANDBOX_PROXY_BOOTSTRAP_ACTIVITY_PATCH = "agents-sdk-koyeb-sandbox-proxy-bootstrap-v2"
 # The file tools reach only the workspace and /tmp, so written files live under /tmp.
@@ -107,6 +116,8 @@ _KOYEB_API_NAME_MAX_LENGTH = 64
 # that wrapper or the API rejects the app name as too long.
 _KOYEB_SDK_APP_NAME_OVERHEAD = len("sandbox-app-") + 1 + 10
 _SANDBOX_NAME_MAX_LENGTH = _KOYEB_API_NAME_MAX_LENGTH - _KOYEB_SDK_APP_NAME_OVERHEAD
+_ROOT_SESSION_HASH_LENGTH = 16
+SANDBOX_BORROW_REFUSED_ERROR_TYPE = "SandboxBorrowRefused"
 # Commands run in the workspace, which an arbitrary image does not provide.
 _KOYEB_ENSURE_WORKSPACE_COMMAND = f"mkdir -p {shlex.quote(DEFAULT_WORKSPACE)}"
 _KOYEB_BASIC_READINESS_PROBE = ("echo ok", "ok")
@@ -253,7 +264,9 @@ class KoyebSandboxDriver(SandboxDriver):
         restored_state: JsonObject | None,
         *,
         proxy_identity: Mapping[str, str] | None = None,
+        metrics: SandboxMetrics = NOOP_SANDBOX_METRICS,
     ) -> None:
+        self._metrics = metrics
         self._definition = (
             authored if isinstance(authored, KoyebSandboxDefinition) else KoyebSandboxDefinition.from_authored(authored)
         )
@@ -293,14 +306,32 @@ class KoyebSandboxDriver(SandboxDriver):
             await self.attach()
             return
         requested_at = determinism.now().timestamp()
-        result = await _koyeb_create_v2(
-            KoyebCreateRequest(
-                # Sandbox creation does not use proxy configuration. Keeping it out of this
-                # durable payload lets old and new workers process the same create activity
-                # while proxy configuration models evolve independently.
-                definition=self._definition.model_copy(update={"proxy": None, "setup_script": None}),
-                name=_koyeb_sandbox_name(self._definition.name_prefix, identity),
+        try:
+            result = await _koyeb_create_v2(
+                KoyebCreateRequest(
+                    # Sandbox creation does not use proxy configuration. Keeping it out of this
+                    # durable payload lets old and new workers process the same create activity
+                    # while proxy configuration models evolve independently.
+                    definition=self._definition.model_copy(update={"proxy": None, "setup_script": None}),
+                    name=_koyeb_sandbox_name(self._definition.name_prefix, identity),
+                )
             )
+        except Exception as error:
+            if not is_cancellation(error):
+                self._metrics.record_sandbox_create(
+                    sandbox="mistral",
+                    source="unknown",
+                    outcome="failure",
+                    reason=sandbox_create_failure_reason(error),
+                    duration_seconds=_seconds_since(requested_at),
+                )
+            raise
+        self._metrics.record_sandbox_create(
+            sandbox="mistral",
+            source="pool" if result.claimed else "fresh",
+            outcome="success",
+            reason="none",
+            duration_seconds=_seconds_since(requested_at),
         )
         self._state = {**result.state, "lease_deadline": requested_at + self._definition.ttl_seconds}
         self._claimed = result.claimed
@@ -339,6 +370,23 @@ class KoyebSandboxDriver(SandboxDriver):
         self._state = {}
 
     async def execute(self, request: WorkflowSandboxExecuteRequest) -> WorkflowSandboxExecuteResult:
+        started_at = determinism.now().timestamp()
+        try:
+            result = await self._execute(request)
+        except Exception as error:
+            if not is_cancellation(error):
+                self._metrics.record_sandbox_exec(
+                    sandbox="mistral", outcome="error", duration_seconds=_seconds_since(started_at)
+                )
+            raise
+        self._metrics.record_sandbox_exec(
+            sandbox="mistral",
+            outcome="success" if result.exit_code == 0 else "nonzero_exit",
+            duration_seconds=_seconds_since(started_at),
+        )
+        return result
+
+    async def _execute(self, request: WorkflowSandboxExecuteRequest) -> WorkflowSandboxExecuteResult:
         command = request.command
         if request.operation_name != "sandbox_proxy":
             await self.ensure_proxy_credentials()
@@ -491,6 +539,7 @@ async def open_borrowed_koyeb_sandbox(
     authored: contracts.Sandbox,
     host: "AgentsSdkSandbox",
     *,
+    root_session_id: UUID,
     restored: WorkflowSandboxContinuation | None,
     bash_max_timeout: DeclaredBashMaxTimeout,
 ) -> WorkflowSandboxResource:
@@ -499,14 +548,22 @@ async def open_borrowed_koyeb_sandbox(
     The child gets the same driver, Sandbox Proxy and command preparation as the
     root, from the same authored binding. Only ownership differs: the child never
     runs the Sandbox's lifecycle hooks and never deletes it. A first open looks the
-    Sandbox up once by its service identity; a continued child reopens from its own
-    carried state, like a continued root.
+    Sandbox up once by its service identity and refuses a Sandbox its root did not
+    provision; a continued child reopens from its own carried state, like a continued
+    root, since only an attach that passed that check produced it.
     """
 
     if not isinstance(authored, contracts.MistralSandbox) or not isinstance(host.definition, CustomSandboxDefinition):
         raise ValueError("Borrowed Koyeb Sandbox requires a Koyeb worker binding")
     if restored is None or restored.provider_state is None:
-        attached = await _koyeb_attach(KoyebAttachRequest(service_id=str(reference.service_id)))
+        attached = await _koyeb_attach(
+            KoyebAttachRequest(
+                service_id=str(reference.service_id),
+                root_session_id=root_session_id,
+                # From the worker's own binding, never from the child's start input.
+                pre_provisioned_service_id=authored.pre_provisioned_sandbox_id,
+            )
+        )
         restored = WorkflowSandboxContinuation(
             sandbox=ReadySandbox(generation=1, attempt=1, provider_state=attached.state),
             session_started=True,
@@ -522,7 +579,12 @@ async def open_borrowed_koyeb_sandbox(
 
 
 class KoyebAttachRequest(RuntimeModel):
+    """A child's request to borrow a root's Sandbox. Its start input names the Sandbox, so nothing here is trusted
+    until the attach checks it against what Koyeb reports for the service."""
+
     service_id: str = Field(min_length=1)
+    root_session_id: UUID
+    pre_provisioned_service_id: str | None = None
 
 
 class KoyebCreateRequest(RuntimeModel):
@@ -605,6 +667,7 @@ class _KoyebSandbox(Protocol):
     sandbox_id: str
     app_id: str
     service_id: str
+    name: str | None
     sandbox_secret: str | None
     _sandbox_url: tuple[str, str | None] | None
 
@@ -628,7 +691,12 @@ class KoyebProxyResource:
             _KoyebProxyIntegrationEffects(integration=integration, driver=driver)
             for integration in definition.integrations
         )
-        self._lifecycle = SandboxProxyLifecycle(effects=effects, delete=driver.delete, now=_epoch_seconds)
+        self._lifecycle = SandboxProxyLifecycle(
+            effects=effects,
+            delete=driver.delete,
+            now=_epoch_seconds,
+            preserve_error=is_sandbox_lost_error,
+        )
         self._integrations = definition.integrations
 
     async def configure(self) -> None:
@@ -725,6 +793,10 @@ async def _wait_until_koyeb_sandbox_ready(
     raise RuntimeError(f"{probe_name} probe failed")
 
 
+def _seconds_since(started_at: float) -> float:
+    return max(determinism.now().timestamp() - started_at, 0.0)
+
+
 def _koyeb_sandbox_state(sandbox: _KoyebSandbox, access: KoyebApiAccess) -> JsonObject:
     """Durable sandbox state. It enters Workflow history, so it never holds the sandbox secret.
 
@@ -755,17 +827,74 @@ async def _koyeb_sandbox_secret(service_id: str, access: KoyebApiAccess) -> Secr
             await AsyncSandbox.get_from_id(id=service_id, api_token=access.token, host=access.host),
         )
     except Exception as error:
-        if _is_gone_koyeb_sandbox_error(error):
-            raise WorkflowSandboxUnavailableError("Koyeb sandbox no longer exists") from error
+        if _is_confirmed_koyeb_sandbox_absence(error):
+            raise WorkflowSandboxLostError("Koyeb sandbox no longer exists") from error
         raise
     return koyeb_secrets.put(sandbox)
 
 
-def _is_gone_koyeb_sandbox_error(error: Exception) -> bool:
-    if isinstance(error, httpx.HTTPStatusError) and error.response.status_code == 404:
-        return True
-    message = str(error).lower()
-    return "not found" in message or "no longer exist" in message
+def _is_confirmed_koyeb_sandbox_absence(error: BaseException) -> bool:
+    """Whether a Koyeb control-plane cause proves that the Sandbox is absent."""
+
+    try:
+        from koyeb.api_async.exceptions import NotFoundException  # type: ignore[import-untyped]  # noqa: PLC0415
+    except ImportError:
+        return False
+
+    current: BaseException | None = error
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if (
+            isinstance(current, NotFoundException)
+            and current.status == 404
+            and _koyeb_provider_error_code(current) == "not_found"
+        ):
+            return True
+        # Only explicit causes: the Koyeb SDK chains its typed 404 with `from`.
+        current = current.__cause__
+    return False
+
+
+def _koyeb_provider_error_code(error: BaseException) -> str | None:
+    data = getattr(error, "data", None)
+    if isinstance(data, Mapping):
+        code = data.get("code")
+    else:
+        code = getattr(data, "code", None)
+    if isinstance(code, str):
+        return code
+
+    body = getattr(error, "body", None)
+    if not isinstance(body, str):
+        return None
+    try:
+        decoded = json.loads(body)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(decoded, dict):
+        return None
+    code = decoded.get("code")
+    return code if isinstance(code, str) else None
+
+
+async def _confirm_koyeb_sandbox_absence(state: JsonObject) -> bool:
+    """Confirm one failed data-plane operation through Koyeb's control plane."""
+
+    service_id = state.get("service_id")
+    if not isinstance(service_id, str):
+        return False
+    api_host = state.get("api_host")
+    try:
+        access = KoyebSandboxRuntimeSettings().api_access(host=api_host if isinstance(api_host, str) else None)
+        AsyncSandbox = _require_koyeb_sdk()
+    except Exception:
+        return False
+    try:
+        await AsyncSandbox.get_from_id(id=service_id, api_token=access.token, host=access.host)
+    except Exception as error:
+        return _is_confirmed_koyeb_sandbox_absence(error)
+    return False
 
 
 def _koyeb_delete_after_delay(
@@ -1043,21 +1172,22 @@ async def _claim_koyeb_sandbox(
                 host=access.host,
             ),
         )
-        created_at_epoch_seconds = await _koyeb_service_created_at_epoch_seconds(
-            sandbox.service_id,
-            access,
-        )
-        await sandbox.update_lifecycle(
-            delete_after_delay=_koyeb_delete_after_delay(
-                definition.ttl_seconds,
-                created_at_epoch_seconds,
-            )
-        )
     except Exception as error:
-        if _is_gone_koyeb_sandbox_error(error):
+        # A wrong "absent" lookup only costs a cold create, so an untyped not-found also falls back.
+        if _is_confirmed_koyeb_sandbox_absence(error) or "not found" in str(error).lower():
             return None
         raise
 
+    created_at_epoch_seconds = await _koyeb_service_created_at_epoch_seconds(
+        sandbox.service_id,
+        access,
+    )
+    await sandbox.update_lifecycle(
+        delete_after_delay=_koyeb_delete_after_delay(
+            definition.ttl_seconds,
+            created_at_epoch_seconds,
+        )
+    )
     return KoyebCreateV2Result(state=_koyeb_sandbox_state(sandbox, access), claimed=True)
 
 
@@ -1171,27 +1301,67 @@ async def _run_koyeb_create(
     retry_policy_max_attempts=6,
 )
 async def _koyeb_attach(request: KoyebAttachRequest) -> KoyebCreateResult:
-    """Look up a live Sandbox by its service identity for a Session that borrows it."""
+    """Look up a live Sandbox by its service identity for a Session that borrows it.
+
+    The worker's Koyeb credential reaches every Sandbox of every Session it runs, so the
+    lookup alone grants nothing: the Sandbox must be one the child's root provisioned.
+    """
 
     AsyncSandbox = _require_koyeb_sdk()
     try:
         access = KoyebSandboxRuntimeSettings().api_access()
-        sandbox = await AsyncSandbox.get_from_id(
-            id=request.service_id,
-            api_token=access.token,
-            host=access.host,
+        sandbox = cast(
+            _KoyebSandbox,
+            await AsyncSandbox.get_from_id(
+                id=request.service_id,
+                api_token=access.token,
+                host=access.host,
+            ),
         )
     except Exception as error:
-        if _is_gone_koyeb_sandbox_error(error):
+        if _is_confirmed_koyeb_sandbox_absence(error):
             # A deleted Sandbox stays deleted: fail the attach now instead of retrying it.
-            # The Workflow still sees the WorkflowSandboxUnavailableError type it matches on.
             raise ApplicationError(
                 "Koyeb sandbox no longer exists",
-                type=WorkflowSandboxUnavailableError.__name__,
+                type=WorkflowSandboxLostError.__name__,
                 non_retryable=True,
             ) from error
         raise
-    return KoyebCreateResult(state=_koyeb_sandbox_state(cast(_KoyebSandbox, sandbox), access))
+    if not _is_borrowable_by(sandbox, request):
+        logger.warning(
+            "koyeb_sandbox_borrow_refused",
+            service_id=request.service_id,
+            sandbox_name=sandbox.name,
+            root_session_id=str(request.root_session_id),
+        )
+        # The caller named the service; it must not learn whose Sandbox it is.
+        raise ApplicationError(
+            "A child Session can only use its root Session's sandbox",
+            type=SANDBOX_BORROW_REFUSED_ERROR_TYPE,
+            non_retryable=True,
+        )
+    return KoyebCreateResult(state=_koyeb_sandbox_state(sandbox, access))
+
+
+def _is_borrowable_by(sandbox: _KoyebSandbox, request: KoyebAttachRequest) -> bool:
+    """Whether the child's root provisioned this Sandbox.
+
+    A root that creates its Sandbox names it after its own Workflow ID, which is its Session
+    ID, so the name is the ownership check: it binds the Sandbox to the root Session ID the
+    request names. A root that claims the pre-provisioned Sandbox keeps the pool's name; the
+    worker's own binding names that Sandbox instead. By design, every root of that dedicated
+    worker, whoever started it, shares the pre-provisioned Sandbox.
+    """
+    if sandbox.name is not None and _is_named_for_root_session(sandbox.name, request.root_session_id):
+        return True
+    return request.pre_provisioned_service_id is not None and (
+        request.pre_provisioned_service_id.lower() == sandbox.service_id.lower()
+    )
+
+
+def _is_named_for_root_session(name: str, root_session_id: UUID) -> bool:
+    digest = _root_session_digest(str(root_session_id))
+    return re.fullmatch(rf".*-{digest[:_ROOT_SESSION_HASH_LENGTH]}-g\d+-a\d+", name, flags=re.DOTALL) is not None
 
 
 async def _restore_koyeb_sandbox(state: JsonObject) -> _KoyebSandbox:
@@ -1225,11 +1395,14 @@ async def _execute_koyeb_sandbox_command(
     sandbox: _KoyebSandbox,
     command: str,
     *,
-    cwd: str,
+    state: JsonObject,
+    cwd: str | None,
     env: dict[str, str] | None,
     timeout: int,
 ) -> _KoyebExecution:
     try:
+        if cwd is None:
+            return await sandbox.exec(command, env=env, timeout=timeout)
         return await sandbox.exec(
             command,
             cwd=cwd,
@@ -1237,8 +1410,20 @@ async def _execute_koyeb_sandbox_command(
             timeout=timeout,
         )
     except Exception as error:
-        if _is_gone_koyeb_sandbox_error(error):
-            raise WorkflowSandboxUnavailableError("Koyeb sandbox no longer exists") from error
+        if await _confirm_koyeb_sandbox_absence(state):
+            raise WorkflowSandboxLostError("Koyeb sandbox no longer exists") from error
+        raise
+
+
+@contextmanager
+def _final_sandbox_loss(activity_type: str) -> Iterator[None]:
+    """Fail the named Temporal activity without retries once its sandbox is confirmed lost."""
+
+    try:
+        yield
+    except WorkflowSandboxLostError as error:
+        if temporalio.activity.in_activity() and temporalio.activity.info().activity_type == activity_type:
+            raise ApplicationError(str(error), type=WorkflowSandboxLostError.__name__, non_retryable=True) from error
         raise
 
 
@@ -1254,14 +1439,23 @@ async def _execute_koyeb_sandbox_command(
 async def _koyeb_run_setup_script(request: KoyebSetupScriptRequest) -> None:
     async with heartbeat_while_running():
         sandbox = await _restore_koyeb_sandbox(request.state)
-        result = await sandbox.exec(request.script, timeout=request.timeout_seconds)
+        result = await _execute_koyeb_sandbox_command(
+            sandbox,
+            request.script,
+            state=request.state,
+            # The pool path runs the script in the image's default directory too.
+            cwd=None,
+            env=None,
+            timeout=request.timeout_seconds,
+        )
     if result.exit_code != 0:
         raise RuntimeError(f"Koyeb setup script failed: {result.stderr or result.stdout}")
 
 
 @workflows.activity(name="vibe_harness_koyeb_execute", start_to_close_timeout=SANDBOX_EXECUTE_ACTIVITY_TIMEOUT)
 async def _koyeb_execute(request: KoyebExecuteRequest) -> WorkflowSandboxExecuteResult:
-    return await run_koyeb_execute(request)
+    with _final_sandbox_loss("vibe_harness_koyeb_execute"):
+        return await run_koyeb_execute(request)
 
 
 @workflows.activity(
@@ -1280,6 +1474,7 @@ async def run_koyeb_execute(request: KoyebExecuteRequest) -> WorkflowSandboxExec
     result = await _execute_koyeb_sandbox_command(
         sandbox,
         request.command,
+        state=request.state,
         cwd=request.cwd,
         env=request.env or None,
         timeout=request.timeout_seconds,
@@ -1347,8 +1542,16 @@ async def _koyeb_write_files(request: KoyebWriteFilesRequest) -> KoyebWriteFiles
     resolved = await resolve_file_source(request.source)
     if publication is not None and not resolved.files:
         return KoyebWriteFilesResult(root=request.root, source_result=None)
-    sandbox = await _restore_koyeb_sandbox(request.state)
-    await _upload_files(sandbox, request.root, resolved.files, replace=request.replace, publication=publication)
+    with _final_sandbox_loss("vibe_harness_koyeb_write_files"):
+        sandbox = await _restore_koyeb_sandbox(request.state)
+        await _upload_files(
+            sandbox,
+            request.root,
+            resolved.files,
+            state=request.state,
+            replace=request.replace,
+            publication=publication,
+        )
     return KoyebWriteFilesResult(root=request.root, source_result=resolved.result)
 
 
@@ -1357,6 +1560,7 @@ async def _upload_files(
     root: str,
     files: tuple[ResolvedFile, ...],
     *,
+    state: JsonObject,
     replace: bool,
     publication: FileMaterialization | None,
 ) -> None:
@@ -1367,6 +1571,8 @@ async def _upload_files(
     # Each attempt has its own parts, so a retry never reads or deletes the parts of another one.
     prefix = f"{_UPLOAD_DIR}/agents-sdk-files-{uuid.uuid4().hex}"
     parts: list[str] = []
+    # Command failures are already classified by `_execute_koyeb_sandbox_command`.
+    upload_failed = True
     try:
         # Each part is encoded and decoded on its own, so only one encoded part is in memory at a time.
         for start in range(0, len(data), _UPLOAD_PART_BYTES):
@@ -1376,6 +1582,7 @@ async def _upload_files(
             await sandbox.filesystem.write_file(
                 part, base64.b64encode(data[start : start + _UPLOAD_PART_BYTES]).decode("ascii")
             )
+        upload_failed = False
         command = shlex.join(
             [
                 "python3",
@@ -1389,15 +1596,17 @@ async def _upload_files(
                 publication.directory if publication is not None else "",
             ]
         )
-        result = await _execute_koyeb_sandbox_command(sandbox, command, cwd="/", env=None, timeout=120)
+        result = await _execute_koyeb_sandbox_command(sandbox, command, state=state, cwd="/", env=None, timeout=120)
         if result.exit_code != 0:
             raise RuntimeError(f"Koyeb file extraction into {root} failed: {result.stderr or result.stdout}")
-    except BaseException:
+    except WorkflowSandboxLostError:
+        raise
+    except BaseException as error:
         if parts:
             with suppress(Exception):
-                await _execute_koyeb_sandbox_command(
-                    sandbox, shlex.join(["rm", "-f", "--", *parts]), cwd="/", env=None, timeout=60
-                )
+                await sandbox.exec(shlex.join(["rm", "-f", "--", *parts]), cwd="/", timeout=60)
+        if upload_failed and isinstance(error, Exception) and await _confirm_koyeb_sandbox_absence(state):
+            raise WorkflowSandboxLostError("Koyeb sandbox no longer exists") from error
         raise
 
 
@@ -1407,10 +1616,12 @@ async def _koyeb_delete(request: KoyebDeleteRequest) -> None:
     try:
         sandbox = await _restore_koyeb_sandbox(request.state)
         await sandbox.delete()
-    except WorkflowSandboxUnavailableError:
+    except WorkflowSandboxLostError:
         pass
     except Exception as error:
-        if "not found" not in str(error).lower():
+        # A wrong "absent" here only skips a delete that the sandbox's lifecycle TTL still performs,
+        # so an untyped not-found also counts as already deleted.
+        if not (_is_confirmed_koyeb_sandbox_absence(error) or "not found" in str(error).lower()):
             raise
     if isinstance(service_id, str):
         koyeb_secrets.evict(service_id)
@@ -1421,7 +1632,8 @@ async def _koyeb_configure_proxy(request: KoyebProxyRequest) -> KoyebProxyResult
     """Complete proxy activities persisted before the bootstrap API migration."""
 
     proxy_url, ca_cert, signing_secret = SandboxProxySettings().require()
-    sandbox = await _restore_koyeb_sandbox(request.state)
+    with _final_sandbox_loss("vibe_harness_koyeb_configure_proxy"):
+        sandbox = await _restore_koyeb_sandbox(request.state)
 
     if request.operation == "configure":
         env, command = build_github_proxy_sandbox_setup(
@@ -1451,13 +1663,15 @@ async def _koyeb_configure_proxy(request: KoyebProxyRequest) -> KoyebProxyResult
         command = build_github_proxy_token_renewal_command(github_host=request.definition.github_host)
         expires_at = renewal.expires_at
 
-    result = await _execute_koyeb_sandbox_command(
-        sandbox,
-        command,
-        cwd=DEFAULT_WORKSPACE,
-        env=env,
-        timeout=_PROXY_SETUP_TIMEOUT_SECONDS,
-    )
+    with _final_sandbox_loss("vibe_harness_koyeb_configure_proxy"):
+        result = await _execute_koyeb_sandbox_command(
+            sandbox,
+            command,
+            state=request.state,
+            cwd=DEFAULT_WORKSPACE,
+            env=env,
+            timeout=_PROXY_SETUP_TIMEOUT_SECONDS,
+        )
     if result.exit_code != 0:
         raise RuntimeError(
             "Sandbox proxy setup failed: "
@@ -1468,34 +1682,41 @@ async def _koyeb_configure_proxy(request: KoyebProxyRequest) -> KoyebProxyResult
 
 @workflows.activity(name="vibe_harness_koyeb_configure_proxy_v2")
 async def _koyeb_configure_proxy_v2(request: KoyebBootstrapProxyRequest) -> KoyebProxyResult:
-    try:
-        async with SandboxProxyBootstrapClient.from_current_environment() as client:
-            bootstrap = await client.bootstrap(request.integration)
-        command, env = bootstrap_command(request.integration, bootstrap, request.operation)
-        sandbox = await _restore_koyeb_sandbox(request.state)
-        # The bootstrap command persists the runtime configuration in the sandbox. Do not return
-        # runtime_env through the activity because it can contain short-lived credentials that would
-        # then enter Workflow history.
-        result = await _execute_koyeb_sandbox_command(
-            sandbox,
-            command,
-            cwd=DEFAULT_WORKSPACE,
-            env=env,
-            timeout=_PROXY_SETUP_TIMEOUT_SECONDS,
-        )
-        if result.exit_code != 0:
-            raise SandboxBootstrapError(f"Sandbox Proxy {request.operation} command failed in the sandbox")
-    except (SandboxBootstrapError, WorkflowSandboxUnavailableError):
-        raise
-    except Exception:
-        raise SandboxBootstrapError("Sandbox Proxy activity failed") from None
+    with _final_sandbox_loss("vibe_harness_koyeb_configure_proxy_v2"):
+        try:
+            async with SandboxProxyBootstrapClient.from_current_environment() as client:
+                bootstrap = await client.bootstrap(request.integration)
+            command, env = bootstrap_command(request.integration, bootstrap, request.operation)
+            sandbox = await _restore_koyeb_sandbox(request.state)
+            # The bootstrap command persists the runtime configuration in the sandbox. Do not return
+            # runtime_env through the activity because it can contain short-lived credentials that would
+            # then enter Workflow history.
+            result = await _execute_koyeb_sandbox_command(
+                sandbox,
+                command,
+                state=request.state,
+                cwd=DEFAULT_WORKSPACE,
+                env=env,
+                timeout=_PROXY_SETUP_TIMEOUT_SECONDS,
+            )
+            if result.exit_code != 0:
+                raise SandboxBootstrapError(f"Sandbox Proxy {request.operation} command failed in the sandbox")
+        except (SandboxBootstrapError, WorkflowSandboxUnavailableError):
+            raise
+        except Exception:
+            raise SandboxBootstrapError("Sandbox Proxy activity failed") from None
     return KoyebProxyResult(expires_at=bootstrap.expires_at)
+
+
+def _root_session_digest(execution_id: str) -> str:
+    """Hash of the Workflow ID that a Sandbox name carries, binding the Sandbox to the Session that created it."""
+    return hashlib.sha256(execution_id.encode()).hexdigest()
 
 
 def _koyeb_sandbox_name(prefix: str, identity: SandboxProvisioningIdentity) -> str:
     execution_id = workflows.get_execution_id() or hashlib.sha256(str(time.time_ns()).encode()).hexdigest()
     # Hash the execution id so truncation cannot collapse distinct executions onto one name.
-    root_session_hash = hashlib.sha256(execution_id.encode()).hexdigest()[:16]
+    root_session_hash = _root_session_digest(execution_id)[:_ROOT_SESSION_HASH_LENGTH]
     suffix = f"{root_session_hash}-g{identity.generation}-a{identity.attempt}"
     prefix_budget = _SANDBOX_NAME_MAX_LENGTH - len(suffix) - 1
     return f"{prefix[:prefix_budget].rstrip('-')}-{suffix}"

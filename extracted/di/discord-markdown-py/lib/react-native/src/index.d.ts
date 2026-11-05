@@ -34,16 +34,3 @@ export function parseLossless(
 	flags?: SyntaxFlags | null,
 	fuel?: number | null,
 ): LosslessNode;
-
-/**
- * Turn an AST back into markdown.
- *
- * Runs synchronously on the JS thread, like {@link parse}, and throws if the AST is malformed or
- * the native module is not linked.
- *
- * Not byte-exact for everything: text is not re-escaped, italics always come back as `_`, and
- * unordered lists always as `* `, and a link written without a scheme comes back with `https://`.
- * Everything else round trips exactly -- including mentions, which are stored as a parsed id and
- * so cannot be rebuilt any other way.
- */
-export function unparse(nodes: Block[]): string;

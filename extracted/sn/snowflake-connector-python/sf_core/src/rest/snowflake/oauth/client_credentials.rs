@@ -193,8 +193,8 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/token"))
-            .respond_with(ResponseTemplate::new(401).set_body_raw(
-                r#"{"error":"invalid_client","error_description":"bad secret"}"#,
+            .respond_with(ResponseTemplate::new(400).set_body_raw(
+                r#"{"error":"invalid_client","error_description":"The client secret supplied for a confidential client is invalid."}"#,
                 "application/json",
             ))
             .mount(&server)
@@ -210,7 +210,10 @@ mod tests {
                 error, description, ..
             } => {
                 assert_eq!(error, "invalid_client");
-                assert_eq!(description, "bad secret");
+                assert_eq!(
+                    description,
+                    "The client secret supplied for a confidential client is invalid."
+                );
             }
             other => panic!("unexpected error: {other:?}"),
         }

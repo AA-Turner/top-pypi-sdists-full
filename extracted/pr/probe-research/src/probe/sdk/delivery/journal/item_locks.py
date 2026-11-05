@@ -87,6 +87,17 @@ def _item_lock(path: Path):
         _release_retired(path)
 
 
+def _write_new_private(path: Path, data: bytes) -> None:
+    """`data` into a new file only this user reads: never one that is there already, never
+    through a link or into a FIFO planted at its name (`O_EXCL|O_NOFOLLOW`)."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+                 | getattr(os, "O_BINARY", 0), 0o600)
+    with os.fdopen(fd, "wb") as stream:
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
 def _write_private(path: Path, data: bytes) -> None:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0), 0o600)
     with os.fdopen(fd, "wb") as stream:

@@ -11,14 +11,16 @@ class DescribeImageBaselineDetailRequest(DaraModel):
         image_uuid: str = None,
         lang: str = None,
     ):
-        # The baseline data information.
+        # The key of the baseline sub-item.
+        # > You can call the [DescribeImageBaselineItemList](~~DescribeImageBaselineItemList~~) operation to obtain this parameter from the BaselineItemInfos[].BaselineItemKey field in the response.
+        # This parameter is required. If it is not provided, the API returns HTTP 400 and the error code -101.
         self.baseline_item_key = baseline_item_key
         # The UUID of the image.
         self.image_uuid = image_uuid
-        # The language type for the request and response. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
-        # - **en**: English.
+        # - **en**: English
         self.lang = lang
 
     def validate(self):

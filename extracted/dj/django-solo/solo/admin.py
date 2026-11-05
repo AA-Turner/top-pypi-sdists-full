@@ -1,21 +1,26 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.contrib import admin
 from django.db.models import Model
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import URLPattern, re_path
-from django.utils.encoding import force_str
+from django.utils.html import format_html
 from django.utils.translation import gettext as _
 
 from solo import settings as solo_settings
 from solo.models import DEFAULT_SINGLETON_INSTANCE_ID
 
+if TYPE_CHECKING:
+    from django.template.response import _TemplateForResponseT
+
 
 class SingletonModelAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
-    object_history_template = "admin/solo/object_history.html"
-    change_form_template = "admin/solo/change_form.html"
+    object_history_template: ClassVar[_TemplateForResponseT | None] = (
+        "admin/solo/object_history.html"
+    )
+    change_form_template: ClassVar[_TemplateForResponseT | None] = "admin/solo/change_form.html"
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
@@ -57,11 +62,16 @@ class SingletonModelAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
         return custom_urls + urls
 
     def response_change(self, request: HttpRequest, obj: Model) -> HttpResponseRedirect:
-        msg = _("{obj} was changed successfully.").format(obj=force_str(obj))
+        msg_dict = {"name": self.opts.verbose_name, "obj": obj}
         if "_continue" in request.POST:
-            self.message_user(request, msg + " " + _("You may edit it again below."))
+            msg = format_html(
+                _("The {name} “{obj}” was changed successfully. You may edit it again below."),
+                **msg_dict,
+            )
+            self.message_user(request, msg)
             return HttpResponseRedirect(request.path)
         else:
+            msg = format_html(_("The {name} “{obj}” was changed successfully."), **msg_dict)
             self.message_user(request, msg)
             return HttpResponseRedirect("../../")
 

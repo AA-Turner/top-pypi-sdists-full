@@ -15,16 +15,18 @@ class GetCheckTimeDimensionStatisticRequest(DaraModel):
         statistic_type: str = None,
         vendors: List[str] = None,
     ):
-        # The end time in timestamp format.
+        # The end time in UNIX timestamp format.
         self.end_time_stamp = end_time_stamp
+        # The ID of the Alibaba Cloud account to which the member accounts in the resource folder belong.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
-        # The start time in timestamp format.
+        # The start time in UNIX timestamp format.
         self.start_time_stamp = start_time_stamp
-        # The type of data statistics. Valid values:
-        # - **CheckPassRate**: Check item pass rate.
-        # - **AssetPassRate**: Asset pass rate.
+        # The data statistics type. Valid values:
+        # - **CheckPassRate**: The pass rate of check items.
+        # - **AssetPassRate**: The pass rate of assets.
         self.statistic_type = statistic_type
-        # The list of cloud service providers.
+        # The list of cloud providers.
         self.vendors = vendors
 
     def validate(self):

@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 import grpc
 import trustme
-from google.protobuf import any_pb2, descriptor_database, descriptor_pb2, descriptor_pool, message_factory
+from google.protobuf import any_pb2, descriptor_pb2, descriptor_pool, message_factory
 from google.rpc import error_details_pb2, status_pb2
 from grpc_reflection.v1alpha import reflection, reflection_pb2
 
@@ -22,6 +22,7 @@ from test.apps.catalog.grpc.descriptors import (
     accounts_descriptor_set,
     all_types_descriptor_set,
     library_descriptor_set,
+    load_pool,
     side_effects_descriptor_set,
     users_descriptor_set,
     write_descriptor_set,
@@ -130,12 +131,24 @@ class RecordReflection(grpc.ServerInterceptor):
             metadata = [(item.key, item.value) for item in handler_call_details.invocation_metadata]
             self.calls.append(metadata)
             if ("x-deny", "1") in metadata:
-                return grpc.stream_stream_rpc_method_handler(deny)
+                return grpc.stream_stream_rpc_method_handler(deny_permission)
+            if ("x-deny", "authentication") in metadata:
+                return grpc.stream_stream_rpc_method_handler(deny_authentication)
+            if ("x-stall", "1") in metadata:
+                return grpc.stream_stream_rpc_method_handler(stall)
         return continuation(handler_call_details)
 
 
-def deny(requests, context):
+def deny_permission(requests, context):
     context.abort(grpc.StatusCode.PERMISSION_DENIED, "denied")
+
+
+def deny_authentication(requests, context):
+    context.abort(grpc.StatusCode.UNAUTHENTICATED, "missing credentials")
+
+
+def stall(requests, context):
+    time.sleep(1)
 
 
 class ReflectionServicer(reflection.ReflectionServicer):
@@ -214,6 +227,7 @@ def users(
     tls: bool = False,
     client_auth: bool = False,
     reflection_version: str | None = "v1alpha",
+    reflection_services: tuple[str, ...] = ("pkg.Users", "pkg.Admin", "grpc.health.v1.Health"),
     undescribed_services: tuple[str, ...] = (),
     reflection_imports: bool = True,
     unserved_files: tuple[str, ...] = (),
@@ -241,16 +255,11 @@ def users(
     `google.rpc.BadRequest` details next to a detail of a type clients do not know.
     """
     descriptor_set = users_descriptor_set(annotated=annotated)
-    database = descriptor_database.DescriptorDatabase()
-    for file in descriptor_pb2.FileDescriptorSet.FromString(descriptor_set).file:
-        database.Add(file)
-    pool = descriptor_pool.DescriptorPool(database)
+    pool = load_pool(descriptor_set)
     request_class = message_factory.GetMessageClass(pool.FindMessageTypeByName("pkg.GetUserRequest"))
     user_class = message_factory.GetMessageClass(pool.FindMessageTypeByName("pkg.User"))
     operation_class = message_factory.GetMessageClass(pool.FindMessageTypeByName("google.longrunning.Operation"))
-    accounts_pool = descriptor_pool.DescriptorPool()
-    for file in descriptor_pb2.FileDescriptorSet.FromString(accounts_descriptor_set()).file:
-        accounts_pool.Add(file)
+    accounts_pool = load_pool(accounts_descriptor_set())
     account_request_class = message_factory.GetMessageClass(
         accounts_pool.FindMessageTypeByName("pkg.CreateAccountRequest")
     )
@@ -286,6 +295,10 @@ def users(
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "invalid")
         if user_id == 503:
             context.abort(grpc.StatusCode.UNAVAILABLE, "")
+        if user_id == 502:
+            context.abort(grpc.StatusCode.UNKNOWN, "")
+        if user_id == 505:
+            context.abort(grpc.StatusCode.DATA_LOSS, "")
         if user_id == 504:
             context.abort(grpc.StatusCode.DEADLINE_EXCEEDED, "upstream timed out")
         if user_id == 404:
@@ -367,6 +380,7 @@ def users(
             server,
             reflection_version,
             pool,
+            services=reflection_services,
             undescribed_services=undescribed_services,
             imports=reflection_imports,
             unserved_files=unserved_files,
@@ -434,6 +448,12 @@ def crashing_users(how: str, directory: Path) -> CrashingGrpcServer:
     )
 
 
+def _start(server: grpc.Server, descriptor_set: bytes, calls: list[GrpcCall]) -> GrpcApp:
+    port = server.add_insecure_port("127.0.0.1:0")
+    server.start()
+    return GrpcApp(server=server, port=port, calls=calls, reflection_calls=[], descriptor_set=descriptor_set)
+
+
 class AnswerEmpty(grpc.GenericRpcHandler):
     def __init__(self, calls: list[GrpcCall]) -> None:
         self.calls = calls
@@ -459,23 +479,17 @@ def side_effects() -> GrpcApp:
     calls: list[GrpcCall] = []
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
     server.add_generic_rpc_handlers((AnswerEmpty(calls),))
-    port = server.add_insecure_port("127.0.0.1:0")
-    server.start()
-    return GrpcApp(
-        server=server, port=port, calls=calls, reflection_calls=[], descriptor_set=side_effects_descriptor_set()
-    )
+    return _start(server, side_effects_descriptor_set(), calls)
 
 
-def library() -> GrpcApp:
+def library(*, fixed: bool = False) -> GrpcApp:
     """`library.Library` with two bugs that only real values from earlier responses reach.
 
-    `CreateBook` answers `books/<random hex>`, or INVALID_ARGUMENT without a title; `GetBook` fails on a created name and answers NOT_FOUND otherwise.
+    `CreateBook` answers `books/<random hex>`, or INVALID_ARGUMENT without a title; `GetBook` fails on a created name
+    (answers the book when `fixed`) and answers NOT_FOUND otherwise.
     `ListBooks` pages through two books; a page token it issued fails, any other non-empty token is INVALID_ARGUMENT.
     """
-    database = descriptor_database.DescriptorDatabase()
-    for file in descriptor_pb2.FileDescriptorSet.FromString(library_descriptor_set()).file:
-        database.Add(file)
-    pool = descriptor_pool.DescriptorPool(database)
+    pool = load_pool(library_descriptor_set())
 
     def message_class(name: str) -> type:
         return message_factory.GetMessageClass(pool.FindMessageTypeByName(f"library.{name}"))
@@ -495,6 +509,8 @@ def library() -> GrpcApp:
     def get_book(payload: bytes, context: grpc.ServicerContext) -> bytes:
         name = message_class("GetBookRequest").FromString(payload).name
         if name in created:
+            if fixed:
+                return book_class(name=name).SerializeToString()
             context.abort(grpc.StatusCode.INTERNAL, "cannot load a created book")
         context.abort(grpc.StatusCode.NOT_FOUND, "no such book")
 
@@ -521,9 +537,7 @@ def library() -> GrpcApp:
         )
     )
     serve_reflection(server, "v1alpha", pool, services=("library.Library",))
-    port = server.add_insecure_port("127.0.0.1:0")
-    server.start()
-    return GrpcApp(server=server, port=port, calls=[], reflection_calls=[], descriptor_set=library_descriptor_set())
+    return _start(server, library_descriptor_set(), [])
 
 
 def envelope() -> GrpcApp:
@@ -531,9 +545,7 @@ def envelope() -> GrpcApp:
 
     It answers with an empty `types.Envelope`. Reflection describes `types.Types`.
     """
-    pool = descriptor_pool.DescriptorPool()
-    for file in descriptor_pb2.FileDescriptorSet.FromString(all_types_descriptor_set()).file:
-        pool.Add(file)
+    pool = load_pool(all_types_descriptor_set())
     envelope_class = message_factory.GetMessageClass(pool.FindMessageTypeByName("types.Envelope"))
 
     def handle(payload: bytes, context: grpc.ServicerContext) -> bytes:
@@ -551,6 +563,4 @@ def envelope() -> GrpcApp:
         )
     )
     serve_reflection(server, "v1alpha", pool, services=("types.Types",))
-    port = server.add_insecure_port("127.0.0.1:0")
-    server.start()
-    return GrpcApp(server=server, port=port, calls=[], reflection_calls=[], descriptor_set=all_types_descriptor_set())
+    return _start(server, all_types_descriptor_set(), [])

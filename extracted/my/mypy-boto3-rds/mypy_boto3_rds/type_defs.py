@@ -1815,21 +1815,6 @@ class CopyDBParameterGroupMessageTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
-class CopyDBSnapshotMessageTypeDef(TypedDict):
-    SourceDBSnapshotIdentifier: str
-    TargetDBSnapshotIdentifier: str
-    KmsKeyId: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    CopyTags: NotRequired[bool]
-    PreSignedUrl: NotRequired[str]
-    OptionGroupName: NotRequired[str]
-    TargetCustomAvailabilityZone: NotRequired[str]
-    SnapshotTarget: NotRequired[str]
-    CopyOptionGroup: NotRequired[bool]
-    SnapshotAvailabilityZone: NotRequired[str]
-    SourceRegion: NotRequired[str]
-
-
 class CopyOptionGroupMessageTypeDef(TypedDict):
     SourceOptionGroupIdentifier: str
     TargetOptionGroupIdentifier: str
@@ -3751,6 +3736,22 @@ class DBSnapshotTenantDatabasesMessageTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CopyDBSnapshotMessageTypeDef(TypedDict):
+    SourceDBSnapshotIdentifier: str
+    TargetDBSnapshotIdentifier: str
+    KmsKeyId: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    CopyTags: NotRequired[bool]
+    PreSignedUrl: NotRequired[str]
+    OptionGroupName: NotRequired[str]
+    TargetCustomAvailabilityZone: NotRequired[str]
+    SnapshotTarget: NotRequired[str]
+    CopyOptionGroup: NotRequired[bool]
+    SnapshotAvailabilityZone: NotRequired[str]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
+    SourceRegion: NotRequired[str]
+
+
 class CreateDBClusterMessageTypeDef(TypedDict):
     DBClusterIdentifier: str
     Engine: str
@@ -4681,6 +4682,7 @@ class OptionGroupOptionTypeDef(TypedDict):
     OptionGroupOptionSettings: NotRequired[list[OptionGroupOptionSettingTypeDef]]
     OptionGroupOptionVersions: NotRequired[list[OptionVersionTypeDef]]
     CopyableCrossAccount: NotRequired[bool]
+    CopyableCrossRegion: NotRequired[bool]
 
 
 class ModifyOptionGroupMessageTypeDef(TypedDict):
@@ -4702,6 +4704,7 @@ class OptionGroupTypeDef(TypedDict):
     SourceOptionGroup: NotRequired[str]
     SourceAccountId: NotRequired[str]
     CopyTimestamp: NotRequired[datetime]
+    SourceRegion: NotRequired[str]
 
 
 class DBSubnetGroupTypeDef(TypedDict):

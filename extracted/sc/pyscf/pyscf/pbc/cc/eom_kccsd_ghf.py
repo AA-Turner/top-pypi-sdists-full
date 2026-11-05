@@ -28,12 +28,12 @@ from pyscf import lib
 from pyscf.lib import logger
 from pyscf.cc import eom_rccsd
 from pyscf.pbc.lib import kpts_helper
-from pyscf.lib.parameters import LOOSE_ZERO_TOL, LARGE_DENOM  # noqa
+from pyscf.lib.parameters import LOOSE_ZERO_TOL, LARGE_DENOM
 from pyscf.pbc.cc import kintermediates as imd
 from pyscf.pbc.cc.kccsd_rhf import _get_epq
 from pyscf.pbc.cc.kccsd_t_rhf import _get_epqr
 from pyscf.pbc.mp.kmp2 import (get_frozen_mask, get_nocc, get_nmo,
-                               padded_mo_coeff, padding_k_idx)  # noqa
+                               padded_mo_coeff, padding_k_idx)
 
 einsum = lib.einsum
 
@@ -1971,41 +1971,3 @@ class _IMDS:
         self.made_ee_imds = True
         logger.timer(self, 'EOM-CCSD EE intermediates', *cput0)
         return self
-
-if __name__ == '__main__':
-    from pyscf.pbc import gto, scf, cc
-
-    cell = gto.Cell()
-    cell.atom='''
-    C 0.000000000000   0.000000000000   0.000000000000
-    C 1.685068664391   1.685068664391   1.685068664391
-    '''
-    cell.basis = { 'C': [[0, (0.8, 1.0)],
-                         [1, (1.0, 1.0)]]}
-    cell.pseudo = 'gth-pade'
-    cell.a = '''
-    0.000000000, 3.370137329, 3.370137329
-    3.370137329, 0.000000000, 3.370137329
-    3.370137329, 3.370137329, 0.000000000'''
-    cell.unit = 'B'
-    cell.verbose = 5
-    cell.build()
-
-    # Running HF and CCSD with 1x1x2 Monkhorst-Pack k-point mesh
-    kmf = scf.KRHF(cell, kpts=cell.make_kpts([1,1,2]), exxdiv=None)
-    kmf.conv_tol_grad = 1e-8
-    ehf = kmf.kernel()
-
-    mycc = cc.KGCCSD(kmf)
-    mycc.conv_tol = 1e-12
-    mycc.conv_tol_normt = 1e-10
-    eris = mycc.ao2mo(mycc.mo_coeff)
-    ecc, t1, t2 = mycc.kernel()
-    print(ecc - -0.155298393321855)
-
-    eom = EOMIP(mycc)
-    e, v = eom.ipccsd(nroots=2, kptlist=[0])
-
-    eom = EOMEA(mycc)
-    eom.max_cycle = 100
-    e, v = eom.eaccsd(nroots=2, koopmans=True, kptlist=[0])

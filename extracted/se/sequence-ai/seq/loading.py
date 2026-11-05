@@ -40,7 +40,7 @@ def load_deployable(ref: str) -> tuple[str, type]:
             raise SeqAuthoringError(f"{ref}: no attribute {cls_name!r} in {target}")
         kind = kind_of(cls)
         if kind is None:
-            raise SeqAuthoringError(f"{ref}: {cls_name} is not a @seq.policy, @seq.planner, @seq.benchmark or @seq.adapter "
+            raise SeqAuthoringError(f"{ref}: {cls_name} is not a @seq.policy, @seq.benchmark or @seq.adapter "
                                     "class")
         return kind, cls
     found = {id(obj): obj for obj in vars(module).values() if kind_of(obj)}
@@ -48,7 +48,7 @@ def load_deployable(ref: str) -> tuple[str, type]:
 
         found = {k: c for k, c in found.items() if kind_of(c) != "adapter"}
     if not found:
-        raise SeqAuthoringError(f"{target} defines no @seq.policy, @seq.planner, @seq.benchmark or @seq.adapter class; "
+        raise SeqAuthoringError(f"{target} defines no @seq.policy, @seq.benchmark or @seq.adapter class; "
                                 f"decorate one, or name it with '{target}:ClassName'")
     if len(found) > 1:
         names = ", ".join(sorted(c.__name__ for c in found.values()))

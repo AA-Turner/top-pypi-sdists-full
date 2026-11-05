@@ -9,12 +9,10 @@
 extern "C" {
 #endif
 
-// Result of `dmd_parse`, `dmd_parse_lossless` or `dmd_unparse`. Must be freed with
-// `dmd_parse_result_free`.
+// Result of `dmd_parse` or `dmd_parse_lossless`. Must be freed with `dmd_parse_result_free`.
 typedef struct DmdParseResult {
 	// UTF-8 bytes of the call's output when `ok` -- the JSON AST for `dmd_parse`, the JSON tree for
-	// `dmd_parse_lossless`, the markdown for `dmd_unparse` -- or of an error message otherwise. Not
-	// NUL-terminated, and never null.
+	// `dmd_parse_lossless` -- or of an error message otherwise. Not NUL-terminated, and never null.
 	uint8_t *data;
 	// Length of `data` in bytes.
 	size_t len;
@@ -99,16 +97,7 @@ DmdParseResult dmd_parse(const uint8_t *content, size_t content_len, uint32_t fl
 DmdParseResult dmd_parse_lossless(const uint8_t *content, size_t content_len, uint32_t flags,
 	uint32_t fuel, bool js_bigints, bool utf16);
 
-// Turns a JSON AST (UTF-8, `ast_len` bytes) back into the markdown it came from. Takes what
-// `dmd_parse` produced, with the same `js_bigints`: set, `{"$bigint": "<value>"}` wrappers are
-// read (as are plain numbers); unset, 64-bit integers must be plain numbers and a wrapper fails.
-//
-// The AST does not retain every detail of how the source was written, so the output is not
-// byte-exact for everything: text is not re-escaped, italics always come back as `_`, and
-// unordered lists always as `* `. A malformed AST is an ordinary failed result, not a crash.
-DmdParseResult dmd_unparse(const uint8_t *ast, size_t ast_len, bool js_bigints);
-
-// Frees a result returned by `dmd_parse`, `dmd_parse_lossless` or `dmd_unparse`.
+// Frees a result returned by `dmd_parse` or `dmd_parse_lossless`.
 void dmd_parse_result_free(DmdParseResult result);
 
 #ifdef __cplusplus

@@ -66,7 +66,7 @@ class ConnectionConfig(ConnectionConfigMixin):
     """
 
     connect_timeout: int | None = None
-    """TCP connect timeout in seconds for the HTTP client (0 or absent = system default)"""
+    """HTTP connect timeout in seconds for name lookup, TCP, and TLS (0 = no timeout, absent = 60)"""
 
     connection_diag_allowlist_path: str | None = None
     """Path to a pre-fetched allowlist.json; if absent the driver fetches it via system$allowlist()"""
@@ -158,6 +158,12 @@ class ConnectionConfig(ConnectionConfigMixin):
     HTTP response) alongside retryCount on retried query requests..
 
     Default: True
+    """
+
+    jwt_timeout: int | None = 120
+    """Lifetime in seconds for each key-pair authentication JWT (0 uses the default; must not be negative).
+
+    Default: 120
     """
 
     log_max_query_length: int | None = 80
@@ -259,7 +265,11 @@ class ConnectionConfig(ConnectionConfigMixin):
     """Preserve underscores in the hostname derived from the account name. Default: False"""
 
     private_key: Any | None = None
-    """Private key for key-pair authentication (base64-encoded or PEM). Required when authenticator=SNOWFLAKE_JWT"""
+    """Private key for key-pair authentication (PEM or base64 text, DER bytes, or an RSAPrivateKey or
+    EllipticCurvePrivateKey).
+
+    Required when authenticator=SNOWFLAKE_JWT
+    """
 
     private_key_file: str | None = None
     """Path to private key file for key-pair authentication"""
@@ -322,9 +332,7 @@ class ConnectionConfig(ConnectionConfigMixin):
     """Maximum total attempts for general HTTP calls (login, query, logout). 1 = no retry. Default: 6"""
 
     retry_timeout: int | None = None
-    """Per-request timeout in seconds for a single HTTP attempt within a retry loop (0 or absent = no per-request
-    timeout)
-    """
+    """Per-request timeout in seconds for a single HTTP attempt within a retry loop (0 = no timeout, absent = 300)"""
 
     secondary_roles: str | None = None
     """Secondary-roles activation mode sent at login (e.g. ALL or NONE)"""

@@ -13,13 +13,11 @@ created
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 
 from copy import deepcopy
 
-from ansible.module_utils.six import iteritems
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.cfg.base import (
     ConfigBase,
 )
@@ -80,7 +78,7 @@ class L3_interfaces(ConfigBase):
         commands = list()
 
         if self.state in self.ACTION_STATES:
-            existing_l3_interfaces_facts = self.get_l3_interfaces_facts()
+            existing_l3_interfaces_facts = self.mutate_autoconfig(self.get_l3_interfaces_facts())
         else:
             existing_l3_interfaces_facts = []
 
@@ -96,16 +94,19 @@ class L3_interfaces(ConfigBase):
             result["commands"] = commands
 
         if self.state in self.ACTION_STATES or self.state == "gathered":
-            changed_l3_interfaces_facts = self.get_l3_interfaces_facts()
+            changed_l3_interfaces_facts = self.mutate_autoconfig(self.get_l3_interfaces_facts())
         elif self.state == "rendered":
             result["rendered"] = commands
         elif self.state == "parsed":
             running_config = self._module.params["running_config"]
+
             if not running_config:
                 self._module.fail_json(
                     msg="value of running_config parameter must not be empty for state parsed",
                 )
-            result["parsed"] = self.get_l3_interfaces_facts(data=running_config)
+            result["parsed"] = self.mutate_autoconfig(
+                self.get_l3_interfaces_facts(data=running_config),
+            )
         else:
             changed_l3_interfaces_facts = []
 
@@ -129,6 +130,7 @@ class L3_interfaces(ConfigBase):
         """
         want = self._module.params["config"]
         have = existing_l3_interfaces_facts
+
         resp = self.set_state(want, have)
         return to_list(resp)
 
@@ -174,6 +176,7 @@ class L3_interfaces(ConfigBase):
                 elif state == "replaced":
                     commands.extend(self._state_replaced(item, obj_in_have))
 
+        commands = [command.replace("auto-config", "autoconf") for command in commands]
         return commands
 
     def _state_replaced(self, want, have):
@@ -226,7 +229,7 @@ class L3_interfaces(ConfigBase):
         have_vifs = have_copy.pop("vifs", [])
 
         for update in self._get_updates(want_copy, have_copy):
-            for key, value in iteritems(update):
+            for key, value in update.items():
                 commands.append(
                     self._compute_commands(key=key, value=value, interface=want_copy["name"]),
                 )
@@ -238,7 +241,7 @@ class L3_interfaces(ConfigBase):
                     have_vif = {}
 
                 for update in self._get_updates(want_vif, have_vif):
-                    for key, value in iteritems(update):
+                    for key, value in update.items():
                         commands.append(
                             self._compute_commands(
                                 key=key,
@@ -247,11 +250,14 @@ class L3_interfaces(ConfigBase):
                                 vif=want_vif["vlan_id"],
                             ),
                         )
-
         return commands
 
     def _state_deleted(self, want, have):
         """The command generator when state is deleted
+
+        Deletes only the L3 address attributes (base interface and VIFs)
+        owned by this module, never the interface subtree, so L2 settings
+        are preserved.
 
         :rtype: A list
         :returns: the commands necessary to remove the current configuration
@@ -261,51 +267,92 @@ class L3_interfaces(ConfigBase):
         want_copy = deepcopy(remove_empties(want))
         have_copy = deepcopy(have)
 
-        want_vifs = want_copy.pop("vifs", [])
-        have_vifs = have_copy.pop("vifs", [])
+        if have_copy is not None:
+            if all(v in (None, {}, []) for k, v in want_copy.items() if k != "name"):
+                # Only delete L3 attributes we own — do not touch L2 config
+                have_vifs = have_copy.pop("vifs", []) or []
 
-        for update in self._get_updates(have_copy, want_copy):
-            for key, value in iteritems(update):
-                commands.append(
-                    self._compute_commands(
-                        key=key,
-                        value=value,
-                        interface=want_copy["name"],
-                        remove=True,
-                    ),
-                )
-
-        if have_vifs:
-            for have_vif in have_vifs:
-                want_vif = search_obj_in_list(have_vif["vlan_id"], want_vifs, key="vlan_id")
-                if not want_vif:
-                    want_vif = {"vlan_id": have_vif["vlan_id"]}
-
-                for update in self._get_updates(have_vif, want_vif):
-                    for key, value in iteritems(update):
+                for addr_family in ("ipv4", "ipv6"):
+                    for addr in have_copy.get(addr_family) or []:
                         commands.append(
                             self._compute_commands(
-                                key=key,
+                                key="address",
+                                value=addr["address"],
                                 interface=want_copy["name"],
-                                value=value,
-                                vif=want_vif["vlan_id"],
                                 remove=True,
                             ),
                         )
 
+                for have_vif in have_vifs:
+                    for addr_family in ("ipv4", "ipv6"):
+                        for addr in have_vif.get(addr_family) or []:
+                            commands.append(
+                                self._compute_commands(
+                                    key="address",
+                                    value=addr["address"],
+                                    interface=want_copy["name"],
+                                    vif=have_vif["vlan_id"],
+                                    remove=True,
+                                ),
+                            )
+
+                return commands
+
+            want_vifs = want_copy.pop("vifs", [])
+            have_vifs = have_copy.pop("vifs", [])
+
+            if have_vifs:
+                for have_vif in have_vifs:
+                    want_vif = search_obj_in_list(have_vif["vlan_id"], want_vifs, key="vlan_id")
+                    if not want_vif:
+                        want_vif = {"vlan_id": have_vif["vlan_id"]}
+
+                    for update in self._get_updates(have_vif, want_vif):
+                        for key, value in update.items():
+                            commands.append(
+                                self._compute_commands(
+                                    key=key,
+                                    interface=want_copy["name"],
+                                    value=value,
+                                    vif=want_vif["vlan_id"],
+                                    remove=True,
+                                ),
+                            )
+
+            for update in self._get_updates(have_copy, want_copy):
+                for key, value in update.items():
+                    commands.append(
+                        self._compute_commands(
+                            key=key,
+                            value=value,
+                            interface=want_copy["name"],
+                            remove=True,
+                        ),
+                    )
+
         return commands
 
     def _compute_commands(self, interface, key, vif=None, value=None, remove=False):
-        intf_context = "interfaces {0} {1}".format(get_interface_type(interface), interface)
+        if value == "auto-config" and vif is None:
+            intf_context = "interfaces {0} {1} ipv6".format(
+                get_interface_type(interface),
+                interface,
+            )
+        else:
+            intf_context = "interfaces {0} {1}".format(get_interface_type(interface), interface)
+
         set_cmd = "set {0}".format(intf_context)
         del_cmd = "delete {0}".format(intf_context)
 
         if vif:
-            set_cmd = set_cmd + (" vif {0}".format(vif))
-            del_cmd = del_cmd + (" vif {0}".format(vif))
+            suffix = " ipv6" if value == "auto-config" else ""
+            set_cmd += f" vif {vif}{suffix}"
+            del_cmd += f" vif {vif}{suffix}"
 
-        if remove:
+        if remove and key and value:
             command = "{0} {1} '{2}'".format(del_cmd, key, value)
+        elif remove and not (key and value):
+            command = "{0}".format(del_cmd)
         else:
             command = "{0} {1} '{2}'".format(set_cmd, key, value)
 
@@ -318,3 +365,12 @@ class L3_interfaces(ConfigBase):
         updates.extend(diff_list_of_dicts(want.get("ipv6", []), have.get("ipv6", [])))
 
         return updates
+
+    def mutate_autoconfig(self, obj):
+        if isinstance(obj, dict):
+            return dict(map(lambda kv: (kv[0], self.mutate_autoconfig(kv[1])), obj.items()))
+        if isinstance(obj, list):
+            return list(map(self.mutate_autoconfig, obj))
+        if isinstance(obj, str):
+            return obj.replace("autoconf", "auto-config")
+        return obj

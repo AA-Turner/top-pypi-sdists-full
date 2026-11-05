@@ -7,6 +7,7 @@ import mathutils
 import json
 import threading
 import socket
+import ipaddress
 import queue
 import time
 import requests
@@ -23,7 +24,7 @@ from datetime import datetime
 import hashlib, hmac, base64
 import os.path as osp
 from collections import deque
-from urllib.parse import quote, urlencode, urlparse, urlunparse, parse_qsl
+from urllib.parse import quote, urlencode, urljoin, urlparse, urlunparse, parse_qsl
 from contextlib import contextmanager, redirect_stdout, suppress
 from bpy.app.handlers import persistent
 
@@ -82,13 +83,15 @@ _meshy_refines = {}
 
 # Tripo, with the user's own key. Sidebar model id -> label; the id is what
 # the request sends. Text and image are each one task.
-TRIPO_API_BASE = "https://openapi.tripo3d.ai/v3"
+TRIPO_DOMAINS = [
+    ("ai", ".ai", "Use the international Tripo API and developer portal"),
+    ("com", ".com", "Use the CN Tripo API and developer portal"),
+]
 TRIPO_DEFAULT_MODEL = "v3.1-20260211"
 TRIPO_MODELS = {
     "v3.1-20260211": "H3.1",
     "P2-20260801": "P2.0",
 }
-TRIPO_KEY_URL = "https://developers.tripo3d.ai/en/keys"
 TRIPO_PROMPT_MAX = 1024
 TRIPO_IMAGE_MAX_BYTES = 20 * 1024 * 1024
 TRIPO_IMAGE_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
@@ -100,12 +103,31 @@ TRIPO_TIMEOUT = (10, 60)
 _user_stopped_server = False
 
 
+def _blendermcp_bind_address(context=None):
+    """Read persistent listener settings, requiring opt-in beyond loopback."""
+    prefs = get_blendermcp_addon_preferences(context)
+    host = getattr(prefs, "bind_address", "localhost").strip()
+    if host.lower() == "localhost":
+        return "localhost"
+    try:
+        address = ipaddress.IPv4Address(host)
+    except ipaddress.AddressValueError as exc:
+        raise ValueError("Bind Address must be localhost or an IPv4 address") from exc
+    if not address.is_loopback and not getattr(prefs, "allow_remote_connections", False):
+        raise ValueError(
+            "Non-loopback binding requires Allow Remote Connections in add-on preferences"
+        )
+    return str(address)
+
+
 def _blendermcp_port_has_listener(host, port):
     """Return True when another process already owns the MCP endpoint."""
     probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     probe.settimeout(0.15)
     try:
-        return probe.connect_ex((host, port)) == 0
+        # A wildcard is a listening address, not a portable connect target.
+        probe_host = "127.0.0.1" if host == "0.0.0.0" else host
+        return probe.connect_ex((probe_host, port)) == 0
     finally:
         probe.close()
 
@@ -128,18 +150,31 @@ def _blendermcp_ensure_server_running():
         scene.blendermcp_server_running = bool(server is not None and server.running)
         return None
 
+    if server is not None and server.running:
+        scene.blendermcp_server_running = True
+        return None
+
+    try:
+        host = _blendermcp_bind_address()
+    except ValueError as exc:
+        scene.blendermcp_server_running = False
+        print(f"BlenderMCP: auto-start skipped: {exc}")
+        return None
+
     port = scene.blendermcp_port
     if server is None:
-        if _blendermcp_port_has_listener("localhost", port):
+        if _blendermcp_port_has_listener(host, port):
             scene.blendermcp_server_running = False
-            print(f"BlenderMCP: port {port} is already in use; auto-start skipped.")
+            print(f"BlenderMCP: {host}:{port} is already in use; auto-start skipped.")
             return None
-        server = BlenderMCPServer(port=port)
+        server = BlenderMCPServer(host=host, port=port)
         bpy.types.blendermcp_server = server
 
     if not server.running:
         # Safe while stopped and necessary when a newly loaded scene selects a
-        # different port. Never retarget an active connection.
+        # different port or the preferences select a different bind address.
+        # Never retarget an active connection.
+        server.host = host
         server.port = port
         server.start()
 
@@ -1172,6 +1207,21 @@ def get_blendermcp_addon_preferences(context=None):
     addon = context.preferences.addons.get(__name__)
     return addon.preferences if addon else None
 
+
+def tripo_endpoints(context=None, preferences=None):
+    """Resolve the same domain for the sidebar, developer links and API calls."""
+    context = context or bpy.context
+    prefs = preferences if preferences is not None else get_blendermcp_addon_preferences(context)
+    domain = (getattr(prefs, "tripo_domain", "ai") if prefs is not None else
+              getattr(context.scene, "blendermcp_tripo_domain", "ai"))
+    domain = domain if domain in ("ai", "com") else "ai"
+    portal = f"https://developers.tripo3d.{domain}/{'zh' if domain == 'com' else 'en'}"
+    return {
+        "domain": domain,
+        "api": f"https://openapi.tripo3d.{domain}/v3",
+        "keys": f"{portal}/keys",
+    }
+
 # Tencent Cloud exposes Hunyuan-to-3D through two different services depending on where the
 # account was created. Mainland accounts (cloud.tencent.com) use the AI3D 3.0 API. Tencent Cloud
 # International accounts (tencentcloud.com) use the "Hunyuan-to-3D (Professional)" service on the
@@ -1254,16 +1304,20 @@ class BlenderMCPServer:
         return ""
 
     def _get_hyper3d_api_key(self):
-        # Let the free-trial button temporarily override persistent keys
-        # without overwriting user-saved private keys.
+        # The trial key is only valid on the main site. Keep a session trial
+        # override from masking a saved private fal.ai key after switching modes.
+        main_site = bpy.context.scene.blendermcp_hyper3d_mode == 'MAIN_SITE'
         scene_value = getattr(bpy.context.scene, "blendermcp_hyper3d_api_key", "")
-        if scene_value == RODIN_FREE_TRIAL_KEY:
+        if main_site and scene_value == RODIN_FREE_TRIAL_KEY:
             return scene_value
-        return self._get_config_value(
+        api_key = self._get_config_value(
             "blendermcp_hyper3d_api_key",
             "hyper3d_api_key",
             "BLENDERMCP_HYPER3D_API_KEY",
         )
+        if not main_site and api_key == RODIN_FREE_TRIAL_KEY:
+            return ""
+        return api_key
 
     def _get_sketchfab_api_key(self):
         return self._get_config_value(
@@ -3589,7 +3643,7 @@ class BlenderMCPServer:
             """Call Rodin API, get the job uuid and subscription key"""
             files = [
                 *[("images", (f"{i:04d}{img_suffix}", base64.b64decode(img) if isinstance(img, str) else img)) for i, (img_suffix, img) in enumerate(images)],
-                ("tier", (None, "Sketch")),
+                ("tier", (None, "Gen-2.5-Medium")),
                 ("mesh_mode", (None, "Raw")),
                 ("texture_mode", (None, "high")),
             ]
@@ -3621,16 +3675,23 @@ class BlenderMCPServer:
             if not api_key:
                 return {"error": "Hyper3D API key is not given"}
             req_data = {
-                "tier": "Sketch",
+                "tier": "Gen-2.5-Medium",
             }
             if images:
-                req_data["input_image_urls"] = images
+                req_data["image_urls"] = [
+                    image if isinstance(image, str) else
+                    f"data:image/{image[0].lstrip('.').lower().replace('jpg', 'jpeg')};base64,{image[1]}"
+                    for image in images
+                ]
             if text_prompt:
                 req_data["prompt"] = text_prompt
             if bbox_condition:
-                req_data["bbox_condition"] = bbox_condition
+                # v2.5 takes an object, not the [length, width, height] list.
+                length, width, height = bbox_condition
+                req_data["bbox_condition"] = {"length": length, "width": width, "height": height}
             response = requests.post(
-                "https://queue.fal.run/fal-ai/hyper3d/rodin",
+                ("https://queue.fal.run/fal-ai/hyper3d/rodin/v2.5"
+                 if images else "https://queue.fal.run/fal-ai/hyper3d/rodin/v2.5/text-to-3d"),
                 headers={
                     "Authorization": f"Key {api_key}",
                     "Content-Type": "application/json",
@@ -4849,8 +4910,7 @@ class BlenderMCPServer:
                 else:
                     try:
                         # Convert to Base64 format
-                        with open(image, "rb") as f:
-                            image_base64 = base64.b64encode(f.read()).decode("ascii")
+                        image_base64 = base64.b64encode(_read_image_file(image)).decode("ascii")
                         data["ImageBase64"] = image_base64
                     except Exception as e:
                         return {"error": f"Image encoding failed: {str(e)}"}
@@ -4906,17 +4966,14 @@ class BlenderMCPServer:
             if image:
                 if re.match(r'^https?://', image, re.IGNORECASE) is not None:
                     try:
-                        resImg = requests.get(image, timeout=30)
-                        resImg.raise_for_status()
-                        image_base64 = base64.b64encode(resImg.content).decode("ascii")
+                        image_base64 = base64.b64encode(_fetch_public_image(image)).decode("ascii")
                         data["image"] = image_base64
                     except Exception as e:
-                        return {"error": f"Failed to download or encode image: {str(e)}"} 
+                        return {"error": f"Failed to download or encode image: {str(e)}"}
                 else:
                     try:
                         # Convert to Base64 format
-                        with open(image, "rb") as f:
-                            image_base64 = base64.b64encode(f.read()).decode("ascii")
+                        image_base64 = base64.b64encode(_read_image_file(image)).decode("ascii")
                         data["image"] = image_base64
                     except Exception as e:
                         return {"error": f"Image encoding failed: {str(e)}"}
@@ -5178,7 +5235,7 @@ class BlenderMCPServer:
         if response.status_code == 401 or code in (1000, 1001):
             return None, {"error": "Tripo rejected the API key"}
         if code == 2010:
-            return None, {"error": message or "Out of Tripo credits. Top up at tripo3d.ai"}
+            return None, {"error": message or f"Out of Tripo credits. Top up at tripo3d.{tripo_endpoints()['domain']}"}
         if code == 2000:
             return None, {"error": message or "Tripo concurrency limit hit, wait and retry"}
         if code == 1007 or response.status_code == 429:
@@ -5204,7 +5261,7 @@ class BlenderMCPServer:
             return None, error
         try:
             response = requests.post(
-                f"{TRIPO_API_BASE}{path}", headers=headers, json=body, files=files, timeout=TRIPO_TIMEOUT)
+                f"{tripo_endpoints()['api']}{path}", headers=headers, json=body, files=files, timeout=TRIPO_TIMEOUT)
         except Exception:
             return None, {"error": "Tripo request failed. Check the internet connection and try again"}
         return self._tripo_parse(response)
@@ -5220,7 +5277,7 @@ class BlenderMCPServer:
         try:
             with open(path, "rb") as handle:
                 response = requests.post(
-                    f"{TRIPO_API_BASE}/files",
+                    f"{tripo_endpoints()['api']}/files",
                     headers=headers,
                     files={"file": (os.path.basename(path), handle, mime)},
                     timeout=TRIPO_TIMEOUT,
@@ -5282,7 +5339,7 @@ class BlenderMCPServer:
             return error
         try:
             response = requests.get(
-                f"{TRIPO_API_BASE}/tasks/{quote(str(task_id), safe='')}",
+                f"{tripo_endpoints()['api']}/tasks/{quote(str(task_id), safe='')}",
                 headers=headers,
                 timeout=TRIPO_TIMEOUT,
             )
@@ -5909,6 +5966,60 @@ def premium_integration_status(integration, enabled):
     return {"enabled": True, "mode": "PREMIUM", "message": f"{summary}. {flow}"}
 
 
+IMAGE_FETCH_MAX_REDIRECTS = 3
+
+
+def _is_image_bytes(data):
+    """PNG, JPEG or WebP, by their magic numbers rather than the file name."""
+    return (data.startswith(b"\x89PNG\r\n\x1a\n") or data.startswith(b"\xff\xd8\xff")
+            or (data[:4] == b"RIFF" and data[8:12] == b"WEBP"))
+
+
+def _read_image_file(path):
+    """A local image's bytes. They go to a generation service, so a path to
+    anything but an image (a key file, a config) raises ValueError."""
+    with open(path, "rb") as f:
+        data = f.read()
+    if not _is_image_bytes(data):
+        raise ValueError(f"Not a PNG, JPEG or WebP image: {path}")
+    return data
+
+
+def _check_public_url(url):
+    """Raise ValueError unless every address the URL's host resolves to is public."""
+    parsed = urlparse(url)
+    if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
+        raise ValueError(f"Not an http(s) URL: {url}")
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, parsed.port, proto=socket.IPPROTO_TCP)
+    except (socket.gaierror, ValueError) as e:
+        raise ValueError(f"Can't resolve {parsed.hostname}: {e}")
+    for info in infos:
+        address = ipaddress.ip_address(info[4][0].split("%")[0])
+        if address.version == 6 and address.ipv4_mapped:
+            address = address.ipv4_mapped
+        if not address.is_global:
+            raise ValueError(f"{parsed.hostname} is a local or private address. "
+                             "Give a public image URL or a local file path instead.")
+
+
+def _fetch_public_image(url):
+    """Download an image named by URL. Local and private hosts are refused at
+    every redirect, so a URL can't reach into the user's own network."""
+    for _ in range(IMAGE_FETCH_MAX_REDIRECTS + 1):
+        _check_public_url(url)
+        response = requests.get(url, timeout=30, allow_redirects=False)
+        location = response.headers.get("Location")
+        if 300 <= response.status_code < 400 and location:
+            url = urljoin(url, location)
+            continue
+        response.raise_for_status()
+        if not _is_image_bytes(response.content):
+            raise ValueError(f"Not a PNG, JPEG or WebP image: {url}")
+        return response.content
+    raise ValueError("Too many redirects fetching the image")
+
+
 def _premium_image_payload(image):
     """URLs go to the server as-is; local files are read here, since the
     server cannot see the user's disk."""
@@ -5919,8 +6030,7 @@ def _premium_image_payload(image):
                 "image_mime": _premium_mime(suffix)}, len(raw)
     if re.match(r'^https?://', str(image), re.IGNORECASE):
         return {"image_url": image}, 0
-    with open(image, "rb") as f:
-        raw = f.read()
+    raw = _read_image_file(image)
     return {"image_base64": base64.b64encode(raw).decode("ascii"),
             "image_mime": _premium_mime(osp.splitext(image)[1])}, len(raw)
 
@@ -6277,6 +6387,21 @@ PREMIUM_CLASSES = (
 # Blender Addon Preferences
 class BLENDERMCP_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
+
+    bind_address: bpy.props.StringProperty(
+        name="Bind Address",
+        description="Listener address: localhost or an IPv4 address. Applied on next connection",
+        default="localhost",
+    )
+    allow_remote_connections: BoolProperty(
+        name="Allow Remote Connections",
+        description=(
+            "Allow non-loopback binding on the next connection. Remote clients can execute "
+            "Python without authentication or encryption. Use only on a trusted network "
+            "with firewall restrictions"
+        ),
+        default=False,
+    )
     
     def _on_telemetry_consent_changed(self, context):
         try:
@@ -6354,6 +6479,12 @@ class BLENDERMCP_AddonPreferences(bpy.types.AddonPreferences):
         ],
         default="standard",
     )
+    tripo_domain: bpy.props.EnumProperty(
+        name="Tripo Domain",
+        description="Tripo API region; use an API key from the selected domain",
+        items=TRIPO_DOMAINS,
+        default="ai",
+    )
     tripo_api_key: bpy.props.StringProperty(
         name="Tripo API Key",
         subtype="PASSWORD",
@@ -6369,6 +6500,19 @@ class BLENDERMCP_AddonPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context):
         layout = self.layout
+
+        layout.label(text="Server Connection:", icon='NETWORK_DRIVE')
+        connection_box = layout.box()
+        connection_box.prop(self, "bind_address")
+        connection_box.prop(self, "allow_remote_connections")
+        if self.allow_remote_connections:
+            warning = connection_box.column()
+            warning.alert = True
+            warning.label(text="Remote clients can run Python.", icon='ERROR')
+            warning.label(text="No authentication or encryption.")
+            warning.label(text="Use a trusted LAN and a firewall.")
+        connection_box.label(text="Disconnect and reconnect to apply changes.", icon='INFO')
+        layout.separator()
 
         # Telemetry section
         layout.label(text="Telemetry & Privacy:", icon='PREFERENCES')
@@ -6414,8 +6558,10 @@ class BLENDERMCP_AddonPreferences(bpy.types.AddonPreferences):
                 "https://console.cloud.tencent.com/cam/capi"
             col.prop(self, "hunyuan3d_api_url", text="Hunyuan3D API URL")
             col.separator()
+            col.prop(self, "tripo_domain", text="Tripo Domain", translate=False)
             col.prop(self, "tripo_api_key", text="Tripo API Key")
-            col.operator("wm.url_open", text="Get Tripo API Key", icon='URL').url = TRIPO_KEY_URL
+            endpoints = tripo_endpoints(context, self)
+            col.operator("wm.url_open", text="Get Tripo API Key", icon='URL').url = endpoints["keys"]
             col.separator()
             col.prop(self, "meshy_api_key", text="Meshy API Key")
             col.operator("wm.url_open", text="meshy.ai keys", icon='URL').url = MESHY_KEY_URL
@@ -6453,8 +6599,9 @@ class BLENDERMCP_PT_Panel(bpy.types.Panel):
         col = box.column()
         if scene.blendermcp_server_running:
             server = getattr(bpy.types, "blendermcp_server", None)
+            running_host = getattr(server, "host", "localhost")
             running_port = getattr(server, "port", scene.blendermcp_port)
-            col.label(text=f"Connected on port {running_port}", icon='CHECKMARK')
+            col.label(text=f"Connected on {running_host}:{running_port}", icon='CHECKMARK')
             col.operator("blendermcp.stop_server", text="Disconnect", icon='X')
         else:
             col.label(text="Not connected", icon='RADIOBUT_OFF')
@@ -6510,8 +6657,9 @@ class BLENDERMCP_PT_Panel(bpy.types.Panel):
                 col.prop(prefs, "hyper3d_api_key", text="API Key")
             else:
                 col.prop(scene, "blendermcp_hyper3d_api_key", text="API Key")
-            sub.operator("blendermcp.set_hyper3d_free_trial_api_key",
-                         text="Set Free Trial API Key", icon='KEYINGSET')
+            if scene.blendermcp_hyper3d_mode == 'MAIN_SITE':
+                sub.operator("blendermcp.set_hyper3d_free_trial_api_key",
+                             text="Set Free Trial API Key", icon='KEYINGSET')
 
         sub = self._integration_header(
             layout, scene, "blendermcp_use_hunyuan3d", "Tencent Hunyuan 3D", 'MESH_CUBE')
@@ -6545,11 +6693,20 @@ class BLENDERMCP_PT_Panel(bpy.types.Panel):
         elif sub:
             col = sub.column(align=True)
             col.prop(scene, "blendermcp_tripo_model", text="Model")
+            endpoints = tripo_endpoints(context)
+            # The domain picker only matters for tripo3d.com (China) accounts, so
+            # the sidebar shows it for a Chinese UI or once it is set; it is
+            # always in the add-on preferences.
+            show_domain = endpoints["domain"] == "com" or bpy.app.translations.locale.startswith("zh")
             if prefs:
+                if show_domain:
+                    col.prop(prefs, "tripo_domain", text="Domain", translate=False)
                 col.prop(prefs, "tripo_api_key", text="API Key")
             else:
+                if show_domain:
+                    col.prop(scene, "blendermcp_tripo_domain", text="Domain", translate=False)
                 col.prop(scene, "blendermcp_tripo_api_key", text="API Key")
-            sub.operator("wm.url_open", text="Get Tripo API Key", icon='KEYINGSET').url = TRIPO_KEY_URL
+            sub.operator("wm.url_open", text="Get Tripo API Key", icon='KEYINGSET').url = endpoints["keys"]
 
         sub = self._integration_header(layout, scene, "blendermcp_use_meshy", "Meshy", 'OUTLINER_OB_MESH')
         if sub and premium:
@@ -6587,6 +6744,10 @@ class BLENDERMCP_OT_SetFreeTrialHyper3DAPIKey(bpy.types.Operator):
     bl_idname = "blendermcp.set_hyper3d_free_trial_api_key"
     bl_label = "Set Free Trial API Key"
 
+    @classmethod
+    def poll(cls, context):
+        return context.scene.blendermcp_hyper3d_mode == 'MAIN_SITE'
+
     def execute(self, context):
         prefs = get_blendermcp_addon_preferences(context)
         if prefs:
@@ -6610,16 +6771,31 @@ class BLENDERMCP_OT_StartServer(bpy.types.Operator):
 
     def execute(self, context):
         global _user_stopped_server
-        _user_stopped_server = False
         scene = context.scene
 
+        server = getattr(bpy.types, "blendermcp_server", None)
+        if server is not None and server.running:
+            scene.blendermcp_server_running = True
+            return {'FINISHED'}
+        try:
+            host = _blendermcp_bind_address(context)
+        except ValueError as exc:
+            scene.blendermcp_server_running = False
+            self.report({'ERROR'}, str(exc))
+            return {'CANCELLED'}
+        _user_stopped_server = False
+
         # Create a new server instance
-        if not hasattr(bpy.types, "blendermcp_server") or not bpy.types.blendermcp_server:
-            bpy.types.blendermcp_server = BlenderMCPServer(port=scene.blendermcp_port)
+        if server is None:
+            server = BlenderMCPServer(host=host, port=scene.blendermcp_port)
+            bpy.types.blendermcp_server = server
+        else:
+            server.host = host
+            server.port = scene.blendermcp_port
 
         # Start the server
-        bpy.types.blendermcp_server.start()
-        scene.blendermcp_server_running = bpy.types.blendermcp_server.running
+        server.start()
+        scene.blendermcp_server_running = server.running
 
         return {'FINISHED'}
 
@@ -6954,6 +7130,12 @@ def register():
         default=False,
     )
 
+    bpy.types.Scene.blendermcp_tripo_domain = bpy.props.EnumProperty(
+        name="Tripo Domain",
+        description="Tripo API region; use an API key from the selected domain",
+        items=TRIPO_DOMAINS,
+        default="ai",
+    )
     bpy.types.Scene.blendermcp_tripo_model = bpy.props.EnumProperty(
         name="Tripo Model",
         description="Tripo model used for each generation",
@@ -7057,6 +7239,7 @@ def unregister():
     del bpy.types.Scene.blendermcp_use_sketchfab
     del bpy.types.Scene.blendermcp_sketchfab_api_key
     del bpy.types.Scene.blendermcp_use_tripo
+    del bpy.types.Scene.blendermcp_tripo_domain
     del bpy.types.Scene.blendermcp_tripo_model
     del bpy.types.Scene.blendermcp_tripo_api_key
     del bpy.types.Scene.blendermcp_use_meshy

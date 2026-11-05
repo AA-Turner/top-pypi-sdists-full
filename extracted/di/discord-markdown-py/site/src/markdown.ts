@@ -2,7 +2,6 @@ import type { Block, SyntaxFlags } from "@discord/markdown-types";
 import init, {
 	parse as rawParse,
 	profile as rawProfile,
-	unparse as rawUnparse,
 } from "./wasm/discord_markdown_wasm.js";
 
 // Built by `pnpm build:wasm`, which turns on the crate's `profile` feature. The published
@@ -18,16 +17,6 @@ await init({ module_or_path: wasmUrl });
 /** Parse markdown into its AST. `flags` defaults to every syntax. */
 export function parse(content: string, flags?: SyntaxFlags | null): Block[] {
 	return rawParse(content, flags);
-}
-
-/**
- * Turn an AST back into markdown.
- *
- * Not byte-exact for everything: text is not re-escaped, italics always come back as `_`, and
- * unordered lists always as `* `.
- */
-export function unparse(nodes: Block[]): string {
-	return rawUnparse(nodes);
 }
 
 /**

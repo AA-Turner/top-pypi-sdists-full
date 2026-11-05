@@ -324,6 +324,7 @@ __all__ = (
     "CalculationComponentOutputTypeDef",
     "CalculationComponentTypeDef",
     "CampaignTypeDef",
+    "CaseEntryTypeDef",
     "CaseSlaConfigurationOutputTypeDef",
     "CaseSlaConfigurationTypeDef",
     "CaseSlaConfigurationUnionTypeDef",
@@ -2142,6 +2143,10 @@ BooleanConditionTypeDef = TypedDict(
 
 class CampaignTypeDef(TypedDict):
     CampaignId: NotRequired[str]
+
+class CaseEntryTypeDef(TypedDict):
+    CaseId: NotRequired[str]
+    CaseReferenceNumber: NotRequired[str]
 
 class FieldValueUnionOutputTypeDef(TypedDict):
     BooleanValue: NotRequired[bool]
@@ -10046,6 +10051,7 @@ class ContactTypeDef(TypedDict):
     DisconnectReason: NotRequired[str]
     ContactEvaluations: NotRequired[dict[str, ContactEvaluationTypeDef]]
     TaskTemplateInfo: NotRequired[TaskTemplateInfoV2TypeDef]
+    Cases: NotRequired[list[CaseEntryTypeDef]]
     ContactDetails: NotRequired[ContactDetailsTypeDef]
     OutboundStrategy: NotRequired[OutboundStrategyOutputTypeDef]
     Attributes: NotRequired[dict[str, str]]

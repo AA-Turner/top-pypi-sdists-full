@@ -20352,6 +20352,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeRCElasticScalingResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.acu_type):
+            query['AcuType'] = request.acu_type
         if not DaraCore.is_null(request.instance_charge_type):
             query['InstanceChargeType'] = request.instance_charge_type
         if not DaraCore.is_null(request.instance_id):
@@ -20388,6 +20390,8 @@ class Client(OpenApiClient):
     ) -> main_models.DescribeRCElasticScalingResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.acu_type):
+            query['AcuType'] = request.acu_type
         if not DaraCore.is_null(request.instance_charge_type):
             query['InstanceChargeType'] = request.instance_charge_type
         if not DaraCore.is_null(request.instance_id):

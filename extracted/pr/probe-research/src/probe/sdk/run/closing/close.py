@@ -14,6 +14,9 @@ from ...capture import outputs as _outputs
 from ..launch import preempt as _preempt
 from ...delivery.journal.flusher import flush_journal
 
+#: `probe_finish.outbox` of a SIGTERM's close sent ahead of its writes (H2): the service goes too.
+SERVICE_STOPS_WITH_JOB = "service_stops_with_job"
+
 
 class CloseMixin:
     """Part of Run: its methods run with `self` the Run; compose() folds them into Run."""
@@ -135,7 +138,20 @@ class CloseMixin:
         # within its deadline (review of #3785, C2).
         flush_journal(deadline=drain_deadline, warn=True)
         if self._delivers_by_worker():
-            # D1/D2: the detached worker sends this run's queued writes; the close waits on it.
+            if _preempt.ending() is not None and _is_service_fate_shared():
+                # H2: SIGTERM, and the Probe service goes with this job (a delivery service, the
+                # job's cgroup): the close goes FIRST, through the service, within the grace;
+                # never queued for a drain that may not outlive the job.
+                report = self._close_ahead_of_writes(
+                    status, summary, is_verdict_sent=verdict_sent, stuck=stuck, deadline=deadline,
+                    wait_deadline=drain_deadline,
+                )
+                if report is not None:
+                    return report
+            # D1/D2: the service's drain sends this run's queued writes; the close waits on it. A
+            # SIGTERM's wait keeps the reserve for the close a throwaway disk needs sent (plan D9).
+            if _preempt.ending() is not None and wait_limit is not None:
+                wait_limit = min(wait_limit, drain_deadline)
             return self._close_through_worker(
                 status, summary, verdict_sent=verdict_sent, should_warn=should_warn,
                 stuck=stuck, wait=wait, wait_limit=wait_limit, deadline=deadline,
@@ -311,6 +327,42 @@ class CloseMixin:
             return None
         return str(where.get("reason") or "a disposable disk")
 
+    def _close_ahead_of_writes(
+        self, status: str, summary: dict | None, *, is_verdict_sent: bool, stuck: list, deadline: float,
+        wait_deadline: float,
+    ) -> dict | None:
+        """SIGTERM with a Probe service that shares this job's fate (H2): the close is sent FIRST,
+        through the service, inside `deadline_scope(deadline)`, counting what is still queued; the
+        grace up to `wait_deadline` then waits for that rest, which the service's drain sends meanwhile.
+        None when nothing of the run is queued: the close is then the one sync write it always is."""
+        from ...delivery.outbox.waiter.scan import count_run, worker_queues
+        from ...delivery.transport.deadlines import deadline_scope
+
+        journal = self._client.journal
+        queued = count_run(worker_queues(journal), self.id, min_epoch=self.write_epoch)
+        left = queued.pending + queued.held + queued.best_effort + len(stuck)
+        if is_verdict_sent or not left:
+            return None
+        accounting = self._count_close_accounting(
+            journal.run_ops(self.id).failed() + journal.run_ops_elsewhere(self.id).failed()
+        )
+        lost_with = self._preempted_outbox_goes_with_machine()
+        warning = None if lost_with else (
+            f"probe: run {self.id} closed {status} on SIGTERM ahead of {left} queued write(s): the Probe "
+            "service sending them stops with this job; what it has not sent stays on disk for the next "
+            "one there (probe_finish.undelivered)."
+        )
+        self.stop_heartbeat()
+        with deadline_scope(deadline):
+            report = self._close_preempted_directly(
+                status, summary, left, 0, accounting, lost_with or SERVICE_STOPS_WITH_JOB, warning=warning
+            )
+        if time.monotonic() < wait_deadline:
+            self._client._kick_drainer(force=True)
+            rest = self._wait_for_worker(wait_deadline)
+            report.update(remaining=rest.pending + rest.held, delivered=rest.delivered)
+        return report
+
     def _close_preempted_directly(
         self,
         status: str,
@@ -319,6 +371,8 @@ class CloseMixin:
         delivered: int,
         accounting: dict,
         lost_with: str,
+        *,
+        warning: str | None = None,
     ) -> dict:
         """The close of a SIGTERMed run whose outbox dies with the machine:
         sent NOW, marking what will never arrive, instead of queued behind it
@@ -343,9 +397,9 @@ class CloseMixin:
             status, ended_at=_now(), summary=close_summary, sync=True, strict=False
         )
         _diagnostics.warn(
-            f"probe: run {self.id} closed {status} on SIGTERM with {undelivered} write(s) "
-            f"undelivered: the outbox is on {lost_with}, which goes with this machine "
-            "(probe_finish.undelivered).",
+            warning or (f"probe: run {self.id} closed {status} on SIGTERM with {undelivered} write(s) "
+                        f"undelivered: the outbox is on {lost_with}, which goes with this machine "
+                        "(probe_finish.undelivered)."),
             stacklevel=5,
         )
         self._warn_unrecoverable(accounting, recorded=getattr(self, "_closed_status", None) is not None)
@@ -489,3 +543,10 @@ class CloseMixin:
 from probe.sdk.run.closing.drain import _close_reserve  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.metrics.values import _now  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.summary import _with_finish_accounting  # noqa: E402 -- pieces need each other; the front door loads this one first
+
+
+def _is_service_fate_shared() -> bool:
+    """The Probe service this process uses goes with this job (`handoff.is_fate_shared`)."""
+    from ....foundation.service_api import handoff
+
+    return handoff.is_fate_shared()

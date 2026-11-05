@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck test install build clean
+.PHONY: lint format typecheck test test-mistralai-v3 install build clean
 
 lint: format typecheck
 	uv run ruff check .
@@ -10,8 +10,12 @@ format:
 typecheck:
 	uv run basedpyright
 
-test:
+# The mistral extra supports mistralai 2.x (locked) and 3.x: test both.
+test: test-mistralai-v3
 	uv run pytest
+
+test-mistralai-v3:
+	uv run --with "mistralai>=3,<4" pytest
 
 install:
 	uv sync

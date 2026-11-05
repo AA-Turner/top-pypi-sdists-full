@@ -1,5 +1,5 @@
-"""Codegen: render every client view of the records, the event catalog, the client-message and
-transcript-switch and settings vocabularies, then write it or check it is current.
+"""Codegen: render every client view of the records, the event and surface catalogs, the
+client-message and transcript-switch and settings vocabularies, then write it or check it is current.
 
     python -m probe_contracts.codegen           # write every target
     python -m probe_contracts.codegen --check   # exit 1 naming each stale target
@@ -14,7 +14,14 @@ from pathlib import Path
 
 from ..probe_contracts import CONTRACTS, Contracts
 from .client_messages import render_client_messages_stdlib, render_client_messages_typescript
-from .events import render_agent_events, render_dashboard_events, render_server_events
+from .events import (
+    render_agent_events,
+    render_agent_surfaces,
+    render_dashboard_events,
+    render_dashboard_surfaces,
+    render_server_events,
+    render_server_surfaces,
+)
 from .python import render_python
 from .settings import (
     GOLDEN_NAMES,
@@ -43,6 +50,9 @@ TARGETS = (
     Target("app/external/analytics/generated/events.py", render_server_events),
     Target("agent/src/probe/analytics/generated/events.py", render_agent_events),
     Target("packages/analytics/src/generated/events.ts", render_dashboard_events),
+    Target("app/external/analytics/generated/surfaces.py", render_server_surfaces),
+    Target("agent/src/probe/analytics/generated/surfaces.py", render_agent_surfaces),
+    Target("packages/analytics/src/generated/surfaces.ts", render_dashboard_surfaces),
     Target("agent/src/probe/generated/client_messages.py", render_client_messages_stdlib),
     # The tap's own copy, beside its copy of `probe.foundation.server_messages` (it cannot import
     # probe). The hooks (Python 3.9) cannot load it: they mirror the two words they need.

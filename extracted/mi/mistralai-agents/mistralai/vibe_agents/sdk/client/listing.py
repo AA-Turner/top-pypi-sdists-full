@@ -30,6 +30,7 @@ from mistralai.vibe_agents.sdk.client.records import (
     UnknownTermination,
 )
 from mistralai.vibe_agents.sdk.client.turn_reads import protocol_error
+from mistralai.vibe_agents.sdk.client.unknown_values import read_value
 from mistralai.vibe_agents.sdk.transport import local
 from mistralai.vibe_agents.sdk.transport import remote as remote_transport
 from mistralai.vibe_agents.sdk.transport.session_journal import JsonFileSessionJournal
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
 
 __all__ = ["LocalRuntime", "SessionScope", "SessionStatus", "list_sessions", "local_runtime"]
 
+# The ``status=`` filter takes these; ``SessionInfo.status`` can also be an UnknownValue.
 type SessionStatus = Literal["running", "waiting", "terminated"]
 type SessionScope = Literal["roots", "children", "tree"]
 type Host = Literal["deployed", "local"]
@@ -127,22 +129,24 @@ class LocalRuntime:
         runtime = local._running_process_runtime()
         if runtime is None:
             if scope_session_id is not None:
-                raise sdk_errors.LocalSessionNotFoundError(scope_session_id)
+                raise _not_in_local_runtime(scope_session_id)
             return harness_session.CatalogListResponse(items=[], next_cursor=None)
         manager = runtime.manager
         try:
             return manager.list_catalog(params)
         except SessionControlPlaneError as error:
             if error.code == "session_not_found" and scope_session_id is not None:
-                raise sdk_errors.LocalSessionNotFoundError(scope_session_id) from error
+                raise _not_in_local_runtime(scope_session_id) from error
             raise
         except LocalSessionProcedureError as error:
             if not isinstance(params.scope, harness_session.TreeScope):
                 raise
+            # Not found as a tree root, as on the deployed host, which cannot tell a subagent apart.
             root = params.scope.root_session_id
-            raise ValueError(
-                f'Session {root} is a subagent; scope="tree" takes the root of its tree, '
-                f"{manager.record(root).root_session_id}"
+            raise sdk_errors.local_session_not_found(
+                root,
+                f"it is a subagent, not a tree root; pass root={manager.record(root).root_session_id!r}, the root "
+                "of its tree",
             ) from error
 
     async def __aenter__(self) -> Self:
@@ -222,19 +226,19 @@ def list_sessions(
     takes no ``client``.
 
     A ``root=`` or ``parent=`` that is not a UUID raises ``SdkError`` at the call. One that names no
-    session of the host raises a ``LookupError`` whose ``session_id`` is that id. On the deployed
-    host, ``scope="tree"`` with a subagent as ``root=`` raises that ``LookupError`` too; on the
-    local host it raises ``ValueError``.
+    session of the host raises ``SessionNotFoundError``, a ``LookupError``, whose ``session_id`` is that
+    id, and so does a subagent as the ``root=`` of ``scope="tree"``, on both hosts. Any other wrong
+    argument raises ``SdkError`` at the call too.
     """
     if host not in _HOSTS:
-        raise ValueError(f"host must be 'deployed' or 'local', got {host!r}")
+        raise sdk_errors.SdkError(f"host must be 'deployed' or 'local', got {host!r}")
     from mistralai.vibe_agents.sdk.client.api_client import Client  # noqa: PLC0415
 
     if client is not None and not isinstance(client, Client):
         raise sdk_errors.SdkError(f"client must be an agents.Client or None, got {type(client).__name__}")
     if host == "local":
         if client is not None:
-            raise ValueError('client= lists deployed sessions; host="local" takes no client')
+            raise sdk_errors.SdkError('client= lists deployed sessions; host="local" takes no client')
         return local_runtime().list_sessions(scope=scope, root=root, parent=parent, status=status, limit=limit)
     # Without a client, the default agents.Client() without a pool: each page opens and closes its own.
     if client is None:
@@ -255,7 +259,7 @@ def _deployed_sessions(
 ) -> AsyncIterator[SessionInfo]:
     """The deployed listing of an ``agents.Client``, through its pool if it has one."""
     params = _catalog_params(scope, root, parent, status, limit)
-    return _iterate(_DeployedPages(deployment, _scope_session_id(params.scope)).page, params, status, limit)
+    return _iterate(_DeployedPages(deployment, params.scope).page, params, status, limit)
 
 
 class _DeployedPages:
@@ -263,9 +267,17 @@ class _DeployedPages:
     pool on the deployment's client, each page opens and closes its own connection, so an iteration
     that stops early holds nothing open."""
 
-    def __init__(self, deployment: remote_transport.RemoteAgentDeployment, scope_session_id: str | None) -> None:
+    def __init__(
+        self, deployment: remote_transport.RemoteAgentDeployment, scope: harness_session.SessionCatalogScope
+    ) -> None:
         self._deployment = deployment
-        self._scope_session_id = scope_session_id
+        self._scope_session_id = _scope_session_id(scope)
+        # The control plane answers 404 for a subagent as a tree root too.
+        self._not_found_detail = (
+            'scope="tree" also takes only the root of a tree, not a subagent'
+            if isinstance(scope, harness_session.TreeScope)
+            else None
+        )
 
     async def page(self, params: harness_session.CatalogListParams) -> harness_session.CatalogListResponse:
         transport = remote_transport._control_plane_transport(self._deployment)
@@ -274,7 +286,7 @@ class _DeployedPages:
         except httpx.HTTPStatusError as error:
             # The control plane answers 404 for a root or a parent that the API key cannot read.
             if error.response.status_code == httpx.codes.NOT_FOUND and self._scope_session_id is not None:
-                raise sdk_errors.RemoteSessionNotFoundError(self._scope_session_id) from error
+                raise sdk_errors.SessionNotFoundError(self._scope_session_id, self._not_found_detail) from error
             raise
         finally:
             await transport.close()
@@ -284,12 +296,12 @@ def _catalog_params(
     scope: object, root: str | None, parent: str | None, status: object, limit: object
 ) -> harness_session.CatalogListParams:
     if status is not None and status not in _STATUSES:
-        raise ValueError(f"status must be 'running', 'waiting', 'terminated' or None, got {status!r}")
+        raise sdk_errors.SdkError(f"status must be 'running', 'waiting', 'terminated' or None, got {status!r}")
     if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit < 1):
-        raise ValueError(f"limit must be a positive integer or None, got {limit!r}")
+        raise sdk_errors.SdkError(f"limit must be a positive integer or None, got {limit!r}")
     for name, session_id in (("root", root), ("parent", parent)):
         if session_id is not None and not isinstance(session_id, str):
-            raise ValueError(f"{name}= must be a session id string or None, got {session_id!r}")
+            raise sdk_errors.SdkError(f"{name}= must be a session id string or None, got {session_id!r}")
     catalog_scope: harness_session.SessionCatalogScope
     match scope:
         case "roots" if root is None and parent is None:
@@ -299,11 +311,15 @@ def _catalog_params(
         case "tree" if root is not None and parent is None:
             catalog_scope = harness_session.TreeScope(root_session_id=root)
         case _ if scope not in _SCOPES:
-            raise ValueError(f"scope must be 'roots', 'children' or 'tree', got {scope!r}")
-        case _:
-            raise ValueError(
-                'Pass parent= with scope="children" only, root= with scope="tree" only, and neither with scope="roots"'
+            raise sdk_errors.SdkError(f"scope must be 'roots', 'children' or 'tree', got {scope!r}")
+        case "roots":
+            raise sdk_errors.SdkError('scope="roots" takes no root= or parent=: it lists the root sessions')
+        case "children":
+            raise sdk_errors.SdkError(
+                'scope="children" takes parent=<session id> only, the session to list the subagents of'
             )
+        case _:
+            raise sdk_errors.SdkError('scope="tree" takes root=<session id> only, the root session of the tree to list')
     for name, session_id in (("root", root), ("parent", parent)):
         if session_id is not None:
             try:
@@ -323,6 +339,10 @@ def _scope_session_id(scope: harness_session.SessionCatalogScope) -> str | None:
             return session_id
         case _:
             return None
+
+
+def _not_in_local_runtime(session_id: str) -> sdk_errors.SessionNotFoundError:
+    return sdk_errors.local_session_not_found(session_id, "it is not a session of this event loop's local runtime")
 
 
 async def _iterate(
@@ -353,7 +373,7 @@ def _session_info(item: harness_session.Session) -> SessionInfo:
         parent_id=str(item.parent_session_id) if item.parent_session_id is not None else None,
         root_id=str(item.root_session_id),
         title=item.title,
-        status=item.status,
+        status=read_value(item.status, "SessionInfo.status"),
         created_at=_utc(item.created_at),
         updated_at=_utc(item.updated_at),
         archived_at=_utc(item.archived_at) if item.archived_at is not None else None,
@@ -364,7 +384,7 @@ def _session_info(item: harness_session.Session) -> SessionInfo:
 def _termination(termination: harness_session.Termination) -> Termination:
     match termination:
         case harness_session.CompletedTermination(stop_reason=stop_reason):
-            return CompletedTermination(stop_reason=stop_reason)
+            return CompletedTermination(stop_reason=read_value(stop_reason, "CompletedTermination.stop_reason"))
         case harness_session.CancelledTermination(cause=cause):
             return CancelledTermination(cause=cause)
         case harness_session.FailedTermination(error=error):

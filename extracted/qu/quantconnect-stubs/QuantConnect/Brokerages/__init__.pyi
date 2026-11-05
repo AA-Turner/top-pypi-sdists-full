@@ -1500,6 +1500,15 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         ...
 
     @property
+    def holdings_sync_enabled(self) -> bool:
+        """
+        True when Lean syncs the option holdings with the brokerage once a day, for the brokerages that report
+        nothing when a contract expires or is assigned. A brokerage that reports every option position change
+        itself returns false
+        """
+        ...
+
+    @property
     def group_order_cache_manager(self) -> QuantConnect.Orders.GroupOrderCacheManager:
         """
         Cache holding the legs of a combo order until all of them have been placed, so the brokerage can submit them together

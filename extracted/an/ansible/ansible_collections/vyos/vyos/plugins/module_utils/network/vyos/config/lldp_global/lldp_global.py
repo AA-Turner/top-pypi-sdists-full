@@ -8,11 +8,11 @@ is compared to the provided configuration (as dict) and the command set
 necessary to bring the current configuration to it's desired end-state is
 created
 """
+
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
-from ansible.module_utils.six import iteritems
+
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.cfg.base import (
     ConfigBase,
 )
@@ -241,7 +241,7 @@ class Lldp_global(ConfigBase):
         commands.extend(self._add_management_addresses(want, have))
 
         if updates:
-            for key, value in iteritems(updates):
+            for key, value in updates.items():
                 if value is not None:
                     if key == "enable":
                         if value is False:

@@ -49,7 +49,7 @@ def resolve_agent(spec: str, root: Path) -> Agent:
     if not isinstance(agent, Agent):
         raise errors.AgentProjectError(
             f"{spec} is a {type(agent).__name__}, not a mistralai.agents.Agent. "
-            "Point the entrypoint at an Agent built with `import mistralai.agents as agents`."
+            "Point the entrypoint at an Agent built with `from mistralai import agents`."
         )
     if agent.name == DEFAULT_AGENT_NAME or not agent.name.strip():
         raise errors.AgentProjectError(

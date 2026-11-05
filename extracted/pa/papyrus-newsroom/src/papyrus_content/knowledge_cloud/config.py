@@ -89,10 +89,16 @@ class CloudRunConfig:
     monitor_full: bool
     reference_documents_bucket: str | None  # the media bucket whose extracted texts make the corpus's References documents; None: off
     reference_documents_extractor: str
+    reference_documents_accepted: bool  # the corpus's accepted References, whatever monitor delivered them, are the documents (text: the curation text); needs no bucket
     excluded_source_hosts: tuple[str, ...]
     openai_parameter: str
+    decision_parameter: str  # the SSM parameter that holds the Jev (TypeSafe) key
     work_dir: Path
     region: str
+
+    @property
+    def reference_documents_on(self) -> bool:
+        return bool(self.reference_documents_bucket) or self.reference_documents_accepted
 
     @property
     def as_of(self) -> dt.date:
@@ -149,8 +155,10 @@ class CloudRunConfig:
             monitor_full=(environment.get("KNOWLEDGE_MONITOR_FULL") or "").strip().lower() == "true",
             reference_documents_bucket=(environment.get("KNOWLEDGE_REFERENCE_DOCUMENTS_BUCKET") or "").strip() or None,
             reference_documents_extractor=(environment.get("KNOWLEDGE_REFERENCE_DOCUMENTS_EXTRACTOR") or "").strip() or "markitdown",
+            reference_documents_accepted=(environment.get("KNOWLEDGE_REFERENCE_DOCUMENTS_ACCEPTED") or "").strip().lower() == "true",
             excluded_source_hosts=normalize_hosts(environment.get("KNOWLEDGE_EXCLUDED_SOURCE_HOSTS")),
             openai_parameter=(environment.get("KNOWLEDGE_OPENAI_KEY_PARAMETER") or f"/papyrus/{publication}/openai-api-key").strip(),
+            decision_parameter=(environment.get("KNOWLEDGE_DECISION_KEY_PARAMETER") or "/papyrus/shared/typesafe-api-key").strip(),
             work_dir=Path((environment.get("KNOWLEDGE_WORK_DIR") or "/work").strip()),
             region=(environment.get("AWS_REGION") or "us-east-1").strip(),
         )

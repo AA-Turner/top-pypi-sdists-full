@@ -19,11 +19,10 @@ from typing import (
     runtime_checkable,
 )
 
-from schemathesis.config._auth import DEFAULT_RETRY_ON
 from schemathesis.core.errors import AuthenticationError, IncorrectUsage, SchemathesisError
 from schemathesis.core.marks import Mark
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.core.transport import RequestSettings, decode_lossy, load_json_lossy, parse_set_cookie
+from schemathesis.core.transport import RequestSettings, StatusClass, decode_lossy, load_json_lossy, parse_set_cookie
 from schemathesis.filters import FilterSet, FilterValue, MatcherFunc, RegexValue, attach_filter_chain
 from schemathesis.generation.meta import negated_parameters
 from schemathesis.transport import is_asgi_app
@@ -257,7 +256,8 @@ class CachingAuthProvider(Generic[Auth]):
     # The timer exists here to simplify testing
     timer: Callable[[], float] = time.monotonic
     # Status codes that should trigger a cache invalidation + refetch on the next request.
-    retry_on: list[int] = field(default_factory=lambda: list(DEFAULT_RETRY_ON))
+    # `None` stands for the protocol's unauthenticated status.
+    retry_on: list[int] | None = None
     _refresh_lock: threading.Lock = field(default_factory=threading.Lock)
     _fetch_failures: dict[str | int | None, int] = field(default_factory=dict)
     _fetch_disabled_until: dict[str | int | None, float] = field(default_factory=dict)
@@ -524,15 +524,14 @@ class AuthStorage(Generic[Auth]):
         # Apply caching if desired
         instance = provider_class()
         if refresh_interval is not None:
-            resolved_retry_on = list(DEFAULT_RETRY_ON) if retry_on is None else retry_on
             if cache_by_key is None:
-                provider = CachingAuthProvider(instance, refresh_interval=refresh_interval, retry_on=resolved_retry_on)
+                provider = CachingAuthProvider(instance, refresh_interval=refresh_interval, retry_on=retry_on)
             else:
                 provider = KeyedCachingAuthProvider(
                     instance,
                     refresh_interval=refresh_interval,
                     cache_by_key=cache_by_key,
-                    retry_on=resolved_retry_on,
+                    retry_on=retry_on,
                 )
         else:
             provider = instance
@@ -757,10 +756,10 @@ class ReauthState:
             if self._consecutive_failures >= REAUTH_BREAKER_THRESHOLD:
                 self.disabled = True
 
-    def note_replay(self, status_code: int, label: str) -> None:
+    def note_replay(self, status_code: int, label: str, *, succeeded: bool) -> None:
         with self._lock:
             self._consecutive_failures = 0
-            if 200 <= status_code < 300:
+            if succeeded:
                 self.reauth_count += 1
             elif status_code in self.retry_on_statuses:
                 self._token_independent.add(label)
@@ -772,7 +771,10 @@ def compute_retry_on_statuses(schema: BaseSchema) -> frozenset[int]:
     for scheme in schema.config.auth.dynamic.schemes.values():
         statuses.update(scheme.retry_on)
     for provider in (*_caching_providers_in(schema.auth), *_caching_providers_in(GLOBAL_AUTH_STORAGE)):
-        statuses.update(provider.retry_on)
+        if provider.retry_on is None:
+            statuses.add(schema.status_code_for(StatusClass.UNAUTHENTICATED))
+        else:
+            statuses.update(provider.retry_on)
     return frozenset(statuses)
 
 
@@ -798,7 +800,8 @@ def reauth_and_replay(case: Case, response: Response, state: ReauthState, recall
     except Exception:
         # Replay could not complete (e.g. transport error); keep the response we already have.
         return response
-    state.note_replay(replay.status_code, case.operation.label)
+    succeeded = case.operation.schema.classify_status(replay.status_code) is StatusClass.SUCCESS
+    state.note_replay(replay.status_code, case.operation.label, succeeded=succeeded)
     return replay
 
 
@@ -813,7 +816,8 @@ def auth(
     Args:
         refresh_interval: Seconds between token refreshes. Default is `300`. Use `None` to disable caching
         cache_by_key: Function to generate cache keys for different auth contexts (e.g., OAuth scopes)
-        retry_on: Status codes that trigger a cache invalidation and token refetch. Default is `[401]`.
+        retry_on: Status codes that trigger a cache invalidation and token refetch. Default is the protocol's
+            unauthenticated status: `401` for HTTP, `UNAUTHENTICATED` (`16`) for gRPC.
             Use `[]` to disable.
 
     Example:

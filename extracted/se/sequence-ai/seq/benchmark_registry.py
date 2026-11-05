@@ -62,7 +62,7 @@ class BenchmarkRegistration:
     - `tasks`: {name: description}, "" for a task with none; `seeds`: a list; `max_seconds`: one number of seconds or
       {task: seconds} naming every task - `max_seconds_of(task)` reads either;
     - `worlds`: how many worlds one call of a vectorized env's step takes (@seq.concurrent(sizes=[N])), None for an env
-      of one world an instance;
+      that steps one world at a time;
     - `replay`, `engine`, `gpu`, `cpu`, `memory_gb`, `secrets`, `assets`, `handler_ref`, `name`."""
 
     spec: BenchmarkSpec
@@ -308,7 +308,7 @@ def _collect_benchmark_bindings(cls: type) -> dict[SeqFlags, str]:
 def _validate_bindings(cls: type, bindings: dict[SeqFlags, str]) -> int | None:
     """@seq.reset and @seq.step are required, each held to what the platform hands it - a vectorized env's
     (@seq.concurrent(sizes=[N]) on its step) the worlds it is handed with them. Returns how many worlds one step call
-    takes: N, or None for an env of one world an instance."""
+    takes: N, or None for an env that steps one world at a time."""
     if SeqFlags.RESET not in bindings:
         raise BenchmarkDefinitionError(
             f"{cls.__name__} has no @seq.reset method: a benchmark marks the method that starts an episode of a task at "
@@ -498,7 +498,7 @@ def _one_of(names) -> str:
 
 
 def _cpu_sizes(cpu: Any, memory_gb: Any) -> tuple[int, Any]:
-    """A CPU benchmark machine: `cpu` cores - an instance of its env on each - and `memory` GB for all of them
+    """A CPU benchmark machine: `cpu` cores - a copy of its env on each - and `memory` GB for all of them
     (DEFAULT_GB_PER_CORE a core when not given)."""
     cores = DEFAULT_CPU_CORES if cpu is None else cpu
     if not isinstance(cores, int) or isinstance(cores, bool) or not 1 <= cores <= MAX_CPU_CORES:

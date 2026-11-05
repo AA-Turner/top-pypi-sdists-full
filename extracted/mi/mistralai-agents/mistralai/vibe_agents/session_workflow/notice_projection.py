@@ -2,6 +2,8 @@
 
 from typing import Literal
 
+from pydantic import JsonValue
+
 from mistralai.vibe_agents.session_workflow.task_protocol import (
     AlertStateContent,
     AlertStatePayload,
@@ -20,6 +22,7 @@ def notice_to_legacy_task_protocol_payload(
     notice_kind: str | None,
     level: NoticeLevel,
     message: str,
+    details: JsonValue = None,
 ) -> NoticePayload:
     """Map a Harness notice onto the public legacy Task Protocol contract."""
     if notice_kind == "tool_discovery":
@@ -35,5 +38,6 @@ def notice_to_legacy_task_protocol_payload(
             variant=level,
             title=message,
             level="public",
+            details=details,
         )
     )

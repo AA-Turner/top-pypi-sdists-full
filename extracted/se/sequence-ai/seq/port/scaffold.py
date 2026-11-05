@@ -140,7 +140,7 @@ class {cls}:
 
     def controller(self, substep: int) -> None:
         """TODO: turn self.action (one row per world, as the policy's adapter hands it) into self.d.ctrl, the way the
-        CPU benchmark's controller does in each physics substep — robosuite's OSC, for instance
+        CPU benchmark's controller does in each physics substep — robosuite's OSC, for example
         (robosuite/controllers/osc.py in robosuite 1.4), as a kernel. As written, an action is the actuators' ctrl."""
         if self.mjm.nu:
             self.wp.copy(self.d.ctrl, self.action)
@@ -267,7 +267,7 @@ Warp world, up to {worlds} (`@seq.concurrent(sizes=[{worlds}])`).
 
 ## What is yours (TODO in benchmark.py)
 
-1. `controller()` — the CPU benchmark's controller, per physics substep, as a kernel (robosuite's OSC, for instance:
+1. `controller()` — the CPU benchmark's controller, per physics substep, as a kernel (robosuite's OSC, for example:
    `robosuite/controllers/osc.py` in robosuite 1.4).
 2. `observe()` — the CPU benchmark's observation (its cameras: MuJoCo Warp's renderer, or its own for pixel parity).
 3. `success()` — its success, from each world's state.

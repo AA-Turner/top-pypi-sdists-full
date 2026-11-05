@@ -116,6 +116,6 @@ class OpenMetricsResource:
                         continue
                     value = rate
                 samples.append(
-                    HwSample(mapped.key, value, mapped.coords, mapped.agg, mapped.companions)
+                    HwSample(mapped.key, value * mapped.scale, mapped.coords, mapped.agg, mapped.companions)
                 )
         return samples

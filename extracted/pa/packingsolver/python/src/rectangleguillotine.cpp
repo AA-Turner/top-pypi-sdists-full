@@ -308,6 +308,8 @@ void bind_rectangleguillotine(nb::module_& m)
                 "- copies_min: minimum number of copies of the bin type.")
         .def("add_defect", &InstanceBuilder::add_defect,
                 nb::arg("bin_type_id"), nb::arg("x"), nb::arg("y"), nb::arg("w"), nb::arg("h"))
+        .def("crop_bin_type", &InstanceBuilder::crop_bin_type,
+                nb::arg("bin_type_id"), nb::arg("width"), nb::arg("height"))
         .def("add_bin_type_resource", &InstanceBuilder::add_bin_type_resource,
                 nb::arg("bin_type_id"), nb::arg("capacity"), nb::arg("penalize") = false, nb::arg("penalty") = 0.0)
         .def("add_resource_consumption", &InstanceBuilder::add_resource_consumption,
@@ -329,7 +331,8 @@ void bind_rectangleguillotine(nb::module_& m)
                     std::optional<ItemPos> copies_min)
                 {
                     ItemTypeId item_type_id = instance_builder.add_item_type(
-                            width, height, oriented, stack_id);
+                            width, height, oriented);
+                    instance_builder.set_item_type_stack_id(item_type_id, stack_id);
                     if (profit.has_value())
                         instance_builder.set_item_type_profit(item_type_id, *profit);
                     if (copies.has_value())

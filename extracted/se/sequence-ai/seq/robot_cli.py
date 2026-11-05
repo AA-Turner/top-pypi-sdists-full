@@ -1,6 +1,5 @@
 """
-`seq robot add | list | revoke` and seq.robot_add / robot_list / robot_revoke: each robot's own key to a policy - a dev
-policy's or a production one's - issued from the command line or a company's own provisioning script, and revoked.
+`seq robot add | list | revoke` and seq.robot_add / robot_list / robot_revoke: each robot's own key to a policy, issued from the command line or a company's own provisioning script, and revoked.
 
 
 In one sentence: robot_add asks the platform for a new key to the policy and returns it as the string the robot connects
@@ -30,17 +29,6 @@ _KEEP: Any = object()
 PERIOD_DAYS = {"7d": 7, "1m": 30, "3m": 91, "6m": 182, "1y": 365}
 _SLACK_DAYS = 3
 NO_LIMIT_ZERO = "a limit is an amount above $0 - none lifts it, and a key with no limit given has none"
-
-
-
-
-
-KINDS = {"robot_develop": "robot develop key", "robot_production": "robot production key"}
-
-
-def _kind(said: dict | None) -> str:
-    return KINDS.get(str((said or {}).get("kind") or ""), "robot key")
-
 
 def _say(echo: Echo, line: str) -> None:
     if echo is not None:
@@ -100,7 +88,7 @@ def robot_add(policy: str, *, expires: str | None = None, limit_usd: float | Non
             then = f"and it could not be revoked: `seq robot revoke {robot.get('last_four')}` revokes it"
         raise Conflict(f"the new robot key to {policy} came back without {wrong}, {then} - this platform may not set "
                        "them yet")
-    _say(echo, f"a {_kind(robot)} to {policy}, shown this once - its robot connects with it:")
+    _say(echo, f"a robot key to {policy}, shown this once - its robot connects with it:")
     _say(echo, robot["key"])
     if "credit_limit_usd" in robot or "expires_at" in robot:
         _say(echo, f"  {_terms(robot)}")
@@ -121,14 +109,13 @@ def _pages(path: str, base_url: str | None) -> list[dict]:
 
 def robot_list(*, base_url: str | None = None, echo: Echo = None) -> list[dict]:
     """Every robot key the account issued and has not revoked - offline ones too, so a robot that is off, or stolen,
-    can be named to revoke - each by its id and last four, its policy and kind, and its connections now (0: offline).
+    can be named to revoke - each by its id and last four, its policy, and its connections now (0: offline).
     Never a key itself.
 """
     rows = [{**k, "api_key_id": k.get("key_id"), "deployment": k.get("policy")}
             for k in _pages("/v1/robot-keys", base_url)]
     for r in rows:
         n = r.get("connections")
-        kind = KINDS.get(str(r.get("kind") or ""))
         said = "offline" if n == 0 else "connections not read" if n is None else f"{n} connection{'' if n == 1 else 's'}"
         exp = clock.day_of(r["expires_at"]) if r.get("expires_at") else "never"
         lim = f"${r['credit_limit_usd']:g}" if r.get("credit_limit_usd") is not None else "no cap"
@@ -136,7 +123,7 @@ def robot_list(*, base_url: str | None = None, echo: Echo = None) -> list[dict]:
         used = clock.stamp(r["last_used_at"]) if r.get("last_used_at") else "never used"
         said += f"  expires {exp}  spent {spent} of {lim}  used {used}"
         _say(echo, f"  …{r.get('last_four')}  {str(r.get('api_key_id') or '')[:8]}  {r.get('deployment') or '-'}  "
-                   + (f"{kind}  " if kind else "") + said)
+                   + said)
     if not rows:
         _say(echo, "no robot key is issued")
     return rows
@@ -152,7 +139,7 @@ def robot_revoke(key: str, *, base_url: str | None = None, echo: Echo = None) ->
     out = _call("DELETE", f"/v1/robots/{segment(ref, 'robot key')}", base_url)
     gone = (out or {}).get("revoked") or {}
     cut = ((out or {}).get("cut_off") or {}).get("connections")
-    _say(echo, f"the {_kind(gone)} …{gone.get('last_four') or ref[-4:]} is revoked: its robot is cut off now and "
+    _say(echo, f"the robot key …{gone.get('last_four') or ref[-4:]} is revoked: its robot is cut off now and "
                "connects no more" + (f" ({cut} connection{'' if cut == 1 else 's'} cut)" if cut else ""))
     return out or {}
 
@@ -182,6 +169,6 @@ def robot_set(key: str, *, expires: str | None = None, limit_usd: Any = _KEEP,
     if "credit_limit_usd" in robot:
         bits.append("no spending cap" if robot.get("credit_limit_usd") is None
                     else f"${float(robot.get('spent_usd') or 0):.2f} spent of ${robot['credit_limit_usd']:g}")
-    _say(echo, f"the {_kind(robot)} …{robot.get('last_four') or ref[-4:]}"
+    _say(echo, f"the robot key …{robot.get('last_four') or ref[-4:]}"
                + (": " + ", ".join(bits) if bits else " is unchanged"))
     return {"robot": robot}

@@ -16,7 +16,11 @@ from datamodel_code_generator._target_unicode import is_python_name
 from datamodel_code_generator.imports import Import, _holds, _remove_all
 from datamodel_code_generator.model import DataModel, DataModelFieldBase, _rebuild_model_with_datamodel_namespace
 from datamodel_code_generator.model._render_plan import FieldRenderPlan, RuleId, Why
-from datamodel_code_generator.model.base import UNDEFINED, _field_source_name
+from datamodel_code_generator.model.base import (
+    _USE_CLOSED_TYPED_DICT_TEMPLATE_DATA_KEY,
+    UNDEFINED,
+    _field_source_name,
+)
 from datamodel_code_generator.model.imports import (
     IMPORT_NOT_REQUIRED,
     IMPORT_NOT_REQUIRED_BACKPORT,
@@ -31,6 +35,7 @@ from datamodel_code_generator.python_literal import (
     _InternalTypeExpression,
     represent_untrusted_public_type_name,
     represent_untrusted_python_value,
+    stable_repr,
 )
 from datamodel_code_generator.types import NOT_REQUIRED, READ_ONLY, REQUIRED
 
@@ -153,7 +158,7 @@ class TypedDict(DataModel):
 
         Note: closed=True is not applied to TypedDicts used as base classes,
         as PEP 728 doesn't allow child TypedDicts to add new fields when
-        parent has closed=True.
+        parent has closed=True. ``--no-use-closed-typed-dict`` writes neither.
         """
         additional_props = self.extra_template_data.get("additionalProperties")
         additional_props_type = self.extra_template_data.get("additionalPropertiesType")
@@ -161,7 +166,11 @@ class TypedDict(DataModel):
 
         typed_dict_kwargs: dict[str, str] = {"total": "False"} if self.use_total_false_for_typed_dict else {}
 
-        if additional_props is False and not is_base_class:
+        if (
+            additional_props is False
+            and not is_base_class
+            and self.extra_template_data.get(_USE_CLOSED_TYPED_DICT_TEMPLATE_DATA_KEY, True)
+        ):
             typed_dict_kwargs["closed"] = "True"
         elif additional_props_type and not is_base_class:
             if isinstance(additional_props_type, _InternalTypeExpression):
@@ -169,7 +178,9 @@ class TypedDict(DataModel):
             elif len(self.additional_properties_reference_classes):
                 typed_dict_kwargs["extra_items"] = represent_untrusted_python_value(additional_props_type)
             else:
-                typed_dict_kwargs["extra_items"] = represent_untrusted_public_type_name(additional_props_type)
+                typed_dict_kwargs["extra_items"] = represent_untrusted_public_type_name(
+                    additional_props_type, target=self.target_python_version
+                )
 
         if typed_dict_kwargs:
             self._set_typed_dict_kwargs(typed_dict_kwargs)
@@ -198,7 +209,7 @@ class TypedDict(DataModel):
             return
         typed_dict_kwargs: dict[str, str] = self._internal_template_data["typed_dict_kwargs"]
         type_hint = source.type_hint
-        extra_items = repr(type_hint) if len(self.additional_properties_reference_classes) else type_hint
+        extra_items = stable_repr(type_hint) if len(self.additional_properties_reference_classes) else type_hint
         self._set_typed_dict_kwargs({**typed_dict_kwargs, "extra_items": extra_items})
 
     @override
@@ -215,8 +226,14 @@ class TypedDict(DataModel):
 
     @property
     def _use_typeddict_backport(self) -> bool:
-        """Check if this TypedDict needs typing_extensions.TypedDict for closed/extra_items."""
-        return bool(self.extra_template_data.get("use_typeddict_backport"))
+        """Check if this TypedDict needs typing_extensions.TypedDict for closed/extra_items.
+
+        Its target's ``typing.TypedDict`` takes neither before Python 3.15, whether the parser or template data such
+        as ``additionalPropertiesType`` gave them; the template flag still selects the backport for custom outputs.
+        """
+        return bool(self.extra_template_data.get("use_typeddict_backport")) or self.requires_extra_items_backport(
+            self.target_python_version
+        )
 
     @property
     def _requires_typeddict_backport(self) -> bool:

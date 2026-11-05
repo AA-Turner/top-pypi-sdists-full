@@ -43,7 +43,10 @@ An enabled interactive control another element is painted over at its
 centre (a side drawer that is not a modal, a sticky header) is marked
 ``covered``: a pointer click lands on what is on top, so the control is not
 the target a user sees there. A control's own label on top, or anything
-inside the control, does not count.
+inside the control, does not count. A focused text-entry control (textbox,
+searchbox, combobox, spinbutton) is never marked: keys go to the focused
+element whatever is painted over it (a code-entry widget draws its digit boxes
+over one small input), so it is still the target for typing.
 
 A radio or checkbox drawn over by its own native ``<label>`` (a custom
 control: the real input is invisible and the label, or its ``::before``, is
@@ -99,6 +102,8 @@ _MAX_HINT_CLASSES = 2
 _HINT_VALUE_MAX = 60
 
 _CHECKABLE_ROLES = frozenset({"radio", "checkbox"})
+# A focused one takes typed keys whatever is painted over it: never ``covered``.
+_TEXT_ENTRY_ROLES = frozenset({"textbox", "searchbox", "combobox", "spinbutton"})
 # Bounds the covered-control check on a pathological page.
 _MAX_COVER_CHECKS = 300
 # A label holding one of these besides its own control is not clicked for it:
@@ -485,6 +490,11 @@ def _covering_label(node: Any, fact: _DomFacts, facts: dict[int, _DomFacts], ax_
     return ax_by_id.get(doc.backend_ids[label])
 
 
+def _focused_text_entry(node: Any) -> bool:
+    """A text-entry control that holds keyboard focus."""
+    return bool(node.focused) and (node.role or "").strip().lower() in _TEXT_ENTRY_ROLES
+
+
 def _is_covered(fact: _DomFacts, facts: dict[int, _DomFacts]) -> bool:
     """Whether another element is what sits on top at the control's centre.
 
@@ -608,7 +618,7 @@ def annotate_tree(tree: Any, facts: dict[int, _DomFacts], stats: ActionableStats
             stats.via_label += 1
 
     for node, fact in controls[:_MAX_COVER_CHECKS]:
-        if node.via_label is None and _is_covered(fact, facts):
+        if node.via_label is None and not _focused_text_entry(node) and _is_covered(fact, facts):
             node.covered = True
             stats.covered += 1
 

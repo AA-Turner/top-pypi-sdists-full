@@ -22,6 +22,7 @@ from ..client.rest_client import (
     HomeAssistantAPIError,
     HomeAssistantAuthError,
     HomeAssistantCommandError,
+    HomeAssistantCommandTimeout,
     HomeAssistantConnectionError,
 )
 from ..client.websocket_client import HomeAssistantWebSocketClient
@@ -36,7 +37,7 @@ from ..errors import (
     create_validation_error,
 )
 from ..utils.usage_logger import log_tool_call
-from .coercion import UNSET
+from .coercion import UNSET, parse_json_param
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,36 @@ def raise_tool_error(error_response: dict[str, Any]) -> NoReturn:
         json.dumps(error_response, indent=2, default=str),
         log_level=TOOL_ERROR_LOG_LEVEL,
     )
+
+
+def _parse_json_dict_param(
+    data: str | dict[str, Any] | None,
+    *,
+    type_error_message: str,
+) -> dict[str, Any] | None:
+    """Parse a JSON-object tool parameter, rejecting lists and invalid JSON."""
+    if data is None:
+        return None
+    raw: Any = None
+    try:
+        raw = parse_json_param(data, "data")
+    except ValueError as e:
+        raise_tool_error(
+            create_validation_error(
+                f"Invalid data parameter: {e}",
+                parameter="data",
+                invalid_json=True,
+            )
+        )
+    if raw is not None and not isinstance(raw, dict):
+        raise_tool_error(
+            create_validation_error(
+                type_error_message,
+                parameter="data",
+                details=f"Received type: {type(raw).__name__}",
+            )
+        )
+    return raw if isinstance(raw, dict) else None
 
 
 def extract_tool_error_message(te: ToolError | str) -> str:
@@ -321,6 +352,10 @@ async def get_connected_ws_client(
             if isinstance(reason, str)
             else "WebSocket connection could not be established"
         )
+        if isinstance(ws_client.last_connect_exception, HomeAssistantAuthError):
+            return None, create_auth_error(
+                "Home Assistant rejected the WebSocket token", details=details
+            )
         return None, create_connection_error(
             "Failed to connect to Home Assistant WebSocket",
             details=details,
@@ -365,9 +400,20 @@ def _classify_exception(
 
     # Type-based classification
     match error:
+        case HomeAssistantConnectionError() if isinstance(
+            error.__cause__, HomeAssistantAuthError
+        ):
+            # send_websocket_message wraps a failure to obtain a client in a
+            # connection error raised from the original, so a token rejected
+            # on (re)connect arrives here wrapped: classify the cause by its
+            # own text.
+            cause = error.__cause__
+            return _classify_exception(cause, str(cause).lower(), error_msg, context)
         case HomeAssistantConnectionError():
+            # send_websocket_message raises a command timeout as the cause.
+            timeout = isinstance(error.__cause__, HomeAssistantCommandTimeout)
             result = create_connection_error(
-                error_msg, timeout="timeout" in error_str, context=context
+                error_msg, timeout=timeout or "timeout" in error_str, context=context
             )
         case HomeAssistantAdminRequiredError():
             result = create_error_response(
@@ -748,10 +794,12 @@ async def get_entity_state_or_none(
 
 
 def ws_failure_code(result: dict[str, Any]) -> ErrorCode:
-    """Map Core's WS error code: ``invalid_format`` is the caller's input,
-    ``not_found`` an item Core does not hold (e.g. a YAML-configured helper)."""
+    """Map Core's WS error code: ``invalid_format``, ``service_validation_error``
+    and ``not_supported`` (e.g. ``todo/item/move`` on a list without
+    reordering) refuse the caller's input; ``not_found`` is an item Core does
+    not hold (e.g. a YAML-configured helper)."""
     code = result.get("error_code")
-    if code == "invalid_format":
+    if code in ("invalid_format", "service_validation_error", "not_supported"):
         return ErrorCode.VALIDATION_INVALID_PARAMETER
     if code == "not_found":
         return ErrorCode.RESOURCE_NOT_FOUND

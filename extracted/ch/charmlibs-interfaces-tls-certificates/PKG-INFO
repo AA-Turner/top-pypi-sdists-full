@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: charmlibs-interfaces-tls_certificates
-Version: 1.12.0
+Version: 1.13.0
 Summary: The charmlibs.interfaces.tls_certificates package.
 Project-URL: Documentation, https://canonical.com/juju/docs/charmlibs/reference/charmlibs/interfaces/tls-certificates
 Project-URL: Repository, https://github.com/canonical/charmlibs/tree/main/interfaces/tls-certificates

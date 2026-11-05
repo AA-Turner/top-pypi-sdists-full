@@ -444,6 +444,11 @@ struct aws_s3_meta_request *aws_s3_meta_request_auto_ranged_put_new(
         aws_mem_release(allocator, auto_ranged_put);
         return NULL;
     }
+    /* An upload's parts are positioned from the start of its body, so that start is known now. Parts reserve
+     * pool buffers, and a reservation needs it resolved. */
+    auto_ranged_put->base.requested_range_start = 0;
+    auto_ranged_put->base.requested_range_start_resolved = true;
+
     /* The buffer reserved for each request is meta_request->part_size, EXCEPT when the body
      * streams from a file: aws_s3_request_new then sizes it at 2 * g_streaming_buffer_size
      * regardless of part size, so a part larger than max_part_size costs nothing extra. */
@@ -571,7 +576,8 @@ static void s_s3_auto_ranged_put_send_request_finish(
     struct aws_http_stream *stream,
     int error_code) {
     struct aws_s3_request *request = connection->request;
-    if (request->request_tag == AWS_S3_AUTO_RANGED_PUT_REQUEST_TAG_PART && !request->meta_request->is_express) {
+    if (request->request_tag == AWS_S3_AUTO_RANGED_PUT_REQUEST_TAG_PART && !request->meta_request->is_express &&
+        !request->meta_request->client->disable_retries) {
         /* TODO: the single part upload may also be improved from a timeout as multipart. */
         /* Note: For S3express, server responses random ETag. Killing the connection in the middle may cause server
          * receive two same part and result in confusing during complete MPU with etag doesn't match.
@@ -944,7 +950,8 @@ void s_s3_auto_ranged_put_schedule_prepare_request(
      * reading. */
     bool parallel_prepare =
         (meta_request->request_body_parallel_stream && request->request_tag == AWS_S3_AUTO_RANGED_PUT_REQUEST_TAG_PART);
-    if (parallel_prepare && meta_request->fio_opts.should_stream) {
+    /* A part that fits in its buffer is read in full instead of streamed through it. */
+    if (parallel_prepare && meta_request->fio_opts.should_stream && request->content_length > request->buffer_size) {
         request->fio_streaming = true;
     }
 
@@ -1171,7 +1178,11 @@ struct aws_future_http_message *s_s3_prepare_upload_part(struct aws_s3_request *
     part_prep->allocator = allocator;
     part_prep->request = request;
     part_prep->on_complete = aws_future_http_message_acquire(message_future);
-    if (s_compute_request_body_size(meta_request, request)) {
+    /* Only on the first prepare. With no Content-Length, reading the body can shrink content_length and
+     * part_range_end to what was actually read, and a retry skips that read and reuses the same body buffer.
+     * Recomputing here would reset them to the full part size, so progress and metrics would report bytes
+     * that were never sent. */
+    if (request->num_times_prepared == 0 && s_compute_request_body_size(meta_request, request)) {
         s_s3_prepare_upload_part_finish(part_prep, aws_last_error_or_unknown());
         return message_future;
     }
@@ -1190,7 +1201,10 @@ struct aws_future_http_message *s_s3_prepare_upload_part(struct aws_s3_request *
             (size_t)request->content_length,
             meta_request->fio_opts.direct_io);
 
-        if (request->num_times_prepared == 0) {
+        /* if request body stream creation errored, we should catch it  */
+        if (request->request_body_stream == NULL) {
+            error_code = aws_last_error_or_unknown();
+        } else if (request->num_times_prepared == 0) {
             if (s_s3_new_upload_part_info_after_body(request, meta_request, false)) {
                 error_code = aws_last_error_or_unknown();
             }

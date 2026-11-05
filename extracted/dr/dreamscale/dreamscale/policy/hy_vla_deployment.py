@@ -41,7 +41,8 @@ from dreamscale_transport.hy_vla_deploy import (
 )
 from dreamscale_transport.images import WireImage
 
-# The model's 224x224 canvas, letterboxed as Rodeo trained it (ImageOps.pad of 1280x720 frames).
+# The model's 224x224 canvas, letterboxed as the checkpoint was trained (ImageOps.pad of
+# 1280x720 frames).
 WIRE_IMAGE = WireImage(IMAGE_SIZE, IMAGE_SIZE, mode="letterbox", resample="bilinear", quality=90)
 
 

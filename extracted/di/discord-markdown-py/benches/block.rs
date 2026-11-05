@@ -1,6 +1,5 @@
 use discord_markdown::Options;
 use gungraun::prelude::*;
-use nom::error::Error;
 use std::fs;
 use std::hint::black_box;
 
@@ -29,7 +28,7 @@ fn nested(open: &str, close: &str) -> String {
 #[bench::angle_url(args = ("<", ":/"), setup = nested)]
 #[bench::angle_emoji(args = ("<:", ":>"), setup = nested)]
 fn parse(text: String) {
-	let _ = black_box(discord_markdown::parse::<(), Error<_>>(
+	let _ = black_box(discord_markdown::parse::<()>(
 		black_box(text.as_str()),
 		Options::default(),
 	));

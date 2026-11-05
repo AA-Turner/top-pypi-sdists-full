@@ -83,8 +83,8 @@ class Payload(Mapping[str, Any]):
     def __eq__(self, other: object) -> bool:
         return type(other) is type(self) and list(self._data.items()) == list(other._data.items())  # type: ignore
 
-    def __hash__(self) -> int:
-        return id(self)
+    # Equal by value and mutable inside (`_data` is a dict): not hashable, as a dict is not.
+    __hash__ = None  # type: ignore[assignment]
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({self._data!r})"
@@ -136,6 +136,16 @@ class StoredAsIs(Payload):
 
     def __getitem__(self, key: str) -> Any:
         return copy.deepcopy(self._data[key])
+
+    def __eq__(self, other: object) -> bool:
+        # A mapping keeps its key order, as every `Payload`; any other stored value compares by value (ENG-196).
+        if type(other) is not type(self):
+            return False
+        if isinstance(self._data, Mapping) and isinstance(other._data, Mapping):  # type: ignore[attr-defined]
+            return super().__eq__(other)
+        return self._data == other._data  # type: ignore[attr-defined]
+
+    __hash__ = None  # type: ignore[assignment]
 
     @property
     def value(self) -> Any:

@@ -16,18 +16,18 @@ def test_use_pass() -> None:
 def test_use_fail() -> None:
     message = RequestMessage(RequestMethod.USE, namespace="ns", database=1)
     with pytest.raises(ValueError) as context:
-        message.WS_CBOR_DESCRIPTOR
-    assert (
-        "Invalid schema for Cbor WS encoding for use: params.1: Input should be a valid string"
-        == str(context.value)
+        _ = message.WS_CBOR_DESCRIPTOR
+    assert str(context.value).startswith(
+        "Invalid schema for Cbor WS encoding for use: params.1"
     )
+    assert "Input should be a valid string" in str(context.value)
+
+
+def test_use_takes_either_argument_alone() -> None:
     message = RequestMessage(RequestMethod.USE, namespace="ns")
-    with pytest.raises(ValueError) as context:
-        message.WS_CBOR_DESCRIPTOR
-    assert (
-        "Invalid schema for Cbor WS encoding for use: params.1: Input should be a valid string"
-        == str(context.value)
-    )
+    assert isinstance(message.WS_CBOR_DESCRIPTOR, bytes)
+    message = RequestMessage(RequestMethod.USE, database="db")
+    assert isinstance(message.WS_CBOR_DESCRIPTOR, bytes)
 
 
 def test_info_pass() -> None:
@@ -140,6 +140,28 @@ def test_live_pass() -> None:
     message = RequestMessage(RequestMethod.LIVE, table="person")
     outcome = message.WS_CBOR_DESCRIPTOR
     assert isinstance(outcome, bytes)
+
+
+@pytest.mark.parametrize("diff", [True, False])
+def test_live_puts_diff_on_the_wire(diff: bool) -> None:
+    """``diff`` is the second parameter of the ``live`` RPC.
+
+    It was never encoded, so the server stayed on its default of full records
+    and ``live(table, diff=True)`` - accepted, typed and documented - silently
+    delivered something other than the JSON Patch it promised.
+    """
+    message = RequestMessage(RequestMethod.LIVE, table="person", diff=diff)
+
+    payload = decode(message.WS_CBOR_DESCRIPTOR)
+
+    assert payload["params"][1] is diff
+
+
+def test_live_defaults_diff_to_false() -> None:
+    """An omitted ``diff`` still has to be a bool, not a missing parameter."""
+    message = RequestMessage(RequestMethod.LIVE, table="person")
+
+    assert decode(message.WS_CBOR_DESCRIPTOR)["params"][1] is False
 
 
 def test_kill_pass() -> None:

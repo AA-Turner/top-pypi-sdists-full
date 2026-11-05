@@ -9,7 +9,13 @@ class GetFunctionTrialStatusRequest(DaraModel):
         self,
         function_name: str = None,
     ):
-        # The name of the feature module.
+        # The name of the feature module. Valid values:
+        # 
+        # - trail_file_detect_api_reward: File detection API trial.
+        # 
+        # - trail_honeypot_reward: Honeypot trial.
+        # 
+        # > This parameter is required. If it is not provided, the API returns an HTTP 400 error with the error code -101.
         self.function_name = function_name
 
     def validate(self):

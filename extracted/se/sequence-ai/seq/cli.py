@@ -143,7 +143,6 @@ _OWN_FLAGS = {
     ("eval run", "gpu_limit_reached"): "use fewer --policy-machines / --benchmark-machines",
     ("eval run", "envs"): "add --benchmark-machines for more",
     (None, "nothing_to_change"): "give --expires, --limit, or both",
-    (None, "planner_has_no_robots"): "seq planner key add <planner> --member <name>",
     (None, "budget_exhausted"): ("seq policy set <name> budget.monthly_usd=<usd> (or budget.monthly_usd= to clear it), "
                                  "then seq policy start <name>"),
     (None, "stopped"): "seq policy start <name>",
@@ -211,12 +210,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         return _cmd_policy(args)
     if cmd == "robot":
         return _cmd_robot(args)
-    if cmd == "planner":
-        return _cmd_planner(args)
     if cmd == "key":
         return _cmd_key(args)
-    if cmd == "prod":
-        return _cmd_prod(args)
     if cmd == "benchmark":
         return _cmd_benchmark(args)
     if cmd == "port":
@@ -272,7 +267,7 @@ def _json_ok(args: argparse.Namespace) -> bool:
             or (args.cmd == "adapter" and sub != "rm")
             or (args.cmd == "deploy" and args.dry_run)
             or (args.cmd == "policy" and sub != "doctor")
-            or args.cmd in ("robot", "prod", "planner", "key")
+            or args.cmd in ("robot", "key")
 
             or (args.cmd == "eval" and (sub != "run" or args.dry_run)
                 and not (getattr(args, "csv", False) and getattr(args, "out", None) is None))
@@ -495,14 +490,13 @@ def _cmd_robot(args: argparse.Namespace) -> int:
 
 
 def _cmd_key(args: argparse.Namespace) -> int:
-    """`seq key list | add | set | revoke`: your dev and production keys, as you."""
+    """`seq key list | add | set | revoke`: your keys, as you."""
     from seq import key_cli
 
     if args.key_cmd == "list":
         return _cmd_platform(args, key_cli.key_list)
     if args.key_cmd == "add":
-        return _cmd_platform(args, key_cli.key_add, args.name, production=args.production, expires=args.expires,
-                             limit_usd=args.limit)
+        return _cmd_platform(args, key_cli.key_add, args.name, expires=args.expires, limit_usd=args.limit)
     if args.key_cmd == "set":
         kw: dict = {}
         if args.expires:
@@ -521,36 +515,6 @@ def _cmd_key(args: argparse.Namespace) -> int:
     if args.key_cmd == "revoke":
         return _cmd_platform(args, key_cli.key_revoke, args.key)
     raise InvalidRequest(f"seq key {args.key_cmd} is not a command; `seq key --help` lists them")
-
-
-def _cmd_planner(args: argparse.Namespace) -> int:
-    """`seq planner ls | status`: the planners' tree and one planner (seq/machines_cli.py); `seq planner key add | list |
-    revoke`: the key a planner holds for one of its members (seq/planner_key_cli.py)."""
-    from seq import machines_cli, planner_key_cli
-
-    if args.planner_cmd == "ls":
-        return _cmd_platform(args, machines_cli.planner_list)
-    if args.planner_cmd == "status":
-        return _cmd_platform(args, machines_cli.planner_status, args.name)
-
-    sub = getattr(args, "planner_key_cmd", None) if args.planner_cmd == "key" else None
-    if sub == "add":
-        return _cmd_platform(args, planner_key_cli.planner_key_add, args.planner, args.member, name=args.name)
-    if sub == "list":
-        return _cmd_platform(args, planner_key_cli.planner_key_list, args.planner)
-    if sub == "revoke":
-        return _cmd_platform(args, planner_key_cli.planner_key_revoke, args.planner, args.key)
-    raise InvalidRequest("seq planner ls | status | key add | list | revoke is what seq planner has; `seq planner "
-                         "--help` says each")
-
-
-def _cmd_prod(args: argparse.Namespace) -> int:
-    """`seq prod promote`: what a production policy alone has."""
-    from seq import deployments_cli
-
-    if args.prod_cmd == "promote":
-        return _cmd_platform(args, deployments_cli.promote, args.name)
-    raise InvalidRequest(f"seq prod {args.prod_cmd} is not a command; `seq prod --help` lists them")
 
 
 def _cmd_account(args: argparse.Namespace) -> int:
@@ -629,6 +593,9 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
         from seq import shell_cli
 
         name, version = at_version(args.name)
+        if args.stop and args.command:
+
+            raise InvalidRequest("--stop only ends the shell machine; it takes no command")
         echo = _quiet if args.json else print
         out = (shell_cli.benchmark_stop(name, base_url=args.base_url, echo=echo) if args.stop else
                shell_cli.benchmark_shell(name, args.command, version=version, timeout_s=args.timeout,
@@ -857,7 +824,9 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
 
                 print(f"override    v{checked['replaces']}, the version evals run now, is deleted for good once this one "
                       "has passed its check")
-            for line in deploy_cli.first_start_lines(request.name, checked):
+
+            for line in deploy_cli.registration_price_lines(checked) + deploy_cli.first_start_lines(request.name,
+                                                                                                    checked):
                 print(line)
         print("\n--dry-run: " + ("the platform checked it and nothing was built" if checked else "nothing was sent")
               + "; without it, `seq deploy` submits this request.")
@@ -895,8 +864,9 @@ def _dry_run_price(request: Any, args: argparse.Namespace) -> None:
     robots = ((view or {}).get("measured") or {}).get("robots") if batches else None
 
 
-    load = ((view or {}).get("measured") or {}).get("load_s")
-    load_s = float(load) if isinstance(load, (int, float)) and not isinstance(load, bool) and load > 0 else None
+
+    took = (view or {}).get("new_machine_s")
+    start_s = float(took) if isinstance(took, (int, float)) and not isinstance(took, bool) and took > 0 else None
     measured_robots = robots if isinstance(robots, int) and not isinstance(robots, bool) and robots >= 1 else None
     held = int(str(gpu).split(":", 1)[1]) if gpu and ":" in str(gpu) else 1
     per_copy = request.concurrency.gpus_per_replica
@@ -912,9 +882,11 @@ def _dry_run_price(request: Any, args: argparse.Namespace) -> None:
                          max_gpus=request.autoscaler.max_gpus, seats=measured_robots,
                          seats_by=(f"v{view['priced_version']}" if measured_robots and (view or {}).get("priced_version")
                                    else None),
-                         batches=batches, copies=max(1, held // per_copy) if per_copy else 1, start_s=load_s,
+                         batches=batches, copies=max(1, held // per_copy) if per_copy else 1, start_s=start_s,
                          hz=request.policy.hz, chunk_steps=steps, wait_s=request.policy.max_wait_for_batch,
-                         base_url=args.base_url, echo=print, idle_s=IDLE_S,
+                         base_url=args.base_url, echo=print,
+
+                         idle_s=((view or {}).get("scaling") or {}).get("idle_timeout") or IDLE_S,
                          measured_per_hour=(row or {}).get("usd_per_hour"),
                          deployment=request.name, has_weights=request.weights is not None,
 
@@ -977,10 +949,6 @@ def _init_official(spec: str, target: str | None, base_url: str | None, *, no_so
 
     pick = template_fetch.entry_name(dest, entry) if entry else None
     deploy = f"seq deploy {dest}" + (f" --name {pick}" if pick else "")
-
-    planner = template_fetch.entry_name(dest, template_fetch.PLANNER) \
-        if entry == "policy.py" and (dest / template_fetch.PLANNER).exists() else None
-    then = f", then its planner: `seq deploy {dest} --name {planner}`" if planner else ""
     if entry == "adapter.py":
 
 
@@ -992,7 +960,7 @@ def _init_official(spec: str, target: str | None, base_url: str | None, *, no_so
         client = f"{dest}/client.py" if entry == "policy.py" and (dest / "client.py").exists() else None
         after = (f"; on the robot, see {' and '.join(filter(None, (readme, client)))}" if client
                  else f"; see {readme}" if readme else "")
-        print(f"next: `{deploy}`{then}{after}")
+        print(f"next: `{deploy}`{after}")
     return 0
 
 

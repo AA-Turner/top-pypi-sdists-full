@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "uv_build"
-requires = ["uv-build>=0.11,<0.13"]
+requires = ["uv-build>=0.11,<0.14"]
 
 [project]
 name = "pytest-postgresql"
-version = "9.1.1"
+version = "10.0.0"
 description = "Postgresql fixtures and fixture factories for Pytest."
 readme = "README.rst"
 keywords = [
@@ -15,7 +15,7 @@ keywords = [
 ]
 license = "LGPL-3.0-or-later"
 license-files = ["COPYING.lesser"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
@@ -26,11 +26,11 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Testing",
 ]
@@ -39,7 +39,7 @@ dependencies = [
     "packaging",
     "port-for>=0.7.3",
     "psycopg>=3.0.0",
-    "pytest>=8.2",
+    "pytest>=8.4",
 ]
 
 [[project.authors]]
@@ -55,7 +55,7 @@ async = [
 [project.urls]
 Source = "https://github.com/dbfixtures/pytest-postgresql"
 "Bug Tracker" = "https://github.com/dbfixtures/pytest-postgresql/issues"
-Changelog = "https://github.com/dbfixtures/pytest-postgresql/blob/v9.1.1/CHANGES.rst"
+Changelog = "https://github.com/dbfixtures/pytest-postgresql/blob/v10.0.0/CHANGES.rst"
 
 [project.entry-points.pytest11]
 pytest_postgresql = "pytest_postgresql.plugin"
@@ -63,16 +63,16 @@ pytest_postgresql = "pytest_postgresql.plugin"
 [dependency-groups]
 dev = [
     "aiofiles==25.1.0",
-    "coverage==7.16.1",
-    "mirakuru==3.0.3",
+    "coverage==7.17.0",
+    "mirakuru==3.0.4",
     "mock==5.2.0",
-    "mypy==2.3.1; implementation_name=='cpython'",
+    "mypy==2.4.0; implementation_name=='cpython'",
     "packaging==26.3",
-    "port-for==1.1.0",
+    "port-for==1.1.1",
     "psycopg==3.3.6",
     "psycopg-binary==3.3.6; implementation_name=='cpython' and python_version<'3.15'",
     "pytest==9.1.1",
-    "pytest-asyncio==1.4.0",
+    "pytest-asyncio==1.4.1",
     "pytest-xdist==3.8.0",
     "towncrier==26.9.0",
     "types-aiofiles==25.1.0.20260518",
@@ -85,7 +85,7 @@ module-root = ""
 source-include = ["CHANGES.rst"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
@@ -96,6 +96,8 @@ select = [
     "FBT",
     "I",
     "PT",
+    "PYI",
+    "UP",
 ]
 
 [tool.pyproject-fmt]
@@ -111,6 +113,7 @@ sub_table_spacing = """
 [tool.mypy]
 ignore_missing_imports = false
 follow_imports = "silent"
+python_version = "3.11"
 disallow_subclassing_any = true
 disallow_untyped_calls = true
 disallow_untyped_defs = true
@@ -163,7 +166,7 @@ message_template = "Release {new_version}"
 tag_template = "v{new_version}"
 
 [tool.tbump.version]
-current = "9.1.1"
+current = "10.0.0"
 regex = '''
   (?P<major>\d+)
   \.

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import sqlglot
-from sqlglot import exp
+from sqlglot.tokens import TokenType
 
 from sagemaker_studio.sql_engine.resource_fetching_definition import (
     ResourceFetchingDefinition,
@@ -211,6 +211,11 @@ class DatabaseTransformer(ABC):
         """
         Split a SQL query into individual statements using sqlglot.
 
+        Splits on real semicolon tokens and returns each statement's original
+        text; sqlglot is used only for boundaries and statement_type, since
+        re-rendering via stmt.sql() can rewrite valid SQL (e.g. Redshift
+        ``USING ICEBERG``).
+
         This method can be overridden by subclasses if sqlglot does not
         support the specific database type.
 
@@ -221,16 +226,30 @@ class DatabaseTransformer(ABC):
             List[SqlStatement]: List of SQL statement objects with statement and type.
         """
         try:
-            dialect = cls.get_dialect()
-            statements = sqlglot.parse(query, dialect=dialect) if dialect else sqlglot.parse(query)
-            return [
-                SqlStatement(
-                    statement=stmt.sql(dialect=dialect),
-                    statement_type=stmt.key.upper() if stmt.key else "UNKNOWN",
-                )
-                for stmt in statements
-                if stmt and not isinstance(stmt, (exp.Comment, exp.Semicolon))
+            # Use the dialect's own tokenizer (e.g. Redshift `$$` bodies);
+            # Tokenizer(dialect=...) falls back to generic rules.
+            dialect = sqlglot.Dialect.get_or_raise(cls.get_dialect())
+            boundaries = [
+                token
+                for token in dialect.tokenize(query)
+                if token.token_type is TokenType.SEMICOLON
             ]
+            statements: List[SqlStatement] = []
+            start = 0
+            for boundary in [*boundaries, None]:
+                end = boundary.start if boundary is not None else len(query)
+                statement = query[start:end].strip()
+                start = boundary.end + 1 if boundary is not None else len(query)
+                # Skip empty and comment-only chunks.
+                if not statement or not dialect.tokenize(statement):
+                    continue
+                try:
+                    parsed = dialect.parse(statement)[0]
+                    statement_type = parsed.key.upper() if parsed and parsed.key else "UNKNOWN"
+                except Exception:
+                    statement_type = "UNKNOWN"
+                statements.append(SqlStatement(statement=statement, statement_type=statement_type))
+            return statements
         except Exception:
             # Fallback to simple semicolon splitting if sqlglot fails
             return [

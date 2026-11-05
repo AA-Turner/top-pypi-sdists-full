@@ -1,10 +1,4 @@
-import {
-	Syntax,
-	init,
-	parse,
-	parseLossless,
-	unparse,
-} from "@discord/markdown-wasm";
+import { Syntax, init, parse, parseLossless } from "@discord/markdown-wasm";
 import { beforeAll, expect, test } from "vitest";
 
 // Node initialises itself on first use; the browser cannot.
@@ -75,28 +69,6 @@ test("parse mention as bigint", () => {
 			],
 		},
 	]);
-});
-
-// Unparsing is exposed because the AST keeps parsed values, not the text a node came from. A
-// mention covers the bigint path.
-const ROUND_TRIPS = [
-	"# Hello **world**",
-	"> quote with `code` and ||spoilers||",
-	"<@873227248453443624>",
-	"<t:1234567890:R>",
-	"<:pepe:873227248453443624>",
-	"https://discord.com/channels/1/2",
-	"[text](https://example.com/)",
-];
-
-test("unparse round trips", () => {
-	for (const content of ROUND_TRIPS) {
-		expect(unparse(parse(content))).toBe(content);
-	}
-});
-
-test("unparse rejects a malformed ast", () => {
-	expect(() => unparse([{ type: "nonsense" }])).toThrow();
 });
 
 test("flags remove syntax with a mask", () => {

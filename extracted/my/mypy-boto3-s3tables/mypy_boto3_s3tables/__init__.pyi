@@ -13,6 +13,7 @@ Usage::
         Client,
         ListNamespacesPaginator,
         ListTableBucketsPaginator,
+        ListTableMigrationsPaginator,
         ListTablesPaginator,
         S3TablesClient,
     )
@@ -22,12 +23,18 @@ Usage::
 
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
     list_table_buckets_paginator: ListTableBucketsPaginator = client.get_paginator("list_table_buckets")
+    list_table_migrations_paginator: ListTableMigrationsPaginator = client.get_paginator("list_table_migrations")
     list_tables_paginator: ListTablesPaginator = client.get_paginator("list_tables")
     ```
 """
 
 from .client import S3TablesClient
-from .paginator import ListNamespacesPaginator, ListTableBucketsPaginator, ListTablesPaginator
+from .paginator import (
+    ListNamespacesPaginator,
+    ListTableBucketsPaginator,
+    ListTableMigrationsPaginator,
+    ListTablesPaginator,
+)
 
 Client = S3TablesClient
 
@@ -35,6 +42,7 @@ __all__ = (
     "Client",
     "ListNamespacesPaginator",
     "ListTableBucketsPaginator",
+    "ListTableMigrationsPaginator",
     "ListTablesPaginator",
     "S3TablesClient",
 )

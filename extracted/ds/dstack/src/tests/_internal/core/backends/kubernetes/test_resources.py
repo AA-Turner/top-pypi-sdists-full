@@ -2,6 +2,7 @@ import logging
 
 import pytest
 from gpuhunt import AcceleratorVendor
+from kubernetes.client import V1NodeSelectorRequirement, V1Toleration
 
 from dstack._internal.core.backends.kubernetes.resources import (
     KubernetesResource,
@@ -10,8 +11,11 @@ from dstack._internal.core.backends.kubernetes.resources import (
     adjust_resources_by_resource_requests,
     get_amd_gpu_from_node_labels,
     get_nvidia_gpu_from_node_labels,
+    parse_node_selector_requirement,
+    parse_toleration,
     validate_label_key,
     validate_label_value,
+    validate_quantity,
 )
 from dstack._internal.core.models.instances import Disk, Gpu, Resources
 from dstack._internal.core.models.resources import (
@@ -218,3 +222,141 @@ class TestLabelValidation:
     def test_invalid_value(self, value: str, expected_error: str):
         with pytest.raises(ValueError, match=expected_error):
             validate_label_value(value)
+
+
+class TestParseNodeSelectorRequirement:
+    @pytest.mark.parametrize(
+        ["requirement", "expected"],
+        [
+            pytest.param(
+                "example.com/pool=jump",
+                V1NodeSelectorRequirement(key="example.com/pool", operator="In", values=["jump"]),
+                id="value",
+            ),
+            pytest.param(
+                "node-role.kubernetes.io/worker=",
+                V1NodeSelectorRequirement(
+                    key="node-role.kubernetes.io/worker", operator="In", values=[""]
+                ),
+                id="empty-value",
+            ),
+            pytest.param(
+                "example.com/pool",
+                V1NodeSelectorRequirement(key="example.com/pool", operator="Exists"),
+                id="any-value",
+            ),
+        ],
+    )
+    def test_valid(self, requirement: str, expected: V1NodeSelectorRequirement):
+        assert parse_node_selector_requirement(requirement) == expected
+
+    @pytest.mark.parametrize(
+        ["requirement", "expected_error"],
+        [
+            pytest.param("", "Invalid key: Empty name", id="empty"),
+            pytest.param("=jump", "Invalid key: Empty name", id="empty-key"),
+            pytest.param("Example.com/pool=jump", "Invalid key: Invalid prefix", id="invalid-key"),
+            pytest.param("pool=a=b", "Invalid value", id="invalid-value"),
+        ],
+    )
+    def test_invalid(self, requirement: str, expected_error: str):
+        with pytest.raises(ValueError, match=expected_error):
+            parse_node_selector_requirement(requirement)
+
+
+class TestParseToleration:
+    @pytest.mark.parametrize(
+        ["toleration", "expected"],
+        [
+            pytest.param(
+                "nvidia.com/gpu",
+                V1Toleration(key="nvidia.com/gpu", operator="Exists"),
+                id="any-value-any-effect",
+            ),
+            pytest.param(
+                "nvidia.com/gpu:NoSchedule",
+                V1Toleration(key="nvidia.com/gpu", operator="Exists", effect="NoSchedule"),
+                id="any-value",
+            ),
+            pytest.param(
+                "nvidia.com/gpu=present",
+                V1Toleration(key="nvidia.com/gpu", operator="Equal", value="present"),
+                id="any-effect",
+            ),
+            pytest.param(
+                "nvidia.com/gpu=present:NoExecute",
+                V1Toleration(
+                    key="nvidia.com/gpu", operator="Equal", value="present", effect="NoExecute"
+                ),
+                id="value-and-effect",
+            ),
+            pytest.param(
+                "dedicated=:PreferNoSchedule",
+                V1Toleration(
+                    key="dedicated", operator="Equal", value="", effect="PreferNoSchedule"
+                ),
+                id="empty-value",
+            ),
+        ],
+    )
+    def test_valid(self, toleration: str, expected: V1Toleration):
+        assert parse_toleration(toleration) == expected
+
+    @pytest.mark.parametrize(
+        ["toleration", "expected_error"],
+        [
+            # An empty key with the Exists operator would tolerate all taints
+            pytest.param("", "Invalid key: Empty name", id="empty"),
+            pytest.param(":NoSchedule", "Invalid key: Empty name", id="empty-key"),
+            pytest.param("Example.com/key", "Invalid key: Invalid prefix", id="invalid-key"),
+            pytest.param("key=a b", "Invalid value", id="invalid-value"),
+            pytest.param("key:", "Invalid effect", id="empty-effect"),
+            pytest.param("key:noschedule", "Invalid effect", id="lowercase-effect"),
+            pytest.param("key:NoSchedule-", "Invalid effect", id="taint-removal"),
+        ],
+    )
+    def test_invalid(self, toleration: str, expected_error: str):
+        with pytest.raises(ValueError, match=expected_error):
+            parse_toleration(toleration)
+
+
+class TestValidateQuantity:
+    @pytest.mark.parametrize(
+        "quantity",
+        [
+            pytest.param("1", id="integer"),
+            pytest.param("0.5", id="decimal"),
+            pytest.param(".5", id="no-integer-part"),
+            pytest.param("1.", id="no-fractional-part"),
+            pytest.param("500m", id="milli"),
+            pytest.param("100u", id="micro"),
+            pytest.param("1k", id="decimal-si"),
+            pytest.param("1E", id="exa"),
+            pytest.param("512Mi", id="binary-si"),
+            pytest.param("1Ei", id="binary-si-exbi"),
+            pytest.param("1e3", id="exponent"),
+            pytest.param("1.5E-3", id="signed-exponent"),
+            # A valid format, the value is checked separately
+            pytest.param("-1", id="negative"),
+        ],
+    )
+    def test_valid(self, quantity: str):
+        validate_quantity(quantity)
+
+    # parse_quantity() accepts some of these, but the API rejects them
+    @pytest.mark.parametrize(
+        "quantity",
+        [
+            pytest.param("1 Gi", id="space"),
+            pytest.param("1K", id="uppercase-kilo"),
+            pytest.param("500mi", id="lowercase-binary-si"),
+            pytest.param("1gi", id="lowercase-gibi"),
+            pytest.param("1GB", id="bytes-unit"),
+            pytest.param("1e", id="exponent-without-number"),
+            pytest.param("Gi", id="no-number"),
+            pytest.param("", id="empty"),
+        ],
+    )
+    def test_invalid(self, quantity: str):
+        with pytest.raises(ValueError, match="Invalid quantity"):
+            validate_quantity(quantity)

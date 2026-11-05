@@ -44,6 +44,10 @@ options:
         V(-).
       - Resizing using V(+) or V(-) was not supported prior to community.general 3.0.0.
       - Please note that when using V(+), V(-), or percentage of FREE, the module is B(not idempotent).
+      - Without the V(+) or V(-) prefix, a percentage of FREE is the new size of the logical volume, computed from the space
+        free in the volume group when the task runs. Once the logical volume has used that space, running the same task again
+        requests a smaller size and, unless O(shrink=false), tries to shrink the logical volume. To make the logical volume
+        take all the remaining space in the volume group, use V(+100%FREE).
   state:
     type: str
     description:
@@ -90,6 +94,8 @@ options:
       - Resize the underlying filesystem together with the logical volume.
       - Supported for C(ext2), C(ext3), C(ext4), C(reiserfs) and C(XFS) filesystems. Attempts to resize other filesystem types
         result in failure.
+      - The filesystem is only resized when the module resizes the logical volume. If the logical volume already has the
+        requested size, the filesystem is not resized, even when it is smaller than the logical volume.
     type: bool
     default: false
 notes:
@@ -129,7 +135,7 @@ EXAMPLES = r"""
   community.general.lvol:
     vg: firefly
     lv: test
-    size: 100%FREE
+    size: +100%FREE
 
 - name: Create a logical volume with special options
   community.general.lvol:

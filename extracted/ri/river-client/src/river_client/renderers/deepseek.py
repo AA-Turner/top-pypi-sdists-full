@@ -56,7 +56,14 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from river_client.images import Image
+from river_client.renderers.tool_arguments import (
+    decode_json_marked,
+    find_outside_json_strings,
+    standard_json,
+)
 from river_client.renderers.base import (
+    parsed_text_content,
+    rejected_call_text,
     _ChunkBuilder,
     _truncate_chunks_to_length,
     ContentPart,
@@ -181,6 +188,8 @@ DSML_V41 = DsmlDialect(
     calls=" calls", invoke=" invoke", param=" parameter", namespaces=True
 )
 _DIALECTS = (DSML_V4, DSML_V41)
+# A message with none of these holds no DSML markup worth parsing.
+_DSML_OPENERS = tuple(tag for d in _DIALECTS for tag in (d.calls_open, d.invoke_open))
 
 # The tools instruction block, verbatim from the encoders' ``TOOLS_TEMPLATE``
 # (format placeholders resolved per dialect). Model-family syntax the
@@ -312,20 +321,47 @@ def dsml_tools_block(tools: list[ToolSpec], dialect: DsmlDialect = DSML_V4) -> s
 # ─── Response parsing ────────────────────────────────────────────────────
 
 
-def _reject_unrenderable_name(name: str, what: str) -> None:
-    """Reject names DSML cannot represent.
+def _reject_unrenderable_name(name: str) -> None:
+    """Reject a tool name DSML cannot represent.
 
-    Attribute values are delimited by plain double quotes with no escape
-    mechanism, so a ``"`` inside a name silently produces a block that the
-    tolerant DSML parsers on both sides then mis-split — the call comes back
-    as an ``UnparsedToolCall`` instead of erroring. Fail at render time,
-    where the offending name is still in hand.
+    Attribute values are delimited by plain double quotes with no escape, so
+    a name with ``"`` cannot be written; no parsed name contains one. Fail at
+    render time, where the offending name is still in hand.
     """
-    if '"' in name or ">" in name:
+    if '"' in name:
         raise ValueError(
-            f"{what} {name!r} contains '\"' or '>', which DSML attribute "
-            "values cannot encode."
+            f"tool name {name!r} contains '\"', which DSML attribute values "
+            "cannot encode."
         )
+
+
+def _format_dsml_invoke(d: DsmlDialect, name: str, args: dict[str, Any]) -> str:
+    """One invoke, written so the parser reads back exactly ``args``.
+
+    The encoder's form carries one parameter per key: a string as written
+    (``string="true"``), anything else as JSON. A string holding one of the
+    dialect's close markers would end its element early, so it goes as a JSON
+    string instead, where quoted markers are content. A key holding ``"``
+    cannot sit in an attribute, so such an invoke carries one JSON body.
+    Both forms are what the model may itself emit and both parsers accept.
+    """
+    if any('"' in key for key in args):
+        body = json.dumps(args, ensure_ascii=False)
+        return f'{d.invoke_open} name="{name}">{body}{d.invoke_close}\n'
+    params = []
+    for key, value in args.items():
+        raw = isinstance(value, str) and not any(
+            marker in value for marker in d.close_markers
+        )
+        text = value if raw else json.dumps(value, ensure_ascii=False)
+        params.append(
+            f'{d.param_open} name="{key}" string="{"true" if raw else "false"}">'
+            f"{text}{d.param_close}"
+        )
+    # The encoder builds the body as "\n".join(params) and wraps it in
+    # "\n...\n", so a zero-parameter invoke carries TWO newlines, not one.
+    body = "\n".join(params)
+    return f'{d.invoke_open} name="{name}">\n{body}\n{d.invoke_close}\n'
 
 
 def _dsml_attrs(attrs: str) -> dict[str, str]:
@@ -346,96 +382,123 @@ def _split_dsml_tag(segment: str) -> tuple[str, str] | None:
     return None
 
 
-def _parse_dsml_params(body: str, dialect: DsmlDialect) -> dict[str, Any] | None:
-    """Parse the ``<｜DSML｜parameter>`` elements inside one invoke body.
+def _skip_space(text: str, position: int) -> int:
+    while position < len(text) and text[position].isspace():
+        position += 1
+    return position
 
-    ``None`` (malformed invoke) on stray inter-parameter text, a missing or
-    unrecognized ``string`` flag, or a duplicate parameter name — the same
-    rejections river-serve's parser makes, so client and server agree on
-    which blocks are tool calls and which are just text.
+
+def _scan_dsml_invoke(
+    text: str, inv: int, dialect: DsmlDialect
+) -> tuple[int, ToolCall | UnparsedToolCall]:
+    """Parse the invoke opening at ``inv``: where it ends, and the result.
+
+    An invoke self-closes (``name="x"/>``, no arguments), carries one JSON
+    object as its body, or carries parameter elements; River Serve accepts all
+    three. A value marked as JSON (the body, or ``string="false"``) runs to the
+    first close tag outside a JSON string: marker text inside a string is
+    content, so it can neither end the invoke early nor start another one.
+    Rejections match River Serve's parser so client and server agree on which
+    blocks are calls: stray text, a missing or unrecognized ``string`` flag, a
+    duplicate key, a JSON body that is not one standard object, or an invoke
+    the output ends inside.
     """
-    params: dict[str, Any] = {}
-    rest = body
-    while (p := rest.find(dialect.param_open)) != -1:
-        if rest[:p].strip():
-            return None
-        split = _split_dsml_tag(rest[p + len(dialect.param_open) :])
-        if split is None:
-            return None
-        attrs, after_tag = split
-        parsed = _dsml_attrs(attrs)
-        key = parsed.get("name")
-        flag = parsed.get("string")
-        if key is None or flag not in ("true", "false"):
-            return None
-        val_end = after_tag.find(dialect.param_close)
-        if val_end == -1:
-            return None
-        raw = after_tag[:val_end]
-        if flag == "true":
-            value: Any = raw
-        else:
-            # Non-string params carry JSON; unparseable values degrade to
-            # strings rather than failing the whole invoke.
-            try:
-                value = json.loads(raw.strip())
-            except (json.JSONDecodeError, ValueError):
-                value = raw
-        if key in params:
-            return None  # duplicate parameter name (reference rejects too)
-        params[key] = value
-        rest = after_tag[val_end + len(dialect.param_close) :]
-    return None if rest.strip() else params
-
-
-def _parse_dsml_invoke(
-    segment: str, dialect: DsmlDialect
-) -> ToolCall | UnparsedToolCall:
-    """Parse one ``<｜DSML｜invoke ...>...</｜DSML｜invoke>`` segment.
-
-    A V4.1 namespace stays in the name as ``ns::name``: that is how the
-    encoder renders it back, so a parsed call round-trips into a prompt
-    unchanged.
-    """
-    inner = segment[len(dialect.invoke_open) : -len(dialect.invoke_close)]
-    split = _split_dsml_tag(inner)
+    tag_at = inv + len(dialect.invoke_open)
+    split = _split_dsml_tag(text[tag_at:])
     if split is None:
-        return UnparsedToolCall(raw_text=segment, error="Malformed DSML invoke tag")
-    attrs, body = split
+        return len(text), UnparsedToolCall(
+            raw_text=text[inv:], error="Unclosed DSML invoke"
+        )
+    attrs = split[0]
+    body_at = tag_at + len(attrs) + 1
+    if attrs.rstrip().endswith("/"):
+        attrs = attrs.rstrip().removesuffix("/")
+        end = body_at
+        arguments: dict[str, Any] | None = {}
+        error = None
+    else:
+        end, arguments, error = _scan_dsml_arguments(text, body_at, dialect)
+    segment = text[inv:end]
     name = _dsml_attrs(attrs).get("name", "")
-    if not name:
-        return UnparsedToolCall(raw_text=segment, error="Missing invoke name")
-    params = _parse_dsml_params(body, dialect)
-    if params is None:
-        return UnparsedToolCall(raw_text=segment, error="Malformed DSML parameters")
-    return ToolCall(
+    if error is None and not name:
+        error = "Missing invoke name"
+    if error is not None or arguments is None:
+        return end, UnparsedToolCall(raw_text=segment, error=error or "Malformed DSML")
+    return end, ToolCall(
         type="function",
         id=None,
         function=ToolCallFunction(
-            name=name, arguments=json.dumps(params, ensure_ascii=False)
+            name=name, arguments=json.dumps(arguments, ensure_ascii=False)
         ),
     )
 
 
-def _dialect_of(text: str) -> DsmlDialect | None:
-    """The dialect of the calls block in ``text``, if any.
+def _scan_dsml_arguments(
+    text: str, body_at: int, dialect: DsmlDialect
+) -> tuple[int, dict[str, Any] | None, str | None]:
+    """Read a long-form invoke's body: (end of the invoke, arguments, error)."""
+    position = _skip_space(text, body_at)
+    if text.startswith("{", position):
+        close, marker = find_outside_json_strings(
+            text, (dialect.invoke_close,), position
+        )
+        if marker is None:
+            return len(text), None, "Unclosed DSML invoke"
+        end = close + len(dialect.invoke_close)
+        try:
+            body = standard_json(text[position:close])
+        except ValueError:
+            return end, None, "DSML invoke body is not one standard JSON object"
+        if not isinstance(body, dict):
+            return end, None, "DSML invoke body is not one standard JSON object"
+        return end, body, None
 
-    A dialect whose block is CLOSED wins over one whose opener merely
-    appears (text quoting the other grammar's tag, say); among closed
-    blocks the earliest opener wins, matching the parsers on both sides,
-    which take the first well-formed block as the one that ends the turn.
-    """
-    closed = []
-    opened = []
-    for d in _DIALECTS:
-        pos = text.find(d.calls_open)
-        if pos == -1:
+    params: dict[str, Any] = {}
+    error = None
+    while True:
+        position = _skip_space(text, position)
+        if text.startswith(dialect.invoke_close, position):
+            return position + len(dialect.invoke_close), params, error
+        if not text.startswith(dialect.param_open, position):
+            # Stray text: resume at the next element so its JSON values still
+            # read as content, never as markup.
+            found = [
+                at
+                for at in (
+                    text.find(dialect.param_open, position),
+                    text.find(dialect.invoke_close, position),
+                )
+                if at != -1
+            ]
+            if not found:
+                return len(text), None, "Unclosed DSML invoke"
+            error = error or "Malformed DSML parameters"
+            position = min(found)
             continue
-        opened.append((pos, d))
-        if text.find(d.calls_close, pos + len(d.calls_open)) != -1:
-            closed.append((pos, d))
-    ranked = closed or opened
-    return min(ranked, key=lambda item: item[0])[1] if ranked else None
+        tag_at = position + len(dialect.param_open)
+        split = _split_dsml_tag(text[tag_at:])
+        if split is None:
+            return len(text), None, "Unclosed DSML invoke"
+        attributes = _dsml_attrs(split[0])
+        value_at = tag_at + len(split[0]) + 1
+        key, flag = attributes.get("name"), attributes.get("string")
+        if flag == "false":
+            close, marker = find_outside_json_strings(
+                text, (dialect.param_close,), value_at
+            )
+            close = close if marker is not None else -1
+        else:
+            close = text.find(dialect.param_close, value_at)
+        if close == -1:
+            return len(text), None, "Unclosed DSML invoke"
+        raw = text[value_at:close]
+        position = close + len(dialect.param_close)
+        if key is None or flag not in ("true", "false") or key in params:
+            error = error or "Malformed DSML parameters"
+            continue
+        # Non-string params carry JSON; a value that is not standard JSON
+        # stays the text the model wrote rather than failing the invoke.
+        params[key] = raw if flag == "true" else decode_json_marked(raw)
 
 
 def parse_deepseek_content_blocks(
@@ -454,7 +517,7 @@ def parse_deepseek_content_blocks(
     # reasoning — return None there rather than handing back parts with raw
     # tags embedded in the TextPart, so the caller keeps the plain string.
     has_reasoning = content.startswith(_THINK_OPEN)
-    if not has_reasoning and _dialect_of(content) is None:
+    if not has_reasoning and not any(tag in content for tag in _DSML_OPENERS):
         return None
 
     parts: list[ContentPart] = []
@@ -474,8 +537,6 @@ def parse_deepseek_content_blocks(
         if thinking.strip():
             parts.append(ThinkingPart(type="thinking", thinking=thinking.strip()))
 
-    # The dialect is read from what is LEFT after the reasoning: reasoning
-    # that quotes the other grammar's tag must not pin the parser to it.
     visible, calls = _extract_dsml_tool_calls(remainder)
     tool_calls.extend(calls)
     if visible:
@@ -484,49 +545,57 @@ def parse_deepseek_content_blocks(
 
 
 def _extract_dsml_tool_calls(
-    text: str, dialect: DsmlDialect | None = None
+    text: str,
 ) -> tuple[str, list[ToolCall | UnparsedToolCall]]:
-    """Split ``text`` into (visible text, tool calls).
+    """Split ``text`` into (visible text, one call or rejected block per invoke).
 
-    The reference format emits at most ONE calls block and it terminates the
-    turn; text before and after it stays visible. An unterminated block is
-    left visible in full — the model was cut off mid-call and there is
-    nothing well-formed to report.
+    Every invoke of either dialect is a block wherever it sits, as Kimi K2
+    parses every call; the calls tags only delimit. Marker text inside an
+    invoke's values is content, so a block quoted in a value is no call, and
+    visible text never holds an invoke, so no rendering of it can become one.
+    Visible text is everything outside the invokes, less the calls tags that
+    frame them; pieces the invokes separated stay separated by a newline.
+    Text with no invoke is returned whole.
     """
-    dialect = dialect or _dialect_of(text)
-    if dialect is None:
-        return text, []
-    open_at = text.find(dialect.calls_open)
-    if open_at == -1:
-        return text, []
-    body_start = open_at + len(dialect.calls_open)
-    close_rel = text[body_start:].find(dialect.calls_close)
-    if close_rel == -1:
-        return text, []
-
-    calls: list[ToolCall | UnparsedToolCall] = []
-    leftover: list[str] = []
-    rest = text[body_start : body_start + close_rel]
-    while (inv := rest.find(dialect.invoke_open)) != -1:
-        leftover.append(rest[:inv])
-        end_rel = rest[inv:].find(dialect.invoke_close)
-        if end_rel == -1:
-            leftover.append(rest[inv:])
-            rest = ""
+    results: list[ToolCall | UnparsedToolCall] = []
+    pieces: list[str] = []
+    dialects: list[DsmlDialect] = []
+    position = 0
+    while True:
+        found = [
+            (at, d)
+            for d in _DIALECTS
+            if (at := text.find(d.invoke_open, position)) != -1
+        ]
+        if not found:
             break
-        seg_end = inv + end_rel + len(dialect.invoke_close)
-        calls.append(_parse_dsml_invoke(rest[inv:seg_end], dialect))
-        rest = rest[seg_end:]
-    leftover.append(rest)
-
-    if not calls:
+        at, dialect = min(found, key=lambda opener: opener[0])
+        pieces.append(text[position:at])
+        dialects.append(dialect)
+        position, result = _scan_dsml_invoke(text, at, dialect)
+        results.append(result)
+    if not results:
         return text, []
-    fragments = [
-        text[:open_at].rstrip("\n"),
-        "".join(leftover).strip(),
-        text[body_start + close_rel + len(dialect.calls_close) :].lstrip("\n"),
-    ]
-    return "\n".join(f for f in fragments if f), calls
+    pieces.append(text[position:])
+    visible = []
+    for index, piece in enumerate(pieces):
+        if index:
+            # After an invoke: drop the calls close tag that frames it.
+            rest = piece.lstrip()
+            close = dialects[index - 1].calls_close
+            piece = rest[len(close) :] if rest.startswith(close) else piece
+            piece = piece.lstrip("\n")
+        if index < len(dialects):
+            # Before an invoke: drop the calls open tag that frames it.
+            rest = piece.rstrip()
+            opener = dialects[index].calls_open
+            piece = rest[: -len(opener)] if rest.endswith(opener) else piece
+            piece = piece.rstrip("\n")
+        if 0 < index < len(dialects):
+            piece = piece.strip()
+        if piece:
+            visible.append(piece)
+    return "\n".join(visible), results
 
 
 def strip_deepseek_thinking_from_text(text: str) -> str:
@@ -879,9 +948,16 @@ class DeepSeekV4Renderer(Renderer):
             reasoning, text = self._split_reasoning(message)
             header = _ASSISTANT + (_THINK_OPEN if emit_reasoning else _THINK_CLOSE)
             body = f"{reasoning}{_THINK_CLOSE}" if emit_reasoning else ""
+            if not emit_reasoning and text.startswith(_THINK_OPEN):
+                # Reasoning is read only at the start of a turn, where text
+                # that begins with <think>, such as text that followed a call
+                # the turn writes last, would open it. An empty block first
+                # keeps it text.
+                body = _THINK_OPEN + _THINK_CLOSE
             body += text
-            if message.get("tool_calls"):
-                body += self._format_tool_calls(message["tool_calls"])
+            rejected = rejected_call_text(message)
+            if message.get("tool_calls") or rejected:
+                body += self._format_tool_calls(message.get("tool_calls", []), rejected)
             return header, body + _EOS
 
         raise ValueError(f"{type(self).__name__} cannot render role {role!r}")
@@ -917,7 +993,7 @@ class DeepSeekV4Renderer(Renderer):
         if self.thinking and _THINK_OPEN not in text:
             text = _THINK_OPEN + text
 
-        message: Message = {"role": "assistant", "content": text}
+        message: Message = {"role": "assistant", "content": parsed_text_content(text)}
         result = parse_deepseek_content_blocks(text)
         if result is not None:
             parts, tool_results = result
@@ -1140,8 +1216,10 @@ class DeepSeekV4Renderer(Renderer):
             return Message(role="system", content=system_prompt + "\n\n" + block)
         return Message(role="system", content=block or system_prompt)
 
-    def _format_tool_calls(self, tool_calls: list[ToolCall]) -> str:
+    def _format_tool_calls(self, tool_calls: list[ToolCall], rejected: str = "") -> str:
         """Format tool calls as one DSML ``tool_calls`` block.
+
+        Rejected blocks follow the calls, as the model wrote them.
 
         Values carry an explicit ``string`` flag: ``true`` means the element
         text IS the string value, ``false`` means it is JSON. That flag is
@@ -1180,39 +1258,9 @@ class DeepSeekV4Renderer(Renderer):
                 # silently and only on this side.
                 args = {"arguments": raw_args if isinstance(raw_args, str) else ""}
 
-            _reject_unrenderable_name(name, "tool name")
-            params = []
-            for key, value in args.items():
-                _reject_unrenderable_name(key, "parameter name")
-                is_str = isinstance(value, str)
-                text = value if is_str else json.dumps(value, ensure_ascii=False)
-                # Every close marker, not just the parameter's own: the
-                # parsers scan for the tool_calls close before they look at
-                # invokes at all, and split invokes at the first invoke
-                # close, so a value carrying either one truncates the
-                # enclosing element and the call round-trips as an
-                # UnparsedToolCall — the outcome this check exists to stop.
-                for marker in d.close_markers:
-                    if marker in text:
-                        raise ValueError(
-                            f"tool {name!r} parameter {key!r} contains "
-                            f"{marker!r}, which would terminate the enclosing "
-                            "DSML element early; DSML has no escape for it."
-                        )
-                params.append(
-                    f'{d.param_open} name="{key}" '
-                    f'string="{"true" if is_str else "false"}">'
-                    f"{text}{d.param_close}"
-                )
-            # The encoder builds the body as "\n".join(params) and wraps it
-            # in "\n...\n", so a zero-parameter invoke carries TWO newlines,
-            # not one. Joining with a trailing newline per param collapses
-            # that to one and diverges on every argument-less call.
-            body = "\n".join(params)
-            invokes.append(
-                f'{d.invoke_open} name="{name}">\n{body}\n{d.invoke_close}\n'
-            )
-        return f"\n\n{d.calls_open}\n{''.join(invokes)}{d.calls_close}"
+            _reject_unrenderable_name(name)
+            invokes.append(_format_dsml_invoke(d, name, args))
+        return f"\n\n{d.calls_open}\n{''.join(invokes)}{rejected}{d.calls_close}"
 
     # ── Internal helpers ─────────────────────────────────────────────
 

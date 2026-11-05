@@ -1,6 +1,14 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: surrealdb
-Version: 2.0.0
+Version: 3.0.0
+Summary: SurrealDB python client
+Project-URL: homepage, https://github.com/surrealdb/surrealdb.py
+Project-URL: repository, https://github.com/surrealdb/surrealdb.py
+Project-URL: documentation, https://surrealdb.com/docs/sdk/python
+Author: SurrealDB
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: Database,SurrealDB
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -9,28 +17,25 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
-Classifier: Topic :: Database :: Front-Ends
 Classifier: Topic :: Database :: Database Engines/Servers
+Classifier: Topic :: Database :: Front-Ends
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: aiohttp>=3.8.0
-Requires-Dist: pydantic-core>=2.0.1
-Requires-Dist: requests>=2.25.0
-Requires-Dist: typing-extensions>=4.0.0 ; python_full_version < '3.12'
-Requires-Dist: websockets>=10.0
-Requires-Dist: pydantic>=2.12.5 ; extra == 'pydantic'
-Provides-Extra: pydantic
-License-File: LICENSE
-Summary: SurrealDB python client
-Keywords: SurrealDB,Database
-Author: SurrealDB
-License-Expression: Apache-2.0
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: documentation, https://surrealdb.com/docs/sdk/python
-Project-URL: homepage, https://github.com/surrealdb/surrealdb.py
-Project-URL: repository, https://github.com/surrealdb/surrealdb.py
+Requires-Dist: aiohttp>=3.14.0
+Requires-Dist: pydantic-core>=2.10.0
+Requires-Dist: requests>=2.25.0
+Requires-Dist: typing-extensions>=4.6.0; python_version < '3.12'
+Requires-Dist: websockets>=15.0
+Provides-Extra: embedded
+Requires-Dist: surrealdb-embedded==3.0.0; extra == 'embedded'
+Provides-Extra: memory
+Requires-Dist: surrealdb-memory>=1.0.0b1; extra == 'memory'
+Provides-Extra: pydantic
+Requires-Dist: pydantic>=2.13.5; extra == 'pydantic'
+Description-Content-Type: text/markdown
 
 <br>
 
@@ -45,15 +50,13 @@ Project-URL: repository, https://github.com/surrealdb/surrealdb.py
 <br>
 
 <p align="center">
-  <a href="https://github.com/surrealdb/surrealdb.py/actions"><img src="https://github.com/surrealdb/surrealdb.py/workflows/Tests/badge.svg"></a>
-  &nbsp;
 	<a href="https://github.com/surrealdb/surrealdb.py"><img src="https://img.shields.io/badge/status-stable-ff00bb.svg?style=flat-square"></a>
 	&nbsp;
 	<a href="https://surrealdb.com/docs/integration/libraries/python"><img src="https://img.shields.io/badge/docs-view-44cc11.svg?style=flat-square"></a>
 	&nbsp;
 	<a href="https://pypi.org/project/surrealdb/"><img src="https://img.shields.io/pypi/v/surrealdb?style=flat-square"></a>
-  &nbsp;
-  <a href="https://pypi.org/project/surrealdb/"><img src="https://img.shields.io/pypi/dm/surrealdb?style=flat-square"></a>    
+	&nbsp;
+    <a href="https://pypi.org/project/surrealdb/"><img src="https://img.shields.io/pypi/dm/surrealdb?style=flat-square"></a>    
 	&nbsp;
 	<a href="https://pypi.org/project/surrealdb/"><img src="https://img.shields.io/pypi/pyversions/surrealdb?style=flat-square"></a>
 </p>
@@ -61,22 +64,20 @@ Project-URL: repository, https://github.com/surrealdb/surrealdb.py
 <p align="center">
 	<a href="https://surrealdb.com/discord"><img src="https://img.shields.io/discord/902568124350599239?label=discord&style=flat-square&color=5a66f6"></a>
 	&nbsp;
-  <a href="https://twitter.com/surrealdb"><img src="https://img.shields.io/badge/twitter-follow_us-1d9bf0.svg?style=flat-square"></a>
-  &nbsp;
-  <a href="https://www.linkedin.com/company/surrealdb/"><img src="https://img.shields.io/badge/linkedin-connect_with_us-0a66c2.svg?style=flat-square"></a>
-  &nbsp;
-  <a href="https://www.youtube.com/channel/UCjf2teVEuYVvvVC-gFZNq6w"><img src="https://img.shields.io/badge/youtube-subscribe-fc1c1c.svg?style=flat-square"></a>
+    <a href="https://x.com/surrealdb"><img src="https://img.shields.io/badge/x-follow_us-222222.svg?style=flat-square" alt="X"></a>
+    &nbsp;
+    <a href="https://www.linkedin.com/company/surrealdb/"><img src="https://img.shields.io/badge/linkedin-connect_with_us-0a66c2.svg?style=flat-square"></a>
+    &nbsp;
+    <a href="https://www.youtube.com/channel/UCjf2teVEuYVvvVC-gFZNq6w"><img src="https://img.shields.io/badge/youtube-subscribe-fc1c1c.svg?style=flat-square"></a>
 </p>
 
 # surrealdb.py
 
 The official SurrealDB SDK for Python.
 
-
 ## Documentation
 
-- [Official Documentation](https://surrealdb.com/docs/sdk/python)
-- [Examples](./examples)
+View the SDK documentation [here](https://surrealdb.com/docs/sdk/python).
 
 ## How to install
 
@@ -119,7 +120,7 @@ For local, two options:
 ```python
 
 # Import the Surreal class
-from surrealdb import Surreal
+from surrealdb import Surreal, RecordID, Table
 
 # Using a context manger to automatically connect and disconnect
 with Surreal("ws://localhost:8000/rpc") as db:
@@ -138,7 +139,7 @@ with Surreal("ws://localhost:8000/rpc") as db:
     )
 
     # Read all the records in the table
-    print(db.select("person"))
+    print(db.select("person").execute())
 
     # Update all records in the table
     print(db.update("person", {
@@ -157,17 +158,17 @@ with Surreal("ws://localhost:8000/rpc") as db:
     # In SurrealQL you can do a direct insert 
     # and the table will be created if it doesn't exist
     
-    # Create
+    # Create (sync query() returns a builder - call .execute() to run it)
     db.query("""
     insert into person {
         user: 'me',
         password: 'very_safe',
         tags: ['python', 'documentation']
     };
-    """)
+    """).execute()
 
-    # Read
-    print(db.query("select * from person"))
+    # Read - .first() returns the first statement's result (the rows)
+    print(db.query("select * from person").first())
     
     # Update
     print(db.query("""
@@ -176,11 +177,997 @@ with Surreal("ws://localhost:8000/rpc") as db:
         password: 'more_safe',
         tags: ['awesome']
     };
-    """))
+    """).execute())
 
     # Delete
-    print(db.query("delete person"))
+    print(db.query("delete person").execute())
 ```
+
+## CRUD builder pattern (v3.0)
+
+`create`, `update`, `upsert`, `delete`, and `insert` return an awaitable
+(or lazy, for sync) builder. The builder exposes chainable clause methods
+that map directly to SurrealQL clauses.
+
+```python
+from surrealdb import AsyncSurreal, RecordID, Table
+
+async with AsyncSurreal("ws://localhost:8000/rpc") as db:
+    await db.signin({"username": "root", "password": "root"})
+    await db.use("ns", "db")
+
+    # Sugar: db.create(record, data) is equivalent to .content(data)
+    await db.create(RecordID("person", "tobie"), {"name": "Tobie"})
+
+    # Or use the builder explicitly
+    await db.create(RecordID("person", "tobie")).content({"name": "Tobie"})
+    await db.update(RecordID("person", "tobie")).replace({"name": "Tobie"})
+    await db.update(RecordID("person", "tobie")).merge({"vip": True})
+    await db.update(RecordID("person", "tobie")).patch([
+        {"op": "replace", "path": "/vip", "value": False},
+    ])
+
+    # `insert` accepts a `relation=True` kwarg or a chained `.relation()`
+    await db.insert(Table("likes"), {"in": ..., "out": ...}, relation=True)
+    await db.insert(Table("likes")).relation().content({"in": ..., "out": ...})
+```
+
+The builder is **typed** via `@overload`:
+
+- `RecordID` target -> `dict[str, Value]`
+- `Table` target   -> `list[Value]`
+- `StringRecordId` target -> a record, sent for the server to parse
+- `str` target     -> `list[Value]`: a plain string is always a table name, even
+  one containing a colon (`"person:tobie"` is a table of that name). It is never
+  parsed as a record id; pass `StringRecordId("person:tobie")` or a `RecordID`
+  for a record
+
+`select()` returns a builder, like every other CRUD method - `await` it on the
+async client, `.execute()` it on the blocking one - and it unwraps single
+records:
+
+- `select(RecordID(...))` (or a `StringRecordId`) -> `dict[str, Value] | None`
+  (`None` when the record does not exist)
+- `select(Table(...))` (or a bare table-name string) -> `list[Value]`
+
+```python
+row = await db.select(RecordID("person", "tobie"))  # dict | None
+rows = await db.select(Table("person"))             # list
+```
+
+#### What a `RecordID` and a `Table` accept
+
+Both constructors check their arguments, so a mistake raises `TypeError` at the
+line that made it rather than coming back from the server as `Parse error`.
+
+A **table name** must be a `str`, and that is the only rule — SurrealDB accepts
+any string, including one that is empty, has spaces, is unicode, starts with a
+digit, or contains a colon.
+
+A **record id** must be one of `str`, `int`, `uuid.UUID`, `list`, `tuple`,
+`dict`, or a `Range` (see below). The union is exported as `RecordIdValue` if
+you want to annotate against it. Notably rejected: `None`, `bool` (Python's
+`bool` is an `int`, but SurrealDB has no boolean id), `float`, and `bytes` —
+the server refuses all of them.
+
+```python
+RecordID("person", "tobie")     # ok
+RecordID("person", ["a", 1])    # ok — composite ids are arrays or objects
+RecordID(1, "tobie")            # TypeError: the arguments look swapped
+Table(None)                     # TypeError: name must be a str
+```
+
+The check applies to values *you* construct. Records decoded from a response
+bypass it, so that a future server sending an id type this SDK does not know
+about still reads back — `RecordID.id` is therefore typed more widely than
+`RecordIdValue`, and is not guaranteed to be one of the types above.
+
+> Before 3.0.0, `Table(None)` was not rejected anywhere and
+> `db.insert(Table(None), rows)` **succeeded**, writing to a table literally
+> named `None`. If you have code that builds a table name dynamically, that is
+> the case to check.
+
+#### Selecting only some fields
+
+Pass `fields=` to narrow the projection, so the server sends only what you ask
+for rather than the whole record:
+
+```python
+await db.select(RecordID("person", "tobie"), fields=["name", "email"])
+await db.select(Table("person"), fields=["address.city"])
+```
+
+A dot walks into a nested object. Each segment is escaped separately, so a field
+name containing a space or unicode is quoted correctly and a field list can
+never smuggle SurrealQL into the statement. A field whose name genuinely
+*contains* a dot cannot be spelled this way — use `query()` for that.
+
+`id` is not included unless you ask for it, exactly as in SurrealQL, so a model
+passed to `into=` that declares an `id` field needs `fields=["id", ...]`.
+
+Anything beyond a list of field names — aliases, functions, `WHERE`, `ORDER BY`
+— is a `query()`, not a `select()`.
+
+#### Record ranges
+
+A `RecordID` whose id is a `Range` targets every record in that range, and every
+CRUD method returns all of them — the same as the equivalent `"person:1..=3"`
+string:
+
+```python
+from surrealdb import RecordID, Range, BoundIncluded, BoundExcluded
+
+first_three = RecordID("person", Range(BoundIncluded(1), BoundIncluded(3)))
+await db.select(first_three)            # every record in person:1..=3
+await db.delete(first_three)            # deletes them all, returns them all
+await db.select("person:1..=3")         # the same target, spelled as a string
+```
+
+Use `BoundExcluded` for `..` rather than `..=`, and `None` for an open end
+(`Range(BoundIncluded(1), None)` is `person:1..`).
+
+Two caveats. A range needs a table, so a bare `Range` is not a resource target —
+`db.select(Range(...))` raises `SurrealError` when the builder runs; wrap it in
+a `RecordID`. And the
+`@overload`s above resolve on the *static* type `RecordID`, which says nothing
+about the id, so a type checker still reads `select(first_three)` as
+`dict | None` while it returns a list at runtime. Cast, or use the string form,
+if you need the narrower type.
+
+### Mapping rows to a model (`into=`)
+
+Pass the keyword-only `into=` argument to map each returned record onto a model
+class - a dataclass, a pydantic `BaseModel`, or any class whose constructor
+accepts the record's fields as keyword arguments. The return type is narrowed
+precisely per overload: a single-record target resolves to `Model` (or
+`Model | None`), a table target to `list[Model]`.
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Person:
+    id: RecordID
+    name: str
+
+# select: single record -> Person | None, table -> list[Person]
+person = await db.select(RecordID("person", "tobie"), into=Person)  # Person | None
+people = await db.select(Table("person"), into=Person)              # list[Person]
+
+# create / update / upsert / delete map the written record(s) too
+created = await db.create(RecordID("person", "tobie"), {"name": "Tobie"}, into=Person)
+updated = await db.update(Table("person"), {"name": "Updated"}, into=Person)  # list[Person]
+
+# insert maps the inserted records
+inserted = await db.insert(Table("person"), [{"name": "A"}], into=Person)  # list[Person]
+
+# the no-data builder form carries the model through its clause methods
+p = await db.create(RecordID("person", "jaime"), into=Person).merge({"name": "Jaime"})
+
+# map each ROW of a single query statement with into(Model, rows=True)
+rows = await db.query("SELECT * FROM person").into(Person, rows=True)  # list[Person]
+```
+
+Sync connections take the same `into=` argument and run eagerly:
+
+```python
+person = db.select(RecordID("person", "tobie"), into=Person).execute()  # Person | None
+created = db.create(RecordID("person", "tobie"), {"name": "Tobie"}, into=Person)
+rows = db.query("SELECT * FROM person").into(Person, rows=True)  # list[Person]
+```
+
+Omitting `into=` leaves the raw `dict` / `list[Value]` results completely
+unchanged.
+
+The model has to accept every field of the records it is given. `update(record,
+data)` writes `data` as the record's whole content, so the example above leaves
+each `person` with just `id` and `name` — write a field `Person` does not
+declare and the mapping fails with an `UnexpectedResponseError` naming both
+sides:
+
+```
+into=Person could not be built from this record: Person.__init__() got an
+unexpected keyword argument 'active'. The record has ['active', 'id']; Person
+accepts ['id', 'name'].
+```
+
+Give the extra fields defaults, add them to the model, or `SELECT` only the
+columns it declares.
+
+Sync usage has no `await` to defer to, so the rule is: **a write you give its
+data runs immediately; everything else returns a builder.**
+`create/update/upsert/insert(target, data)` run at once and return the result.
+`select()`, `delete()`, `query()` and the no-data write forms return a builder,
+which you run with `.execute()` (or a clause such as `.merge(...)`), or iterate
+to stream the rows. A builder never auto-executes on `bool()`, `==`, indexing
+or attribute access, and `len(...)` or indexing one raises a `TypeError` that
+tells you to call `.execute()`.
+
+A builder you never run does nothing, so one that is thrown away unrun - a
+`db.delete(Table("person"))` missing its `.execute()`, or an async call missing
+its `await` - emits a `RuntimeWarning` naming the call and the line that made
+it, the way asyncio does for a coroutine that was never awaited.
+
+```python
+from surrealdb import Surreal
+
+with Surreal("ws://localhost:8000/rpc") as db:
+    db.signin({"username": "root", "password": "root"})
+    db.use("ns", "db")
+
+    # Passing data runs immediately and returns the created record dict.
+    tobie = db.create(RecordID("person", "tobie"), {"name": "Tobie"})
+
+    # No-data form returns a builder; a terminal clause method runs it.
+    out = db.create(RecordID("person", "alice")).merge({"name": "Alice"})
+
+    # Clause-less run: call .execute() explicitly.
+    empty = db.create(RecordID("person", "bob")).execute()
+
+    # select() and delete() return a builder; .execute() runs it.
+    row = db.select(RecordID("person", "tobie")).execute()  # dict | None
+    db.delete(RecordID("person", "bob")).execute()
+
+    # Iterating a builder streams its rows instead of loading them all.
+    for person in db.select(Table("person")):
+        print(person["name"])
+
+    # query() returns a builder; call .execute()/.first()/.into().
+    db.query("DELETE person;").execute()
+```
+
+On 3.x, `DELETE` names a table that has to exist: `db.query("DELETE
+temp_data;")` raises `NotFoundError: The table 'temp_data' does not exist`
+rather than deleting nothing. (2.x returns an empty result instead — see
+[Talking to a SurrealDB 2.x server](#talking-to-a-surrealdb-2x-server).) Use
+`REMOVE TABLE IF EXISTS temp_data;` when you cannot be sure.
+
+### Thread safety
+
+The no-data sync builder guards its cache with a per-builder lock so
+calling `.execute()` from multiple threads issues exactly one RPC. It is
+**not** safe for concurrent *reconfiguration* though — calling `.merge()`
+on one thread while another calls `.execute()` is a race on the builder's
+clause/data state that the lock does not cover. Treat builders as
+single-shot, single-owner values; pass the realised result between
+threads, not the builder itself.
+
+The underlying `BlockingWsSurrealConnection` is itself thread-safe (it
+serialises send/recv with an internal lock), so sharing a connection
+across threads and issuing per-thread operations against it is fine.
+
+### Async cancellation and server truth
+
+If you `cancel()` an async task that's awaiting an in-flight builder,
+the SDK does the right thing on the *client* side: the cache is reset so
+fresh callers retry, and concurrent peer awaiters see a `SurrealError`
+rather than a phantom `CancelledError` they didn't request.
+
+What it cannot do is roll back the *server*. Once an RPC has reached
+SurrealDB, the operation may still complete server-side even after the
+client cancels. For mutations this means cancellation is **not** an
+abort — re-read the affected records before assuming "nothing happened",
+or wrap mutations in a `BEGIN ... COMMIT` block via `query()` if you
+need atomic rollback semantics.
+
+## Multi-statement queries and transactions (issue #232 fix)
+
+`query()` always returns a `list[Value]` - one entry per statement, even
+for a single statement - so multi-statement queries and `BEGIN ... COMMIT`
+blocks never silently drop results. Use `.first()` for the first
+statement's result (or `None` when there are no statements).
+
+```python
+rows = await db.query("SELECT * FROM person")       # [people_list]
+first = await db.query("SELECT * FROM person").first()  # people_list
+many = await db.query(
+    "SELECT * FROM person; SELECT count() FROM person GROUP ALL"
+)
+# many is [people_list, count_list]
+
+# Sync: query() returns a builder - run it explicitly.
+rows = db.query("SELECT * FROM person").execute()   # [people_list]
+first = db.query("SELECT * FROM person").first()    # people_list
+```
+
+You can also map the N statement results onto a dataclass via `.into()`:
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class Stats:
+    created: dict
+    all_people: list
+    count: int
+
+result = await db.query(
+    "CREATE person:tobie SET name = 'Tobie';"
+    "SELECT * FROM person;"
+    "SELECT count() FROM person GROUP ALL"
+).into(Stats)
+```
+
+Or map each **row** of a single statement's result onto a model with
+`.into(Model, rows=True)`, which returns `list[Model]`:
+
+```python
+people = await db.query("SELECT * FROM person").into(Person, rows=True)  # list[Person]
+```
+
+For the raw server response (status, time, error per statement), keep
+using `query_raw()`.
+
+## Client-side transactions and sessions
+
+Multi-session and client-side transactions are supported **only for
+WebSocket connections** (`ws://` or `wss://`). They are not available for
+HTTP or embedded connections.
+
+```python
+async with AsyncSurreal("ws://localhost:8000/rpc") as db:
+    await db.signin({"username": "root", "password": "root"})
+    await db.use("ns", "db")
+
+    # Create a session
+    session = await db.new_session()
+    await session.use("ns", "db")
+
+    # Start a transaction on the session
+    txn = await session.begin_transaction()
+    await txn.create(RecordID("account", "alice"), {"balance": 100})
+    await txn.update(RecordID("account", "bob")).merge({"balance": 50})
+
+    # Commit (or call `await txn.cancel()` to roll back)
+    await txn.commit()
+
+    await session.close_session()
+```
+
+The same CRUD builder, query, and `run()` API is available on both
+`AsyncSurrealSession` / `BlockingSurrealSession` and
+`AsyncSurrealTransaction` / `BlockingSurrealTransaction`, along with
+`query_raw()`, `info()`, and `version()`. Every one of them scopes to the
+session (and transaction) it was called on, so you never pass `session_id`
+or `txn_id` by hand.
+
+## `run()` - calling SurrealDB functions
+
+```python
+result = await db.run("fn::increment", [1])
+greeting = await db.run("fn::greet", ["world"])
+```
+
+## Live queries
+
+Live queries let you subscribe to changes on a table and receive a
+notification whenever a record is created, updated, or deleted. They are a
+**WebSocket-only** feature (`ws://` or `wss://`).
+
+The API is three methods:
+
+- `live(table, diff=False)` - start a live query on a table and return its
+  `UUID`. Pass `diff=True` to receive JSON Patch diffs instead of full
+  records.
+- `subscribe_live(query_uuid)` - return a generator (async generator for the
+  async client) that yields notification dicts. Each notification has an
+  `"action"` (`"CREATE"`, `"UPDATE"`, or `"DELETE"`) and a `"result"` (the
+  affected record).
+- `kill(query_uuid)` - stop a running live query.
+
+You can also start a live query through `query("LIVE SELECT * FROM ...")`,
+which returns the same `UUID` you can pass to `subscribe_live()`.
+
+### Async
+
+```python
+import asyncio
+from surrealdb import AsyncSurreal
+
+async def main():
+    # Connection that owns the subscription.
+    async with AsyncSurreal("ws://localhost:8000/rpc") as db:
+        await db.signin({"username": "root", "password": "root"})
+        await db.use("ns", "db")
+
+        live_id = await db.live("person")           # -> UUID
+        subscription = await db.subscribe_live(live_id)
+
+        # Drive the mutation on a SEPARATE connection (see caveats below).
+        async with AsyncSurreal("ws://localhost:8000/rpc") as writer:
+            await writer.signin({"username": "root", "password": "root"})
+            await writer.use("ns", "db")
+            await writer.create("person", {"name": "Jaime"})
+
+        # Wait for the notification (guard with a timeout in real code).
+        notification = await asyncio.wait_for(subscription.__anext__(), timeout=10)
+        print(notification["action"])   # "CREATE"
+        print(notification["result"])   # the created record
+
+        await db.kill(live_id)
+
+asyncio.run(main())
+```
+
+### Blocking
+
+```python
+from surrealdb import Surreal
+
+with Surreal("ws://localhost:8000/rpc") as db:
+    db.signin({"username": "root", "password": "root"})
+    db.use("ns", "db")
+
+    live_id = db.live("person")            # -> UUID
+    subscription = db.subscribe_live(live_id)
+
+    # Mutate on a SEPARATE connection so the notification can arrive.
+    with Surreal("ws://localhost:8000/rpc") as writer:
+        writer.signin({"username": "root", "password": "root"})
+        writer.use("ns", "db")
+        writer.create("person", {"name": "Jaime"})
+
+    for notification in subscription:
+        print(notification["action"], notification["result"])
+        break                              # generator blocks for the next one
+
+    db.kill(live_id)
+```
+
+### Caveats
+
+- **Mutate on a separate connection.** The connection that owns a
+  subscription is busy receiving live notifications, so running
+  `CREATE`/`UPDATE`/`DELETE` on that *same* connection races the query
+  responses against the incoming notifications. Perform the mutations that
+  should trigger notifications on a **second** connection (this is exactly
+  what the test suite does).
+- **Blocking client: one subscriber per connection.** The blocking
+  `subscribe_live()` reads notifications straight off the socket, so a single
+  blocking connection supports only **one** concurrent subscriber. Use a
+  separate connection per live subscription (or the async client, which
+  fans notifications out to per-subscriber queues).
+
+## Streaming queries
+
+**You get this for free.** Against **SurrealDB v3.3.0 or later** over a
+WebSocket, `query()` already asks for its answer as a stream of frames and
+rebuilds it as it arrives - and so do `select()`, `create()`, `upsert()` and
+every builder, because they all go through the same call. The answer is
+identical; what changes is that the server no longer has to finish before any of
+it reaches you, and there is no single enormous response to decode.
+
+Nothing to switch on, and nothing to change in your code:
+
+```python
+people = await db.query("SELECT * FROM person")   # streamed, if the server can
+```
+
+`.rows()` on any builder is the visible half, for when you want the rows
+*as* they arrive rather than the whole answer at the end:
+
+```python
+async for person in db.query("SELECT * FROM person").rows():
+    ...
+```
+
+Iterating the builder itself is the same thing without the `.rows()`, on the
+async client as on the blocking one - `await builder` for the whole answer,
+`async for row in builder` for the rows as they arrive:
+
+```python
+async for person in db.select(Table("person")):
+    ...
+```
+
+It needs the same v3.3.0 server and a WebSocket connection. Against an
+older server, or over HTTP, the query runs the buffered way and its rows are
+handed back one at a time, so the call works everywhere - see
+[Where it streams](#where-it-streams) below.
+
+Nothing is sent until you start iterating.
+
+### Two views over one answer
+
+Iterate the stream for **rows**, as they arrive:
+
+```python
+async for person in db.query("SELECT * FROM person").rows():
+    print(person["name"])
+```
+
+or call `.statements()` for one completed result per statement, which is the
+shape `query()` returns:
+
+```python
+async for statement in db.query(
+    "SELECT * FROM person; SELECT count() FROM person GROUP ALL"
+).statements():
+    print(statement.index, statement.value)
+```
+
+Each `StatementResult` carries `index`, `value`, `time` (the server's own
+timing, verbatim), `query_type` (`"live"` for a `LIVE SELECT`, otherwise
+`None`), and `single` - true when `value` is one bare value rather than a list
+of rows, as for `RETURN 1 + 2` or `SELECT ... FROM ONLY`.
+
+A stream is read **once**, and both views draw from the same frames, so pick
+one per call.
+
+### Frames, when neither view will do
+
+`.stream()` is the low-level view, and almost always the wrong one to start
+with. It yields every value, error and completion as the frame that says which,
+each carrying the `index` of the statement it belongs to:
+
+```python
+from surrealdb import DoneFrame, ErrorFrame, ValueFrame
+
+async for frame in db.query("SELECT * FROM person; THROW 'nope'; RETURN 42").stream():
+    if isinstance(frame, ValueFrame):
+        print(frame.index, frame.value)
+    elif isinstance(frame, ErrorFrame):
+        print(frame.index, "failed:", frame.error)
+    elif isinstance(frame, DoneFrame):
+        print(frame.index, "complete", frame.result.time)
+```
+
+Frames are for the one thing `rows()` and `statements()` cannot show: **one
+statement failing while the statements after it carry on.** Both of those stop
+at the first failure; here the `THROW` arrives as an `ErrorFrame` and `RETURN 42`
+still produces its value and its `DoneFrame`.
+
+The same rules apply as everywhere else. A value is provisional until its
+statement's `DoneFrame`, and an `ErrorFrame` retracts the values already yielded
+for that index - the difference is that you see it happen rather than having
+iteration raise. Statements are counted by their `DoneFrame`s. A query that
+could not be completed at all, such as one whose connection died, still raises.
+
+### Rows as models
+
+`into=` maps each row as it arrives, which is the case streaming is actually
+for - a large table read one model at a time, never held whole:
+
+```python
+async for person in db.select("person").rows(into=Person):
+    print(person.name)
+```
+
+The same on the blocking client, with `with` instead of `async with`:
+
+```python
+for person in db.select("person").rows(into=Person):
+    print(person.name)
+```
+
+The rows are typed, so a type checker sees what each loop yields. A record is
+`dict[str, Value]` and `into=Model` gives `Model`, however the target is spelled
+(`Table`, `RecordID` or a string), and the same goes for iterating the builder
+directly:
+
+```python
+for row in db.select(Table("person")):                # dict[str, Value]
+    ...
+for person in db.select(Table("person"), into=Person):  # Person
+    print(person.name)
+```
+
+A query's rows can be any value, so `query(...).rows()` yields `Any` unless you
+pass `into=`. What `rows()` returns is a `SyncRows[T]` (or `AsyncRows[T]`) - the
+iterable that also works as a context manager - which is the name to annotate
+with if you pass one around.
+
+### Rows are provisional until iteration ends
+
+A row is delivered before the statement that produced it has finished - that is
+the point - so a statement that fails *after* emitting rows raises, and the rows
+it already yielded are void:
+
+```python
+try:
+    async for row in db.query("SELECT * FROM person; THROW 'nope'").rows():
+        rows.append(row)          # these arrive, then the THROW raises
+except SurrealError:
+    rows.clear()                  # what arrived was never final
+```
+
+`.statements()` narrows this rather than removing it: it hands over a
+statement's value only once the server has called that statement final, so a
+statement you have received is settled - but a *later* statement can still
+fail, and earlier ones have already been yielded. For all-or-nothing across the
+whole query, use `query()`, or wrap the statements in `BEGIN`/`COMMIT` so the
+server rolls them back together.
+
+### Stopping early
+
+Use `async with` (or `with`, or call `aclose()` / `close()`) so that stopping
+early tells the server to abandon the query instead of running it to
+completion:
+
+```python
+async with db.query("SELECT * FROM huge_table").rows() as stream:
+    async for row in stream:
+        if found(row):
+            break                 # the server stops here
+```
+
+Closing is not merely tidiness: an abandoned stream is still executing on the
+server, holding one of the connection's stream slots. Abandoning one without
+closing does still clean up once you let go of the iterator - the blocking
+client cancels at that moment, the async client on the event loop's next pass
+over finalisable generators. But *letting go* is the part that is easy to miss:
+a `break` inside a function that keeps running leaves the generator referenced
+by that frame, so the cancel waits for the frame to go, and the query it was
+meant to stop runs to completion in the meantime. Only closing stops the query
+at a moment you choose.
+
+### Blocking client
+
+Identical, minus the `a`s:
+
+```python
+with db.query("SELECT * FROM person").rows() as stream:
+    for person in stream:
+        print(person["name"])
+```
+
+Frames only arrive while somebody reads the socket, so a blocking stream is
+advanced by the thread iterating it. It takes the connection lock in short
+slices rather than holding it, so other callers on the same connection keep
+working while a stream is open.
+
+### Where it streams
+
+| | Behaviour |
+| --- | --- |
+| WebSocket, server v3.3.0+ | Streams. Rows arrive as they are produced. |
+| WebSocket, older server | Runs the query the buffered way. Learned once per connection. |
+| WebSocket, the `query_stream` RPC denied | Same, with its own reason - the operator denied streaming, not querying. |
+| WebSocket, at the concurrency cap | `query()` is buffered for this query only, and it is not remembered: the cap is transient. An explicit `.rows()` raises instead. |
+| Inside a client transaction | `query()` is never streamed - see the caveats below. |
+| HTTP | Buffered - HTTP carries one response per request. |
+| Embedded | Buffered. |
+
+For the streaming `query()` does on your behalf, every one of those is a
+*retry* rather than an error, and it is a refusal from the server that makes it
+safe: `begin` is framed before execution starts, so a refusal with no frame
+behind it means the query never ran, and asking again cannot run it twice. An
+explicit `.rows()` retries the first three rows the same way, but raises
+at the concurrency cap rather than quietly going buffered.
+
+A socket that dies before the first frame is **not** such a refusal, and is not
+retried. `begin` may have been framed and the query may have been executing as
+the connection went, so nothing about it is proven - and retrying gains nothing
+anyway, because the server-side session dies with the socket. It raises the
+connection error instead, exactly as a buffered query on a dying socket always
+has. Retrying it used to report `Specify a namespace to use`, which blamed the
+query for a dead connection.
+
+To take the invisible path off a whole connection:
+
+```python
+db = AsyncSurreal("ws://localhost:8000/rpc", streaming=False)
+```
+
+That switches off the streaming `query()` does on your behalf. It does not
+override an explicit `.rows()` call, which streams whenever the server
+can - asking for a stream outright is taken as meaning it.
+
+For `query()` the fallback costs nothing - the answer is buffered either way.
+For `.rows()` it gives up the two things streaming is for: rows do not
+arrive early, and the whole result is held in memory. When that matters, pass
+`require_streaming=True` and get an `UnsupportedFeatureError` instead of a quiet
+buffered answer:
+
+```python
+async for row in db.query(sql).rows(require_streaming=True):
+    ...
+```
+
+Feature detection is the protocol's own, and no version string is parsed: a
+server without `query_stream` answers `Method not found`, and one whose
+capabilities deny it answers `Method not allowed`. Both mean this connection
+will not stream, both are remembered after one request, and
+`require_streaming=True` reports which of the two it was - upgrading fixes the
+first, not the second.
+
+### Caveats
+
+- **Client-side buffering is bounded, not absent.** The protocol has no
+  per-stream flow control, so the only way to slow the server is to stop reading
+  the socket - which the async client now does once a stream is far enough
+  ahead, and undoes the moment anything else on the connection needs the reader.
+  A slow consumer therefore holds a bounded number of frames rather than the
+  rest of the answer, at the cost of the server pausing mid-query. The blocking
+  client reads only on demand and never held anything to begin with.
+- **One task, or one thread, per stream.** A stream is driven by whoever
+  iterates it, and Python will not let two do so at once: closing an async
+  generator while another task is awaiting a row from it raises
+  `RuntimeError: aclose(): asynchronous generator is already running`, and
+  CPython refuses to run one generator from two threads. To stop a stream
+  another task is waiting on, cancel that task and await it before closing.
+- **Concurrent streams are capped.** A connection allows 32 in flight by
+  default (`SURREAL_WEBSOCKET_MAX_CONCURRENT_STREAMS` on the server); the
+  33rd is refused with a `ValidationError` saying so.
+- **`LIVE SELECT` in a stream.** The statement's value is the live-query id, with
+  `query_type == "live"`. Notifications begin after the stream ends, and - as
+  with `live()` - anything that happens before you call `subscribe_live()` is not
+  delivered, so subscribe promptly.
+- **A failed statement stops the rest of the query.** When a statement fails,
+  iteration raises and the server is asked to abandon what is left - so
+  statements after the failure may never run, where `query()` executes the whole
+  query before raising. The difference only shows when the remainder is slow
+  enough for the cancel to land, and it applies to side effects, not just
+  results: `CREATE a; THROW 'x'; SLEEP 3s; CREATE b` leaves both records via
+  `query()` and only `a` via `.rows()`. Wrap the statements in
+  `BEGIN`/`COMMIT` if you need all-or-nothing.
+- **`query()` inside a client transaction is never streamed.** Requests on one
+  connection are served concurrently, so a `commit` could arrive while a
+  streamed query was still executing and commit a prefix of it. Since nobody
+  asked for a stream, the hazard is simply removed: anything from `begin()`
+  takes the buffered path.
+- **`.rows()` inside a transaction still streams**, because asking for a
+  stream outright is taken as meaning it - but the hazard above is now yours to
+  avoid. The stream runs on that transaction, so finish it before committing.
+  The `commit` has to land while the server is still executing for this to
+  bite, which a fast query usually finishes before; when it does bite it takes
+  a prefix. Measured on `UPDATE ... RETURN AFTER; SLEEP 3s; UPDATE ...` with
+  the `commit` sent during the sleep: the first `UPDATE` was committed, the
+  second never ran, and the stream raised `Couldn't update a finished
+  transaction`.
+
+## `None`, `Null`, and empty values
+
+SurrealDB has two ways for a field to hold nothing, and they are different
+values:
+
+| SurrealQL | meaning | Python |
+| --------- | ------- | ------ |
+| `NONE`    | the field is not there | `None` |
+| `NULL`    | the field is there and is null | `surrealdb.Null` |
+
+An unset `option<T>` column is NONE, and a NONE field does not appear in a
+record at all when you read it. NULL is a value the field holds, and a column
+has to be declared to permit it — `option<T>` alone does not, and rejects NULL.
+
+```python
+from surrealdb import Null
+
+db.create(rec, {"age": None})    # age is NONE — what option<int> expects
+db.create(rec, {"age": Null})    # age is NULL — rejected by option<int>
+```
+
+This matters most when you read a record and write it back. A NULL field reads
+as `Null`, and sending `Null` back writes NULL again, so the round trip keeps
+the field:
+
+```python
+row = db.select(rec).execute()   # {"nickname": Null}
+row["name"] = "new name"
+db.update(rec, row)              # nickname is still NULL
+```
+
+`Null` is falsy, like `None`, so `if not row["nickname"]` reads the way you
+would expect. It is deliberately **not** equal to `None` — the two are
+different values to the server, and treating them as one is what used to make
+the write-back above delete the field.
+
+> Before 3.0.0-beta.5 a NULL field decoded to `None`, which encoded back to
+> NONE — so an ordinary read-modify-write silently *removed* every NULL field
+> it touched. If you have code comparing a database value with `is None`,
+> check whether the column can be NULL.
+
+**Sets read back as `SurrealSet`.** SurrealDB's `set<T>` is a deduplicated
+sequence that accepts any member type, including `set<object>` and `set<array>`
+— which a Python `set` cannot hold, because its members must be hashable.
+
+`SurrealSet` is a `list` subclass, so it indexes and compares like the sequence
+it is, and it encodes back under the set tag, so writing a record back keeps the
+field a set:
+
+```python
+row = db.select(rec).execute()         # {"tags": SurrealSet(['a', 'b'])}
+row["name"] = "new name"
+db.update(rec, row)                    # tags is still a set
+
+db.select(rec).execute()["tags"] == ["a", "b"]   # True — it is a list
+```
+
+Writing a plain Python `set` still works and is still sent as a set. The order
+is whatever the server sent: SurrealDB normalises a set, so `<set>[3,1,2]` comes
+back as `[1, 2, 3]`.
+
+> Decoding a set to a plain `list` — as 3.0.0-beta.5 briefly did — loses the
+> type on the way back: a schemafull `set<T>` field rejects the array outright,
+> and a schemaless one silently becomes an array and stops deduplicating.
+>
+> Sets need SurrealDB 3.x. 2.x has no CBOR set representation at all — see
+> [Talking to a SurrealDB 2.x server](#talking-to-a-surrealdb-2x-server).
+
+## Error handling
+
+Every error the SDK raises derives from `SurrealError`, so a single
+`except SurrealError` covers all of them regardless of transport.
+
+Below that base, errors split into two branches that mean different things:
+
+| Branch            | Meaning                                                     | Retry?                |
+| ----------------- | ----------------------------------------------------------- | --------------------- |
+| `ServerError`     | The server ran your request and rejected it                  | No — it will fail again |
+| `TransportError`  | The request never produced a structured server response      | Maybe — it may succeed |
+
+`ServerError` mirrors SurrealDB's structured error format, so you can match
+on `kind` and read typed details rather than parsing messages:
+
+```python
+from surrealdb import Surreal
+from surrealdb.errors import NotFoundError, ServerError, SurrealError, TransportError
+
+with Surreal("ws://localhost:8000/rpc") as db:
+    db.signin({"username": "root", "password": "root"})
+    db.use("ns", "db")
+
+    try:
+        db.query("SELECT * FROM nonexistent:1").execute()
+    except NotFoundError as error:
+        print(error.kind, error.table_name)   # NotFound nonexistent
+    except ServerError as error:
+        print(error.kind, error.details)
+    except TransportError as error:
+        print("could not reach the server:", error)
+```
+
+### Permissions do not raise
+
+A signed-in record user whose `PERMISSIONS` deny a statement does not get an
+error. The server filters instead, the way row-level security does elsewhere:
+the statement comes back `OK` with an empty result, `query_raw()` reports
+`status: "OK"`, and nothing is raised.
+
+```python
+db.signup({"namespace": "ns", "database": "db", "access": "account", "variables": {...}})
+db.use("ns", "db")
+
+db.query("CREATE thing SET v = 1").execute()        # [[]] - denied, nothing was written
+db.select(Table("thing")).execute()                 # []   - rows you cannot see are omitted
+db.query("UPDATE thing:theirs SET v = 9").execute() # [[]] - denied, nothing was changed
+```
+
+This is deliberate, and the SDK does not turn it into an error. An error that
+only appeared when a record exists but is not yours would tell the caller the
+record exists, and one that depended on a `WHERE` in a permission rule would
+leak what that rule hides. It could not be told apart from an ordinary empty
+result in any case: a denied `UPDATE` of an existing record and an `UPDATE` of
+one that does not exist come back identically.
+
+Two things follow when you are debugging:
+
+- **An empty result from a write is ambiguous.** A write returns the rows it
+  touched *as the user could select them*. If the user may `CREATE` a record
+  but not `SELECT` it back, the record is created and the result is still empty.
+  Check the outcome by reading the record with a connection that can see it,
+  not by the write's own result.
+- **Nothing was written does not mean nothing was denied.** An empty result tells
+  you the statement produced no visible rows. To find out which rule is
+  responsible, test the same statement as a user the rule lets through, or
+  review the table's `PERMISSIONS` clause.
+
+A root user is not subject to table permissions, so the same statement succeeds
+for them - which is also the quickest way to confirm a rule, and not the query,
+is what filtered the result.
+
+### Talking to a SurrealDB 2.x server
+
+Six things behave differently against SurrealDB 2.x, all because of what the
+2.x server does rather than anything the SDK chooses.
+
+**Error kinds need 3.x.** The subclasses below `ServerError` come from the
+`kind` the server reports, and 2.x does not send one — its error payload has
+only a generic `-32000` code and a message string. So every server-side failure
+arrives as `InternalError`:
+
+| | SurrealDB 3.x | SurrealDB 2.x |
+| --- | --- | --- |
+| `db.query("SELECT * FROM")` | `ValidationError` | `InternalError` |
+| `db.query("THROW 'nope'")` | `ThrownError` | `InternalError` |
+
+`except SurrealError` and `except ServerError` work on every version. A narrower
+`except ThrownError` matches only on 3.x and will silently *not* match on 2.x,
+so if you support both, catch the branch rather than the leaf, or read the
+message with `str(error)`. The SDK cannot recover the classification — it is not sent.
+
+**Python sets need 3.x.** Sets are encoded with SurrealDB 3.x's CBOR set tag.
+2.x has no set representation at all — it returns SurrealQL sets as plain
+arrays — and rejects anything carrying the tag. Send a `list` instead when
+targeting 2.x; a list is what 2.x uses for a `set<…>` field anyway, and the
+server deduplicates it. On 3.x a list is *not* interchangeable with a set: a
+`set<…>` field rejects one.
+
+**`let()` wins over a query's own variables on a 2.x websocket.** Passing a
+variable to `query()` shadows a `let()` binding of the same name for that one
+query — on 3.x, and on HTTP against any version, where the SDK replays `let()`
+bindings itself. On a 2.x websocket `let()` is a server-side session binding and
+that server resolves it the other way round:
+
+```python
+db.let("limit", 99)
+db.query("RETURN $limit", {"limit": 5})   # 5, except on a 2.x websocket: 99
+```
+
+The SDK sends the same request in both cases, so there is nothing for it to fix
+without knowing the server version up front. Use distinct names for session
+bindings and per-query variables if you target 2.x over a websocket.
+
+**A 2.x function body cannot read a variable from outside itself.** On 3.x a
+stored function resolves `$v` from the session or from the query's parameters;
+on 2.x it resolves neither, on any transport:
+
+```python
+db.query("DEFINE FUNCTION fn::readv() { RETURN $v; };").execute()
+db.let("v", 42)
+db.run("fn::readv")        # 42 on 3.x, None on 2.x
+```
+
+Pass the value as an argument (`db.run("fn::add", [1, 2])`) if you target 2.x —
+arguments work on every version.
+
+**`DELETE` on a table that does not exist is an error only on 3.x.** 3.x raises
+`NotFoundError: The table 'temp_data' does not exist`; 2.x returns an empty
+result, as though it had deleted nothing:
+
+```python
+db.query("DELETE temp_data;").execute()   # [[]] on 2.x, NotFoundError on 3.x
+```
+
+`REMOVE TABLE IF EXISTS temp_data;` behaves the same on both.
+
+**A 2.x server does not tell subscribers that a live query was killed.** On 3.x
+the server sends a `KILLED` notification and `subscribe_live()` ends, whoever
+killed the query. On 2.x nothing is sent, so a subscriber to a query killed from
+*another* connection simply stops hearing anything and keeps waiting — there is
+no signal for the SDK to end the generator on. Calling `kill()` on the same
+connection you subscribed from ends the subscription on every version.
+
+The `TransportError` branch is `ConnectionUnavailableError` (the host was
+unreachable or the socket closed), `TransportTimeoutError` (the request timed
+out), and `HttpStatusError` (a non-2xx HTTP response, carrying `.status`,
+`.body`, and `.url`). Each keeps the underlying library exception as
+`__cause__` when you need the original detail.
+
+Note that a non-2xx HTTP response is reported as `HttpStatusError` rather than
+a `ServerError` subclass, because SurrealDB answers those at the HTTP layer
+with a plain-text or JSON body and no structured RPC error to map. An invalid
+bearer token over HTTP, for example, surfaces as `HttpStatusError` with
+`.status == 401`, not `NotAllowedError`.
+
+Invalid *inputs* are still rejected with plain `ValueError` / `TypeError`
+before anything is sent, following normal Python convention.
+
+## Migrating from 2.x
+
+v3.0 is a breaking change. Highlights:
+
+| 2.x                                              | 3.0                                                       |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| `db.merge(record, data)`                         | `db.update(record).merge(data)`                           |
+| `db.patch(record, data)`                         | `db.update(record).patch(data)`                           |
+| `db.insert_relation(table, data)`                | `db.insert(table, data, relation=True)`                   |
+| `db.query("RETURN 1")` -> single result          | `db.query("RETURN 1")` -> `[result]` (use `.first()` / `[0]`) |
+| `db.query("RETURN 1; RETURN 2")` -> first result | `db.query("RETURN 1; RETURN 2")` -> `list` of all results |
+| n/a                                              | `db.run("fn::name", [args])`                              |
+| n/a                                              | `db.query("...").into(MyDataclass)`                       |
+| Sync `db.query("DELETE foo")` runs immediately   | Sync `db.query("DELETE foo").execute()` (returns list)     |
+| Sync `db.create(rec)[...]` (magic auto-exec)     | Sync `db.create(rec, data)` eager, or `db.create(rec).execute()` |
+| `db.select(RecordID(...))` -> `[record]`         | `db.select(RecordID(...))` -> a builder; `await`/`.execute()` for the `record` dict or `None` |
+| `db.delete("my-table")` (silently inlined)       | `db.delete(Table("my-table"))` (raw string rejected)      |
+| A NULL field read as `None`                      | A NULL field reads as `Null` (`None` still means NONE)    |
+| `set<T>` read as a Python `set`                  | `set<T>` reads as a `SurrealSet` (writing a `set` is unchanged) |
+
+> Bare-string resource targets are now strictly validated against the
+> safe-identifier pattern (`[A-Za-z_][A-Za-z0-9_]*`) so user-supplied
+> strings can never be concatenated into the generated SurrealQL. Names
+> with hyphens, spaces, or other special characters must be wrapped in
+> `Table(...)` or `RecordID(...)`, both of which are parameter-bound.
 
 ## Embedded Database
 
@@ -188,12 +1175,31 @@ SurrealDB can also run embedded directly within your Python application natively
 
 ### Installation
 
-The embedded database is included when you install `surrealdb`.
+The embedded database ships as an optional native extension, `surrealdb-embedded`,
+so it is **not** part of the default install. Request it with the `embedded` extra:
+
+```bash
+pip install 'surrealdb[embedded]'
+```
+
+Or install using `uv`:
+
+```bash
+uv add 'surrealdb[embedded]'
+```
+
+Without the extra, an embedded URL raises `UnsupportedEngineError` telling you to
+install it - the remote `http://`, `https://`, `ws://` and `wss://` connections work
+either way.
+
+Embedded connections do not authenticate: there is no server and no root user, so
+calling `signin()` on one raises `NotAllowedError`. Use `use()` to select a namespace
+and database and start querying.
 
 For source builds, you'll need Rust toolchain and maturin:
 
 ```sh
-uv run maturin develop --release
+uv run maturin develop --release --manifest-path embedded/Cargo.toml
 ```
 
 ### In-Memory Database
@@ -208,7 +1214,6 @@ async def main():
     # Create an in-memory database (can use "mem://" or "memory")
     async with AsyncSurreal("memory") as db:
         await db.use("test", "test")
-        await db.signin({"username": "root", "password": "root"})
         
         # Use like any other SurrealDB connection
         person = await db.create("person", {
@@ -232,10 +1237,8 @@ import asyncio
 from surrealdb import AsyncSurreal
 
 async def main():
-    # Create a file-based database (can use "file://", "surrealkv://", or "surrealkv+versioned://")
     async with AsyncSurreal("file://mydb") as db:
         await db.use("test", "test")
-        await db.signin({"username": "root", "password": "root"})
         
         # Data persists across connections
         await db.create("company", {
@@ -259,7 +1262,6 @@ from surrealdb import Surreal
 # In-memory (can use "mem://" or "memory")
 with Surreal("memory") as db:
     db.use("test", "test")
-    db.signin({"username": "root", "password": "root"})
     
     person = db.create("person", {"name": "Jane"})
     print(person)
@@ -267,7 +1269,6 @@ with Surreal("memory") as db:
 # File-based
 with Surreal("file://mydb") as db:
     db.use("test", "test")
-    db.signin({"username": "root", "password": "root"})
     
     company = db.create("company", {"name": "TechStart"})
     print(company)
@@ -275,7 +1276,7 @@ with Surreal("file://mydb") as db:
 
 ### When to Use Embedded vs Remote
 
-**Use Embedded (`memory`, `mem://`, `file://`, `surrealkv://`, or `surrealkv+versioned://`) when:**
+**Use Embedded (`memory`, `mem://`, `file://`, or `surrealkv://`) when:**
 - Building desktop applications
 - Running tests (in-memory is very fast)
 - Local development without server setup
@@ -289,42 +1290,20 @@ with Surreal("file://mydb") as db:
 - Need horizontal scaling
 - Centralized data management
 
-For more examples, see the [`examples/embedded/`](examples/embedded/) directory.
+For more examples, see the [`examples/embedded/`](https://github.com/surrealdb/surrealdb.py/tree/main/examples/embedded) directory.
 
-## Sessions and transactions
-
-Multi-session and client-side transactions are supported **only for WebSocket connections** (`ws://` or `wss://`). They are not available for HTTP or embedded connections.
+## Sessions in detail
 
 - **Sessions**: Call `attach()` on a WS connection to create a new session (returns a `UUID`). Use `new_session()` to get an `AsyncSurrealSession` or `BlockingSurrealSession` that scopes all operations to that session. Call `close_session()` on the session (or `detach(session_id)` on the connection) to drop it.
-- **Transactions**: On a session (or the default connection), call `begin_transaction()` to start a transaction (returns `AsyncSurrealTransaction` or `BlockingSurrealTransaction`). Run queries on the transaction object; then call `commit()` or `cancel()` to finish.
+- **Transactions**: On a session (or the default connection - though typical practice is to start on a session), call `begin_transaction()` to obtain a `Transaction` whose builder calls all participate in the same transaction. Call `commit()` to apply, or `cancel()` to roll back.
 
-Example (async WS):
-
-```python
-from surrealdb import AsyncSurreal
-
-async with AsyncSurreal("ws://localhost:8000/rpc") as db:
-    await db.signin({"username": "root", "password": "root"})
-    await db.use("test", "test")
-
-    session = await db.new_session()
-    await session.use("test", "test")
-    result = await session.query("SELECT 1")
-
-    txn = await session.begin_transaction()
-    await txn.query("CREATE person SET name = 'x'")
-    await txn.commit()
-
-    await session.close_session()
-```
-
-On HTTP or embedded connections, `attach()`, `detach()`, `begin()`, `commit()`, `cancel()`, and `new_session()` raise `NotImplementedError` with a message that sessions/transactions are only supported for WebSocket connections.
+On HTTP or embedded connections, `attach()`, `detach()`, `begin()`, `commit()`, `cancel()`, and `new_session()` raise `UnsupportedFeatureError` with a message that sessions/transactions are only supported for WebSocket connections.
 
 ## Observability with Logfire
 
 [Pydantic Logfire](https://docs.pydantic.dev/logfire/) provides automatic instrumentation for SurrealDB operations, giving you instant observability into your database interactions. Logfire exports standard OpenTelemetry spans, making it compatible with any observability platform.
 
-### Quick Start
+### Quick start
 
 Install Logfire using `pip`:
 
@@ -338,7 +1317,7 @@ Or install using `uv`:
 uv add logfire
 ```
 
-Enable instrumentation:
+**Usage**:
 
 ```python
 import logfire
@@ -370,8 +1349,169 @@ async with AsyncSurreal("ws://localhost:8000") as db:
 
 ### Learn More
 
-For a complete example with configuration options and best practices, see [`examples/logfire/`](examples/logfire/).
+For a complete example with configuration options and best practices, see [`examples/logfire/`](https://github.com/surrealdb/surrealdb.py/tree/main/examples/logfire).
 
+## WebSocket keepalive
+
+Websocket connections send a keepalive ping on an idle socket and close the
+connection if the pong does not come back. Both intervals are in seconds, and
+both accept `None` to switch that half off:
+
+```python
+from surrealdb import Surreal
+
+# the defaults
+db = Surreal("ws://localhost:8000/rpc", ping_interval=30, ping_timeout=10)
+
+# behind a proxy with a short idle timeout
+db = Surreal("ws://localhost:8000/rpc", ping_interval=10)
+
+# let something else handle liveness
+db = Surreal("ws://localhost:8000/rpc", ping_interval=None)
+```
+
+A peer that goes away is noticed within roughly `ping_interval + ping_timeout`,
+so the defaults detect it in about 40 seconds. SurrealDB also pings the client
+every 5 seconds of its own accord, which the library answers automatically — so
+the socket is rarely idle for long in either direction.
+
+Both options are ignored by the HTTP and embedded transports, which have no
+websocket, exactly as `streaming` is. They require `websockets` 15.0 or newer,
+which is the SDK's declared floor.
+
+## Files
+
+SurrealDB can store files in a bucket - in memory, on disk, or on object storage
+such as S3. A `File` is a *reference* to one: a bucket plus a key. It holds no
+bytes and is not a Python file object.
+
+Buckets are currently an experimental server feature, so the server has to be
+started with `SURREAL_CAPS_ALLOW_EXPERIMENTAL=files`, and a bucket has to exist:
+
+```surql
+DEFINE BUCKET images BACKEND "memory";
+```
+
+```python
+from surrealdb import File, Surreal
+
+with Surreal("ws://localhost:8000/rpc") as db:
+    db.signin({"username": "root", "password": "root"})
+    db.use("ns", "db")
+
+    avatar = File("images", "/photos/avatar.png")
+
+    with open("avatar.png", "rb") as handle:
+        db.files.put(avatar, handle.read())  # bytes, not the handle itself
+
+    png_bytes = db.files.get(avatar)         # -> bytes, or None if absent
+
+    meta = db.files.head(avatar)             # -> FileMetadata | None
+    print(meta.size, meta.updated)
+
+    for entry in db.files.list("images", prefix="/photos", limit=50):
+        print(entry.file.key, entry.size)
+```
+
+`db.files` is available on the four remote connection classes — websocket and
+HTTP, blocking and async — and on sessions and transactions opened from them. The
+async classes take the same calls with `await`. The two embedded classes inherit
+`db.files`, but the embedded engine does not enable the experimental files
+capability, so every call reports that.
+
+**File writes are not transactional.** `txn.files.put(...)` is routed through the
+transaction's session, but `file::*` writes to the bucket backend rather than the
+transaction, so the write is visible to other connections immediately and
+survives `txn.cancel()` — while a `CREATE` in the same transaction rolls back as
+you would expect. That is SurrealDB's behaviour rather than the SDK's, and it is
+worth knowing before you pair a file write with a record write.
+
+| Method | Returns |
+| --- | --- |
+| `put(file, content)` | `None`, replacing anything at that key |
+| `put_if_not_exists(file, content)` | `None`; writes only if the key is free |
+| `get(file)` | `bytes`, or `None` if the file does not exist |
+| `exists(file)` | `bool` |
+| `delete(file)` | `None`; deleting an absent file is not an error |
+| `head(file)` | `FileMetadata`, or `None` if absent |
+| `list(bucket, *, limit=, prefix=, start=)` | `list[FileMetadata]`; `start` is exclusive |
+| `copy(source, target)` / `copy_if_not_exists` | `None` |
+| `rename(file, key)` / `rename_if_not_exists` | `None`; `key` is a `str`, within the same bucket |
+
+A key is normalised to start with `/`, so `File("b", "a.txt")` and
+`File("b", "/a.txt")` are the same file.
+
+The two halves are different types: a `File` is the *reference* (bucket plus
+key), and the contents are plain `bytes`. `put` accepts `bytes`, `bytearray` or
+`memoryview` and `get` returns `bytes`. A `str` is refused rather than encoded
+for you — the server stores bytes, so accepting one would make `put(f, s)`
+succeed and `get(f) == s` be False. Encode it yourself, and pick the encoding:
+
+```python
+db.files.put(readme, "hello".encode("utf-8"))
+db.files.put(photo, handle.read())            # not the handle itself
+```
+
+#### Why files are bound, not written into queries
+
+SurrealQL's file literal - `f"bucket:/key"` - accepts only
+`[A-Za-z0-9_-./]`, and there is **no escape mechanism**. A key containing a
+space, an accent or an emoji cannot be written as a literal at all:
+
+```
+Parse error: Unexpected character ` `, file strings key's only allow alpha
+numeric characters and `_`, `-`, `.`, and `/`
+```
+
+Every `db.files` method binds the `File` as a query parameter instead, which
+carries any key. `str(File(...))` renders the literal form for logging, but is
+display-only - use `File.is_literal_safe()` if you need to know whether a
+given file could be written into a query, and bind it rather than interpolating
+it either way.
+
+## Agent memory
+
+Agent memory is an optional client for [Spectron](https://github.com/surrealdb/spectron),
+a memory service. It ships as its own distribution so it can move at its own
+pace, and is installed through an extra:
+
+```sh
+pip install 'surrealdb[memory]'
+
+# Using uv
+uv add 'surrealdb[memory]'
+```
+
+```python
+from surrealdb.memory import AsyncMemory, Memory
+
+with Memory(
+    context="acme-prod",
+    endpoint="https://api.spectron.example",
+    api_key="sk-spec-...",
+) as memory:
+    memory.remember("I work at Acme as CTO")
+    hits = memory.recall("what do I do at Acme")
+    print(hits.hits)
+```
+
+`Memory` is synchronous (backed by `requests`); `AsyncMemory` is the
+`await`-able equivalent (backed by `aiohttp`). Errors derive from
+`MemoryServiceError` — not `MemoryError`, which is a Python builtin. See
+[`memory/README.md`](https://github.com/surrealdb/surrealdb.py/blob/main/memory/README.md)
+for the full client documentation.
+
+Without the extra, `surrealdb.memory` still imports, and any attribute names the
+missing package:
+
+```
+ImportError: 'Memory' needs the agent memory client, which ships separately.
+    pip install 'surrealdb[memory]'    # or: uv add 'surrealdb[memory]'
+```
+
+Because it is a separate distribution, its version moves independently of the
+SDK's — you can hold `surrealdb` at 3.x and upgrade `surrealdb-memory` across
+its own majors.
 
 ## Contributing
 
@@ -382,5 +1522,4 @@ If you want to contribute to the Github repo please read the general contributin
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
+This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/surrealdb/surrealdb.py/blob/main/LICENSE) file for details.

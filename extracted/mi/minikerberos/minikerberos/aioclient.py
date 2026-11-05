@@ -120,9 +120,10 @@ class AIOKerberosClient:
 	def build_asreq_pkinit(self, supported_encryption_method, kdcopts = ['forwardable','renewable','renewable-ok'], with_pac:bool = True) -> AS_REQ:
 		from asn1crypto import keys
 
-		if supported_encryption_method.value == 23:
-			raise Exception('RC4 encryption is not supported for certificate auth!')
-
+		# RC4 (etype 23) is a valid PKINIT reply-key enctype for accounts that
+		# have no AES keys (msDS-SupportedEncryptionTypes without AES). The reply
+		# key is DH-derived and decrypted in decrypt_asrep_cert, so RC4 works here
+		# as long as AES is preferred whenever the KDC offers it.
 
 		now = datetime.datetime.now(datetime.timezone.utc)
 
@@ -281,12 +282,14 @@ class AIOKerberosClient:
 		else:
 			kdc_req_body['etype'] = override_etype
 		
-		# if we do pkinit, we can't offer RC4 encryption
+		# For PKINIT we drop any caller-supplied override so the reply-key enctype
+		# is negotiated from the KDC's ETYPE-INFO (AES preferred, RC4 only as a
+		# fallback -- see get_supported_enctypes). We deliberately keep RC4 in the
+		# initial (pre-auth probe) AS-REQ: stripping it makes the KDC answer
+		# KDC_ERR_ETYPE_NOTSUPP instead of KDC_ERR_PREAUTH_REQUIRED for RC4-only
+		# accounts, aborting PKINIT before the real request is ever sent.
 		if self.credential.certificate is not None:
 			override_etype = None
-			kdc_req_body['etype'] = [x for x in kdc_req_body['etype'] if x != 23]
-			if len(kdc_req_body['etype']) == 0:
-				kdc_req_body['etype'] = [18,17] # 23 breaks...
 
 		# sanity check
 		if kdc_req_body['etype'] is None or len(kdc_req_body['etype']) == 0:
@@ -338,7 +341,7 @@ class AIOKerberosClient:
 				except KerberosError as e:
 					# even if we selected the COMMON preferred encryption method, the server might not support it
 					# why? dunno, but it happens
-					if e.errorcode != KerberosErrorCode.KDC_ERR_ETYPE_NOTSUPP:
+					if e.errorcode != KerberosErrorCode.KDC_ERR_ETYPE_NOSUPP:
 						raise e
 					
 					# remove the preferred encryption method
@@ -348,7 +351,7 @@ class AIOKerberosClient:
 							preauth_rep = await self.do_preauth(etype, with_pac=with_pac)
 							break
 						except KerberosError as e:
-							if e.errorcode != KerberosErrorCode.KDC_ERR_ETYPE_NOTSUPP:
+							if e.errorcode != KerberosErrorCode.KDC_ERR_ETYPE_NOSUPP:
 								raise e
 					else:
 						raise Exception('Failed to get TGT with any of the provided etypes!')
@@ -361,7 +364,7 @@ class AIOKerberosClient:
 					try:
 						preauth_rep = await self.do_preauth(etype, with_pac=with_pac)
 					except KerberosError as e:
-						if e.errorcode != KerberosErrorCode.KDC_ERR_ETYPE_NOTSUPP:
+						if e.errorcode != KerberosErrorCode.KDC_ERR_ETYPE_NOSUPP:
 							raise e
 						
 						logger.debug('Failed to get TGT with etype %s' % etype.name)
@@ -636,6 +639,10 @@ class AIOKerberosClient:
 		
 		###### Calculating checksum data
 		
+		# PA-FOR-USER checksum, byte-exact with impacket's getST.py / Rubeus:
+		# S4UByteArray = name-type (4 bytes little-endian, NT_PRINCIPAL = 1) +
+		#                userName (ASCII) + userRealm (ASCII) + authPackage (ASCII)
+		# No length prefixes, no UTF-16 - the Windows KDC computes exactly this.
 		S4UByteArray = NAME_TYPE.PRINCIPAL.value.to_bytes(4, 'little', signed = False)
 		S4UByteArray += user_to_impersonate.username.encode()
 		S4UByteArray += user_to_impersonate.domain.encode()
@@ -643,12 +650,30 @@ class AIOKerberosClient:
 		logger.debug('[S4U2self] S4UByteArray: %s' % S4UByteArray.hex())
 		logger.debug('[S4U2self] S4UByteArray: %s' % S4UByteArray)
 		
-		chksum_data = _HMACMD5.checksum(self.kerberos_session_key, 17, S4UByteArray)
+		# PA-FOR-USER checksum: key usage KERB_NON_KERB_CKSUM_SALT (17) for ALL
+		# enctypes, with the checksum ALGORITHM matched to the TGT session key.
+		# Verified live against a Windows KDC with BOTH RC4 and AES256 session
+		# keys: the Windows KDC verifies per the sent cksumtype, so both the
+		# etype-matched variants below and plain raw-key HMAC-MD5 (what impacket
+		# getST.py / Rubeus send) are accepted. The etype-matched variant is kept
+		# because MIT/Heimdal KDCs REQUIRE the checksum type to match the key
+		# enctype (krb5_c_verify_checksum rejects HMAC_MD5 with an AES key).
+		if self.kerberos_session_key.enctype == Enctype.AES256:
+			checksum_type = CKSUMTYPE('HMAC_SHA1_96_AES_256')
+			chksum_data = _SHA1AES256.checksum(self.kerberos_session_key, 17, S4UByteArray)
+		elif self.kerberos_session_key.enctype == Enctype.AES128:
+			checksum_type = CKSUMTYPE('HMAC_SHA1_96_AES_128')
+			chksum_data = _SHA1AES128.checksum(self.kerberos_session_key, 17, S4UByteArray)
+		elif self.kerberos_session_key.enctype == Enctype.RC4:
+			checksum_type = CKSUMTYPE('HMAC_MD5')
+			chksum_data = _HMACMD5.checksum(self.kerberos_session_key, 17, S4UByteArray)
+		else:
+			raise NotImplementedError('Unsupported S4U2self session-key enctype: %s' % self.kerberos_session_key.enctype)
 		logger.debug('[S4U2self] chksum_data: %s' % chksum_data.hex())
 		
 		
 		chksum = {}
-		chksum['cksumtype'] = int(CKSUMTYPE('HMAC_MD5'))
+		chksum['cksumtype'] = int(checksum_type)
 		chksum['checksum'] = chksum_data
 
 		
@@ -960,8 +985,11 @@ class AIOKerberosClient:
 		elif etype == Enctype.AES128:
 			self.pkinit_tkey = truncate_key(fullKey, 16)
 		elif etype == Enctype.RC4:
-			raise NotImplementedError('RC4 key truncation documentation missing. it is different from AES')
-			#self.pkinit_tkey = truncate_key(fullKey, 16)
+			# RFC4556 octetstring2key: random-to-key for RC4-HMAC is the identity
+			# function and the key-generation seed length is 16, so the reply key
+			# is simply the first 16 bytes of the K-truncate output (matches
+			# Impacket's PKINIT handling for rc4_hmac).
+			self.pkinit_tkey = truncate_key(fullKey, 16)
 		
 
 		key = Key(cipher.enctype, self.pkinit_tkey)

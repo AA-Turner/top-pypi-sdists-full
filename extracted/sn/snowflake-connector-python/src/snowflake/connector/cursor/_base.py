@@ -6,7 +6,7 @@ import abc
 import logging
 
 from collections.abc import Callable, Iterable, Iterator, Sequence
-from typing import TYPE_CHECKING, Any, BinaryIO, cast, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Self, cast, overload
 
 from .._common.extras import pandas, pyarrow, requires_dependency
 from .._internal.api_client.client_api import CHUNK_SIZE, core_driver
@@ -173,7 +173,7 @@ class SnowflakeCursorBase(CursorBaseMixin, abc.ABC):
         _statement_params: dict[str, Any] | None = None,
         file_stream: BinaryIO | None = None,
         **kwargs: Any,
-    ) -> SnowflakeCursorBase:
+    ) -> Self:
         """
         Execute a database operation (query or command).
         Resets the cursor state before the execution.
@@ -238,13 +238,17 @@ class SnowflakeCursorBase(CursorBaseMixin, abc.ABC):
         _force_qmark_paramstyle: bool = False,
         file_stream: BinaryIO | None = None,
         **kwargs: Any,
-    ) -> SnowflakeCursorBase:
+    ) -> Self:
         """Execute query logic."""
         operation = operation.strip(" \t\n\r") if operation else ""
 
         if file_stream is not None:
             self._execute_upload_stream(operation, file_stream)
             self._rownumber = -1
+            return self
+
+        if not operation:
+            logger.warning("execute: no query is given to execute")
             return self
 
         if logger.is_enabled_for(logging.INFO) and self._connection.config.log_query_text:
@@ -493,7 +497,7 @@ class SnowflakeCursorBase(CursorBaseMixin, abc.ABC):
         *,
         seqparams: Iterable[Sequence[Any] | dict[str, Any]] | None = None,
         _force_qmark_paramstyle: bool = False,
-    ) -> SnowflakeCursorBase:
+    ) -> Self:
         """
         Execute a database operation repeatedly for each element in seq_of_parameters.
 
@@ -779,13 +783,8 @@ class SnowflakeCursorBase(CursorBaseMixin, abc.ABC):
         )
 
     @pep249
-    def __iter__(self) -> SnowflakeCursorBase:
-        """
-        Return the cursor itself as an iterator.
-
-        Returns:
-            SnowflakeCursorBase: Self
-        """
+    def __iter__(self) -> Self:
+        """Return the cursor itself as an iterator."""
         return self
 
     def __next__(self) -> Row | DictRow:
@@ -865,13 +864,8 @@ class SnowflakeCursorBase(CursorBaseMixin, abc.ABC):
     # Context manager
     # ------------------------------------------------------------------
 
-    def __enter__(self) -> SnowflakeCursorBase:
-        """
-        Enter the runtime context for the cursor.
-
-        Returns:
-            SnowflakeCursorBase: Self
-        """
+    def __enter__(self) -> Self:
+        """Enter the runtime context for the cursor."""
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -920,9 +914,15 @@ class SnowflakeCursorBase(CursorBaseMixin, abc.ABC):
     @with_prefetch_hook
     def fetch_arrow_batches(
         self,
-        force_microsecond_precision: bool = False,
+        force_microsecond_precision: bool | None = None,
     ) -> Iterator[Table]:
-        """Fetch Arrow Tables in batches."""
+        """Fetch Arrow Tables in batches.
+
+        Timestamp values stay at nanosecond precision unless
+        ``force_microsecond_precision`` is true. When the argument is omitted,
+        the connection's ``force_microsecond_precision`` is used.
+        """
+        force_microsecond_precision = self._resolve_force_microsecond_precision(force_microsecond_precision)
         stream_ptr = self._result_set.get_arrow_stream_ptr()
         iterator = create_table_iterator(
             stream_ptr=stream_ptr,
@@ -941,9 +941,15 @@ class SnowflakeCursorBase(CursorBaseMixin, abc.ABC):
     def fetch_arrow_all(
         self,
         force_return_table: bool = False,
-        force_microsecond_precision: bool = False,
+        force_microsecond_precision: bool | None = None,
     ) -> Table | None:
-        """Fetch all results as a single Arrow Table."""
+        """Fetch all results as a single Arrow Table.
+
+        Timestamp values stay at nanosecond precision unless
+        ``force_microsecond_precision`` is true. When the argument is omitted,
+        the connection's ``force_microsecond_precision`` is used.
+        """
+        force_microsecond_precision = self._resolve_force_microsecond_precision(force_microsecond_precision)
         stream_ptr = self._result_set.get_arrow_stream_ptr()
         iterator = create_table_iterator(
             stream_ptr=stream_ptr,
@@ -964,11 +970,14 @@ class SnowflakeCursorBase(CursorBaseMixin, abc.ABC):
     def fetch_pandas_batches(self, **kwargs: Any) -> Iterator[DataFrame]:
         """Fetch Pandas DataFrames in batches.
 
-        ``force_microsecond_precision`` (if present) governs the Arrow
-        conversion; all other kwargs are forwarded to ``pyarrow.Table.to_pandas``
-        (e.g. ``split_blocks``), matching snowflake-connector-python.
+        ``force_microsecond_precision`` overrides the connection setting for
+        the Arrow conversion when the caller passes it, and is taken from the
+        connection when omitted. Every other kwarg is forwarded to
+        ``pyarrow.Table.to_pandas`` (for example ``split_blocks``).
         """
-        force_microsecond_precision = kwargs.pop("force_microsecond_precision", False)
+        force_microsecond_precision = self._resolve_force_microsecond_precision(
+            kwargs.pop("force_microsecond_precision", None)
+        )
         for table in self.fetch_arrow_batches(force_microsecond_precision=force_microsecond_precision):
             yield table.to_pandas(**kwargs)
 
@@ -978,10 +987,14 @@ class SnowflakeCursorBase(CursorBaseMixin, abc.ABC):
     def fetch_pandas_all(self, **kwargs: Any) -> DataFrame:
         """Fetch all results as a single Pandas DataFrame.
 
-        ``force_microsecond_precision`` (if present) governs the Arrow
-        conversion; all other kwargs are forwarded to ``pyarrow.Table.to_pandas``.
+        ``force_microsecond_precision`` overrides the connection setting for
+        the Arrow conversion when the caller passes it, and is taken from the
+        connection when omitted. Every other kwarg is forwarded to
+        ``pyarrow.Table.to_pandas``.
         """
-        force_microsecond_precision = kwargs.pop("force_microsecond_precision", False)
+        force_microsecond_precision = self._resolve_force_microsecond_precision(
+            kwargs.pop("force_microsecond_precision", None)
+        )
         table: Table = self.fetch_arrow_all(
             force_return_table=True, force_microsecond_precision=force_microsecond_precision
         )

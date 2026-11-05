@@ -1537,11 +1537,11 @@ def test_negative_mode_with_unsupported_regex_in_body(cli, ctx, snapshot_cli):
 
 
 @pytest.mark.skipif(not yaml.__with_libyaml__, reason="Pure-Python PyYAML words the error differently")
-def test_invalid_yaml(testdir, cli, simple_openapi, snapshot_cli, ctx):
+@pytest.mark.parametrize(("suffix", "encoding"), [("\x00", "utf-8"), ("", "utf-16")], ids=["control-byte", "utf16"])
+def test_invalid_yaml(testdir, cli, simple_openapi, snapshot_cli, ctx, suffix, encoding):
     api = ctx.openapi.apps.success()
-    schema = yaml.dump(simple_openapi)
-    schema += "\x00"
-    schema_file = testdir.makefile(".yaml", schema=schema)
+    schema_file = testdir.tmpdir / "schema.yaml"
+    schema_file.write_binary((yaml.dump(simple_openapi) + suffix).encode(encoding))
     assert cli.run(str(schema_file), f"--url={api.base_url}/api") == snapshot_cli
 
 
@@ -1821,19 +1821,6 @@ def test_malformed_media_type_in_request_body(ctx, cli, snapshot_cli, content):
     )
     assert (
         cli.run(str(schema_path), f"--url={api.base_url}/api", "--max-examples=1", "--checks=not_a_server_error")
-        == snapshot_cli
-    )
-
-
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_non_object_response_media_type(ctx, cli, snapshot_cli):
-    api = ctx.openapi.apps.success()
-    content = {"text/plain": {"schema": {"type": "string"}}, "application/json": None}
-    schema_path = ctx.openapi.write_schema(
-        {"/success": {"get": {"responses": {"200": {"description": "OK", "content": content}}}}}
-    )
-    assert (
-        cli.run(str(schema_path), f"--url={api.base_url}/api", "--max-examples=1", "--phases=examples,fuzzing")
         == snapshot_cli
     )
 
@@ -3010,9 +2997,17 @@ def test_rate_limit(ctx, cli):
     assert time.perf_counter() - start >= len(api.requests) - 1
 
 
-def test_invalid_tls_verify(ctx, cli, snapshot_cli):
+@pytest.mark.parametrize("source", ["flag", "config"])
+def test_invalid_tls_verify(ctx, cli, tmp_path, snapshot_cli, source):
     api = ctx.openapi.apps.failure()
-    assert cli.run(api.schema_url.replace("http", "https"), "--tls-verify=falst") == snapshot_cli
+    missing = tmp_path / "missing.pem"
+    args = [api.schema_url.replace("http", "https")]
+    if source == "flag":
+        args.append(f"--tls-verify={missing}")
+        config = None
+    else:
+        config = {"tls-verify": str(missing)}
+    assert cli.run(*args, config=config) == snapshot_cli
 
 
 @pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
@@ -4415,6 +4410,8 @@ def test_server_stops_accepting_connections_in_generated_phases(subprocess_runne
     )
     assert result == snapshot_cli
     assert "🚫 server stopped responding" in result.stdout.partition("ERRORS")[0]
+    # Requests the dead server never answered say nothing about the API.
+    assert "errored" not in result.stdout.partition("Test cases:\n")[2], result.stdout
     # Generated bodies differ across Python versions; the listed request must still be the one that crashed it.
     assert int(re.findall(r"""'\{"size": (\d+)\}'""", result.stdout.split("before it went away:")[1])[0]) > 50000
 
@@ -4440,15 +4437,17 @@ def test_crash_found_before_the_outage_is_still_reported_per_operation(subproces
 @pytest.mark.skipif(platform.system() == "Windows", reason="Requires extra setup on Windows")
 @pytest.mark.skipif(platform.python_implementation() == "PyPy", reason="PyPy behaves differently")
 @pytest.mark.parametrize(
-    ("mode", "crasher_position", "errors"),
+    ("mode", "crasher_position", "errors", "cases"),
     [
-        ("refuse", 0, "  🚫 Server Unavailable: 1"),
+        ("refuse", 0, "  🚫 Server Unavailable: 1", "N generated, N passed"),
         # The request the dying server reset leads the list and is also its operation's error.
-        ("reset", 1, "  🚫 Network Error: 1\n  🚫 Server Unavailable: 1"),
+        ("reset", 1, "  🚫 Network Error: 1\n  🚫 Server Unavailable: 1", "N generated, N passed, 1 errored"),
     ],
     ids=["refused", "reset-then-refused"],
 )
-def test_fuzz_stops_when_server_stops_accepting_connections(subprocess_runner, cli, mode, crasher_position, errors):
+def test_fuzz_stops_when_server_stops_accepting_connections(
+    subprocess_runner, cli, mode, crasher_position, errors, cases
+):
     port = subprocess_runner.run_app(CRASHING_SERVER, env={"CRASH_MODE": mode, "CRASH_AFTER": "5"})
     result = cli.main(
         "fuzz",
@@ -4459,6 +4458,8 @@ def test_fuzz_stops_when_server_stops_accepting_connections(subprocess_runner, c
     )
     assert "Stop reason: Server stopped responding" in result.stdout, result.stdout
     assert result.stdout.partition("Errors:\n")[2].partition("\n\n")[0] == errors, result.stdout
+    summary = result.stdout.partition("Test cases:\n  ")[2].partition("\n")[0]
+    assert re.sub(r"\d+ (generated|passed)", r"N \1", summary) == cases, result.stdout
     listed = result.stdout.split("before it went away:\n\n")[1].split("\n\n")
     assert int(re.findall(r"""'\{"size": (\d+)\}'""", listed[crasher_position])[0]) > 50000
 

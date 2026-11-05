@@ -28,7 +28,7 @@ from sequence_base.contract import (
     SeqFlags,
 )
 from sequence_base.by_name import INFER_PLATFORM, OBSERVE_PLATFORM, RESET_GONE
-from sequence_base.constants.serving import MACHINE_CARDS
+from sequence_base.constants.serving import MACHINE_CARDS, MAX_WARM_WORKERS
 
 from seq._partial import Refused, hook, hooks_along, keeping, refused
 from seq import named
@@ -66,11 +66,9 @@ def applied_by(frame: Any) -> tuple[str, dict] | None:
     return (name, frame.f_globals) if isinstance(name, str) else None
 
 
-def build_registration(cls: type, policy_kwargs: dict[str, Any], *, applied: tuple[str, dict] | None = None,
-                       planner: list[str] | None = None) -> type:
+def build_registration(cls: type, policy_kwargs: dict[str, Any], *, applied: tuple[str, dict] | None = None) -> type:
     """The `@seq.policy` decorator body: validate + register `cls`, attach the `PolicyRegistration`, return. `applied`:
-    the module that applied it (applied_by), when it applied it at its top level. `planner`: `@seq.planner`'s members,
-    for a planner's registration (_register_planner).
+    the module that applied it (applied_by), when it applied it at its top level.
 
     Upstream trigger: `@seq.policy(...)` on a user class. Downstream: `registration(cls)` / a deploy step /
     the harness reads the attached `PolicyRegistration`.
@@ -90,8 +88,6 @@ def build_registration(cls: type, policy_kwargs: dict[str, Any], *, applied: tup
 
 
         bindings, plan_every_s = _collect_bindings(cls)
-        if planner is not None:
-            return _register_planner(cls, policy_kwargs, bindings, plan_every_s, applied, planner)
         return _register(cls, policy_kwargs, bindings, plan_every_s, applied)
     except PolicyDefinitionError as exc:
         if not keeping():
@@ -102,13 +98,6 @@ def build_registration(cls: type, policy_kwargs: dict[str, Any], *, applied: tup
 def _register(cls: type, policy_kwargs: dict[str, Any], bindings: dict[SeqFlags, str],
               plan_every_s: float | None, applied: tuple[str, dict] | None = None) -> type:
     """The registration of `cls` from its declaration and its bindings, attached; raises what it refuses."""
-
-
-
-    if SeqFlags.PLAN in bindings:
-        from sequence_base.contract.planner import PLAN_ON_A_POLICY
-
-        raise PolicyDefinitionError(f"{cls.__name__}.{bindings[SeqFlags.PLAN]}: {PLAN_ON_A_POLICY}")
 
 
 
@@ -123,12 +112,19 @@ def _register(cls: type, policy_kwargs: dict[str, Any], bindings: dict[SeqFlags,
 
     named.check(cls, bindings)
 
+    if SeqFlags.PLAN in bindings:
+        _check_plan(cls, bindings)
+
 
 
     spec = _assemble_spec(cls, policy_kwargs, bindings, episodes_of(cls, bindings))
 
 
     _validate(cls, spec, bindings)
+    if SeqFlags.PLAN in bindings:
+        why = plan_layout(spec.gpu)
+        if why:
+            raise PolicyDefinitionError(f"{cls.__name__}: {why}")
 
 
 
@@ -144,71 +140,16 @@ def _register(cls: type, policy_kwargs: dict[str, Any], bindings: dict[SeqFlags,
     return cls
 
 
+def _check_plan(cls: type, bindings: dict[SeqFlags, str]) -> None:
+    """The policy's @seq.plan, held to the words the worker says (sequence_base.by_name.plan_refused): `def plan(self,
+    robot)`, plain or async, returning what it says, and an act function that takes `episode` to read the plans."""
+    from sequence_base.by_name import plan_refused
 
-
-
-_PLANNER_BINDS = (SeqFlags.PLAN, SeqFlags.SHUTDOWN, SeqFlags.SAMPLE)
-_DECORATOR = {SeqFlags.INFER: "infer", SeqFlags.OBSERVE: "observe", SeqFlags.ON_EPISODE: "on_episode",
-              SeqFlags.SAMPLE: "sample"}
-
-
-def _register_planner(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str], plan_every_s: float | None,
-                      applied: tuple[str, dict] | None, members: list[str]) -> type:
-    """A planner's registration (`@seq.planner`): its spec a policy's - card, image, weights, secrets and scaling
-    assembled as a policy's are - with `planner` naming its members, built as a policy is - by its constructor, init=
-    its arguments - and its bindings @seq.plan, @seq.shutdown and @seq.sample alone: it answers no act. Raises what it
-    refuses."""
-    other = sorted(f"@seq.{_DECORATOR.get(f, f.name.lower())}" for f in bindings if f not in _PLANNER_BINDS)
-    if other:
-        raise PolicyDefinitionError(f"{cls.__name__}: a planner answers no act - a robot connects to its own policy, "
-                                    f"which the planner plans for - so it has no {', '.join(other)}: it plans with "
-                                    "@seq.plan, loads in its __init__ (init= its arguments), shuts down with "
-                                    "@seq.shutdown and may name a sample group with @seq.sample")
-    batched = [name for name, member in vars(cls).items() if getattr(member, "__seq_concurrent__", None)]
-    if batched:
-        raise PolicyDefinitionError(f"{cls.__name__}.{batched[0]}: a planner answers no act, so it runs no batches - "
-                                    "leave @seq.concurrent out")
-    named.check(cls, bindings, planner=True)
-    constructor = named.constructor(cls, kw)
-    if SeqFlags.PLAN not in bindings:
-        raise PolicyDefinitionError(f"{cls.__name__}: a planner plans - give it one @seq.plan(every_s=SECONDS) method, "
-                                    "def plan(self, group)")
-    why = planner_plan_refused(hook(cls, bindings[SeqFlags.PLAN]))
+    infer = bindings.get(SeqFlags.INFER)
+    why = plan_refused(hook(cls, bindings[SeqFlags.PLAN]),
+                       infer_takes_episode=infer is not None and _takes_episode(cls, infer))
     if why:
         raise PolicyDefinitionError(f"{cls.__name__}: {why}")
-    spec = _assemble_spec(cls, kw, bindings, None)
-    try:
-        spec = PolicySpec.model_validate({**spec.model_dump(mode="json"), "planner": {"members": list(members)}})
-    except ValueError as exc:
-        raise PolicyDefinitionError(f"{cls.__name__}: {exc}") from None
-
-    why = plan_layout(spec.gpu, spec.concurrency)
-    if why:
-        raise PolicyDefinitionError(f"{cls.__name__}: {why}")
-    reg = PolicyRegistration(spec=spec, bindings=bindings, handler_ref=_ref_kept(cls, applied),
-                             plan_every_s=plan_every_s, constructor=constructor)
-    setattr(cls, _REG_ATTR, reg)
-    return cls
-
-
-def planner_plan_refused(fn: Any) -> str | None:
-    """Why a planner's @seq.plan cannot be called as the platform calls it - handed its group alone, `plan(group)`, and
-    what it returns kept - else None."""
-    if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
-        return ("a planner's @seq.plan returns what it says - {robot or planner id: value} - and does not yield: "
-                "def plan(self, group), plain or async")
-    params = list(inspect.signature(fn).parameters.values())[1:]
-    positional = [p for p in params if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
-    needed = [p for p in params if p.default is p.empty and p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)]
-    if not positional or len(needed) > 1 or (needed and needed[0] is not positional[0]):
-        return "a planner's @seq.plan is handed its group alone: def plan(self, group)"
-    return None
-
-
-def is_planner(cls: type) -> bool:
-    """Whether `cls` is a planner (`@seq.planner`), not a policy."""
-    reg = cls.__dict__.get(_REG_ATTR)
-    return isinstance(reg, PolicyRegistration) and reg.spec.planner is not None
 
 
 def registration(cls: type) -> PolicyRegistration:
@@ -499,12 +440,14 @@ def _check_scaling(kw: dict[str, Any]) -> None:
                                     f"a GPU policy must declare; got {v!r}")
 
 
+
     for knob, what in (("min_workers", "warm workers kept running, robot or not"),
                        ("buffer_workers", "spare workers kept running while robots are connected")):
         if knob in kw:
             v = kw[knob]
-            if isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= 16:
-                raise PolicyDefinitionError(f"{knob}= is the {what}, a whole number from 0 to 16; got {v!r}")
+            if isinstance(v, bool) or not isinstance(v, int) or not 0 <= v <= MAX_WARM_WORKERS:
+                raise PolicyDefinitionError(f"{knob}= is the {what}, a whole number from 0 to {MAX_WARM_WORKERS}; "
+                                            f"got {v!r}")
 
 
 def _concurrency(cls: type, kw: dict[str, Any], bindings: dict[SeqFlags, str]) -> Concurrency | None:
@@ -549,13 +492,6 @@ def _cards(gpu: Any) -> int:
     """The cards a worker holds: N of `gpu="TYPE:N"`, one for a single card or "cpu"."""
     _, sep, n = str(gpu).partition(":")
     return int(n) if sep and n.strip().isdigit() else 1
-
-
-def _copies(gpu: Any, concurrency: Any) -> int:
-    """How many copies of the policy a worker runs: its cards (`gpu="TYPE:N"`) over gpus_per_replica - one copy holding
-    them all when it is not declared."""
-    per = getattr(concurrency, "gpus_per_replica", None)
-    return _cards(gpu) // per if per else 1
 
 
 def _check_card_split(gpu: Any, concurrency: Any) -> None:
@@ -716,34 +652,21 @@ def _check_infer_signature(cls: type, method_name: str) -> None:
         )
 
 
-
-
-PLAN_ONE_COPY = ("a planner runs one copy on a worker: each copy would plan its members apart, so a robot would be "
-                 "planned and billed once per copy and its plans would change with the copy that made them. Remove "
-                 "gpus_per_replica (one copy holds every card of the worker)")
-
-
 def plan_one_machine(card: str) -> str:
-    """Why a planner does not run across several machines, `card` the type it declared: every machine of the copy would
-    run a planner of its own and plan its members apart. The worker says the same
+    """Why a policy with a @seq.plan does not run across several machines, `card` the type it declared: every machine
+    of the copy has a `self` of its own and would plan its robots apart. The worker says the same
 , and the gateway (deployments/validation.py plan_one_machine)."""
-    return (f"a planner runs on one machine: across several, each machine would plan its members apart. Declare at "
+    return (f"a policy with a @seq.plan runs on one machine: across several, each machine would plan apart. Declare at "
             f'most {MACHINE_CARDS} cards (gpu="{card}:{MACHINE_CARDS}")')
 
 
-def plan_layout(gpu: Any, concurrency: Any) -> str | None:
-    """Why a planner cannot run as it declares, or None: it runs one copy on one machine - neither one
-    copy across several machines (more cards than a machine holds, plan_one_machine) nor several copies on a worker
-    (gpus_per_replica, PLAN_ONE_COPY, since 0.38.0). The two never meet: a model across machines is one copy on all
-    its cards (the gateway refuses gpus_per_replica beside it), so the machines are said first. The gateway holds a
-    deploy to the same rule (deployments/validation.py _check_plan), and the worker before its weights load.
-    
-
-"""
+def plan_layout(gpu: Any) -> str | None:
+    """Why a policy with a @seq.plan cannot run as it declares, or None: its episode plans in the copy that holds it, so
+    it runs on one machine (more cards than a machine holds is plan_one_machine). Several copies on one machine are
+    fine: a robot's episode is on one of them. The gateway holds a deploy to the same rule (deployments/validation.py
+    _check_plan), and the worker before its weights load."""
     if _cards(gpu) > MACHINE_CARDS:
         return plan_one_machine(str(gpu).partition(":")[0])
-    if _copies(gpu, concurrency) > 1:
-        return PLAN_ONE_COPY
     return None
 
 
@@ -870,7 +793,7 @@ _UNIMPORTABLE_ATTR = "__seq_unimportable__"
 
 
 def _ref_kept(cls: type, applied: tuple[str, dict] | None = None) -> str:
-    """`cls`'s handler_ref (_handler_ref), for a @seq.policy, @seq.planner, @seq.benchmark or @seq.adapter class -
+    """`cls`'s handler_ref (_handler_ref), for a @seq.policy, @seq.benchmark or @seq.adapter class -
     and, for one no other process can import (written in a script run as `python file.py` or in a notebook, __main__;
     inside a function; in a module that cannot be imported), its module:qualname as written, the refusal kept on the
     class (_UNIMPORTABLE_ATTR) and raised where the platform needs the import (importable: seq deploy and its dry run,

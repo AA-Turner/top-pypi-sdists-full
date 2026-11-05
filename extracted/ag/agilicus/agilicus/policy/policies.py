@@ -42,6 +42,7 @@ from ..output.table import (
     subtable,
     column,
 )
+from ..tag_helpers import apply_tag_updates, extract_tags_list, to_tags_model
 from ..output import json as out_json
 from ..resources import query_resources
 from ..resources import reconcile_default_policy
@@ -120,14 +121,38 @@ def format_multifactor_policies(ctx, templates):
     return format_table(ctx, templates, columns)
 
 
-def list_policy_templates(ctx, apiclient=None, **kwargs):
+def _extract_template_tags(template_instance, base_getter=None):
+    template = template_instance.spec.template
+    if not isinstance(template, SimpleResourcePolicyTemplate):
+        return []
+    tags = set()
+    for rule in template.rules or []:
+        for t in extract_tags_list(rule.tags):
+            tags.add(t)
+    for struct in template.policy_structure or []:
+        for t in extract_tags_list(struct.tags):
+            tags.add(t)
+    return sorted(tags)
+
+
+def list_policy_templates(ctx, apiclient=None, tag=None, **kwargs):
     if not apiclient:
         token = context.get_token(ctx)
         apiclient = context.get_apiclient(ctx, token)
     kwargs["org_id"] = get_org_from_input_or_ctx(ctx, **kwargs)
     kwargs = strip_none(kwargs)
     result = apiclient.policy_templates_api.list_policy_template_instances(**kwargs)
-    return result.policy_template_instances
+    instances = result.policy_template_instances
+    if tag:
+        tag_list = [tag] if isinstance(tag, str) else list(tag)
+        tag_set = set(tag_list)
+        filtered = []
+        for inst in instances:
+            inst_tags = set(_extract_template_tags(inst))
+            if tag_set.intersection(inst_tags):
+                filtered.append(inst)
+        return filtered
+    return instances
 
 
 def delete_policy_template(ctx, instance_id, **kwargs):
@@ -154,6 +179,7 @@ def format_policy_templates(ctx, templates):
         metadata_column("id"),
         spec_column("name"),
         spec_column("template.template_type", "type"),
+        column("tags", getter=_extract_template_tags, optional=True),
         spec_column("description"),
         spec_column("template"),
     ]
@@ -337,12 +363,115 @@ def find_orgs_with_legacy_policies(
         print(f"{org.id} ({org.organisation}): {resource_ids}")
 
 
+def _update_tags_on_object(obj, tags, add_tags, remove_tags, clear_tags):
+    updated = apply_tag_updates(
+        obj.tags,
+        tags=tags,
+        add_tags=add_tags,
+        remove_tags=remove_tags,
+        clear_tags=clear_tags,
+    )
+    obj.tags = to_tags_model(updated)
+
+
+def _apply_tags_all_rules(template, tags, add_tags, remove_tags, clear_tags):
+    for rule in template.rules or []:
+        _update_tags_on_object(rule, tags, add_tags, remove_tags, clear_tags)
+    for struct in template.policy_structure or []:
+        _update_tags_on_object(struct, tags, add_tags, remove_tags, clear_tags)
+
+
+def _apply_tags_to_rule(
+    template, rule_name, tags, add_tags, remove_tags, clear_tags, instance_id
+):
+    matched = False
+    for rule in template.rules or []:
+        if rule.name == rule_name:
+            matched = True
+            _update_tags_on_object(rule, tags, add_tags, remove_tags, clear_tags)
+
+    if not matched:
+        raise ValueError(
+            f"Rule '{rule_name}' not found in policy template {instance_id}"
+        )
+
+
+def _apply_tags_to_structure(
+    template, struct_name, tags, add_tags, remove_tags, clear_tags, instance_id=None
+):
+    matched = False
+    for struct in template.policy_structure or []:
+        root_rule_name = (
+            struct.root_node.rule_name if struct.root_node is not None else None
+        )
+        if (struct.name is not None and str(struct.name) == struct_name) or (
+            root_rule_name is not None and str(root_rule_name) == struct_name
+        ):
+            matched = True
+            _update_tags_on_object(struct, tags, add_tags, remove_tags, clear_tags)
+
+    if not matched and instance_id:
+        raise ValueError(
+            f"Structure '{struct_name}' not found in policy template {instance_id}"
+        )
+    return matched
+
+
+def _apply_tag_updates(
+    template,
+    rule_name=None,
+    structure_name=None,
+    all_rules=False,
+    tag=None,
+    add_tag=None,
+    remove_tag=None,
+    clear_tags=False,
+    instance_id="",
+):
+    if all_rules:
+        _apply_tags_all_rules(template, tag, add_tag, remove_tag, clear_tags)
+        return
+
+    if rule_name:
+        _apply_tags_to_rule(
+            template, rule_name, tag, add_tag, remove_tag, clear_tags, instance_id
+        )
+        if not structure_name:
+            _apply_tags_to_structure(
+                template,
+                rule_name,
+                tag,
+                add_tag,
+                remove_tag,
+                clear_tags,
+                instance_id=None,
+            )
+
+    if structure_name:
+        _apply_tags_to_structure(
+            template,
+            structure_name,
+            tag,
+            add_tag,
+            remove_tag,
+            clear_tags,
+            instance_id=instance_id,
+        )
+
+
 def update_resource_policy(
     ctx,
     instance_id,
     org_id=None,
     clear_default_actions=None,
     default_action=None,
+    rule_name=None,
+    structure_name=None,
+    all_rules=False,
+    tag=None,
+    add_tag=None,
+    remove_tag=None,
+    clear_tags=False,
 ):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
@@ -368,6 +497,25 @@ def update_resource_policy(
         policy.spec.template.default_actions = [
             RuleAction(action=a) for a in default_actions
         ]
+
+    has_tag_updates = bool(tag or add_tag or remove_tag or clear_tags)
+    if has_tag_updates:
+        if not (rule_name or structure_name or all_rules):
+            raise ValueError(
+                "Must specify --rule-name, --structure-name, or --all-rules "
+                "when updating tags"
+            )
+        _apply_tag_updates(
+            policy.spec.template,
+            rule_name=rule_name,
+            structure_name=structure_name,
+            all_rules=all_rules,
+            tag=tag,
+            add_tag=add_tag,
+            remove_tag=remove_tag,
+            clear_tags=clear_tags,
+            instance_id=instance_id,
+        )
 
     return apiclient.policy_templates_api.replace_policy_template_instance(
         instance_id=instance_id, policy_template_instance=policy

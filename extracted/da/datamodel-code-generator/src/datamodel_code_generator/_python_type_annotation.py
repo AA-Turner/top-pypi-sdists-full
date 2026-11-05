@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, Literal, TypeAlias
 from datamodel_code_generator._copy_on_change import unchanged
 from datamodel_code_generator._module_paths import dotted_name
 from datamodel_code_generator._python_syntax import list_display, subscript_text, tuple_display
-from datamodel_code_generator._target_unicode import is_python_name
+from datamodel_code_generator._target_unicode import NEWEST_TARGET, is_python_name
+from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -32,8 +33,8 @@ class PythonTypeName(PythonTypeExpr):
     value: str
 
     def __post_init__(self) -> None:
-        if self.value != "None" and not is_python_name(self.value, rule="host"):
-            msg = f"Python type name must be one identifier: {self.value!r}"
+        if self.value != "None" and not is_python_name(self.value, NEWEST_TARGET):
+            msg = f"Python type name must be one identifier: {stable_repr(self.value)}"
             raise ValueError(msg)
 
 
@@ -44,8 +45,8 @@ class PythonTypeQualifiedName(PythonTypeExpr):
     parts: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.parts or not all(is_python_name(part, rule="host") for part in self.parts):
-            msg = f"Python qualified type name must contain identifiers: {self.parts!r}"
+        if not self.parts or not all(is_python_name(part, NEWEST_TARGET) for part in self.parts):
+            msg = f"Python qualified type name must contain identifiers: {stable_repr(self.parts)}"
             raise ValueError(msg)
 
 
@@ -60,10 +61,12 @@ class PythonTypeRuntimeSymbol(PythonTypeExpr):
         module_parts = self.module.split(".") if self.module else ()
         if (
             not self.qualname_parts
-            or not all(is_python_name(part, rule="host") for part in self.qualname_parts)
-            or not all(is_python_name(part, rule="host") for part in module_parts)
+            or not all(is_python_name(part, NEWEST_TARGET) for part in self.qualname_parts)
+            or not all(is_python_name(part, NEWEST_TARGET) for part in module_parts)
         ):
-            msg = f"Invalid runtime Python type identity: {self.module!r}, {self.qualname_parts!r}"
+            msg = (
+                f"Invalid runtime Python type identity: {stable_repr(self.module)}, {stable_repr(self.qualname_parts)}"
+            )
             raise ValueError(msg)
 
 
@@ -75,8 +78,8 @@ class PythonTypeMember(PythonTypeExpr):
     name: str
 
     def __post_init__(self) -> None:
-        if not is_python_name(self.name, rule="host"):
-            msg = f"Python type member must be one identifier: {self.name!r}"
+        if not is_python_name(self.name, NEWEST_TARGET):
+            msg = f"Python type member must be one identifier: {stable_repr(self.name)}"
             raise ValueError(msg)
 
 
@@ -89,8 +92,11 @@ class PythonTypeBoundName(PythonTypeExpr):
     import_name: str
 
     def __post_init__(self) -> None:
-        if not is_python_name(self.value, rule="host") or not self.import_name:
-            msg = f"Invalid bound Python type name: {self.value!r}, {self.import_from!r}, {self.import_name!r}"
+        if not is_python_name(self.value, NEWEST_TARGET) or not self.import_name:
+            msg = (
+                f"Invalid bound Python type name: {stable_repr(self.value)}, {stable_repr(self.import_from)}, "
+                f"{stable_repr(self.import_name)}"
+            )
             raise ValueError(msg)
 
 
@@ -167,7 +173,7 @@ class PythonTypeLiteralValue(PythonTypeExpr):
 
     def __post_init__(self) -> None:
         if self.value is not None and type(self.value) not in _LITERAL_VALUE_TYPES:
-            msg = f"Unsupported Python type literal value: {self.value!r}"
+            msg = f"Unsupported Python type literal value: {stable_repr(self.value)}"
             raise ValueError(msg)
         if isinstance(self.value, float) and math.isnan(self.value):
             msg = "NaN is not a supported Python type literal value"
@@ -299,7 +305,7 @@ def render_python_type_expr(expression: PythonTypeExpr) -> str:  # ruff: ignore[
             return subscript_text(rendered_base, map(render_python_type_expr, expression.arguments))
         case PythonTypeModelField():
             member = "model_fields" if expression.pydantic else "__annotations__"
-            result = f"{render_python_type_expr(expression.model)}.{member}[{expression.field_name!r}]"
+            result = f"{render_python_type_expr(expression.model)}.{member}[{stable_repr(expression.field_name)}]"
             if expression.pydantic:
                 result += ".annotation"
             for index in expression.arguments:
@@ -317,7 +323,7 @@ def render_python_type_expr(expression: PythonTypeExpr) -> str:  # ruff: ignore[
         case PythonTypeLiteralValue():
             if isinstance(expression.value, float) and math.isinf(expression.value):
                 return "1e309" if expression.value > 0 else "-1e309"
-            return repr(expression.value)
+            return stable_repr(expression.value)
         case PythonTypeEllipsis():
             return "..."
     msg = f"Unsupported Python type expression: {type(expression).__name__}"
@@ -358,23 +364,41 @@ def is_literal_python_type_expr(expression: PythonTypeExpr) -> bool:
     return isinstance(expression, PythonTypeSubscript) and python_type_expr_base_name(expression) == "Literal"
 
 
-def _iter_names(expression: PythonTypeExpr, *, qualified: bool) -> Iterator[str]:
+_NameForm: TypeAlias = Literal["terminal", "qualified", "head"]
+"""What a walk yields of a dotted name: its last name, all of it (a bare name yields nothing) or its first name."""
+
+
+def _iter_names(expression: PythonTypeExpr, *, form: _NameForm) -> Iterator[str]:
     match expression:
         case PythonTypeName() | PythonTypeBoundName():
-            if not qualified:
+            if form != "qualified":
                 yield expression.value
-        case PythonTypeQualifiedName():
-            yield ".".join(expression.parts) if qualified else expression.parts[-1]
-        case PythonTypeRuntimeSymbol():
-            yield _runtime_symbol_name(expression) if qualified else expression.qualname_parts[-1]
+        case PythonTypeQualifiedName() | PythonTypeRuntimeSymbol():
+            dotted = (
+                ".".join(expression.parts)
+                if isinstance(expression, PythonTypeQualifiedName)
+                else _runtime_symbol_name(expression)
+            )
+            match form:
+                case "qualified":
+                    yield dotted
+                case "head":
+                    yield dotted.partition(".")[0]
+                case _:
+                    yield dotted.rpartition(".")[2]
         case _:
             for child in _children(expression, "all") or ():
-                yield from _iter_names(child, qualified=qualified)
+                yield from _iter_names(child, form=form)
 
 
 def iter_python_type_expr_names(expression: PythonTypeExpr) -> Iterator[str]:
     """Yield semantic leaf names in stable structure order."""
-    return _iter_names(expression, qualified=False)
+    return _iter_names(expression, form="terminal")
+
+
+def iter_python_type_expr_head_names(expression: PythonTypeExpr) -> Iterator[str]:
+    """Yield the name each leaf binds where the expression is written: ``ipaddress`` of ``ipaddress.IPv4Address``."""
+    return _iter_names(expression, form="head")
 
 
 def python_type_expr_base_name(expression: PythonTypeExpr) -> str:
@@ -401,7 +425,7 @@ def python_type_expr_arguments(expression: PythonTypeExpr) -> tuple[PythonTypeEx
 
 def iter_python_type_expr_qualified_names(expression: PythonTypeExpr) -> Iterator[str]:
     """Yield dotted syntactic and runtime names in stable traversal order."""
-    return _iter_names(expression, qualified=True)
+    return _iter_names(expression, form="qualified")
 
 
 def rewrite_python_type_expr(
@@ -416,13 +440,22 @@ def rewrite_python_type_expr(
     )
 
 
-def read_literal_enum_members(expression: PythonTypeExpr) -> PythonTypeExpr:
+def _literal_member(name: PythonTypeQualifiedName, names_class: Callable[[str], bool]) -> PythonTypeMember | None:
+    """Return the member a dotted ``Literal`` value names, or None when it names an imported symbol."""
+    if len(name.parts) >= _MODULE_MEMBER_PARTS:
+        return PythonTypeMember(PythonTypeQualifiedName(name.parts[:-1]), name.parts[-1])
+    head, member = name.parts
+    return PythonTypeMember(python_type_name(head), member) if names_class(head) else None
+
+
+def read_literal_enum_members(expression: PythonTypeExpr, names_class: Callable[[str], bool]) -> PythonTypeExpr:
     """Read a dotted ``package.module.MEMBER`` value of a ``Literal`` as the member ``MEMBER`` of ``package.module``.
 
     A ``Literal`` holds values, so the last name is a member, such as an enum member, of what the names before it
     import: ``http.HTTPStatus.OK`` imports ``HTTPStatus`` from ``http`` and ``http.client.OK`` imports the module
-    ``client`` from ``http``, as a from-import takes a class or a submodule alike. A dotted name of two parts keeps
-    naming an imported symbol.
+    ``client`` from ``http``, as a from-import takes a class or a submodule alike. A dotted name of two parts is a
+    member of its first name where ``names_class`` tells that the name binds a class, such as ``Color.RED``, and keeps
+    naming an imported symbol, such as ``datetime.MINYEAR``, otherwise.
     """
     if (children := _children(expression, "values")) is None:
         return expression
@@ -432,9 +465,11 @@ def read_literal_enum_members(expression: PythonTypeExpr) -> PythonTypeExpr:
         "values",
         children,
         tuple(
-            PythonTypeMember(PythonTypeQualifiedName(child.parts[:-1]), child.parts[-1])
-            if literal and isinstance(child, PythonTypeQualifiedName) and len(child.parts) >= _MODULE_MEMBER_PARTS
-            else read_literal_enum_members(child)
+            member
+            if literal
+            and isinstance(child, PythonTypeQualifiedName)
+            and (member := _literal_member(child, names_class)) is not None
+            else read_literal_enum_members(child, names_class)
             for child in children
         ),
     )
@@ -469,6 +504,7 @@ __all__ = [
     "is_literal_python_type_expr",
     "is_union_python_type_expr",
     "iter_literal_members",
+    "iter_python_type_expr_head_names",
     "iter_python_type_expr_names",
     "iter_python_type_expr_qualified_names",
     "parse_python_type_annotation",

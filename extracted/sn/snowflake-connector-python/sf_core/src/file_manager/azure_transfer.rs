@@ -604,7 +604,11 @@ pub(super) async fn upload_to_azure_or_skip(
 
     // Build the client once — TLS config is creds-independent; only the SAS in
     // `stage_info.creds` rotates on refresh — and clone it into each attempt.
-    let client = create_azure_client(stage_info, tx.http_client).await?;
+    let client = create_azure_client(
+        stage_info,
+        tx.http.and_then(cloud_http::StorageHttp::reqwest),
+    )
+    .await?;
     // On-cloud byte count (ciphertext length under CSE) decides single-PUT vs
     // multipart; computed once, outside the per-attempt closure.
     let body_len = multipart::upload_body_len(&prepared.prepared)
@@ -1515,7 +1519,11 @@ pub async fn download_from_azure_streaming(
 ) -> Result<CloudStreamingDownload, AzureDownloadError> {
     // Build the client once (TLS config is creds-independent); only the SAS in
     // `stage_info.creds` rotates on refresh.
-    let client = create_azure_client(stage_info, tx.http_client).await?;
+    let client = create_azure_client(
+        stage_info,
+        tx.http.and_then(cloud_http::StorageHttp::reqwest),
+    )
+    .await?;
     let key = format!("{}{filename}", stage_info.key_prefix);
 
     // The routing HEAD + the ranged/single GET all run INSIDE the refresh
@@ -1544,24 +1552,7 @@ pub async fn download_from_azure_streaming(
                 .unwrap_or(0);
             let (digest, file_metadata) =
                 parse_azure_file_metadata(head.headers()).map_err(AzureAttemptError::Other)?;
-            // Git-stage objects carry encryption headers but no sfcdigest — non-CSE.
-            let cse_info = match (file_metadata, digest) {
-                (Some(metadata), Some(digest)) => Some(CseDownloadInfo {
-                    metadata,
-                    digest: Some(digest),
-                }),
-                (Some(_), None) => {
-                    // TODO(SNOW-4115038): missing digest currently writes raw bytes.
-                    // Legacy Python/JDBC/Node fail the GET when encryption_material
-                    // is set and unwrap/decrypt cannot succeed.
-                    tracing::debug!(
-                        "Azure: encryptiondata present but {AZURE_META_SFC_DIGEST} absent \
-                         (git-stage object); treating as non-CSE"
-                    );
-                    None
-                }
-                (None, _) => None,
-            };
+            let cse_info = CseDownloadInfo::from_headers(file_metadata, digest);
 
             // Route on size: parallel ranged GETs into a spill file above the
             // threshold, a single streamed GET below. Both fast-fail 403.
@@ -1996,7 +1987,7 @@ mod tests {
             use_regional_url: false,
             use_s3_regional_url: false,
             tls_config: crate::tls::config::TlsConfig::default(),
-            crl_manager: crate::crl::CrlManager::new(),
+            crl_manager: crate::crl::CrlManager::new().connection_crl(),
             root_store_provider: crate::tls::RootStoreProvider::new(),
             proxy_config: crate::tls::config::ProxyConfig::default(),
             storage_account: overrides
@@ -2317,7 +2308,7 @@ mod tests {
             use_regional_url: false,
             use_s3_regional_url: false,
             tls_config: crate::tls::config::TlsConfig::default(),
-            crl_manager: crate::crl::CrlManager::new(),
+            crl_manager: crate::crl::CrlManager::new().connection_crl(),
             root_store_provider: crate::tls::RootStoreProvider::new(),
             proxy_config: crate::tls::config::ProxyConfig::default(),
             storage_account: Some("test".to_string()),

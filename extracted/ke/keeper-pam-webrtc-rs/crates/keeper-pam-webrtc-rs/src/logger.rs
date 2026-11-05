@@ -96,6 +96,9 @@ impl From<InitializeLoggerError> for PyErr {
 /// * `level` - Log level (Python int: 10=DEBUG, 20=INFO, etc.)
 ///   Python mode preserves this global minimum; Python's logger configuration
 ///   performs any additional per-namespace filtering.
+/// * `show_pwd` - Debugging only (default `false`). When `true`, the guacd `connect`
+///   handshake values (including the password) are logged at debug level. Error text
+///   stays credential-free either way.
 ///
 /// # Python Integration
 /// When running in gateway (Python mode):
@@ -105,11 +108,12 @@ impl From<InitializeLoggerError> for PyErr {
 ///   - webrtc_ice, webrtc_sctp, etc.: WARNING (suppresses spam)
 /// - Verbose-gated logs still controlled by `is_verbose_logging()` checks in Rust
 #[cfg_attr(feature = "python-support", pyfunction)]
-#[cfg_attr(feature = "python-support", pyo3(signature = (logger_name, verbose=None, level=20)))]
+#[cfg_attr(feature = "python-support", pyo3(signature = (logger_name, verbose=None, level=20, show_pwd=false)))]
 pub fn initialize_logger(
     logger_name: &str,
     verbose: Option<bool>,
     level: i32,
+    show_pwd: bool,
 ) -> Result<(), InitializeLoggerError> {
     let is_verbose = verbose.unwrap_or(false);
 
@@ -121,6 +125,11 @@ pub fn initialize_logger(
         .clone()?;
     set_verbose_logging(is_verbose);
     set_webrtc_logging(include_webrtc_logs);
+    // Debugging opt-in: log raw guacd `connect` values. Default false = redacted.
+    let was_on = guacr_guacd::client::set_show_handshake_values(show_pwd);
+    if show_pwd && !was_on {
+        log::warn!("guacd handshake values are logged (show_pwd)");
+    }
     Ok(())
 }
 

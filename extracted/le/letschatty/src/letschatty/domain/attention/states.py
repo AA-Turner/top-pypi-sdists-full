@@ -14,6 +14,8 @@ and letschatty cannot import api-chatty's `application/`.
 
   `waiting_for_a_message` is only for requests created before 2026-10-01 (F3); it is no longer created.
 - How a learned phrase resolved a reason (`chatty_asset_triggers`, the shortcut): exact or similar.
+- A delayed entry (`entradas_pendientes.estado`): pending ──claimed──▶ sending ──▶ done; sending ──lease ends──▶
+  claimed again; claimed too many times ──▶ failed.
 - Who cut the follow-ups of a chat (`atencion_en_chat.cortados.por`): a person with «Cortar», «No contactar», the chat
   archived or blocked when the closing came, or the system.
 """
@@ -36,3 +38,8 @@ SHORTCUT_PHRASE = "frase"
 SHORTCUT_SIMILAR = "similar"
 
 CUT_BY = ("usuario", "no_contactar", "archivado", "bloqueado", "sistema")
+
+ENTRY_PENDING = "pendiente"
+ENTRY_SENDING = "enviando"
+ENTRY_DONE = "hecha"
+ENTRY_FAILED = "fallida"

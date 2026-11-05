@@ -5235,6 +5235,7 @@ class ChalkGRPCClient:
         input_sql: str | None = None,
         num_shards: int | None = None,
         plan_only: bool = False,
+        store_online_summaries: bool | None = None,
     ) -> AggregateBackfillResponse:
         """Trigger one or more aggregate backfill jobs.
 
@@ -5280,6 +5281,11 @@ class ChalkGRPCClient:
             backfill, so a request that plans cleanly will also create cleanly.
             Requires a Chalk server that supports `CreateAggregateBackfillV2`.
 
+        store_online_summaries : bool, optional
+            Publish compact online aggregate summaries. Requires a server that supports
+            online summaries and complete input or existing tile coverage for the summary
+            window and horizon.
+
         Returns
         -------
         AggregateBackfillResponse
@@ -5306,6 +5312,8 @@ class ChalkGRPCClient:
         )
         if store_offline is not None:
             request.store_offline = store_offline
+        if store_online_summaries is not None:
+            request.store_online_summaries = store_online_summaries
         if resource_group is not None:
             request.resource_group = resource_group
         if num_shards is not None:
@@ -5332,6 +5340,11 @@ class ChalkGRPCClient:
             raise ChalkCustomException(
                 "This Chalk server does not support sharded aggregate backfills. Upgrade your "
                 + "Chalk server, or omit `num_shards` to run the backfill as a single job.",
+            )
+        if store_online_summaries:
+            raise ChalkCustomException(
+                "This Chalk server does not support online aggregate summaries. "
+                + "Upgrade your Chalk server to use `store_online_summaries`."
             )
         warnings.warn(
             "This Chalk server does not support server-side aggregate backfill planning. "

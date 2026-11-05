@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, replace
-from functools import cached_property
 from itertools import starmap
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 from urllib.parse import urljoin, urlsplit
@@ -24,7 +23,6 @@ from datamodel_code_generator._openapi_wire_plan import (
     parameter_plans,
     property_members,
 )
-from datamodel_code_generator._runtime.client.media import most_specific
 from datamodel_code_generator._runtime.client.options import HTTP_SCHEMES
 from datamodel_code_generator._runtime.client.parts import PartPlan
 from datamodel_code_generator._runtime.model_codecs.media import (
@@ -34,6 +32,7 @@ from datamodel_code_generator._runtime.model_codecs.media import (
     essence,
     media_kind,
     media_range,
+    most_specific,
     normalize_media_type,
     normalized,
     range_key,
@@ -47,18 +46,17 @@ from datamodel_code_generator._target_contract import (
     LiteralSequence,
     PartFacts,
     PartSchema,
-    SchemaSite,
     SourceLocation,
     TypeUseBinding,
     children_of,
     encoding_headers,
+    exact_status,
     fact,
     is_required,
     label,
     operation_literal,
     parameter_place,
     request_media,
-    schema_uses,
     type_uses,
     uses_by_id,
 )
@@ -77,7 +75,6 @@ from datamodel_code_generator._target_operations import (
     declared_by,
     declared_media_type,
     derived_name,
-    exact_status,
     first_use,
     group_tag,
     json_null,
@@ -89,6 +86,7 @@ from datamodel_code_generator._target_operations import (
     type_names,
 )
 from datamodel_code_generator._target_types import present
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import _rw_variant_flag
 
 if TYPE_CHECKING:
@@ -397,7 +395,7 @@ class Planner:
         self.problems.extend(
             _problem(
                 "E_CONFIG_VALUE",
-                f"The tag {item.tag!r} is the first tag of no operation",
+                f"The tag {stable_repr(item.tag)} is the first tag of no operation",
                 option_path=f"resource_names[{index}]",
             )
             for index, item in enumerate(config.resource_names)
@@ -405,11 +403,6 @@ class Planner:
         )
         self.raise_problems()
         self.namespaces = self.tag_namespaces()
-
-    @cached_property
-    def _schemas(self) -> dict[tuple[SourceDocumentId, str, Direction], TypeUseBinding]:
-        """Return the value use of each schema occurrence by location and direction, which a body's part is bound as."""
-        return schema_uses(self.request.batch.type_uses)
 
     def raise_problems(self) -> None:
         """Stop the phase when it reported any failure."""
@@ -498,7 +491,8 @@ class Planner:
         if parameter_key("header", metadata.header_name) in owners:
             index = self.config.operations.index(setting)
             message = (
-                f"The idempotency header {metadata.header_name!r} of {label(operation)} already has a request owner"
+                f"The idempotency header {stable_repr(metadata.header_name)} of {label(operation)} already has a "
+                "request owner"
             )
             self.problems.append(
                 _problem(
@@ -544,7 +538,7 @@ class Planner:
         )
         for tag, namespace in zip(first, names, strict=True):
             if windows_device(namespace, self.names.python_version) and (operation := staying.get(tag)) is not None:
-                message = f"The tag {tag!r} of {label(operation)} needs an explicit resource name"
+                message = f"The tag {stable_repr(tag)} of {label(operation)} needs an explicit resource name"
                 self.problems.append(_problem("E_RESERVED_NAME", message, operation.id.use_site))
         return dict(zip(first, names, strict=True))
 
@@ -556,7 +550,7 @@ class Planner:
         if setting is None or (name := setting.name) is None:
             return derived_name(self.names, operation)
         if name in RESERVED_MEMBERS:
-            message = f"The method name {name!r} of {label(operation)} is reserved"
+            message = f"The method name {stable_repr(name)} of {label(operation)} is reserved"
             self.problems.append(_problem("E_RESERVED_NAME", message, operation.id.use_site))
         return name
 
@@ -580,7 +574,7 @@ class Planner:
             explicit = {spec.index for spec in operations if self._explicit_method(spec.contract)}
             for spec in operations:
                 if spec.index in explicit and not scope.take(spec.name):
-                    message = f"The resource {namespace!r} takes the name {spec.name!r} twice"
+                    message = f"The resource {stable_repr(namespace)} takes the name {stable_repr(spec.name)} twice"
                     self.problems.append(_problem("E_NAME_COLLISION", message))
             for name in RESERVED_MEMBERS:
                 scope.take(name)
@@ -627,10 +621,13 @@ class Planner:
             if given is None:
                 continue
             if given in RESERVED_ARGUMENTS:
-                message = f"The {location} parameter {wire_name!r} of {label(operation)} cannot take the name {given!r}"
+                message = (
+                    f"The {location} parameter {stable_repr(wire_name)} of {label(operation)} cannot take the name "
+                    f"{stable_repr(given)}"
+                )
                 self.problems.append(_problem("E_RESERVED_NAME", message, declaration.use_site))
             elif not scope.take(given):
-                message = f"The arguments of {label(operation)} take {given!r} twice"
+                message = f"The arguments of {label(operation)} take {stable_repr(given)} twice"
                 self.problems.append(_problem("E_NAME_COLLISION", message, operation.id.use_site))
         for name in (*RESERVED_ARGUMENTS, *(HELPER_ARGUMENTS if operation.id in self.helpers else ())):
             scope.take(name)
@@ -666,7 +663,8 @@ class Planner:
         self.problems.extend(
             _problem(
                 "E_CONFIG_VALUE",
-                f"The parameter name of the {location} parameter {name!r} of {label(operation)} names no parameter",
+                f"The parameter name of the {location} parameter {stable_repr(name)} of {label(operation)} names no "
+                "parameter",
                 option_path="operations",
             )
             for location, name in explicit
@@ -863,9 +861,9 @@ class Planner:
     ) -> tuple[tuple[PartSpec, ...] | None, PartSpec | None]:
         """Return the member plans of a form-data response with file parts, or None when its object is read whole.
 
-        A part holding no file is read by the type use of its schema, or of its items' schema when its member repeats.
-        Any other part is read by the type of the other properties' values, as a request writes it, and a part of an
-        untyped extra keeps its bytes, as a file part does.
+        A part holding no file is read by the type the response gives its member's values, or their items when it
+        repeats. Any other part is read by the type of the other properties' values, as a request writes it, and a part
+        of an untyped extra keeps its bytes, as a file part does.
         """
         parts = _parts(use)
         declared = dict(parts.members)
@@ -880,19 +878,24 @@ class Planner:
         if declared_extra == "closed":
             additional = None
         elif extras is not None and not (isinstance(declared_extra, PartSchema) and declared_extra.file):
+            leaf = (
+                self.wire.kinds.member(declared_extra.value)[1]
+                if isinstance(declared_extra, PartSchema) and declared_extra.value is not None
+                else extras.leaf
+            )
             additional = PartSpec(
                 plan=PartPlan("", extras.kind or "json", repeated=extras.repeated),
-                use=_part_use(use, extras.source, None, TypeUseBinding(use.id, "bound", extras.leaf, None)),
+                use=_part_use(use, extras.source, None, TypeUseBinding(use.id, "bound", leaf, None)),
             )
         elif isinstance(declared_extra, PartSchema):
-            additional = self._read(use, "", _site(declared_extra, site).location, declared_extra, None, required=False)
+            additional = self._read(use, "", site, declared_extra, None, required=False)
         return tuple(
             self._read(
                 use,
                 name,
                 member,
                 declared[name],
-                facts.type,
+                declared[name].value,
                 required=facts.required,
                 excluded=_rw_variant_flag("response", facts.read_only, facts.write_only),
             )
@@ -910,7 +913,7 @@ class Planner:
         required: bool,
         excluded: bool = False,
     ) -> PartSpec:
-        """Return how a member's parts are read: a file's as bytes, any other in its kind by its or its items' use.
+        """Return how a member's parts are read: a file's as bytes, any other in its kind by its or its items' type.
 
         A member the response leaves out (``excluded``) is not required.
         """
@@ -920,12 +923,13 @@ class Planner:
                 plan=PartPlan(name, repeated=part.repeated), file=True, required=required, excluded=excluded
             )
         plan = self._part_plan(name, value, part)
-        read = _site(part, location, items=plan.repeated)
-        bound = schema_use(self._schemas, read.location, body.id.direction, read.target) or TypeUseBinding(
-            body.id, "not_generated", None, None
+        bound = (
+            TypeUseBinding(body.id, "not_generated", None, None)
+            if value is None
+            else TypeUseBinding(body.id, "bound", self.wire.kinds.member(value)[1], None)
         )
         return PartSpec(
-            plan=plan, use=_part_use(body, read.location, name or None, bound), required=required, excluded=excluded
+            plan=plan, use=_part_use(body, location, name or None, bound), required=required, excluded=excluded
         )
 
     def _part_plans(self, use: TypeUseBinding | None) -> tuple[tuple[PartPlan, ...], PartPlan | None]:
@@ -968,7 +972,10 @@ class Planner:
         if setting is not None and setting.request_media_type is not None:
             default = normalize_media_type(setting.request_media_type)
             if default not in declared or media_range(default):
-                message = f"The request media type {default!r} of {label(operation)} is not a declared concrete type"
+                message = (
+                    f"The request media type {stable_repr(default)} of {label(operation)} is not a declared concrete "
+                    "type"
+                )
                 self.problems.append(_problem("E_CONFIG_VALUE", message, operation.id.use_site, "operations"))
         return BodySpec(required=is_required(declaration), media=media, default=default)
 
@@ -980,7 +987,7 @@ class Planner:
         self.problems.extend(
             _problem(
                 "E_NAME_COLLISION",
-                f"Several media types of {label(operation)} normalize to {media_type!r}",
+                f"Several media types of {label(operation)} normalize to {stable_repr(media_type)}",
                 declaration.use_site,
             )
             for media_type, count in Counter(item.media_type for item in media).items()
@@ -992,25 +999,24 @@ class Planner:
         self, operation: OperationContract, declaration: WireDeclaration, success_statuses: tuple[int, ...]
     ) -> ResponseSpec:
         """Plan one declared response and classify it as a possible success or error."""
-        status = (declaration.name or "default").upper() if declaration.name != "default" else "default"
+        status = declaration.name or ""
         headers = self._headers(declaration)
         self.problems.extend(
             _problem(
                 "E_NAME_COLLISION",
-                f"Several headers of the {status} response of {label(operation)} are named {name!r}",
+                f"Several headers of the {status} response of {label(operation)} are named {stable_repr(name)}",
                 declaration.use_site,
             )
             for name, count in Counter(header.name.lower() for header in headers).items()
             if count > 1
         )
-        exact = exact_status(status)
         return ResponseSpec(
             status=status,
             media=self.media_list(operation, declaration, request=False),
             headers=headers,
             success=_success(status, success_statuses),
             error=_error(status),
-            bodyless=response_bodyless(CLIENT, operation, exact),
+            bodyless=response_bodyless(operation, status),
         )
 
     def check_statuses(
@@ -1040,21 +1046,25 @@ class Planner:
             return None
         media_type = normalize_media_type(setting.response_media_type)
         if media_type not in success_media(responses):
-            message = f"The response media type {media_type!r} of {label(operation)} is not a declared success media"
+            message = (
+                f"The response media type {stable_repr(media_type)} of {label(operation)} is not a declared success "
+                "media"
+            )
             self.problems.append(_problem("E_CONFIG_VALUE", message, operation.id.use_site, "operations"))
         return media_type
 
     def servers(self, operation: OperationContract) -> tuple[ServerSpec, ...]:
-        """Resolve the operation's effective servers to absolute URL templates."""
+        """Resolve the operation's effective servers to absolute URL templates.
+
+        An operation without servers has the default base URL, or else `/`, as its one server without variables.
+        """
         entries = _servers(operation_literal(operation, "servers"))
         if entries is None:
             message = f"The servers of {label(operation)} are not server objects"
             self.problems.append(_problem("E_BASE_URL", message, operation.id.use_site))
             return ()
         if not entries:
-            if (default := self.config.default_base_url) is not None:
-                return (ServerSpec(url=default),)
-            entries = (("/", ()),)
+            entries = ((self.config.default_base_url or "/", ()),)
         document = (
             operation.declaration.location.document
             if operation.servers_declared
@@ -1090,13 +1100,11 @@ class Planner:
                 children[namespace.rpartition(".")[0]].append(namespace)
         folded: dict[str, list[str]] = {}
         for namespace in members:
-            folded.setdefault(
-                fold_key(namespace, self.names.python_version, rule="legacy-fold-without-nfc"), []
-            ).append(namespace)
+            folded.setdefault(fold_key(namespace, self.names.python_version), []).append(namespace)
         self.problems.extend(
             _problem(
                 "E_NAME_COLLISION",
-                f"The resource namespaces {', '.join(map(repr, spellings))} differ only by case, which their "
+                f"The resource namespaces {', '.join(map(stable_repr, spellings))} differ only by case, which their "
                 "directories cannot; name them explicitly",
             )
             for spellings in folded.values()
@@ -1227,12 +1235,6 @@ def schema_use(
         or (None if referenced is None else schemas.get((referenced.document, referenced.pointer, direction)))
         or schemas.get((*key, "neutral"))
     )
-
-
-def _site(part: PartSchema, location: SourceLocation, *, items: bool = False) -> SchemaSite:
-    """Return where a part's values are read: its schema's site, or its items' when it repeats, as recorded."""
-    found = part.items if items else part.own
-    return SchemaSite(location, location) if found is None else found
 
 
 def _part_use(

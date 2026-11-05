@@ -6,6 +6,9 @@ import json
 import re
 
 from river_client.renderers.base import (
+    append_visible_text,
+    parsed_text_content,
+    rejected_call_text,
     ContentPart,
     Message,
     ParsedResponse,
@@ -21,11 +24,28 @@ from river_client.renderers.base import (
     TrainOnWhat,
     UnparsedToolCall,
 )
+from river_client.renderers.tool_arguments import (
+    ToolArguments,
+    protect_value_ends,
+    warn_untyped_without_tools,
+)
 
 # ─── Constants ───────────────────────────────────────────────────────────
 
 _IM_START = "<|im_start|>"
 _IM_END = "<|im_end|>"
+_THINK_OPEN = "<think>"
+_THINK_CLOSE = "</think>"
+_TOOL_CALL_OPEN = "<tool_call>"
+_TOOL_CALL_CLOSE = "</tool_call>"
+# The tags that end a qwen3_coder argument value or the call around it.
+QWEN_VALUE_ENDS = (
+    _TOOL_CALL_OPEN,
+    _TOOL_CALL_CLOSE,
+    "</function>",
+    "<parameter=",
+    "</parameter>",
+)
 
 # ── qwen3_coder tool-call grammar ────────────────────────────────────────
 # Qwen3.5/3.6 emit tool calls in the qwen3_coder XML dialect (this is also
@@ -89,33 +109,14 @@ def _strip_edge_newlines(value: str) -> str:
     return value
 
 
-def _reject_json_constant(_token: str):
-    raise ValueError(f"non-standard JSON constant: {_token}")
-
-
-def _coerce_param_value(raw: str):
-    """Best-effort typing of a parameter value without a tool schema.
-
-    ``parse_response`` has no access to the tool definitions, so we can't
-    type by declared schema the way the server-side detector does. We
-    attempt a JSON decode (covering ints, floats, booleans, null, arrays
-    and objects) and fall back to the raw string — matching the detector's
-    "unknown type degenerates to string" behavior.
-
-    ``parse_constant`` rejects the non-standard ``NaN``/``Infinity`` tokens
-    that ``json.loads`` otherwise accepts, so they stay strings rather than
-    round-tripping into a value that strict JSON consumers would choke on.
-    """
-    try:
-        return json.loads(raw, parse_constant=_reject_json_constant)
-    except (json.JSONDecodeError, ValueError):
-        return raw
-
-
 def _parse_qwen_tool_call_block(
-    tool_call_body: str, raw_text: str
+    tool_call_body: str, raw_text: str, tools: list[ToolSpec] | None
 ) -> ToolCall | UnparsedToolCall:
-    """Parse the inside of a qwen3_coder ``<tool_call>`` block."""
+    """Parse the inside of a qwen3_coder ``<tool_call>`` block.
+
+    The template writes strings verbatim and other values as JSON, so each
+    value is decoded by its tool's schema (``docs/tool-call-parsing.md``).
+    """
     func_match = _FUNCTION_RE.search(tool_call_body)
     if not func_match:
         return UnparsedToolCall(
@@ -130,14 +131,23 @@ def _parse_qwen_tool_call_block(
         return UnparsedToolCall(raw_text=raw_text, error="Missing function name")
 
     params_str = func_body[name_end + 1 :]
-    arguments: dict = {}
+    raw_arguments: dict[str, str] = {}
     for p_match in _PARAMETER_RE.findall(params_str):
         if ">" not in p_match:
-            continue
+            return UnparsedToolCall(
+                raw_text=raw_text, error="Malformed <parameter=...> tag"
+            )
         p_idx = p_match.index(">")
         p_name = p_match[:p_idx].strip()
-        p_val = _strip_edge_newlines(p_match[p_idx + 1 :])
-        arguments[p_name] = _coerce_param_value(p_val)
+        if not p_name:
+            return UnparsedToolCall(raw_text=raw_text, error="Missing parameter name")
+        if p_name in raw_arguments:
+            return UnparsedToolCall(
+                raw_text=raw_text, error=f"Duplicate Qwen parameter: {p_name}"
+            )
+        raw_arguments[p_name] = _strip_edge_newlines(p_match[p_idx + 1 :])
+    decoder = ToolArguments(tools, func_name)
+    arguments = {key: decoder.decode(key, raw) for key, raw in raw_arguments.items()}
 
     return ToolCall(
         type="function",
@@ -151,13 +161,18 @@ def _parse_qwen_tool_call_block(
 
 def parse_qwen_content_blocks(
     content: str,
+    *,
+    tools: list[ToolSpec] | None = None,
 ) -> tuple[list[ContentPart], list[ToolCall | UnparsedToolCall]] | None:
     """Parse Qwen3 <think> and <tool_call> response blocks.
 
     Qwen3 thinking/tool tags are model-family syntax, not renderer-generic
-    syntax. Closed blocks are parsed wherever they appear. A trailing unclosed
-    <think> block is treated as thinking because long generations can truncate
-    before emitting </think>.
+    syntax. Blocks are parsed wherever they appear. A closed <think> block is
+    reasoning whatever it holds, so a call written inside it never runs. An
+    unclosed block ends where the next tool call opens, so it can never
+    swallow a call after it: an unclosed <think> is thinking up to there (long
+    generations truncate before </think>), and an unclosed <tool_call> is a
+    rejected block. Text the blocks separated stays separated.
     """
     if "<think>" not in content and "<tool_call>" not in content:
         return None
@@ -165,41 +180,53 @@ def parse_qwen_content_blocks(
     parts: list[ContentPart] = []
     tool_calls: list[ToolCall | UnparsedToolCall] = []
     pos = 0
-
-    pattern = re.compile(
-        r"<think>(.*?)</think>|<tool_call>(.*?)</tool_call>", re.DOTALL
-    )
-
-    for match in pattern.finditer(content):
-        text_before = content[pos : match.start()]
-        if text_before:
-            parts.append(TextPart(type="text", text=text_before))
-
-        if match.group(1) is not None:
-            thinking = match.group(1)
+    while True:
+        think_at = content.find(_THINK_OPEN, pos)
+        call_at = content.find(_TOOL_CALL_OPEN, pos)
+        if think_at < 0 and call_at < 0:
+            break
+        if call_at < 0 or 0 <= think_at < call_at:
+            append_visible_text(parts, content[pos:think_at])
+            body = think_at + len(_THINK_OPEN)
+            close = content.find(_THINK_CLOSE, body)
+            if close >= 0:
+                # A closed block is reasoning whatever it holds: a call the
+                # model only wrote out while thinking must never run.
+                thinking, pos = content[body:close], close + len(_THINK_CLOSE)
+            else:
+                # Truncated mid-thought: the reasoning ends where the next
+                # tool call opens, so it cannot swallow that call.
+                next_call = content.find(_TOOL_CALL_OPEN, body)
+                end = len(content) if next_call < 0 else next_call
+                thinking, pos = content[body:end], end
             if thinking:
                 parts.append(ThinkingPart(type="thinking", thinking=thinking))
-        else:
-            tool_call_body = match.group(2)
-            raw_text = match.group(0)
-            tool_calls.append(_parse_qwen_tool_call_block(tool_call_body, raw_text))
+            continue
+        append_visible_text(parts, content[pos:call_at])
+        body = call_at + len(_TOOL_CALL_OPEN)
+        close = content.find(_TOOL_CALL_CLOSE, body)
+        next_call = content.find(_TOOL_CALL_OPEN, body)
+        if close < 0 or 0 <= next_call < close:
+            # A call the output ended inside is still a call, not text.
+            end = len(content) if next_call < 0 else next_call
+            tool_calls.append(
+                UnparsedToolCall(
+                    raw_text=content[call_at:end], error="Unclosed Qwen tool call"
+                )
+            )
+            pos = end
+            continue
+        end = close + len(_TOOL_CALL_CLOSE)
+        tool_calls.append(
+            _parse_qwen_tool_call_block(
+                content[body:close], content[call_at:end], tools
+            )
+        )
+        pos = end
+    append_visible_text(parts, content[pos:])
 
-        pos = match.end()
-
-    remaining = content[pos:]
-    if remaining:
-        think_start = remaining.find("<think>")
-        tool_start = remaining.find("<tool_call>")
-        if think_start >= 0 and (tool_start < 0 or think_start < tool_start):
-            text_before = remaining[:think_start]
-            if text_before:
-                parts.append(TextPart(type="text", text=text_before))
-            thinking = remaining[think_start + len("<think>") :]
-            if thinking:
-                parts.append(ThinkingPart(type="thinking", thinking=thinking))
-        else:
-            parts.append(TextPart(type="text", text=remaining))
-
+    if tools is None and tool_calls:
+        warn_untyped_without_tools("Qwen")
     return parts, tool_calls
 
 
@@ -399,9 +426,9 @@ class Qwen35Renderer(Renderer):
         if self.thinking and "<think>" not in text:
             text = "<think>\n" + text
 
-        message: Message = {"role": "assistant", "content": text}
+        message: Message = {"role": "assistant", "content": parsed_text_content(text)}
 
-        result = parse_qwen_content_blocks(text)
+        result = parse_qwen_content_blocks(text, tools=tools)
         if result is not None:
             parts, tool_results = result
             message["content"] = _normalize_thinking_whitespace(parts)
@@ -606,6 +633,7 @@ class Qwen35Renderer(Renderer):
             return header, f"<tool_response>\n{text}\n</tool_response>{_IM_END}"
 
         reasoning, text = self._split_reasoning(message)
+        text += rejected_call_text(message)
         emit_think = message["role"] == "assistant" and (
             is_reasoning_turn or not self.strip_thinking_from_history
         )
@@ -708,6 +736,7 @@ class Qwen35Renderer(Renderer):
 
             param_lines: list[str] = []
             for key, value in args.items():
+                value = protect_value_ends(value, QWEN_VALUE_ENDS)
                 if isinstance(value, str):
                     val_str = value
                 else:

@@ -12,29 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <gtest/gtest.h>
+
 #include <cstdint>
-#include <cstring>
 #include <fstream>
 #include <ios>
 #include <string>
-#include <vector>
-#include <memory>
 
-#include "testharness.h"
-#include "third_party/absl/base/internal/endian.h"
-#include "third_party/absl/status/status.h"
-#include "third_party/absl/strings/string_view.h"
-#include "third_party/darts_clone/darts.h"
+#include "absl/base/internal/endian.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
+#include "builder.h"
+#include "filesystem.h"
+#include "model_interface.h"
 #include "sentencepiece_model.pb.h"
 #include "sentencepiece_processor.h"
-#include "util.h"
-#include "unigram_model.h"
 
 namespace sentencepiece {
 namespace {
 
+constexpr absl::string_view kNullPiece("\0", 1);
+
 std::string GetTestDataPath(absl::string_view filename) {
-  return util::JoinPath(::testing::SrcDir(), filename);
+  return filesystem::JoinPath(::testing::SrcDir(), filename);
 }
 
 absl::Status LoadModelWithModifiedCharsmap(const ModelProto& base_model,
@@ -49,7 +49,7 @@ absl::Status LoadModelWithModifiedCharsmap(const ModelProto& base_model,
 // Test for GitHub issue #1269 (Out-of-bounds read in Darts trie validation)
 TEST(SentencePieceProcessorTest, RejectCorruptedModel1269) {
   // 1. Read base model
-  std::string model_path = GetTestDataPath("test_oss_model.model");
+  std::string model_path = GetTestDataPath("botchan_en_unigram_1000.model");
   std::ifstream ifs(model_path, std::ios::binary);
   ModelProto model_proto;
   ASSERT_TRUE(model_proto.ParseFromIstream(&ifs));
@@ -114,7 +114,7 @@ TEST(SentencePieceProcessorTest, ReproduceIssue1263) {
 
 TEST(SentencePieceProcessorTest, CharsmapValidationTests) {
   // Read base model once
-  std::string model_path = GetTestDataPath("test_oss_model.model");
+  std::string model_path = GetTestDataPath("botchan_en_unigram_1000.model");
   std::ifstream ifs(model_path, std::ios::binary);
   ModelProto base_model;
   ASSERT_TRUE(base_model.ParseFromIstream(&ifs));
@@ -178,7 +178,7 @@ TEST(SentencePieceProcessorTest, CharsmapValidationTests) {
 }
 
 TEST(SentencePieceProcessorTest, RejectModelWithOOBCharsmapValue) {
-  std::string model_path = GetTestDataPath("test_oss_model.model");
+  std::string model_path = GetTestDataPath("botchan_en_unigram_1000.model");
   std::ifstream ifs(model_path, std::ios::binary);
   ModelProto model_proto;
   ASSERT_TRUE(model_proto.ParseFromIstream(&ifs));
@@ -210,9 +210,118 @@ TEST(SentencePieceProcessorTest, RejectModelWithOOBCharsmapValue) {
   EXPECT_FALSE(status.ok());
   EXPECT_EQ(status.code(), absl::StatusCode::kInternal);
   EXPECT_EQ(status.message(), "precompiled_charsmap is invalid.");
+
+  normalizer::Builder::CharsMap chars_map;
+  absl::Status builder_status =
+      normalizer::Builder::DecompileCharsMap(charsmap, &chars_map);
+  EXPECT_FALSE(builder_status.ok());
+  EXPECT_EQ(builder_status.code(), absl::StatusCode::kInternal);
+  EXPECT_EQ(builder_status.message(),
+            "Trie data contains out-of-bounds node references.");
 }
 
+// Test for GitHub issue #1308 (Allow single null-byte piece as UNUSED only when
+// byte_fallback is enabled)
+TEST(SentencePieceProcessorTest, SanitizeNullBytePiece1308) {
+  std::string model_path = GetTestDataPath("botchan_en_unigram_1000.model");
+  std::ifstream ifs(model_path, std::ios::binary);
+  ModelProto base_proto;
+  ASSERT_TRUE(base_proto.ParseFromIstream(&ifs));
 
+  // 1. When byte_fallback is false, piece == "\0" must be rejected.
+  {
+    ModelProto model_proto = base_proto;
+    model_proto.mutable_trainer_spec()->set_byte_fallback(false);
+    auto* null_piece = model_proto.add_pieces();
+    null_piece->set_piece(std::string(kNullPiece));
+    null_piece->set_score(-5.0);
+    null_piece->set_type(ModelProto::SentencePiece::NORMAL);
+
+    SentencePieceProcessor sp;
+    EXPECT_FALSE(sp.Load(model_proto).ok());
+  }
+
+  // Prepare a model with byte_fallback = true and all 256 byte pieces.
+  ModelProto bf_proto = base_proto;
+  bf_proto.mutable_trainer_spec()->set_byte_fallback(true);
+  for (int c = 0; c < 256; ++c) {
+    auto* bp = bf_proto.add_pieces();
+    bp->set_piece(ByteToPiece(c));
+    bp->set_score(0.0);
+    bp->set_type(ModelProto::SentencePiece::BYTE);
+  }
+
+  // 2. Even with byte_fallback = true, a piece with embedded null ("foo\0bar")
+  // must be rejected.
+  {
+    ModelProto model_proto = bf_proto;
+    auto* bad_piece = model_proto.add_pieces();
+    bad_piece->set_piece(std::string("foo\0bar", 7));
+    bad_piece->set_score(-5.0);
+    bad_piece->set_type(ModelProto::SentencePiece::NORMAL);
+
+    SentencePieceProcessor sp;
+    EXPECT_FALSE(sp.Load(model_proto).ok());
+  }
+
+  // 3. When byte_fallback is true, a single null byte piece (piece == "\0")
+  // is allowed and treated as UNUSED.
+  {
+    ModelProto model_proto = bf_proto;
+    const int null_id = model_proto.pieces_size();
+    auto* null_piece = model_proto.add_pieces();
+    null_piece->set_piece(std::string(kNullPiece));
+    null_piece->set_score(-5.0);
+    null_piece->set_type(ModelProto::SentencePiece::NORMAL);
+
+    SentencePieceProcessor sp;
+    ASSERT_TRUE(sp.Load(model_proto).ok());
+    EXPECT_EQ(null_id + 1, sp.GetPieceSize());
+    EXPECT_TRUE(sp.IsUnused(null_id));
+
+    // Normal encoding and decoding must work without trie corruption or crash.
+    std::vector<int> ids;
+    ASSERT_TRUE(sp.Encode("This is a test sentence.", &ids).ok());
+    EXPECT_FALSE(ids.empty());
+    for (int id : ids) {
+      EXPECT_NE(null_id, id);
+    }
+    std::string decoded;
+    ASSERT_TRUE(sp.Decode(ids, &decoded).ok());
+    EXPECT_EQ("This is a test sentence.", decoded);
+  }
+}
+
+TEST(SentencePieceProcessorTest, OutOfBoundsPieceAccess) {
+  std::string model_path = GetTestDataPath("botchan_en_unigram_1000.model");
+  SentencePieceProcessor sp;
+  ASSERT_TRUE(sp.Load(model_path).ok());
+
+  const int piece_size = sp.GetPieceSize();
+  ASSERT_GT(piece_size, 0);
+
+  for (int bad_id : {-1, -100, piece_size, piece_size + 100}) {
+    EXPECT_EQ("", sp.IdToPiece(bad_id));
+    std::string piece;
+    EXPECT_FALSE(sp.SafeIdToPiece(bad_id, &piece));
+    EXPECT_EQ(0.0f, sp.GetScore(bad_id));
+    EXPECT_FALSE(sp.IsUnknown(bad_id));
+    EXPECT_FALSE(sp.IsControl(bad_id));
+    EXPECT_FALSE(sp.IsUnused(bad_id));
+    EXPECT_FALSE(sp.IsByte(bad_id));
+  }
+}
+
+TEST(SentencePieceProcessorTest, RejectCorruptedDenormalizer) {
+  std::string model_path = GetTestDataPath("botchan_en_unigram_1000.model");
+  std::ifstream ifs(model_path, std::ios::binary);
+  ModelProto model_proto;
+  ASSERT_TRUE(model_proto.ParseFromIstream(&ifs));
+
+  model_proto.mutable_denormalizer_spec()->set_precompiled_charsmap("abc");
+  SentencePieceProcessor sp;
+  EXPECT_FALSE(sp.Load(model_proto).ok());
+}
 
 }  // namespace
 }  // namespace sentencepiece

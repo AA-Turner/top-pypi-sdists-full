@@ -303,7 +303,7 @@ impl DatabaseDriverV1 {
                     file_manager::StageTransport {
                         tls_config: conn.tls_config(),
                         proxy_config: conn.proxy_config(),
-                        crl_manager: self.crl_manager.clone(),
+                        crl_manager: conn.connection_crl_or(&self.crl_manager),
                         root_store_provider: self.root_store_provider.clone(),
                     },
                 )
@@ -400,7 +400,7 @@ impl DatabaseDriverV1 {
                     file_manager::StageTransport {
                         tls_config: conn.tls_config(),
                         proxy_config: conn.proxy_config(),
-                        crl_manager: self.crl_manager.clone(),
+                        crl_manager: conn.connection_crl_or(&self.crl_manager),
                         root_store_provider: self.root_store_provider.clone(),
                     },
                 )
@@ -730,9 +730,13 @@ fn is_put_sql(sql: &str) -> bool {
 }
 
 /// Builds the full stage path for GET: `<stage_name>/<source_filename>`,
-/// avoiding a double slash if `stage_name` already ends with `/`.
+/// avoiding a double slash if `stage_name` already ends with `/`. An outer
+/// single-quote or dollar-quote wrapper on `stage_name` is removed first, and
+/// doubled single quotes inside a single-quoted wrapper become one quote, so
+/// the filename is appended inside the reference.
 fn build_stage_path(stage_name: &str, source_filename: &str) -> String {
-    let stage = stage_name.trim_end_matches('/');
+    let unwrapped = unwrap_outer_stage_quotes(stage_name);
+    let stage = unwrapped.trim_end_matches('/');
     format!("{stage}/{source_filename}")
 }
 
@@ -745,15 +749,70 @@ fn build_stage_path(stage_name: &str, source_filename: &str) -> String {
 /// `unexpected '~'`, and spaces. This matches the legacy Python connector and
 /// the GET docs, which require quoting local paths with special characters and
 /// forward slashes on Windows. Backslashes are normalized to `/` and any
-/// embedded single quote is escaped as `\'`. `stage_path` is left unquoted,
-/// matching the existing file-path GET convention.
+/// embedded single quote is escaped as `\'`. `stage_path` is wrapped in single
+/// quotes when any character falls outside ASCII alphanumerics and
+/// `_$./@~%"-:`. Embedded single quotes in that reference are doubled. A
+/// reference already wrapped in single quotes or dollar quotes is left
+/// unchanged.
 fn build_get_sql(stage_path: &str, local_dir: &std::path::Path) -> String {
     let local_path = local_dir
         .to_str()
         .unwrap_or("/tmp")
         .replace('\\', "/")
         .replace('\'', "\\'");
-    format!("GET {stage_path} 'file://{local_path}'")
+    let stage_ref = quote_stage_ref_if_needed(stage_path);
+    format!("GET {stage_ref} 'file://{local_path}'")
+}
+
+const UNQUOTED_STAGE_REF_CHARS: &str = "_$./@~%\"-:";
+
+fn quote_stage_ref_if_needed(stage_ref: &str) -> String {
+    if !needs_stage_quoting(stage_ref) {
+        return stage_ref.to_string();
+    }
+    format!("'{}'", stage_ref.replace('\'', "''"))
+}
+
+fn needs_stage_quoting(stage_ref: &str) -> bool {
+    if is_dollar_quoted_stage_ref(stage_ref) || is_single_quoted_stage_ref(stage_ref) {
+        return false;
+    }
+    stage_ref.chars().any(|c| !is_unquoted_stage_ref_char(c))
+}
+
+fn is_unquoted_stage_ref_char(c: char) -> bool {
+    c.is_ascii_alphanumeric() || UNQUOTED_STAGE_REF_CHARS.contains(c)
+}
+
+fn unwrap_outer_stage_quotes(stage_ref: &str) -> String {
+    if is_dollar_quoted_stage_ref(stage_ref) {
+        return stage_ref[2..stage_ref.len() - 2].to_string();
+    }
+    if is_single_quoted_stage_ref(stage_ref) {
+        return stage_ref[1..stage_ref.len() - 1].replace("''", "'");
+    }
+    stage_ref.to_string()
+}
+
+fn is_dollar_quoted_stage_ref(stage_ref: &str) -> bool {
+    stage_ref.len() >= 4 && stage_ref.starts_with("$$") && stage_ref.ends_with("$$")
+}
+
+fn is_single_quoted_stage_ref(stage_ref: &str) -> bool {
+    if stage_ref.len() < 2 || !stage_ref.starts_with('\'') || !stage_ref.ends_with('\'') {
+        return false;
+    }
+    !contains_unescaped_single_quote(&stage_ref[1..stage_ref.len() - 1])
+}
+
+fn contains_unescaped_single_quote(content: &str) -> bool {
+    let mut chars = content.chars();
+    while let Some(c) = chars.next() {
+        if c == '\'' && chars.next() != Some('\'') {
+            return true;
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -777,6 +836,50 @@ mod tests {
     }
 
     #[test]
+    fn build_stage_path_strips_single_quotes_before_joining() {
+        assert_eq!(
+            build_stage_path("'@\"DB\".\"日本語\".STAGE'", "f.csv"),
+            "@\"DB\".\"日本語\".STAGE/f.csv"
+        );
+        assert_eq!(
+            build_stage_path("'@stage_O''Brien'", "f.csv"),
+            "@stage_O'Brien/f.csv"
+        );
+        assert_eq!(
+            build_stage_path("'@my_stage/'", "data.csv"),
+            "@my_stage/data.csv"
+        );
+    }
+
+    #[test]
+    fn build_stage_path_strips_dollar_quotes_before_joining() {
+        assert_eq!(
+            build_stage_path("$$@\"DB\".\"日本語\".STAGE$$", "f.csv"),
+            "@\"DB\".\"日本語\".STAGE/f.csv"
+        );
+    }
+
+    #[test]
+    fn build_stage_path_leaves_malformed_quotes_in_place() {
+        assert_eq!(build_stage_path("'a'b'c'", "f.csv"), "'a'b'c'/f.csv");
+    }
+
+    #[test]
+    fn build_get_sql_quotes_stage_joined_after_unwrapping_quotes() {
+        let stage_path = build_stage_path("'@\"DB\".\"日本語\".STAGE'", "f.csv");
+        let sql = build_get_sql(&stage_path, std::path::Path::new("/tmp"));
+        assert_eq!(sql, "GET '@\"DB\".\"日本語\".STAGE/f.csv' 'file:///tmp'");
+
+        let stage_path = build_stage_path("$$@\"DB\".\"日本語\".STAGE$$", "f.csv");
+        let sql = build_get_sql(&stage_path, std::path::Path::new("/tmp"));
+        assert_eq!(sql, "GET '@\"DB\".\"日本語\".STAGE/f.csv' 'file:///tmp'");
+
+        let stage_path = build_stage_path("'@my_stage'", "f.csv");
+        let sql = build_get_sql(&stage_path, std::path::Path::new("/tmp"));
+        assert_eq!(sql, "GET @my_stage/f.csv 'file:///tmp'");
+    }
+
+    #[test]
     fn build_get_sql_quotes_local_path() {
         // A Windows 8.3 short path embeds a `~`; the space is another special
         // char. Both must sit inside single quotes so GET doesn't choke on
@@ -797,6 +900,43 @@ mod tests {
         // quoted literal early; it must be escaped as \'.
         let sql = build_get_sql("@my_stage/f.csv", std::path::Path::new("/tmp/o'brien"));
         assert_eq!(sql, "GET @my_stage/f.csv 'file:///tmp/o\\'brien'");
+    }
+
+    #[test]
+    fn build_get_sql_leaves_ascii_stage_ref_unquoted() {
+        let sql = build_get_sql("@my_stage/data.csv", std::path::Path::new("/tmp"));
+        assert_eq!(sql, "GET @my_stage/data.csv 'file:///tmp'");
+        let sql = build_get_sql("@\"DB\".\"SCHEMA\".STAGE", std::path::Path::new("/tmp"));
+        assert_eq!(sql, "GET @\"DB\".\"SCHEMA\".STAGE 'file:///tmp'");
+    }
+
+    #[test]
+    fn build_get_sql_quotes_non_ascii_stage_ref() {
+        let sql = build_get_sql(
+            "@\"DB\".\"日本語\".STAGE/file.csv",
+            std::path::Path::new("/tmp"),
+        );
+        assert_eq!(sql, "GET '@\"DB\".\"日本語\".STAGE/file.csv' 'file:///tmp'");
+    }
+
+    #[test]
+    fn build_get_sql_quotes_stage_ref_with_space() {
+        let sql = build_get_sql("@\"my stage\"/path/file.csv", std::path::Path::new("/tmp"));
+        assert_eq!(sql, "GET '@\"my stage\"/path/file.csv' 'file:///tmp'");
+    }
+
+    #[test]
+    fn build_get_sql_doubles_embedded_single_quote_in_stage_ref() {
+        let sql = build_get_sql("@stage_O'Brien/f.csv", std::path::Path::new("/tmp"));
+        assert_eq!(sql, "GET '@stage_O''Brien/f.csv' 'file:///tmp'");
+    }
+
+    #[test]
+    fn build_get_sql_leaves_already_quoted_stage_ref_unchanged() {
+        let sql = build_get_sql("'@\"DB\".\"日本語\".STAGE'", std::path::Path::new("/tmp"));
+        assert_eq!(sql, "GET '@\"DB\".\"日本語\".STAGE' 'file:///tmp'");
+        let sql = build_get_sql("$$@\"DB\".\"日本語\".STAGE$$", std::path::Path::new("/tmp"));
+        assert_eq!(sql, "GET $$@\"DB\".\"日本語\".STAGE$$ 'file:///tmp'");
     }
 
     #[test]

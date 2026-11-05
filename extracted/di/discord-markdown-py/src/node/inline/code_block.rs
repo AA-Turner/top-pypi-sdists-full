@@ -2,19 +2,11 @@
 
 use std::borrow::Cow;
 
-use nom::{
-	Parser,
-	bytes::complete::{escaped_transform, tag, take_until1, take_while1},
-	character::char,
-	combinator::{map, opt},
-	error::ParseError,
-};
-
 use crate::{
 	Input,
+	error::PResult,
 	lossless::TokenKind,
-	span::{Span, Syntax, WithToken},
-	unparse::Unparse,
+	span::{Span, Syntax},
 };
 
 pub const DELIMITER: &str = "```";
@@ -26,19 +18,8 @@ pub struct CodeBlock<'data> {
 	pub content: String,
 }
 
-impl Unparse for CodeBlock<'_> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		f.write_str(DELIMITER)?;
-		if let Some(ref language) = self.language {
-			f.write_str(language)?;
-		}
-		f.write_str("\n")?;
-		// The content includes its own trailing newline, so writing one here grew the block by a
-		// blank line on every round trip.
-		f.write_str(&self.content)?;
-
-		f.write_str(DELIMITER)
-	}
+fn is_language_char(ch: char) -> bool {
+	matches!(ch, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '+' | '-' | '.' | '#')
 }
 
 /// Parse a codeblock.
@@ -49,68 +30,48 @@ impl Unparse for CodeBlock<'_> {
 ///
 /// # Errors
 /// If the content does not begin with a codeblock.
-#[must_use]
-pub fn code_block<'data, S, E>()
--> impl Parser<Input<'data>, Output = (CodeBlock<'data>, S::Syntax), Error = E>
-where
-	S: Span,
-	E: ParseError<Input<'data>>,
-{
-	fn is_language_char(ch: char) -> bool {
-		matches!(ch, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '+' | '-' | '.' | '#')
-	}
+pub fn code_block<'data, S: Span>(
+	input: &mut Input<'data>,
+) -> PResult<(CodeBlock<'data>, S::Syntax)> {
+	let open = input.token::<S, _>(TokenKind::CodeFence, |input| input.tag(DELIMITER))?;
 
-	map(
-		(
-			tag(DELIMITER).token::<S>(TokenKind::CodeFence),
-			// we need 2 separate `opt`s so that we consume an empty line without making an empty language
-			opt((
-				opt(take_while1(is_language_char)).with_token::<S>(TokenKind::Language),
-				char('\n').token::<S>(TokenKind::LineEnding),
-			))
-			.map(|first_line| match first_line {
-				Some(((language, language_syntax), line_ending)) => {
-					(language, language_syntax.join(line_ending))
-				}
-				None => (None, S::Syntax::default()),
-			}),
-			// TODO: we don't really support escape sequences in codeblocks today
-			escaped_transform(take_until1(DELIMITER), '\\', tag(DELIMITER))
-				.with_token::<S>(TokenKind::CodeContent),
-			tag(DELIMITER).token::<S>(TokenKind::CodeFence),
-		),
-		|(open, (language, first_line), (content, content_syntax), close): (
-			_,
-			(Option<Input<'data>>, _),
-			(String, _),
-			_,
-		)| {
-			let code_block = CodeBlock {
-				language: language.map(|l| Cow::Borrowed(l.content)),
-				content,
-			};
-			let syntax = open.join(first_line).join(content_syntax).join(close);
-			(code_block, syntax)
-		},
-	)
+	// A language is only a language if a line ending follows it; otherwise it is content. A bare
+	// line ending is consumed without making an empty language.
+	let first_line = input.attempt(|input| {
+		let (language, language_syntax) = input
+			.with_token::<S, _>(TokenKind::Language, |input| {
+				Ok(input.take_while1(is_language_char).ok())
+			})?;
+		let line_ending = input.token::<S, _>(TokenKind::LineEnding, |input| input.char('\n'))?;
+		Ok((language, language_syntax.join(line_ending)))
+	})?;
+	let (language, first_line) = first_line.unwrap_or_default();
+
+	// TODO: we don't really support escape sequences in codeblocks today
+	let (content, content_syntax) =
+		input.with_token::<S, _>(TokenKind::CodeContent, |input| input.take_until1(DELIMITER))?;
+	let close = input.token::<S, _>(TokenKind::CodeFence, |input| input.tag(DELIMITER))?;
+
+	let code_block = CodeBlock {
+		language: language.map(Cow::Borrowed),
+		content: content.to_owned(),
+	};
+	Ok((
+		code_block,
+		open.join(first_line).join(content_syntax).join(close),
+	))
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
-	use crate::test_utils::handle_nom_err;
+	use crate::test_utils::run;
 
 	use super::{CodeBlock, code_block};
 
 	#[test]
 	fn basic_codeblock() {
 		let s = "```foo```";
-		let (rem, (res, ())) = code_block::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code_block::<()>).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -125,11 +86,7 @@ mod test {
 	#[test]
 	fn one_line_codeblock_with_trailing_newline() {
 		let s = "```foo```\n";
-		let (rem, (res, ())) = code_block::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code_block::<()>).expect("unable to parse");
 
 		assert_eq!(rem, "\n");
 		assert_eq!(
@@ -144,11 +101,7 @@ mod test {
 	#[test]
 	fn leading_new_line() {
 		let s = "```\nfoo```";
-		let (rem, (res, ())) = code_block::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code_block::<()>).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -163,22 +116,14 @@ mod test {
 	#[test]
 	fn empty_codeblock() {
 		let s = "``````";
-		code_block::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect_err("able to parse");
+		run(s, code_block::<()>).expect_err("able to parse");
 	}
 
 	#[test]
 	#[ignore = "supported today but dubious"]
 	fn codeblock_with_new_line() {
 		let s = "```\n```";
-		let (rem, (res, ())) = code_block::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code_block::<()>).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -193,11 +138,7 @@ mod test {
 	#[test]
 	fn codeblock_with_language() {
 		let s = "```foo\nbar```";
-		let (rem, (res, ())) = code_block::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code_block::<()>).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pystac-core
-Version: 1.15.2
+Version: 1.16.0
 Summary: Core functionality for PySTAC without extensions. Most users will want to use pystac, not this package
 Project-URL: Documentation, https://pystac.readthedocs.io
 Project-URL: Repository, https://github.com/stac-utils/pystac

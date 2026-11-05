@@ -55,7 +55,7 @@ def get_docker_hub_auth_token() -> str:
     return token
 
 
-def get_docker_hub_headers() -> Dict | None:
+def get_docker_hub_headers() -> Dict[str, str]:
     if (
         "DOCKER_HUB_USERNAME" not in os.environ
         or "DOCKER_HUB_PASSWORD" not in os.environ

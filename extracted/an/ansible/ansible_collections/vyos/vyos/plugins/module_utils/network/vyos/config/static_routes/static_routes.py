@@ -13,11 +13,9 @@ created
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 from copy import deepcopy
 
-from ansible.module_utils.six import iteritems
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.cfg.base import (
     ConfigBase,
 )
@@ -182,7 +180,7 @@ class Static_routes(ConfigBase):
         """
         commands = []
         if have:
-            for key, value in iteritems(want):
+            for key, value in want.items():
                 if value:
                     if key == "next_hops":
                         commands.extend(self._update_next_hop(want, have))
@@ -257,7 +255,7 @@ class Static_routes(ConfigBase):
         """
         commands = []
         have = {}
-        for key, value in iteritems(want):
+        for key, value in want.items():
             if value:
                 if key == "dest":
                     commands.append(self._compute_command(dest=want["dest"]))
@@ -287,7 +285,7 @@ class Static_routes(ConfigBase):
 
         updates = dict_delete(want_blackhole, have_blackhole)
         if updates:
-            for attrib, value in iteritems(updates):
+            for attrib, value in updates.items():
                 if value:
                     if attrib == "distance":
                         commands.append(
@@ -394,7 +392,7 @@ class Static_routes(ConfigBase):
         have_blackhole = have_copy.get(key) or {}
         updates = dict_delete(have_blackhole, want_blackhole)
         if updates:
-            for attrib, value in iteritems(updates):
+            for attrib, value in updates.items():
                 if value:
                     if attrib == "distance":
                         commands.append(
@@ -508,7 +506,7 @@ class Static_routes(ConfigBase):
             commands.extend(self._add_next_hop(want, have, opr=opr))
 
             if opr and updates:
-                for key, value in iteritems(updates):
+                for key, value in updates.items():
                     if value:
                         if key == "blackhole_config":
                             commands.extend(self._add_blackhole(key, want, have))

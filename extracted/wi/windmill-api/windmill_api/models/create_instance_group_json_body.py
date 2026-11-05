@@ -14,15 +14,19 @@ class CreateInstanceGroupJsonBody:
     Attributes:
         name (str):
         summary (Union[Unset, str]):
+        external_id (Union[Unset, str]): IdP group the SSO groups claim links this group to: a group id or a full path
+            such as /operators/network-team. Blank or omitted leaves it unlinked.
     """
 
     name: str
     summary: Union[Unset, str] = UNSET
+    external_id: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         name = self.name
         summary = self.summary
+        external_id = self.external_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -33,6 +37,8 @@ class CreateInstanceGroupJsonBody:
         )
         if summary is not UNSET:
             field_dict["summary"] = summary
+        if external_id is not UNSET:
+            field_dict["external_id"] = external_id
 
         return field_dict
 
@@ -43,9 +49,12 @@ class CreateInstanceGroupJsonBody:
 
         summary = d.pop("summary", UNSET)
 
+        external_id = d.pop("external_id", UNSET)
+
         create_instance_group_json_body = cls(
             name=name,
             summary=summary,
+            external_id=external_id,
         )
 
         create_instance_group_json_body.additional_properties = d

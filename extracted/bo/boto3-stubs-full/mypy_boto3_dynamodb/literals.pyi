@@ -29,6 +29,10 @@ __all__ = (
     "BackupTypeType",
     "BatchStatementErrorCodeEnumType",
     "BillingModeType",
+    "BulkOperationCompletedWaiterName",
+    "BulkOperationInputFormatType",
+    "BulkOperationPerformanceTierType",
+    "BulkOperationStatusType",
     "ComparisonOperatorType",
     "ConditionalOperatorType",
     "ContinuousBackupsStatusType",
@@ -54,9 +58,11 @@ __all__ = (
     "KeyTypeType",
     "KinesisStreamingDestinationActiveWaiterName",
     "ListBackupsPaginatorName",
+    "ListBulkOperationsPaginatorName",
     "ListTablesPaginatorName",
     "ListTagsOfResourcePaginatorName",
     "MultiRegionConsistencyType",
+    "OutputTypeEnumType",
     "PaginatorName",
     "PointInTimeRecoveryStatusType",
     "ProjectionTypeType",
@@ -106,6 +112,12 @@ BatchStatementErrorCodeEnumType = Literal[
     "ValidationError",
 ]
 BillingModeType = Literal["PAY_PER_REQUEST", "PROVISIONED"]
+BulkOperationCompletedWaiterName = Literal["bulk_operation_completed"]
+BulkOperationInputFormatType = Literal["DYNAMODB_JSON", "ION"]
+BulkOperationPerformanceTierType = Literal["ACCELERATED", "STANDARD"]
+BulkOperationStatusType = Literal[
+    "CANCELLED", "CANCELLING", "COMPLETED", "COMPLETED_WITH_ERRORS", "FAILED", "IN_PROGRESS"
+]
 ComparisonOperatorType = Literal[
     "BEGINS_WITH",
     "BETWEEN",
@@ -146,9 +158,11 @@ InputFormatType = Literal["CSV", "DYNAMODB_JSON", "ION"]
 KeyTypeType = Literal["HASH", "RANGE"]
 KinesisStreamingDestinationActiveWaiterName = Literal["kinesis_streaming_destination_active"]
 ListBackupsPaginatorName = Literal["list_backups"]
+ListBulkOperationsPaginatorName = Literal["list_bulk_operations"]
 ListTablesPaginatorName = Literal["list_tables"]
 ListTagsOfResourcePaginatorName = Literal["list_tags_of_resource"]
 MultiRegionConsistencyType = Literal["EVENTUAL", "STRONG"]
+OutputTypeEnumType = Literal["CONDITION_CHECK_FAILURE", "ERROR"]
 PointInTimeRecoveryStatusType = Literal["DISABLED", "ENABLED"]
 ProjectionTypeType = Literal["ALL", "INCLUDE", "KEYS_ONLY"]
 QueryPaginatorName = Literal["query"]
@@ -632,8 +646,11 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_backups", "list_tables", "list_tags_of_resource", "query", "scan"]
+PaginatorName = Literal[
+    "list_backups", "list_bulk_operations", "list_tables", "list_tags_of_resource", "query", "scan"
+]
 WaiterName = Literal[
+    "bulk_operation_completed",
     "contributor_insights_enabled",
     "export_completed",
     "import_completed",

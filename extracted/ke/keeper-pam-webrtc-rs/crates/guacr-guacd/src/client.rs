@@ -20,9 +20,128 @@ use bytes::{Buf, BufMut, BytesMut};
 use guacr_protocol::{GuacdInstruction, GuacdParser, PeekError};
 use log::{debug, error, info, warn};
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
+
+/// Process-global debugging opt-in (`show_pwd`). Default `false`: the `connect` debug line is
+/// redacted. When `true` the raw `connect` values are logged at debug level. It affects ONLY
+/// that one debug line - never parser/peek/guacd error text, which stays credential-free.
+static SHOW_HANDSHAKE_VALUES: AtomicBool = AtomicBool::new(false);
+
+/// Enable or disable logging of raw guacd `connect` values (debugging only; default off).
+/// Returns the previous value.
+pub fn set_show_handshake_values(enabled: bool) -> bool {
+    SHOW_HANDSHAKE_VALUES.swap(enabled, Ordering::Relaxed)
+}
+
+/// Whether raw guacd `connect` values are currently logged.
+pub fn show_handshake_values() -> bool {
+    SHOW_HANDSHAKE_VALUES.load(Ordering::Relaxed)
+}
+
+/// Placeholder logged in place of any connect-instruction value that is not on
+/// [`LOGGABLE_CONNECT_ARGS`].
+const REDACTED: &str = "***";
+
+/// Connect argument names whose values are safe to log (normalized: lowercase, as guacd
+/// advertises them). Everything else - `password`, `private-key`, `passphrase`,
+/// `gateway-password`, `sftp-*` credentials, future credential-bearing names - is redacted
+/// at every log level. This is an allowlist on purpose: a newly added secret argument is
+/// hidden by default. No name here may suggest a credential (`pass`, `key`, `secret`,
+/// `token`, `cert`); a test enforces that.
+pub(crate) const LOGGABLE_CONNECT_ARGS: &[&str] = &[
+    "hostname",
+    "port",
+    "username",
+    "domain",
+    "security",
+    "ignore-cert",
+    "read-only",
+    "color-depth",
+    "width",
+    "height",
+    "dpi",
+];
+
+/// guacd's status code (`error` arg 1) is numeric, 1-4 digits. It is passed through
+/// untouched - scrubbing must never corrupt it - and anything else becomes `***`.
+pub(crate) fn sanitize_status_code(code: &str) -> String {
+    if (1..=4).contains(&code.len()) && code.bytes().all(|b| b.is_ascii_digit()) {
+        code.to_string()
+    } else {
+        REDACTED.to_string()
+    }
+}
+
+/// Longest peer-supplied (guacd) error text we will log or return, in characters.
+const MAX_PEER_TEXT_CHARS: usize = 256;
+
+/// Make text received from guacd safe to log and to put in an error. In this order:
+/// 1. control characters are stripped (log injection, CWE-117) - first, so stripping
+///    cannot re-create a secret after it was replaced (`abcd-\nsecret`);
+/// 2. every non-empty value we sent in `connect` that is not allowlisted, of any length,
+///    is replaced with `***` (secrets are control-stripped the same way before matching);
+/// 3. the length is bounded.
+///
+/// Longer secrets are replaced first so a secret that is a prefix of another
+/// (`password` / `passphrase`) cannot leave the tail of the longer one.
+pub(crate) fn sanitize_peer_text(text: &str, secrets: &[String]) -> String {
+    let mut ordered: Vec<String> = secrets
+        .iter()
+        .map(|s| s.chars().filter(|c| !c.is_control()).collect::<String>())
+        .filter(|s| !s.is_empty())
+        .collect();
+    ordered.sort_by_key(|s| std::cmp::Reverse(s.len()));
+    let mut out: String = text.chars().filter(|c| !c.is_control()).collect();
+    for secret in &ordered {
+        out = out.replace(secret.as_str(), REDACTED);
+    }
+    out.chars().take(MAX_PEER_TEXT_CHARS).collect()
+}
+
+/// The non-empty `connect` values we sent that are not on the allowlist (same index
+/// alignment as [`redacted_connect_summary`]).
+fn sensitive_connect_values(arg_names: &[String], connect_args: &[String]) -> Vec<String> {
+    connect_args
+        .iter()
+        .enumerate()
+        .skip(1)
+        .filter(|(idx, value)| {
+            !value.is_empty()
+                && !arg_names
+                    .get(*idx)
+                    .is_some_and(|name| LOGGABLE_CONNECT_ARGS.contains(&name.as_str()))
+        })
+        .map(|(_, value)| value.clone())
+        .collect()
+}
+
+/// Render a positional `connect` instruction for logging: `connect[<version>, name=value,
+/// name=***, ...]`. `arg_names` is guacd's `args` list (index 0 is the version) and
+/// `connect_args` the values we send, index-aligned with it. Values not on the allowlist
+/// are replaced with `***`; empty values stay empty so "not supplied" remains visible.
+pub(crate) fn redacted_connect_summary(arg_names: &[String], connect_args: &[String]) -> String {
+    let parts: Vec<String> = connect_args
+        .iter()
+        .enumerate()
+        .map(|(idx, value)| {
+            if idx == 0 {
+                return value.escape_debug().to_string();
+            }
+            match arg_names.get(idx) {
+                Some(name) if value.is_empty() => format!("{}=", name.escape_debug()),
+                Some(name) if LOGGABLE_CONNECT_ARGS.contains(&name.as_str()) => {
+                    format!("{}={}", name.escape_debug(), value.escape_debug())
+                }
+                Some(name) => format!("{}={REDACTED}", name.escape_debug()),
+                None => REDACTED.to_string(),
+            }
+        })
+        .collect();
+    format!("connect[{}]", parts.join(", "))
+}
 
 /// Keys the caller puts in `guacd_params` for our own use, or that we send outside the
 /// positional `connect` instruction (`size`, `audio`, `video`, `image`). These are not
@@ -96,10 +215,10 @@ where
         reader: &'a mut S,
         handshake_buffer: &'a mut BytesMut,
         current_buffer_len: &'a mut usize,
-        channel_id: &'a str,
-        conversation_id: &'a str,
+        (channel_id, conversation_id): (&'a str, &'a str),
         conn_no: u32,
         expected_opcode: &'a str,
+        secrets: &'a [String],
     ) -> Result<GuacdInstruction>
     where
         S: AsyncRead + Unpin + Send + ?Sized,
@@ -116,8 +235,8 @@ where
                         if instruction_total_len == 0 || instruction_total_len > *current_buffer_len
                         {
                             error!(
-                                "Invalid instruction length peeked ({}) vs buffer len ({}). Opcode: '{}'. Buffer (approx): {:?} (channel_id: {}, conversation_id: {}, conn_no: {})",
-                                instruction_total_len, *current_buffer_len, peeked_instr.opcode, &handshake_buffer[..std::cmp::min(*current_buffer_len, 100)], channel_id, conversation_id, conn_no
+                                "Invalid instruction length peeked ({}) vs buffer len ({}). Opcode: '{}'. (channel_id: {}, conversation_id: {}, conn_no: {})",
+                                instruction_total_len, *current_buffer_len, peeked_instr.opcode, channel_id, conversation_id, conn_no
                             );
                             return Err(anyhow::anyhow!(
                                 "Peeked instruction length is invalid or exceeds buffer."
@@ -126,7 +245,7 @@ where
                         let content_slice = &handshake_buffer[..instruction_total_len - 1];
 
                         let instruction = GuacdParser::parse_instruction_content(content_slice).map_err(|e|
-                            anyhow::anyhow!("Handshake: Conn {}: Failed to parse peeked Guacd instruction (opcode: '{}'): {}. Content: {:?}", conn_no, peeked_instr.opcode, e, content_slice)
+                            anyhow::anyhow!("Handshake: Conn {}: Failed to parse peeked Guacd instruction (opcode: '{}'): {}. Content length: {} bytes (content withheld)", conn_no, peeked_instr.opcode, e, content_slice.len())
                         )?;
 
                         let expected_opcode_check = peeked_instr.opcode == expected_opcode;
@@ -138,7 +257,7 @@ where
                         None
                     }
                     Err(err) => {
-                        let err_msg = format!("Error peeking Guacd instruction while expecting '{}': {:?}. Buffer content (approx): {:?}", expected_opcode, err, &handshake_buffer[..std::cmp::min(*current_buffer_len, 100)]);
+                        let err_msg = format!("Error peeking Guacd instruction while expecting '{}': {:?}. Buffered {} bytes (content withheld)", expected_opcode, err, *current_buffer_len);
                         error!(
                             "Error during handshake (channel_id: {}, conversation_id: {}, conn_no: {}, error: {})",
                             channel_id, conversation_id, conn_no, err_msg
@@ -154,23 +273,33 @@ where
                 *current_buffer_len -= advance_len;
 
                 if instruction.opcode == "error" {
-                    error!("Guacd sent error during handshake (channel_id: {}, conversation_id: {}, error_opcode: {}, expected_opcode: {}, error_args: {:?})", channel_id, conversation_id, instruction.opcode, expected_opcode, instruction.args);
+                    // Peer text: scrub anything we sent, strip control chars, bound length.
+                    let safe_args: Vec<String> = instruction
+                        .args
+                        .iter()
+                        .enumerate()
+                        .map(|(idx, a)| match idx {
+                            1 => sanitize_status_code(a),
+                            _ => sanitize_peer_text(a, secrets),
+                        })
+                        .collect();
+                    error!("Guacd sent error during handshake (channel_id: {}, conversation_id: {}, error_opcode: {}, expected_opcode: {}, error_args: {:?})", channel_id, conversation_id, instruction.opcode, expected_opcode, safe_args);
                     return Err(anyhow::anyhow!(
                         "Guacd sent error '{}' ({:?}) during handshake (expected '{}')",
                         instruction.opcode,
-                        instruction.args,
+                        safe_args,
                         expected_opcode
                     ));
                 }
                 return if expected_opcode_check {
                     Ok(instruction)
                 } else {
-                    error!("Unexpected Guacd opcode (channel_id: {}, conversation_id: {}, expected_opcode: {}, received_opcode: {}, received_args: {:?})", channel_id, conversation_id, expected_opcode, instruction.opcode, instruction.args);
+                    error!("Unexpected Guacd opcode (channel_id: {}, conversation_id: {}, expected_opcode: {}, received_opcode: {}, received_arg_count: {})", channel_id, conversation_id, expected_opcode, instruction.opcode, instruction.args.len());
                     Err(anyhow::anyhow!(
-                        "Expected Guacd opcode '{}', got '{}' with args {:?}",
+                        "Expected Guacd opcode '{}', got '{}' with {} arg(s)",
                         expected_opcode,
                         instruction.opcode,
-                        instruction.args
+                        instruction.args.len()
                     ))
                 };
             }
@@ -192,16 +321,19 @@ where
                                     GuacdParser::parse_instruction_content(content_slice)
                                 {
                                     if instruction.opcode == "error" {
-                                        let guacd_error_msg = instruction
-                                            .args
-                                            .first()
-                                            .map(|s| s.as_str())
-                                            .unwrap_or("Unknown guacd error");
-                                        let error_code = instruction
+                                        let guacd_error_msg = &sanitize_peer_text(
+                                            instruction
+                                                .args
+                                                .first()
+                                                .map(|s| s.as_str())
+                                                .unwrap_or("Unknown guacd error"),
+                                            secrets,
+                                        );
+                                        let error_code = &instruction
                                             .args
                                             .get(1)
-                                            .map(|s| s.as_str())
-                                            .unwrap_or("");
+                                            .map(|s| sanitize_status_code(s))
+                                            .unwrap_or_default();
                                         error!("Guacd sent error during handshake (channel_id: {}, conversation_id: {}, error_msg: {}, error_code: {})", channel_id, conversation_id, guacd_error_msg, error_code);
 
                                         return Err(anyhow::anyhow!(
@@ -387,10 +519,10 @@ where
         reader,
         &mut handshake_buffer,
         &mut current_handshake_buffer_len,
-        channel_id,
-        conversation_id,
+        (channel_id, conversation_id),
         conn_no,
         "args",
+        &[],
     )
     .await?;
     debug!(
@@ -569,10 +701,23 @@ where
         "Guacd Handshake: Sending 'connect' (channel_id: {}, conversation_id: {})",
         channel_id, conversation_id
     );
-    debug!(
-        "Guacd Handshake: params (channel_id: {}, conversation_id: {}, instruction: {:?})",
-        channel_id, conversation_id, connect_instruction
-    );
+    // The connect instruction carries the password / private key. By default log only the
+    // redacted summary, at every log level. Only the explicit `show_pwd` debugging opt-in
+    // logs the raw values (this line only; error text is scrubbed regardless).
+    if show_handshake_values() {
+        debug!(
+            "Guacd Handshake: params (channel_id: {}, conversation_id: {}, instruction: {:?})",
+            channel_id, conversation_id, connect_instruction
+        );
+    } else {
+        debug!(
+            "Guacd Handshake: params (channel_id: {}, conversation_id: {}, instruction: {})",
+            channel_id,
+            conversation_id,
+            redacted_connect_summary(&args_instruction.args, &connect_instruction.args)
+        );
+    }
+    let sent_secrets = sensitive_connect_values(&args_instruction.args, &connect_instruction.args);
     writer
         .write_all(&GuacdParser::guacd_encode_instruction(&connect_instruction))
         .await?;
@@ -586,10 +731,10 @@ where
         reader,
         &mut handshake_buffer,
         &mut current_handshake_buffer_len,
-        channel_id,
-        conversation_id,
+        (channel_id, conversation_id),
         conn_no,
         "ready",
+        &sent_secrets,
     )
     .await?;
     if let Some(client_id_from_ready) = ready_instruction.args.first() {

@@ -58,7 +58,12 @@ async def _read_summary(context: WidgetContext, data: dict[str, Any]) -> str:
 
 async def _read(context: WidgetContext, data: dict[str, Any]) -> ActionResult:
     _, messages, own = await _conversation(context, data["email"])
-    return ActionResult(conversation_text(messages, own))
+    newest = messages[-1]
+    sender = newest["sender"]
+    if newest["address"] and newest["address"] != sender:
+        sender += f" <{newest['address']}>"
+    read = f"the email “{newest['subject']}” from {sender}"
+    return ActionResult(conversation_text(messages, own), read_from=read)
 
 
 def _drafting(account: GoogleAccount) -> None:

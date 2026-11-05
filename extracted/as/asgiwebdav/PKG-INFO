@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ASGIWebDAV
-Version: 2.2.1
+Version: 2.3.0
 Summary: An asynchronous WebDAV server implementation, support multi-provider.
 Author: Rex Zhang
 Author-email: rex.zhang@gmail.com

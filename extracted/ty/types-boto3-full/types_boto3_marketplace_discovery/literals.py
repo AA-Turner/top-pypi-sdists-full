@@ -101,7 +101,7 @@ PurchaseOptionTypeType = Literal["OFFER", "OFFERSET"]
 RateCardConstraintTypeType = Literal["Allowed", "Disallowed"]
 ResourceContentTypeType = Literal["EMAIL", "LINK", "OTHER", "PHONE_NUMBER"]
 ResourceTypeType = Literal["MANUFACTURER_INSTRUCTIONS", "MANUFACTURER_SUPPORT"]
-ReviewSourceIdType = Literal["AWS_MARKETPLACE"]
+ReviewSourceIdType = Literal["AWS_MARKETPLACE", "G2", "PEERSPOT"]
 SaasQuickLaunchStatusType = Literal["DISABLED", "ENABLED"]
 SearchFacetTypeType = Literal[
     "AVERAGE_CUSTOMER_RATING",

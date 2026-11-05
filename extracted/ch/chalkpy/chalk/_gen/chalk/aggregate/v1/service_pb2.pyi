@@ -174,6 +174,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
         "store_online",
         "input_sql",
         "num_shards",
+        "store_online_summaries",
     )
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
@@ -190,6 +191,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
     STORE_ONLINE_FIELD_NUMBER: _ClassVar[int]
     INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
     NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
+    STORE_ONLINE_SUMMARIES_FIELD_NUMBER: _ClassVar[int]
     features: _containers.RepeatedScalarFieldContainer[str]
     lower_bound: _timestamp_pb2.Timestamp
     upper_bound: _timestamp_pb2.Timestamp
@@ -205,6 +207,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
     store_online: bool
     input_sql: str
     num_shards: int
+    store_online_summaries: bool
     def __init__(
         self,
         features: _Optional[_Iterable[str]] = ...,
@@ -222,6 +225,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
         store_online: bool = ...,
         input_sql: _Optional[str] = ...,
         num_shards: _Optional[int] = ...,
+        store_online_summaries: bool = ...,
     ) -> None: ...
 
 class CreateAggregateBackfillJobResponse(_message.Message):
@@ -256,6 +260,7 @@ class CreateAggregateBackfillV2Request(_message.Message):
         "planner_options",
         "mode",
         "num_shards",
+        "store_online_summaries",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -280,6 +285,7 @@ class CreateAggregateBackfillV2Request(_message.Message):
     PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     MODE_FIELD_NUMBER: _ClassVar[int]
     NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
+    STORE_ONLINE_SUMMARIES_FIELD_NUMBER: _ClassVar[int]
     features: _containers.RepeatedScalarFieldContainer[str]
     resolver: str
     input_sql: str
@@ -295,6 +301,7 @@ class CreateAggregateBackfillV2Request(_message.Message):
     planner_options: _containers.ScalarMap[str, str]
     mode: AggregateBackfillMode
     num_shards: int
+    store_online_summaries: bool
     def __init__(
         self,
         features: _Optional[_Iterable[str]] = ...,
@@ -312,6 +319,7 @@ class CreateAggregateBackfillV2Request(_message.Message):
         planner_options: _Optional[_Mapping[str, str]] = ...,
         mode: _Optional[_Union[AggregateBackfillMode, str]] = ...,
         num_shards: _Optional[int] = ...,
+        store_online_summaries: bool = ...,
     ) -> None: ...
 
 class CreateAggregateBackfillV2Response(_message.Message):

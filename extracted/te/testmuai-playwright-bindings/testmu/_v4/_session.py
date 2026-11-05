@@ -27,6 +27,7 @@ from testmu._v4._capability import (
     resolve_custom_headers,
 )
 from testmu._v4._downloads_path import _resolve_downloads_dir
+from testmu._v4._helpers.lighthouse import install_on_goto as install_lighthouse_on_goto
 from testmu._v4._vars import _variable_store
 from testmu._v4._reporter import reporter
 
@@ -170,6 +171,7 @@ async def _create_page():
         if headers:
             await _install_custom_header_route(context, page, headers)
         _apply_page_timeouts(page)
+        install_lighthouse_on_goto(caps)
         _log.info("Page created (viewport=%sx%s)", viewport.get("width"), viewport.get("height"))
     else:
         # Local: direct chromium.launch, no relay proxy.

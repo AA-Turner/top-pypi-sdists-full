@@ -137,7 +137,7 @@ and runs `seq adapter check` and `seq port` itself.
 
 the core flow:
   init <template> [dir]     start from a template: a policy, a benchmark or an adapter (seq init --list)
-  deploy [folder]           deploy the folder's @seq.policy or @seq.planner, or register its @seq.benchmark or
+  deploy [folder]           deploy the folder's @seq.policy, or register its @seq.benchmark or
                             @seq.adapter (--name picks one of several; --dry-run: check it, and price a policy, with
                             nothing built)
   eval run <policy> --benchmark <name> [--adapter <name>@vN]
@@ -146,9 +146,7 @@ the core flow:
 policy      ls status logs doctor shell versions source upgrade rollback stop start rename rm
             set settings fork data
 robot       add set list status revoke                    (each robot's own key to a policy, a robot now)
-planner     ls status key add list revoke                 (the planners' tree, one planner, its members' keys)
-prod        promote                                       (a dev policy made a production one)
-key         list add set revoke                           (your dev and production keys: you, signed in)
+key         list add set revoke                           (your keys: you, signed in)
 benchmark   ls tasks versions source logs shell status upgrade cancel rm
 adapter     ls versions source rm check
 eval        run status cancel rm report episodes replay ls logs
@@ -266,21 +264,16 @@ def build_parser() -> argparse.ArgumentParser:
                                         "with serving against your account's GPU limit; when they are not free the "
                                         "whole eval waits in line, up to 10 minutes, then fails (queue_timeout). "
                                         "--dry-run says which, before anything starts.")
-    p_run.add_argument("policy", metavar="POLICY", help="the deployed policy (see `seq policy ls`), or a planner: the "
-                                                        "eval runs the policy it plans for, the planner beside it, "
-                                                        "planning each episode on the robot's clock")
-
-    p_run.add_argument("--policy", dest="member", default=None, metavar="NAME",
-                       help="with a planner as POLICY: which of its members= the eval runs (needed only when it plans "
-                            "for more than one)")
+    p_run.add_argument("policy", metavar="POLICY", help="the deployed policy (see `seq policy ls`); one with a @seq.plan "
+                                                        "plans each episode on the robot's clock")
     p_run.add_argument("--benchmark", required=True,
                        help="your registered benchmark: NAME for its latest version that passed its check, NAME@vN for "
                             "any version it keeps (see `seq benchmark versions`)")
     p_run.add_argument("--adapter", default=None,
                        help="the adapter between the sim and the policy's own I/O: a registered one (name@vN, or name "
-                            "for its latest; see `seq adapter ls`), or a file, ./my_adapter.py[:Class], registered "
-                            "first. Without one, an eval whose policy and benchmark do not fit still starts, with a "
-                            "warning, and stops at its first act if they really do not")
+                            "for its latest; see `seq adapter ls`), or a file, ./my_adapter_user.py[:Class], "
+                            "registered first. Without one, an eval whose policy and benchmark do not fit still "
+                            "starts, with a warning, and stops at its first act if they really do not")
     p_run.add_argument("--trials", default=None, metavar="N|TASK=N,...",
                        help="how many times each chosen task runs - its declared seeds in order, and past the "
                             "last the same seeds again as repeated starts, marked so - or per task: "
@@ -519,46 +512,12 @@ def build_parser() -> argparse.ArgumentParser:
         "key", help="the key's id, or its last four")
 
 
-    plsub = _group(ap, sub, "planner", "The account's planners: their tree with the robots connected now, one "
-                                       "planner's members and what it wrote, and the key a planner holds for each "
-                                       "member.")
-    plsub.add_parser("ls", help="the account's planners as a tree - each planner, its members (a policy, or a planner a "
-                                "layer below), under each policy the robots connected to it now - then the policies no "
-                                "planner names that have a robot now")
-    plsub.add_parser("status", help="one planner: its members and whether it reaches each, its state, and the newest of "
-                                    "what it wrote, what the planner above wrote for it and what was observed into it"
-                     ).add_argument("name", help="the planner, by its deployment name")
-    ksub = plsub.add_parser("key", help="the key a planner holds for one of its members: a policy, a planner below it, "
-                                        "or a device such as a site's iPad"
-                            ).add_subparsers(dest="planner_key_cmd", metavar="<command>", action=_DescFromHelp)
-    p = ksub.add_parser("add", help="issue a new key to a member of a planner: a device's printed this once, a deployed "
-                                    "policy's or planner's held by the platform")
-    p.add_argument("planner", help="the planner, by its deployment name")
-    p.add_argument("--member", required=True, help="the member it is for: a policy or planner it names, or a device")
-    p.add_argument("--name", help="its name (default: the member's)")
-    ksub.add_parser("list", help="a planner's keys, by their id, last four and member").add_argument(
-        "planner", help="the planner, by its deployment name")
-    p = ksub.add_parser("revoke", help="revoke a planner key")
-    p.add_argument("planner", help="the planner, by its deployment name")
-    p.add_argument("key", help="the key's id, or its last four")
-
-    prsub = _group(ap, sub, "prod", "Production policies: promote a dev policy to one, run with a production key.")
-
-
-
-    prsub.add_parser("promote", help="make a dev policy a production one",
-                     description="Make a dev policy a production one: the policy itself becomes production, not a copy "
-                                 "of it. To keep one in dev, fork it first - `seq policy fork <name> <new>` copies its "
-                                 "code, settings and weights.").add_argument("name", help="the dev policy")
-
-
-    kysub = _group(ap, sub, "key", "Your dev and production keys: list them, add one, set its expiry or limit, revoke "
+    kysub = _group(ap, sub, "key", "Your keys: list them, add one, set its expiry or limit, revoke "
                                    "one - you, signed in (seq login): a key makes no keys.")
-    kysub.add_parser("list", help="your dev and production keys, newest first: name, kind, last four, what each spent "
+    kysub.add_parser("list", help="your keys, newest first: name, last four, what each spent "
                                   "and its limit, when it lapses and was last used, and how many more your plan allows")
-    p = kysub.add_parser("add", help="add a dev key (--production: a production key), printed this once")
+    p = kysub.add_parser("add", help="add a key, printed this once")
     p.add_argument("name", help="its name, e.g. ci_user")
-    p.add_argument("--production", action="store_true", help="a production key: it manages your production policies")
     p.add_argument("--expires", required=True, choices=KEY_EXPIRIES, help="when it lapses")
     p.add_argument("--limit", type=float, default=None, metavar="USD", help="what it may spend in all (default: no "
                                                                             "limit)")
@@ -680,7 +639,7 @@ def build_parser() -> argparse.ArgumentParser:
                                     "file's size and md5 are checked when the upload completes. Deploy an uploaded "
                                     "checkpoint with "
                                     "weights=seq.Volume.from_name(\"<name>\").")
-    p.add_argument("name", help="volume name, e.g. pi05-ft")
+    p.add_argument("name", help="volume name, e.g. pi05_ft_user")
     p.add_argument("path", help="local directory to upload")
     p.add_argument("--kind", choices=("checkpoint", "dataset"), default="checkpoint",
                    help="what it holds: checkpoint (the default) or dataset - what seq storage counts it as")
@@ -725,9 +684,9 @@ def build_parser() -> argparse.ArgumentParser:
     ssub = _group(ap, sub, "secret", "Store, list and remove your credential bundles. A secret is one name bound to a "
                                      "set of env vars; values are read from stdin only and are never displayed back. "
                                      "A policy refers to one by name: "
-                                     "@seq.policy(secrets=[seq.Secret.from_name('planner')]).")
+                                     "@seq.policy(secrets=[seq.Secret.from_name('model_key')]).")
     p = ssub.add_parser("set", help="store or rotate a named secret (values read from stdin)")
-    p.add_argument("name", help="secret name, e.g. planner")
+    p.add_argument("name", help="secret name, e.g. model_key")
     p.add_argument("--env", dest="env", action="append", metavar="KEY", default=None,
                    help="an env-var NAME to store (value is read from stdin, never on the command line); repeatable")
     ssub.add_parser("ls", help="list your secrets by name and env-var names (never values)")
@@ -766,14 +725,14 @@ def build_parser() -> argparse.ArgumentParser:
                                              "adapter) — what sequence_ai.models() returns. The templates alone: "
                                              "seq init --list.")
     p.add_argument("--endpoint", choices=["chat", "decide"], default=None,
-                   help="only the models answering on it (a planner's brain: --endpoint chat)")
+                   help="only the models answering on it (a plan's model call: --endpoint chat)")
     sub.add_parser("gpus", description="The cards gpu= can name: memory, price per hour, whether a policy and a "
                                        "benchmark may use it, the regions a policy on it runs in, RT cores, video "
                                        "encoding; and what a CPU core and a GiB of memory cost.")
     acct = sub.add_parser("account", description="What this month has spent under your plan's monthly limit and "
                                                  "the payment method its bill goes to, and your GPUs: the limit, how "
-                                                 "many serving, evals and "
-                                                 "build checks hold now, how many are left, and the evals waiting for "
+                                                 "many serving, evals, "
+                                                 "build checks and benchmark shells hold now, how many are left, and the evals waiting for "
                                                  "GPUs. `set` and `delete` change the account as the console's Account "
                                                  "page does - they need you signed in (seq login).")
 
@@ -841,7 +800,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="bucket size (default: hours up to a week); month, as the console's twelve months")
     p.add_argument("--group", choices=("deployment", "gpu", "kind"), default=None,
                    help="split each bucket by deployment, card type, or kind of machine (policy workers, evals, "
-                        "build checks, weight copies)")
+                        "build checks, weight copies, builds, benchmark shells)")
     p.add_argument("--csv", action="store_true", help="print the rows as CSV (start, group, card_hours, cost_usd)")
 
 

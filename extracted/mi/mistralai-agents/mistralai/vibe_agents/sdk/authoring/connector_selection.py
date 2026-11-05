@@ -54,10 +54,10 @@ class AllConnectors:
     def candidates(self, connector_names: Sequence[str]) -> list[str]:
         """Narrow one discovered catalog to the connectors worth probing, in a stable order.
 
-        ``max_connectors`` is deliberately not applied here. Whether the Session user can
-        actually use a connector is only known once its tools have been listed, so a cap
-        applied to the catalog would spend its slots on connectors that turn out to be
-        unusable. :meth:`cap` applies it once that is known.
+        ``max_connectors`` is deliberately not applied here. Whether the Session user has
+        signed in to a connector is only known from bootstrap, so a cap applied to the
+        catalog would spend its slots on connectors they never connected. :meth:`cap`
+        applies it once that is known.
         """
 
         return sorted({name for name in connector_names if self.admits(name)}, key=_catalog_order)
@@ -68,7 +68,7 @@ class AllConnectors:
         return connector_name not in self.exclude
 
     def cap(self, connector_names: Sequence[str]) -> list[str]:
-        """Keep at most ``max_connectors`` of the connectors that are usable.
+        """Keep at most ``max_connectors`` of the connectors the user has signed in to.
 
         The order is the catalog order, so the same user gets the same connectors on
         every Session rather than whichever ones the connectors API happened to list
@@ -90,12 +90,13 @@ def all_connectors(
 ) -> AllConnectors:
     """Select every connector available to the user who runs the Session.
 
-    ``exclude`` drops connectors by name. ``max_connectors`` caps the set; the
-    connectors kept are the first by name, so the cap is reproducible. The Agent
-    finds connector tools by searching for them rather than receiving them up
-    front, so each connector costs its context one prompt line. A large set
-    still widens that search; prefer ``exclude`` or naming the connectors the
-    Agent needs over a cap, which keeps connectors by name rather than by use.
+    ``exclude`` drops connectors by name. Leave ``max_connectors`` unset: it caps
+    the connectors the user has signed in to, keeping the first by name rather
+    than the ones the task needs. A connector that fails to load still counts and
+    keeps its place. The Agent finds connector tools by searching for them rather
+    than receiving them up front, so each connector costs its context one prompt
+    line. A large set still widens that search; narrow it with ``exclude`` or by
+    naming the connectors the Agent needs.
 
     ``auto_auth`` and ``allow_mcp_ui`` apply to every discovered connector and
     mean what they mean on :func:`connector`. Name a connector explicitly

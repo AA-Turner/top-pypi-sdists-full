@@ -79,6 +79,11 @@ REGISTRY: dict[str, tuple[str, str, str]] = {
         "GoogleFinanceNamespace",
         "AsyncGoogleFinanceNamespace",
     ),
+    "google_flights": (
+        "google_flights",
+        "GoogleFlightsNamespace",
+        "AsyncGoogleFlightsNamespace",
+    ),
     "google_hotels": (
         "google_hotels",
         "GoogleHotelsNamespace",
@@ -157,6 +162,7 @@ REGISTRY: dict[str, tuple[str, str, str]] = {
     "twitter": ("twitter", "TwitterNamespace", "AsyncTwitterNamespace"),
     "unsplash": ("unsplash", "UnsplashNamespace", "AsyncUnsplashNamespace"),
     "upwork": ("upwork", "UpworkNamespace", "AsyncUpworkNamespace"),
+    "vrbo": ("vrbo", "VrboNamespace", "AsyncVrboNamespace"),
     "walmart": ("walmart", "WalmartNamespace", "AsyncWalmartNamespace"),
     "web": ("web", "WebNamespace", "AsyncWebNamespace"),
     "weibo": ("weibo", "WeiboNamespace", "AsyncWeiboNamespace"),

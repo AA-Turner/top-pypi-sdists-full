@@ -11,6 +11,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+#: DCGM reports framebuffer memory in MiB; the `hw/` keys say bytes.
+MIB = 1024 * 1024
+
+
 @dataclass
 class Mapped:
     key: str
@@ -18,10 +22,13 @@ class Mapped:
     kind: str  # "gauge" | "counter"
     agg: str
     companions: tuple = ()
+    #: Multiplies the exporter's value into the key's unit (MiB -> bytes).
+    scale: float = 1.0
 
 
 # Entry spec: key, coord_labels {label -> coord}, kind, agg, companions,
-# int_coords (coord names coerced to int — device indices are integer coords).
+# int_coords (coord names coerced to int — device indices are integer coords),
+# scale (exporter unit -> the key's unit; 1 when they already agree).
 _DEFAULT: dict[str, dict] = {
     # --- DCGM-exporter (NVIDIA fleet) ---
     "DCGM_FI_DEV_GPU_UTIL": {
@@ -38,6 +45,7 @@ _DEFAULT: dict[str, dict] = {
         "int_coords": ("gpu",),
         "kind": "gauge",
         "agg": "max",
+        "scale": MIB,  # dcgm-exporter: "Framebuffer memory used (in MiB)"; NVML gives bytes
     },
     "DCGM_FI_DEV_GPU_TEMP": {
         "key": "hw/gpu/temp",
@@ -124,6 +132,7 @@ class MappingPack:
             kind=entry["kind"],
             agg=entry["agg"],
             companions=tuple(entry.get("companions", ())),
+            scale=float(entry.get("scale", 1.0)),
         )
 
 

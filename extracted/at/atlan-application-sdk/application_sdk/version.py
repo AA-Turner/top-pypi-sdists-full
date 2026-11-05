@@ -24,17 +24,16 @@ re-hardcodes the version:
 
 * ``application_sdk.dev._dapr`` imports ``__dapr_version`` directly for the
   embedded local-dev daprd download.
-* The external-Dapr CI paths read it without importing, by grepping this file::
+* The external-Dapr CI path reads it without importing, by grepping this file::
 
       ver=$(grep '^__dapr_version' application_sdk/version.py | cut -d'"' -f2)
 
-  — namely ``.github/actions/ae-stack-up/ae-stack-up.sh`` and
-  ``.github/actions/connector-integration-tests/action.yaml``.
+  — namely ``.github/actions/connector-integration-tests/action.yaml``.
 
 This constant is normally updated by the sync workflow above; bump it by hand
 only to reconcile ahead of a release — and deliberately, since older Dapr
 releases drop off the CDN.
 """
 
-__version__ = "3.54.0"
+__version__ = "3.55.0"
 __dapr_version: str = "1.19.1"

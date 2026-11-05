@@ -59,9 +59,9 @@ class Builtins(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     skills: bool = True
-    """The `skill` tool, offered while the agent has at least one skill."""
+    """The `skill` tool, offered while the agent has at least one skill. An agent with it off cannot declare skills."""
     subagents: bool = True
-    """Starting subagents. Needs programmatic tool calling."""
+    """Starting subagents. Needs programmatic tool calling. An agent with it off cannot declare subagents."""
     programmatic_tool_calling: bool | ProgrammaticToolCallingConfig = True
     """`run_typescript`, `search_tool_functions` and your tools as typed functions."""
     background_processes: bool | None = None

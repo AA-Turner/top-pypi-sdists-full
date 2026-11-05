@@ -10,9 +10,17 @@ from __future__ import annotations
 import html
 import json
 import re
+import unicodedata
 from typing import Any
 
+from river_client.renderers.tool_arguments import (
+    decode_json_marked,
+    find_outside_json_strings,
+    standard_json,
+)
 from river_client.renderers.base import (
+    append_visible_text,
+    rejected_call_text,
     ContentPart,
     Message,
     ParsedResponse,
@@ -28,11 +36,7 @@ from river_client.renderers.base import (
 
 END_OF_MESSAGE = "<|end_of_msg|>"
 _ATTR = re.compile(r'([\w-]+)="([^"]*)"')
-_CALL = re.compile(r"<\|open\|>call(.*?)<\|sep\|>(.*?)<\|close\|>call<\|sep\|>", re.S)
-_ARGUMENT = re.compile(
-    r"<\|open\|>(argument|json)(.*?)<\|sep\|>(.*?)<\|close\|>\1<\|sep\|>",
-    re.S,
-)
+_SEP = "<|sep|>"
 
 
 def _attr(value: str) -> str:
@@ -136,7 +140,29 @@ def _normalize_messages(messages: list[Message]) -> list[Message]:
     return result
 
 
-def _tool_calls(tool_calls: list[ToolCall]) -> str:
+def _nonzero(digit: str) -> bool:
+    return unicodedata.decimal(digit) != 0
+
+
+def _typed_form_holds(arguments: dict[str, Any]) -> bool:
+    """Whether typed ``argument`` elements can carry ``arguments`` losslessly.
+
+    A key's attribute ends at the first ``<|sep|>``, and a string value is raw
+    text that ends at its element's own close tag; neither has an escape.
+    """
+    return not any(
+        _SEP in key or (isinstance(value, str) and _close("argument") in value)
+        for key, value in arguments.items()
+    )
+
+
+def _tool_calls(tool_calls: list[ToolCall], rejected: str = "") -> str:
+    """The tools channel: each call written so the parser reads it back.
+
+    Calls use the reference's typed ``argument`` elements, except that a call
+    those elements cannot hold losslessly goes as one ``json`` element, where
+    quoted marker text is content. Both are forms the model emits.
+    """
     parts = [_open("tools")]
     for index, call in enumerate(tool_calls, start=1):
         function = call["function"]
@@ -161,6 +187,11 @@ def _tool_calls(tool_calls: list[ToolCall]) -> str:
         if arguments is not None:
             if not isinstance(arguments, dict):
                 raise ValueError("Kimi K3 tool call arguments must be a JSON object")
+            if not _typed_form_holds(arguments):
+                parts.append(
+                    _open("json", type="object") + _json(arguments) + _close("json")
+                )
+                arguments = {}
             for key, value in sorted(arguments.items()):
                 parts.append(
                     _open("argument", key=key, type=_value_type(value))
@@ -168,68 +199,145 @@ def _tool_calls(tool_calls: list[ToolCall]) -> str:
                     + _close("argument")
                 )
         parts.append(_close("call"))
-    return "".join(parts) + _close("tools")
+    return "".join(parts) + rejected + _close("tools")
 
 
-def _parse_tool_calls(text: str) -> tuple[list[ToolCall], list[UnparsedToolCall]]:
-    calls, errors = [], []
+_CALL_OPEN = "<|open|>call"
+_ELEMENTS = ("argument", "json")
+
+
+def _parse_tool_calls(
+    text: str,
+) -> tuple[list[ToolCall], list[UnparsedToolCall], list[str]]:
+    """Parse a tools-channel body: (calls, rejected blocks, stray text).
+
+    Each call element becomes a call or a rejected block, including one the
+    output ends inside. Text between them is not a block: it stays visible,
+    as River Serve keeps it, and renders in the response channel, where no
+    markup is read as a call.
+    """
+    calls, errors, stray = [], [], []
     position = 0
-    for match in _CALL.finditer(text):
-        if match.start() != position:
-            errors.append(
-                {
-                    "raw_text": text[position : match.start()],
-                    "error": "Invalid K3 tool-call framing",
+    while position < len(text):
+        at = text.find(_CALL_OPEN, position)
+        if at == -1:
+            at = len(text)
+        if text[position:at].strip():
+            stray.append(text[position:at].strip())
+        if at == len(text):
+            break
+        position, result = _scan_call(text, at)
+        (calls if "function" in result else errors).append(result)
+    return calls, errors, stray
+
+
+def _scan_call(text: str, at: int) -> tuple[int, ToolCall | UnparsedToolCall]:
+    """Parse the call element opening at ``at``: where it ends, and the result.
+
+    A value that carries JSON (a ``json`` element, or an argument whose type
+    is not ``string``) runs to the first close tag outside a JSON string, so
+    quoted marker text is content: it can neither end the call early nor
+    start another one. A ``string`` argument is raw text, so its own close
+    tag ends it.
+    """
+    header_end = text.find(_SEP, at + len(_CALL_OPEN))
+    if header_end == -1:
+        return len(text), {"raw_text": text[at:], "error": "Incomplete K3 tool call"}
+    header = text[at + len(_CALL_OPEN) : header_end]
+    arguments: dict[str, Any] = {}
+    error = None
+    elements = json_seen = False
+    position = header_end + len(_SEP)
+    while not text.startswith(_close("call"), position):
+        element = next(
+            (e for e in _ELEMENTS if text.startswith(f"<|open|>{e}", position)), None
+        )
+        if element is None:
+            # Stray text: resume at the next element so its JSON values
+            # still read as content, never as markup.
+            found = [
+                found_at
+                for marker in (*(f"<|open|>{e}" for e in _ELEMENTS), _close("call"))
+                if (found_at := text.find(marker, position)) != -1
+            ]
+            if not found:
+                return len(text), {
+                    "raw_text": text[at:],
+                    "error": "Incomplete K3 tool call",
                 }
-            )
-        position = match.end()
+            error = error or "Invalid K3 argument framing"
+            position = min(found)
+            continue
+        attributes_end = text.find(_SEP, position + len(f"<|open|>{element}"))
+        if attributes_end == -1:
+            return len(text), {
+                "raw_text": text[at:],
+                "error": "Incomplete K3 tool call",
+            }
+        attributes = text[position + len(f"<|open|>{element}") : attributes_end]
+        value_at = attributes_end + len(_SEP)
+        expected = {"type"} if element == "json" else {"key", "type"}
         try:
-            attrs = _attributes(match[1], {"tool", "index"})
-            name, index = attrs["tool"], attrs["index"]
-            if not name or not index.isdecimal() or int(index) < 1:
-                raise ValueError("K3 calls require a tool name and positive index")
-            arguments = {}
-            consumed = 0
-            for argument in _ARGUMENT.finditer(match[2]):
-                if argument.start() != consumed:
-                    raise ValueError("Invalid K3 argument framing")
-                consumed = argument.end()
-                metadata = _attributes(
-                    argument[2], {"type"} if argument[1] == "json" else {"key", "type"}
-                )
-                kind = metadata["type"]
-                value = argument[3] if kind == "string" else json.loads(argument[3])
-                if _value_type(value) != kind:
-                    raise ValueError(
-                        "K3 argument value does not match its declared type"
-                    )
-                if argument[1] == "json":
-                    if (
-                        argument.start() != 0
-                        or argument.end() != len(match[2])
-                        or kind != "object"
-                    ):
-                        raise ValueError("K3 JSON arguments must be one object")
-                    arguments = value
-                else:
-                    key = metadata["key"]
-                    if key in arguments:
-                        raise ValueError("Duplicate K3 argument key")
-                    arguments[key] = value
-            if consumed != len(match[2]):
-                raise ValueError("Incomplete K3 argument")
-            calls.append(
-                {
-                    "type": "function",
-                    "id": f"functions.{name}:{index}",
-                    "function": {"name": name, "arguments": _json(arguments)},
-                }
+            metadata = _attributes(attributes, expected)
+        except ValueError as exc:
+            metadata, error = None, error or str(exc)
+        close_tag = _close(element)
+        if element == "json" or metadata is None or metadata["type"] != "string":
+            close_at, marker = find_outside_json_strings(text, (close_tag,), value_at)
+            close_at = close_at if marker is not None else -1
+        else:
+            close_at = text.find(close_tag, value_at)
+        if close_at == -1:
+            return len(text), {
+                "raw_text": text[at:],
+                "error": "Incomplete K3 tool call",
+            }
+        value = text[value_at:close_at]
+        position = close_at + len(close_tag)
+        first, json_seen = not elements, json_seen or element == "json"
+        elements = True
+        if metadata is None or error is not None:
+            continue
+        if element == "json":
+            # The whole arguments object; anything else is not a call.
+            try:
+                decoded = standard_json(value)
+            except ValueError:
+                decoded = None
+            if not first or not isinstance(decoded, dict):
+                error = "K3 JSON arguments must be one object"
+            else:
+                arguments = decoded
+        elif json_seen:
+            error = "K3 JSON arguments must be one object"
+        elif metadata["key"] in arguments:
+            error = "Duplicate K3 argument key"
+        else:
+            # The declared type marks a string or JSON; the tool validates
+            # the value against its own schema.
+            arguments[metadata["key"]] = (
+                value if metadata["type"] == "string" else decode_json_marked(value)
             )
-        except (KeyError, ValueError, TypeError) as exc:
-            errors.append({"raw_text": match[0], "error": str(exc)})
-    if position != len(text):
-        errors.append({"raw_text": text[position:], "error": "Incomplete K3 tool call"})
-    return calls, errors
+    end = position + len(_close("call"))
+    raw_text = text[at:end]
+    if error is None:
+        try:
+            attrs = _attributes(header, {"tool", "index"})
+        except ValueError as exc:
+            error = str(exc)
+        else:
+            name, index = attrs["tool"], attrs["index"]
+            # Positive without int(): an index too long to convert must
+            # reject the block, not raise.
+            if not name or not index.isdecimal() or not any(map(_nonzero, index)):
+                error = "K3 calls require a tool name and positive index"
+    if error is not None:
+        return end, {"raw_text": raw_text, "error": error}
+    return end, {
+        "type": "function",
+        "id": f"functions.{name}:{index}",
+        "function": {"name": name, "arguments": _json(arguments)},
+    }
 
 
 def _attributes(header: str, expected: set[str]) -> dict[str, str]:
@@ -393,8 +501,9 @@ class KimiK3Renderer(Renderer):
                 else:
                     header += _open("response")
                 body += _close("response")
-                if calls:
-                    body += _tool_calls(calls)
+                rejected = rejected_call_text(message)
+                if calls or rejected:
+                    body += _tool_calls(calls, rejected)
             yield role, header, body + _close("message")
 
     def build_prompt_str(
@@ -462,22 +571,23 @@ class KimiK3Renderer(Renderer):
             text = _trim_incomplete_tag(text, _open("response"), _close("response"))
         text = text.removeprefix(_open("response"))
         response, separator, tail = text.partition(_close("response"))
-        if response:
-            parts.append({"type": "text", "text": response})
+        append_visible_text(parts, response)
         message: Message = {"role": "assistant", "content": parts}
         if separator:
             tail = tail.removesuffix(_close("message"))
             if not stop_found:
                 tail = _trim_incomplete_tag(tail, _close("message"), _open("tools"))
-            if tail:
-                if not tail.startswith(_open("tools")):
-                    raise ValueError("Unexpected K3 content after response channel")
-                tool_text = tail.removeprefix(_open("tools"))
+            before, opened, tool_text = tail.partition(_open("tools"))
+            # Not channel markup: visible text, as River Serve keeps it.
+            append_visible_text(parts, before)
+            if opened:
                 if not stop_found:
                     tool_text = _trim_incomplete_tag(tool_text, _close("tools"))
-                calls, errors = _parse_tool_calls(
+                calls, errors, stray = _parse_tool_calls(
                     tool_text.removesuffix(_close("tools"))
                 )
+                for piece in stray:
+                    append_visible_text(parts, piece)
                 if calls:
                     message["tool_calls"] = calls
                 if errors:

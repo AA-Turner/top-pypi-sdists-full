@@ -57,6 +57,8 @@ _HOMES = {
     "job_context": "context",
     "outbox_context": "context",
     "detached_context": "context",
+    "WORKER_SURFACE_ENV": "context",
+    "get_worker_surface": "context",
     # throttle
     "_STUCK_STAMP": "throttle",
     "STUCK_REPORT_INTERVAL_S": "throttle",
@@ -120,6 +122,8 @@ _HOMES = {
     "emit_settings_remote_applied": "events",
     "emit_private_uv": "events",
     "Event": "events",
+    # generated: the closed `surface` list every event names (S2)
+    "ProductSurface": "generated",
     "EVENT_SERVICE_STARTED": "events",
     "EVENT_SERVICE_STATE": "events",
     "EVENT_SERVICE_STOPPED": "events",

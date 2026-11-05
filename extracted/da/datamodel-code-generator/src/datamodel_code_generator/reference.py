@@ -39,10 +39,13 @@ from typing_extensions import TypeIs, override
 
 from datamodel_code_generator import Error, NamingStrategy, _model_keys
 from datamodel_code_generator._context_scope import context_values
-from datamodel_code_generator._format_types import PythonVersion  # noqa: TC001  # Preserve the established reference export.
+from datamodel_code_generator._format_types import (
+    PythonVersion,  # Preserve the established reference export.
+    PythonVersionMin,
+)
 from datamodel_code_generator._free_names import Numbering, candidate_at, first_free, is_numbered
 from datamodel_code_generator._graph_links import data_type_children
-from datamodel_code_generator._json_pointer import join_pointer
+from datamodel_code_generator._json_pointer import is_pointer_fragment, join_pointer
 from datamodel_code_generator._model_keys import MODEL_KEY_ATTRIBUTE
 from datamodel_code_generator._python_target_names import target_builtin_type_attributes
 from datamodel_code_generator._records import record
@@ -58,6 +61,7 @@ from datamodel_code_generator._target_unicode import (
 from datamodel_code_generator._url_redaction import is_url, redact_path, redact_reference
 from datamodel_code_generator._user_keys import field_keys, first_given, first_present
 from datamodel_code_generator.enums import ClassNameAffixScope, HTTPBackend
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.util import camel_to_snake
 
 if TYPE_CHECKING:
@@ -383,11 +387,19 @@ def binary_content_of(data_type: object) -> bool:
     """Return whether the parser reads the string a type node is built for as raw octets (BINARY_CONTENT, L1).
 
     The type mapping records it when it builds the node, from the schema as the specification reads it, whatever
-    the model type: a format that maps to bytes other than bytes mapped from base64 text, or in OpenAPI 3.1 and later
+    the model type: a format that maps to bytes other than bytes mapped from base64 text, or in OpenAPI 3.0 and later
     a content media type without a content encoding. A copy of a node keeps it; an enum or const of such strings, and
     a node a later pass builds, has none.
     """
     return BINARY_CONTENT_KEY in data_type.__dict__
+
+
+_NODE_RECORDS: Final = (TYPE_ORIGIN_KEY, BINARY_CONTENT_KEY)
+
+
+def keep_node_records(copy: object, source: object) -> None:
+    """Give a copy of a type node the records the parser keeps on the node it copies (TYPE_ORIGIN, BINARY_CONTENT)."""
+    copy.__dict__.update((key, source.__dict__[key]) for key in _NODE_RECORDS if key in source.__dict__)
 
 
 def _special_path(keyword: str, path: list[str]) -> list[str]:
@@ -463,12 +475,6 @@ def context_variable(setter: Callable[[T], None], current_value: T, new_value: T
         yield
     finally:
         setter(previous_value)
-
-
-_BUILTIN_TYPE_ATTRIBUTES: frozenset[str] = frozenset(
-    name for cls in (str, int, float, bytes) for name in dir(cls) if not name.startswith("_")
-)
-"""The running interpreter's attributes of the builtin types, read only by a resolver without a target (API only)."""
 
 
 class FieldNameResolver:
@@ -557,7 +563,7 @@ class FieldNameResolver:
             ):
                 conflict = field if explicit else previous
                 alias, original_name = conflict.__dict__[_EXPLICIT_FIELD_ALIAS_KEY]
-                msg = f"Alias {alias!r} for field {original_name!r} conflicts with another field."
+                msg = f"Alias {stable_repr(alias)} for field {stable_repr(original_name)} conflicts with another field."
                 raise Error(msg)
             names[name] = field
             if not final:
@@ -576,7 +582,7 @@ class FieldNameResolver:
                 field_helper = field
             if invalid:
                 alias, original_name = field.__dict__[_EXPLICIT_FIELD_ALIAS_KEY]
-                msg = f"Alias {alias!r} for field {original_name!r} is not a valid field name."
+                msg = f"Alias {stable_repr(alias)} for field {stable_repr(original_name)} is not a valid field name."
                 raise Error(msg)
 
     def _validate_field_name(self, field_name: str) -> bool:  # noqa: ARG002, PLR6301
@@ -715,9 +721,8 @@ class EnumFieldNameResolver(FieldNameResolver):
     def __init__(self, **kwargs: Any) -> None:
         """Initialize with version-aware builtin type attributes."""
         super().__init__(**kwargs)
-        target = self.target_python_version
-        self._builtin_type_attributes = (
-            target_builtin_type_attributes(target.version_key) if target is not None else _BUILTIN_TYPE_ATTRIBUTES
+        self._builtin_type_attributes = target_builtin_type_attributes(
+            (self.target_python_version or PythonVersionMin).version_key
         )
 
     @override
@@ -1152,23 +1157,35 @@ class ModelResolver:  # noqa: PLR0904
         self._field_name_resolvers = resolvers
 
     def _get_model_name_map_value(
-        self, path: str, generated_name: str, original_name: str, *, match_names: bool = True
+        self,
+        path: str,
+        generated_name: str,
+        original_name: str,
+        *,
+        match_names: bool = True,
+        row: Literal["created", "settled-final-name"] = "created",
     ) -> tuple[str, str] | None:
         """Return the key and the explicit model rename for a source path or generated name.
 
         A yielding reference matches only by path: its generated name is not final until parsing ends. The first
         matching candidate wins, and every matching key counts as found. A class name key whose name was released
-        (``_apply_model_name_map``) no longer matches by the name of a model, except of the one it renamed.
+        (``_apply_model_name_map``) no longer matches by the name of a model, except of the one it renamed. Row
+        ``settled-final-name`` (``settle_yielding_names``) matches a yielding reference by its final name
+        ``generated_name`` alone, unless a model matched that key by its name before, and records no match by name.
         """
         if not self.model_name_map:
             return None
 
-        _, separator, fragment = path.partition("#")
-        paths = (path, f"#{fragment}") if separator else (path,)
-        names = (generated_name, original_name) if match_names else ()
-        if names and self._released_model_names:
-            renamed_by = self._model_name_map_keys.get(path)
-            names = tuple(name for name in names if name not in self._released_model_names or name == renamed_by)
+        if row == "settled-final-name":
+            paths: tuple[str, ...] = ()
+            names: tuple[str, ...] = () if generated_name in self._matched_model_name_keys else (generated_name,)
+        else:
+            _, separator, fragment = path.partition("#")
+            paths = (path, f"#{fragment}") if separator else (path,)
+            names = (generated_name, original_name) if match_names else ()
+            if names and self._released_model_names:
+                renamed_by = self._model_name_map_keys.get(path)
+                names = tuple(name for name in names if name not in self._released_model_names or name == renamed_by)
         matched: tuple[str, str] | None = None
         for candidate in (*paths, *names):
             if (value := self.model_name_map.get(candidate)) is None:
@@ -1176,7 +1193,7 @@ class ModelResolver:  # noqa: PLR0904
             self._found_model_name_keys.add(candidate)
             if matched is None:
                 matched = candidate, value
-                if candidate in names:
+                if row == "created" and candidate in names:
                     self._matched_model_name_keys.add(candidate)
         return matched
 
@@ -1186,11 +1203,7 @@ class ModelResolver:  # noqa: PLR0904
 
     def _model_name_conflict(self, generated_name: str, mapped_name: str, reserved_name: str | None) -> str | None:
         """Return why ``--model-name-map`` cannot give ``mapped_name`` to a model generated as ``generated_name``."""
-        if (
-            mapped_name != reserved_name
-            and mapped_name in self._reference_names_cache
-            and mapped_name not in self._yielding_names
-        ):
+        if mapped_name != reserved_name and self._name_taken(mapped_name, row="map-conflict"):
             return "already used"
         return "reserved" if mapped_name != generated_name and mapped_name in self.exclude_names else None
 
@@ -1202,14 +1215,17 @@ class ModelResolver:  # noqa: PLR0904
         reserved_name: str | None,
     ) -> None:
         if not self.validate_name(mapped_name, self.target_python_version):
-            msg = f"--model-name-map maps {redact_reference(path)!r} to invalid class name {mapped_name!r}"
+            msg = (
+                f"--model-name-map maps {stable_repr(redact_reference(path))} to invalid class name "
+                f"{stable_repr(mapped_name)}"
+            )
             raise Error(msg)
 
         if conflict_reason := self._model_name_conflict(generated_name, mapped_name, reserved_name):
             msg = (
-                f"--model-name-map maps {redact_reference(path)!r} to {mapped_name!r}, "
-                f"but that model name is {conflict_reason}\n"
-                "Hint: --emit-model-metadata lists the generated class names and their schema locations."
+                f"--model-name-map maps {stable_repr(redact_reference(path))} to {stable_repr(mapped_name)}, but that "
+                f"model name is {conflict_reason}\nHint: --emit-model-metadata lists the generated class names and "
+                "their schema locations."
             )
             raise Error(msg)
 
@@ -1298,15 +1314,10 @@ class ModelResolver:  # noqa: PLR0904
         self._yielding_names.clear()
         self._yielding_name_start_hints.clear()
         for entry in entries:
-            reference = entry.reference
-            if (name := reference.name) not in self._matched_model_name_keys and (
-                mapped_name := self.model_name_map.get(name)
-            ) is not None:
-                self._ensure_model_name_map_value(reference.path, name, mapped_name, name)
-                self._found_model_name_keys.add(name)
-                reference.name = mapped_name
-                reference.duplicate_name = None
-                self._update_reference_name(name, mapped_name)
+            reference, name = entry.reference, entry.reference.name
+            if matched := self._get_model_name_map_value(reference.path, name, name, row="settled-final-name"):
+                self._ensure_model_name_map_value(reference.path, name, matched[1], name)
+                self._rename_reference(reference, matched[1], None)
             self.final_yielding_names[reference.path] = reference.name, reference.duplicate_name
             if reference.name != entry.created_name:
                 self.yielding_name_changes.update((entry.created_name, reference.name))
@@ -1324,11 +1335,26 @@ class ModelResolver:  # noqa: PLR0904
         new_name = prefix + self._get_unique_name(
             entry.base_name, camel=True, model_type=entry.model_type, prefix=prefix, yields=True
         )
-        entry.reference.name = new_name
-        entry.reference.duplicate_name = entry.base_name
-        del self._reference_names_cache[name]
-        self._reference_names_cache[new_name] = 1
+        self._rename_reference(entry.reference, new_name, entry.base_name, releases=False)
         self._yielding_names[new_name] = entry
+
+    def _rename_reference(
+        self, reference: Reference, name: str, duplicate_name: str | None, *, releases: bool = True
+    ) -> None:
+        """Rename ``reference`` to ``name``, decided after it was named, with ``duplicate_name``, the name it asked for.
+
+        The name it held is released (``_update_reference_name``), which drops the duplicate-name hints that may
+        number that name again; with ``releases=False`` the name changes holder without being released, so no hint is
+        dropped. A ``--model-name-map`` value has no duplicate name.
+        """
+        old_name = reference.name
+        reference.name = name
+        reference.duplicate_name = duplicate_name
+        if releases:
+            self._update_reference_name(old_name, name)
+            return
+        del self._reference_names_cache[old_name]
+        self._reference_names_cache[name] = 1
 
     def _update_reference_name(self, old_name: str | None, new_name: str, *, unique: bool = True) -> None:
         """Update the reference names cache when a reference name changes."""
@@ -1542,12 +1568,15 @@ class ModelResolver:  # noqa: PLR0904
             file_part, fragment = joined_path.split("#", 1)
             if (
                 file_part
-                and fragment
-                and not fragment.startswith("/")
+                and not is_pointer_fragment(fragment)
                 and (anchor_ref := self.ids.get(file_part, {}).get(f"#{fragment}"))
             ):
                 return anchor_ref
-        if ID_PATTERN.match(joined_path) and not _is_special_path(joined_path):
+        if (
+            joined_path.startswith("#")
+            and not is_pointer_fragment(joined_path[1:])
+            and not _is_special_path(joined_path)
+        ):
             id_scope = self._current_root_id
             scoped_ids = self.ids[id_scope]
             ref: str | None = scoped_ids.get(joined_path)
@@ -1646,8 +1675,15 @@ class ModelResolver:  # noqa: PLR0904
     @staticmethod
     @lru_cache(maxsize=4096)
     def join_path(path: tuple[str, ...]) -> str:
-        """Join path components with slashes and normalize anchors."""
-        joined_path = "/".join(p for p in path if p).replace("/#", "#")
+        """Join path components with slashes and normalize anchors.
+
+        An empty component is left out before the anchor; after it, it is the empty token of a JSON pointer (a key
+        ``""``) and stays, as a pointer's other tokens do, so that ``#/definitions/`` is not ``#/definitions``.
+        """
+        if not all(path):
+            anchored = next((index for index, part in enumerate(path) if "#" in part), len(path))
+            path = (*filter(None, path[: anchored + 1]), *path[anchored + 1 :])
+        joined_path = "/".join(path).replace("/#", "#")
         if "#" not in joined_path:
             joined_path += "#"
         return joined_path
@@ -1728,27 +1764,23 @@ class ModelResolver:  # noqa: PLR0904
             self.class_name_affix_scope != ClassNameAffixScope.All
         )
 
-    def _check_parent_scope_option(self, name: str, path: Sequence[str]) -> str:
-        # Check for parent-prefixed naming via either the legacy flag or the new naming strategy
-        use_parent_prefix = self.parent_scoped_naming or self.naming_strategy == NamingStrategy.ParentPrefixed
-        if use_parent_prefix and (parent_ref := self._find_parent_reference(path)):
-            return f"{parent_ref.name}_{name}"
-        return name
+    def _parent_prefixed(self, name: str, path: Sequence[str]) -> str:
+        """Return the name of a model at ``path`` with the name of its closest parent reference before it.
 
-    def _apply_full_path_naming(self, name: str, path: Sequence[str]) -> str:
-        """Build name from full schema path for FullPath strategy.
-
-        Uses the immediate parent reference to build a unique name.
-        For example: Order > properties > item becomes OrderItem
+        Row ``parent-prefixed`` (``--parent-scoped-naming`` or ``--naming-strategy parent-prefixed``) joins the two
+        names with ``_``; row ``full-path`` (``--naming-strategy full-path``) joins the parent's name and the name in
+        UpperCamelCase, so ``Order`` > ``properties`` > ``item`` becomes ``OrderItem``. Row ``legacy-both-prefixes``:
+        under both options the ``full-path`` prefix goes before the ``parent-prefixed`` one (#5666). A model without a
+        parent reference keeps its name.
         """
-        if self.naming_strategy != NamingStrategy.FullPath:
+        parent_prefixed = self.parent_scoped_naming or self.naming_strategy == NamingStrategy.ParentPrefixed
+        full_path = self.naming_strategy == NamingStrategy.FullPath
+        if not (parent_prefixed or full_path) or not (parent_ref := self._find_parent_reference(path)):
             return name
-
-        # Find the immediate parent reference to prefix the name
-        if parent_ref := self._find_parent_reference(path):
-            # Use immediate parent's name (CamelCase join without underscore)
-            return f"{parent_ref.name}{snake_to_upper_camel(name, target_python_version=self.target_python_version)}"
-
+        if parent_prefixed:
+            name = f"{parent_ref.name}_{name}"
+        if full_path:
+            name = f"{parent_ref.name}{snake_to_upper_camel(name, target_python_version=self.target_python_version)}"
         return name
 
     @staticmethod
@@ -1784,16 +1816,12 @@ class ModelResolver:  # noqa: PLR0904
                 ref_file = ref_path.split("#")[0]
                 current_file = current_path.split("#", maxsplit=1)[0]
                 if ref_file != current_file:  # pragma: no branch
-                    # Rename this external reference
                     new_name = self._get_unique_name(name, camel=True)
                     self._evict_yielding_reference(new_name)
-                    old_name = ref.name
-                    ref.duplicate_name = ref.name
-                    ref.name = new_name
-                    self._update_reference_name(old_name, new_name)
+                    self._rename_reference(ref, new_name, name)
                     break
 
-    def add(  # noqa: PLR0912, PLR0913, PLR0915
+    def add(  # noqa: PLR0912, PLR0913
         self,
         path: Sequence[str],
         original_name: str,
@@ -1840,8 +1868,7 @@ class ModelResolver:  # noqa: PLR0904
         if yields and (assigned := self.assigned_yielding_names.get(joined_path)) is not None:
             name, duplicate_name = assigned
         elif class_name:
-            name = self._check_parent_scope_option(name, path)
-            name = self._apply_full_path_naming(name, path)
+            name = self._parent_prefixed(name, path)
 
             # For PrimaryFirst strategy, check if this is a primary definition
             # Primary definitions get priority (don't need suffix), others get suffix when there's conflict
@@ -2077,7 +2104,7 @@ class ModelResolver:  # noqa: PLR0904
         numbering: Numbering = "joined" if camel else "underscore"
         if yields:
             return self._get_yielding_unique_name(name, suffix, numbering, prefix)
-        is_taken = self._is_taken_beside_yielding_names if self._yielding_names else self._is_taken
+        is_taken = partial(self._name_taken, row="beside-yielding" if self._yielding_names else "plain")
         hint_key = (name, suffix or "", "" if camel else "_")
         count = self._unique_name_start_hints.get(hint_key, 0)
         if count and not is_taken(candidate_at(name, numbering, count - 1, suffix)):
@@ -2087,16 +2114,32 @@ class ModelResolver:  # noqa: PLR0904
             self._unique_name_start_hints[hint_key] = count + 1
         return unique_name
 
-    def _is_taken(self, name: str) -> bool:
-        return name in self._reference_names_cache or name in self.exclude_names or name in self._released_model_names
+    def _name_taken(
+        self,
+        name: str,
+        *,
+        row: Literal["plain", "beside-yielding", "yielding-module", "map-conflict"],
+        prefix: str = "",
+    ) -> bool:
+        """Return whether the models' scope holds the class name ``name``, as the caller's row counts it.
 
-    def _is_taken_beside_yielding_names(self, name: str) -> bool:
-        """Names of yielding references stay free for references that do not yield."""
-        return (
-            self._reference_names_cache.get(name, 0) > (name in self._yielding_names)
-            or name in self.exclude_names
-            or name in self._released_model_names
-        )
+        A name is taken when a reference holds it, ``exclude_names`` has it or ``--model-name-map`` released it
+        (``_apply_model_name_map``). Row ``plain`` counts every reference; row ``beside-yielding`` leaves a name that
+        only a yielding reference holds free for a reference that does not yield; row ``yielding-module``, the name of
+        a yielding reference, counts the name in the module ``prefix`` names too and leaves a released name free; row
+        ``map-conflict``, a ``--model-name-map`` value (``_model_name_conflict``), counts a name that references hold
+        while no yielding reference does, and leaves excluded and released names to the caller.
+        """
+        names = self._reference_names_cache
+        held = name in names
+        match row:
+            case "map-conflict":
+                return held and name not in self._yielding_names
+            case "beside-yielding":
+                held = names.get(name, 0) > (name in self._yielding_names)
+            case "yielding-module":
+                held = held or f"{prefix}{name}" in names
+        return held or name in self.exclude_names or (row != "yielding-module" and name in self._released_model_names)
 
     def _get_yielding_unique_name(self, name: str, suffix: str | None, numbering: Numbering, prefix: str) -> str:
         """Return a duplicate candidate free also in the module of a yielding reference, after those given before.
@@ -2104,15 +2147,10 @@ class ModelResolver:  # noqa: PLR0904
         Candidates before the last one given stay skipped even when a name among them is released later, which only
         numbers a later model of a map value higher.
         """
-        reference_names = self._reference_names_cache
         hint_key = (name, suffix or "", numbering, prefix)
         unique_name, self._yielding_name_start_hints[hint_key] = first_free(
             name,
-            lambda unique_name: (
-                unique_name in reference_names
-                or f"{prefix}{unique_name}" in reference_names
-                or unique_name in self.exclude_names
-            ),
+            partial(self._name_taken, row="yielding-module", prefix=prefix),
             numbering,
             suffix=suffix,
             start=self._yielding_name_start_hints.get(hint_key, 0),

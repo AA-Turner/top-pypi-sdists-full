@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: exomem
-Version: 0.158.1
+Version: 0.161.0
 Summary: Local knowledge substrate for owned markdown/Obsidian vaults, exposed through MCP, REST, and CLI with multimodal OCR/ASR/CLIP search
 Project-URL: Homepage, https://substratesystems.io/exomem
 Project-URL: Documentation, https://github.com/Artexis10/exomem/blob/main/QUICKSTART.md
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Text Processing :: Indexing
 Requires-Python: >=3.11
+Requires-Dist: aiofile<4,>=3.12.3
 Requires-Dist: alembic<2,>=1.20
 Requires-Dist: charset-normalizer<4,>=3.4
 Requires-Dist: fastmcp==4.0.3
@@ -60,6 +61,10 @@ Requires-Dist: huggingface-hub>=0.24; extra == 'embeddings-onnx'
 Requires-Dist: onnxruntime>=1.20; extra == 'embeddings-onnx'
 Requires-Dist: sqlite-vec>=0.1.6; extra == 'embeddings-onnx'
 Requires-Dist: tokenizers>=0.20; extra == 'embeddings-onnx'
+Provides-Extra: frame-codecs
+Requires-Dist: av<19,>=11; extra == 'frame-codecs'
+Requires-Dist: pillow-heif==1.8.1; extra == 'frame-codecs'
+Requires-Dist: pillow>=11.1.0; extra == 'frame-codecs'
 Provides-Extra: image-codecs
 Requires-Dist: pillow-heif==1.8.1; extra == 'image-codecs'
 Requires-Dist: pillow>=11.1.0; extra == 'image-codecs'

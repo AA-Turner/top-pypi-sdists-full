@@ -30,6 +30,7 @@ import sys
 import threading
 import time
 
+from .api_key.masking import mask_text
 from .logging_messages import (
     CONSOLE_CONSUMER_THREAD_DID_NOT_FINISH_WARNING,
     NATIVE_STD_WRAPPER_NOT_AVAILABLE,
@@ -603,8 +604,17 @@ class StdLogger(object):
                     return
                 self._inplace_last_ts[std_name] = now
 
+        try:
+            output = mask_text(data, getattr(self.experiment, "api_key", None))
+        except Exception:
+            # Debug only: a warning would be captured as output and re-enter this handler.
+            LOGGER.debug(
+                "Failed to mask API keys in output; sending it unmasked", exc_info=True
+            )
+            output = data
+
         message = StandardOutputMessage(
-            output=data,
+            output=output,
             stderr=stderr,
             context=self.experiment.context,
         )

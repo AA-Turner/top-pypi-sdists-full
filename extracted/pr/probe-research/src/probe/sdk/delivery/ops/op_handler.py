@@ -255,7 +255,14 @@ def _send_upload(
 def _find_upload_source(journal: Journal, op: dict, upload: dict) -> Path:
     """The upload's bytes: its staged blob (recovering an interrupted rename) or its source file;
     ValidationError naming which is gone."""
-    source = journal.blob_path(op) or Path(upload["src_path"])
+    from ..journal.uploads import is_drain_fenced, need_staged_bytes
+
+    staged = journal.blob_path(op)
+    if staged is None and is_drain_fenced():
+        raise errors.ValidationError(
+            f"op {op['op_id']} names its source file, and a fenced caller's drain sends only staged bytes",
+            status=422)
+    source = staged or Path(upload["src_path"])
     if not source.exists() and upload.get("staged"):
         # Recover an interrupted incoming-><digest> rename from a previous drain (red team):
         # the file may exist only under the incoming staging name (or vice versa).
@@ -283,7 +290,7 @@ def _find_upload_source(journal: Journal, op: dict, upload: dict) -> Path:
             + (reason if reason else "the op was enqueued with stage=False"),
             status=422,
         )
-    return source
+    return need_staged_bytes(source)
 
 
 def _hash_deferred_upload(

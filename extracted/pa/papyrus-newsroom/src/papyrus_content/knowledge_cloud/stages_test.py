@@ -101,7 +101,33 @@ def test_typed_extraction_imports_front_matter_then_uses_the_registry_and_vocabu
     assert ["publish-run", "--auth"] in names
     registry = commands(shell, ["papyrus", "knowledge", "entities", "registry"])[0]
     assert "--vocabulary" in registry
-    assert commands(shell, ["biblicus", "extract", "typed-entities"])
+    extraction = commands(shell, ["papyrus", "knowledge", "extract-entities"])[0]
+    assert extraction[extraction.index("--registry") + 1] == str(run.run_dir / "registry.json")
+    assert extraction[extraction.index("--vocabulary") + 1] == str(run.config_dir / "vocabulary.yml")
+    assert not commands(shell, ["biblicus", "extract", "typed-entities"])
+
+
+def test_a_failed_typed_extraction_still_keeps_the_answers_it_paid_for(tmp_path):
+    run, shell = make_run(tmp_path)
+    for stage in ("corpus-sync", "topic-model"):
+        run_stage(stage, run)
+    cache = run.corpus / "analysis" / "entity-decisions" / "cache.jsonl"
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    cache.write_text('{"key": "k"}\n')  # what the command had cached when it stopped
+    shell.fail_on = "extract-entities"
+    assert run_stage("typed-extraction", run) != 0
+    assert run.state.read_text("corpus/analysis/entity-decisions/cache.jsonl") == '{"key": "k"}\n'
+
+
+def test_typed_extraction_gives_jev_its_key_in_the_environment_and_never_in_the_command(tmp_path):
+    run, shell = make_run(tmp_path)
+    for stage in ("corpus-sync", "topic-model"):
+        run_stage(stage, run)
+    assert run_stage("typed-extraction", run) == 0
+    index = next(number for number, call in enumerate(shell.calls) if call[:3] == ["papyrus", "knowledge", "extract-entities"])
+    assert run.services.key_parameter == "/papyrus/shared/typesafe-api-key"
+    assert shell.envs[index]["TYPESAFE_API_KEY"] == "jev-test-key" and "jev-test-key" not in " ".join(shell.calls[index])
+    assert "TYPESAFE_API_KEY" not in run.command_env() and all("TYPESAFE_API_KEY" not in env for number, env in enumerate(shell.envs) if number != index)
 
 
 def test_archive_uses_the_snapshot_options_and_never_replaces(tmp_path):
@@ -584,3 +610,61 @@ def test_a_failed_command_with_its_output_redirected_prints_that_output_to_the_t
     with pytest.raises(StageFailed, match="exited with 1"):
         run_shell([sys.executable, "-c", script], cwd=tmp_path, env={}, stdout=out)
     assert "bad vocabulary" in capfd.readouterr().err
+
+
+def review_with_many_entities(tmp_path, monkeypatch, max_calls):
+    """The ai-review stage over 45 generated entities (three batches), one new cluster and one proposed relation; returns the log's budget."""
+    from ..knowledge_snapshot.commands_test import published_row
+    from .ai_review_test import ACTOR as _actor, Model, TEXT, TYPED, cluster, node, relation  # noqa: F401
+
+    names = [f"Thing {number}" for number in range(45)]  # three batches of entities
+    text = TEXT + " " + ". ".join(names) + "."
+    entities = list(TYPED["items"][0]["entities"])
+    for number, name in enumerate(names):
+        start = text.index(name + ".") if name + "." in text else text.index(name)
+        entities.append({"id": f"t{number}", "kind": "model", "text": name, "span": {"start": start, "end": start + len(name)}})
+    typed = {"items": [{**TYPED["items"][0], "entities": entities}]}
+
+    run, _shell = make_run(tmp_path)
+    for stage in ("corpus-sync", "topic-model", "typed-extraction"):
+        run_stage(stage, run)
+    typed_dir = run.run_dir / "typed"
+    typed_dir.mkdir(parents=True, exist_ok=True)
+    (typed_dir / "output.json").write_text(json.dumps(typed))
+    texts = run.corpus / "extracted" / "pipeline" / "ext1" / "text"
+    texts.mkdir(parents=True)
+    (texts / "i1.txt").write_text(text)
+    run.push(corpus=True, run=True)
+    monkeypatch.setattr("papyrus_content.records.apply_record_changes", lambda client, changes: None)
+
+    nodes = [node(name) for name in names] + [node("VoxCPM2", status="accepted"), node("MiniCPM-4", kind="model_family", status="accepted")]
+    proposal = cluster()
+    proposal["evidenceItemIds"] = ["lineage-a", "lineage-b", "lineage-c", "lineage-d"]
+
+    class Client(FakeClient):
+        def list_records(self, model):
+            return {"SemanticNode": self.nodes, "SteeringProposal": [proposal]}.get(model, [])
+
+        def list_published_item_summaries(self):
+            return [published_row(name, "2026-10-13T08:00:00Z") for name in "abcd"]
+
+        def list_semantic_relations_by_subject_state(self, _state):
+            return [relation()]
+
+    class Services(FakeServices):
+        def __init__(self):
+            self.client, self.key_parameter = Client(nodes), None
+
+        def model(self, api_key, guidance):
+            return Model({}, max_calls=max_calls)
+
+    run.services = Services()
+    assert run_stage("ai-review", run) == 0
+    return json.loads(run.state.read_text("runs/2026-W44/ai-review.json"))["budget"]
+
+
+def test_the_review_budget_keeps_clusters_and_relations_from_being_starved_by_the_entities(tmp_path, monkeypatch):
+    budget = review_with_many_entities(tmp_path, monkeypatch, 3)
+    assert budget["needed"] == {"entities": 3, "clusters": 1, "relations": 1}
+    assert budget["owed"] == {"entities": 1, "clusters": 1, "relations": 1}
+    assert budget["used"] == {"entities": 1, "clusters": 1, "relations": 1}, "without the rule the entities take all 3 calls and nothing else is reviewed"

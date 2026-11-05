@@ -1,25 +1,18 @@
 //! Inline content: the [`Inline`] nodes of the finished tree, and the parsers for inline markdown
 //! content.
 
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData, mem::take};
+use std::{borrow::Cow, mem::take};
 
 use derive_where::derive_where;
-use nom::Parser;
-use nom::branch::alt;
-use nom::character::complete::{anychar, line_ending};
-use nom::combinator::map;
-use nom::multi::many1;
 use tracing::Level;
 
 use crate::{
 	Input,
-	context::{Context, fuel::ApplyFuel},
-	error::ParseError,
+	context::Context,
+	error::{Fail, PResult},
 	lossless::TokenKind,
 	range::delim,
-	scope::Scope,
-	span::{Span, Syntax, TraceOk, TraceParse, WithSpan, WithToken, attach},
-	unparse::Unparse,
+	span::{Span, Syntax, Trace},
 };
 
 use self::{
@@ -27,11 +20,7 @@ use self::{
 };
 use super::{
 	Element, Elements, Id, Inlines, Iter, SpannedInline, merge_text,
-	modifier::{
-		ModifierKind, ModifierKinds, bold, italic,
-		spoiler::{self, Spoiler},
-		strikethrough, underline,
-	},
+	modifier::{ModifierKind, ModifierKinds, spoiler::Spoiler},
 };
 
 pub use {
@@ -186,25 +175,6 @@ impl<'data, 'node, S: Span> IntoIterator for &'node Inline<'data, S> {
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
-	}
-}
-
-impl<S: Span> Unparse for Inline<'_, S> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			Self::Bold(content) => bold::unparse(content, f),
-			Self::Italic(content) => italic::unparse(content, f),
-			Self::Underline(content) => underline::unparse(content, f),
-			Self::Strikethrough(content) => strikethrough::unparse(content, f),
-			Self::Spoiler(Spoiler { content, .. }) => spoiler::unparse(content, f),
-			Self::Emoji(emoji) => Unparse::fmt(emoji, f),
-			Self::Timestamp(timestamp) => Unparse::fmt(timestamp, f),
-			Self::Mention(mention) => Unparse::fmt(mention, f),
-			Self::Link(link) => Unparse::fmt(link, f),
-			Self::Code(code) => code::unparse(code, f),
-			Self::CodeBlock(code_block) => Unparse::fmt(code_block, f),
-			Self::Text(text) => f.write_str(text),
-		}
 	}
 }
 
@@ -374,127 +344,88 @@ where
 	true
 }
 
-struct InlineParser<S, E> {
-	context: Context,
-	span: PhantomData<S>,
-	error: PhantomData<E>,
-}
-
-impl<S, E> Clone for InlineParser<S, E> {
-	fn clone(&self) -> Self {
-		Self {
-			context: self.context.clone(),
-			span: PhantomData,
-			error: PhantomData,
-		}
+/// Parse one piece of inline content, with the syntax it was written with outside its children.
+fn piece<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<(Element<'data, S>, S::Syntax)> {
+	// TODO: this should respect the inner content by outputting a Node (or list of Nodes) rather
+	// than text
+	if let Some((pair, syntax)) = input.attempt(|input| {
+		input.with_token::<S, _>(TokenKind::Text, |input| context.matched_pairs(input))
+	})? {
+		return Ok((Element::Text(pair.into()), syntax));
 	}
-}
 
-impl<S, E> Debug for InlineParser<S, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("InlineParser")
-			.field("context", &self.context)
-			.field("span", &self.span)
-			.field("error", &self.error)
-			.finish()
+	if context.at_terminal(input) {
+		return Err(Fail::NoMatch);
 	}
+
+	if let Some(syntax) = input.attempt(|input| context.allowed_inline_syntax(input))? {
+		return Ok(syntax);
+	}
+	// resolved into modifiers once the whole message is parsed; see `crate::range`
+	if let Some(delim) = input.attempt(|input| delim::delim(input, context.syntaxes))? {
+		return Ok((Element::Delim(delim), S::Syntax::default()));
+	}
+	if let Some(block) = input.attempt(|input| {
+		let line_ending = input.token::<S, _>(TokenKind::LineEnding, Input::line_ending)?;
+		let prefix =
+			input.token::<S, _>(TokenKind::QuotePrefix, |input| context.line_prefix(input))?;
+		let (block, syntax) = context.allowed_block_syntax(input)?;
+		Ok((block, line_ending.join(prefix).join(syntax)))
+	})? {
+		return Ok(block);
+	}
+	if let Some((text, syntax)) = input.attempt(|input| text::text::<S>(input, context))? {
+		return Ok((Element::Text(text), syntax));
+	}
+
+	// If we failed to capture the current character after stepping through all rules then we are
+	// likely dealing with an unpaired control character, so consume it and allow the rules to
+	// continue.
+	let (ch, syntax) = input.with_token::<S, _>(TokenKind::Text, Input::any_char)?;
+	Ok((Element::Text(ch.to_string().into()), syntax))
 }
 
-impl<'data, S, E> Parser<Input<'data>> for InlineParser<S, E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	type Output = Elements<'data, S>;
-	type Error = E;
+/// Parse inline content: at least one piece of it.
+///
+/// # Errors
+/// If no inline content begins the input, or the parse runs out of fuel.
+#[tracing::instrument(name = "inline_parser", level = Level::TRACE, skip_all, fields(ok, output))]
+pub fn inline<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<Elements<'data, S>> {
+	context.remaining_fuel().spend()?;
+	let context = context.with_hints(input);
 
-	#[tracing::instrument(name = "inline_parser", level = Level::TRACE, fields(ok, output))]
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let ctx = self.context.with_hints(&input);
-
-		#[allow(
-			clippy::let_and_return,
-			reason = "`tracing::instrument` keeps a tail expression's temporaries, which borrow `ctx`, \
-			          alive past it"
-		)]
-		let result = many1(alt((
-			ctx.matched_pairs()
-				.with_token::<S>(TokenKind::Text)
-				// TODO: this should respect the inner content by outputting a Node (or list of Nodes) rather than Input
-				.map(|(seq, syntax)| (Element::<S>::Text(seq.content.into()), syntax))
-				.span()
-				.map(attach),
-			ctx.guard_terminal_sequence(|| {
-				alt((
-					ctx.allowed_inline_syntax(),
-					// resolved into modifiers once the whole message is parsed; see `crate::range`
-					delim::delim(ctx.syntaxes)
-						.map(|delim| (Element::Delim(delim), S::Syntax::default())),
-					(
-						line_ending.token::<S>(TokenKind::LineEnding),
-						ctx.line_prefix().token::<S>(TokenKind::QuotePrefix),
-						ctx.allowed_block_syntax(),
-					)
-						.map(|(line_ending, prefix, (block, syntax))| {
-							(block, line_ending.join(prefix).join(syntax))
-						}),
-					text::text::<S, E>(ctx.clone())
-						.map(|(content, syntax)| (Element::Text(Cow::Owned(content)), syntax)),
-					// If we failed to capture the current character after stepping through all rules
-					// then we are likely dealing with an unpaired control character, so consume it
-					// and allow the rules to continue.
-					map(
-						anychar.with_token::<S>(TokenKind::Text),
-						|(ch, syntax): (char, _)| (Element::Text(ch.to_string().into()), syntax),
-					),
-				))
-			})
-			.span()
-			.map(attach),
-		)))
-		.apply_fuel(self.context.remaining_fuel())
-		.map(|mut pieces| {
+	input
+		.spanned(|input| {
+			let mut pieces = Vec::new();
+			while let Some(piece) =
+				input.attempt(|input| input.spanned_with_syntax(|input| piece(input, &context)))?
+			{
+				pieces.push(piece);
+			}
+			if pieces.is_empty() {
+				return Err(Fail::NoMatch);
+			}
 			merge_text(&mut pieces);
-			pieces
+			Ok(pieces)
 		})
-		.span()
-		.trace_parse()
-		.process::<OM>(input)
-		.trace_ok();
-		result
-	}
-}
-
-/// Parse inline content.
-#[must_use]
-pub fn inline<'data, S, E>(
-	context: Context,
-) -> impl Parser<Input<'data>, Output = Elements<'data, S>, Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	InlineParser {
-		context,
-		span: PhantomData,
-		error: PhantomData,
-	}
+		.trace()
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
 	use super::{
 		Inline, Inlines, SpannedInline, flatten, inline, mention::Mention, timestamp::Timestamp,
 	};
 	use crate::span::{Span, Spanned, TrackedSpan};
 	use crate::{
 		bold, code, code_block, emoji, italic, link, spanned_vec, spoiler, strikethrough,
-		test_utils::{handle_nom_err, resolved_inlines},
+		test_utils::{resolved_inlines, run},
 		text, underline,
 		{context::Context, node::Element},
 	};
@@ -689,11 +620,8 @@ mod test {
 	#[test]
 	fn compound_test() {
 		let s = r"_foo t_a **bat** <a:abcd:1234><t:1234><@1234> butt_";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_inlines(res),
@@ -718,11 +646,8 @@ mod test {
 	#[test]
 	fn intraword_underscore_does_not_open_italic() {
 		let s = "the discord_admin codebase and _really_ don't";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_inlines(res),
@@ -739,11 +664,8 @@ mod test {
 	#[test]
 	fn intraword_underscore_paren_does_not_open_italic() {
 		let s = "Endemic_(epidemiology) and _really_";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_inlines(res),
@@ -756,11 +678,8 @@ mod test {
 	#[test]
 	fn trailing_underscore_after_word_is_literal() {
 		let s = "foo_bar baz_";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(resolved_inlines(res), spanned_vec![text!("foo_bar baz_")]);
 	}
@@ -771,11 +690,8 @@ mod test {
 	#[test]
 	fn leading_underscore_still_opens_italic() {
 		let s = "_(foo)_";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(resolved_inlines(res), spanned_vec![italic!("(foo)")]);
 	}
@@ -797,9 +713,8 @@ mod test {
 			"> *foo **bar** baz*",
 			"# *foo **bar** baz*",
 		] {
-			let res = crate::parse::<(), _>(s, crate::context::Options::default())
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let res =
+				crate::parse::<()>(s, crate::context::Options::default()).expect("unable to parse");
 			assert!(
 				res.iter().any(|block| has_bold(block)),
 				"expected a nested bold for {s:?}, got {res:?}"
@@ -813,11 +728,8 @@ mod test {
 	#[test]
 	fn a_triple_underscore_run_nests_italic_outside_underline() {
 		let s = "___foo___";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_inlines(res),
@@ -828,11 +740,8 @@ mod test {
 	#[test]
 	fn link_detection() {
 		let s = "foo https://wnelson.dev bar";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -844,11 +753,8 @@ mod test {
 	#[test]
 	fn link_in_a_parenthetical() {
 		let s = "(see https://wnelson.dev).";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -860,11 +766,8 @@ mod test {
 	#[test]
 	fn masked_links() {
 		let s = "foo [bar](https://wnelson.dev) baz";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -880,11 +783,8 @@ mod test {
 	#[test]
 	fn multi_line_end() {
 		let s = "foo\nbar";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(resolved_inlines(res), spanned_vec![text!("foo\nbar")]);
@@ -893,11 +793,8 @@ mod test {
 	#[test]
 	fn simple_code() {
 		let s = "`foo`";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(resolved_inlines(res), spanned_vec![code!("foo")]);
@@ -906,11 +803,8 @@ mod test {
 	#[test]
 	fn complex_code() {
 		let s = "foo `ba**r**`";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -922,11 +816,8 @@ mod test {
 	#[test]
 	fn simple_codeblock() {
 		let s = "```\nfoo```";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(resolved_inlines(res), spanned_vec![code_block!("foo")]);
@@ -935,11 +826,8 @@ mod test {
 	#[test]
 	fn complex_codeblock() {
 		let s = "foo **bar**```baz\n_bar_``` _butt_";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -957,11 +845,8 @@ mod test {
 	#[test]
 	fn text_with_emoji() {
 		let s = "foo 🦶";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -973,11 +858,8 @@ mod test {
 	#[test]
 	fn text_with_colon_delimited_emoji() {
 		let s = "foo :foot:";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -989,11 +871,8 @@ mod test {
 	#[test]
 	fn text_with_spoiler() {
 		let s = "foo ||bar|| baz";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -1007,11 +886,8 @@ mod test {
 	#[test]
 	fn text_with_autolink() {
 		let s = "foo <https://wnelson.dev> bar";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -1023,11 +899,8 @@ mod test {
 	#[test]
 	fn text_with_nested_rules() {
 		let s = "**foo __bar **baz** foo__ bar**";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -1055,11 +928,8 @@ mod test {
 			"//discord.gg/code",
 			"xdiscord.gg/code",
 		] {
-			let (rem, res) = inline::<(), _>(Context::default())
-				.parse_complete(s.into())
-				.finish()
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let (rem, res) =
+				run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 			let res = resolved_inlines(res);
 
 			assert_eq!(rem, "", "unexpected input remaining for {s:?}");
@@ -1074,11 +944,8 @@ mod test {
 	#[test]
 	fn schemaless_domain_inside_a_link_is_part_of_it() {
 		let s = "canary.discord.com/quests/1suffix.discord.com/quests/2";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(res.value.len(), 1, "expected one node, got {res:?}");
@@ -1099,11 +966,8 @@ mod test {
 			// the whole host, not `discord.gg` at an offset inside it
 			"www.discord.gg/code",
 		] {
-			let (rem, res) = inline::<(), _>(Context::default())
-				.parse_complete(s.into())
-				.finish()
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let (rem, res) =
+				run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 			assert_eq!(rem, "", "unexpected input remaining for {s:?}");
 			assert!(
@@ -1118,11 +982,8 @@ mod test {
 	#[test]
 	fn schemed_url_mid_token_still_detected() {
 		let s = "lolhttps://discord.gg/code";
-		let (rem, res) = inline::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| inline::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert!(

@@ -24,10 +24,16 @@ class WaitOutcome(StrEnum):
     UNREACHABLE = "unreachable"
     #: The worker kept dying with nothing delivered.
     WORKER_CRASH_LOOP = "worker_crash_loop"
-    #: No worker could be started here (no subprocess, a frozen interpreter).
+    #: No Probe service could be reached or started here to send them.
     NO_SENDER = "no_sender"
+    #: As NO_SENDER, and the key passed in code never reached a service (plan D21): only a
+    #: process holding that key can send them.
+    KEY_NOT_HANDED = "key_not_handed"
     #: An older release's worker held the queue and did not step aside (R3).
     OLD_WORKER = "old_worker"
+    #: A write of the run is of a journal version or op kind the Probe service's drain here does not
+    #: read (M4): it waits, in order, for a newer service.
+    NEEDS_NEWER_SERVICE = "needs_newer_service"
     #: The close itself neither reached the server nor the outbox (full, or unwritable).
     CLOSE_UNRECORDED = "close_unrecorded"
     #: Everything was delivered, but the server refused some of it once it stored it (infra
@@ -60,6 +66,10 @@ class WaitResult:
     waited_seconds: float = 0.0
     #: Who held the lease, for `OLD_WORKER` (pid and release).
     holder: str | None = None
+    #: The Probe service's version, for `NEEDS_NEWER_SERVICE`.
+    service_version: str | None = None
+    #: The outbox folder, for `KEY_NOT_HANDED` (the recovery names it).
+    outbox: str | None = None
     #: For `DATA_REFUSED`: the run read's `ingest.refusals` of this attempt, each with its kind,
     #: counts and the server's sentence (`message.text`).
     refusals: list = field(default_factory=list)

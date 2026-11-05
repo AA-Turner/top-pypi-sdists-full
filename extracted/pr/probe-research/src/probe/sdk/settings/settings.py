@@ -368,6 +368,28 @@ def current_context_name(data: dict | None = None) -> str:
     return data.get(CURRENT_CONTEXT_KEY) or DEFAULT_CONTEXT
 
 
+def normalize_endpoint(url: str | None) -> str:
+    """`url` as two endpoints compare: stripped, no trailing slash, the scheme and host lower
+    case, and https's default port (`:443`) dropped. `""` for none; a string that is not a URL
+    comes back stripped. The one rule for "is this the address a key was stored for"
+    (`probe.service.actions.caller.known_endpoint`, the wizard's checks)."""
+    from urllib.parse import urlsplit, urlunsplit
+
+    text = (url or "").strip().rstrip("/")
+    try:
+        parts = urlsplit(text)
+    except ValueError:
+        return text
+    if not parts.scheme or not parts.netloc:
+        return text
+    scheme = parts.scheme.lower()
+    userinfo, at, hostport = parts.netloc.rpartition("@")
+    hostport = hostport.lower()
+    if scheme == "https" and hostport.endswith(":443"):
+        hostport = hostport[: -len(":443")]
+    return urlunsplit((scheme, f"{userinfo}{at}{hostport}", parts.path.rstrip("/"), parts.query, parts.fragment))
+
+
 def load_context(name: str | None = None) -> dict:
     """The flat credential dict for one context. ``{}`` when it does not exist.
 
@@ -666,6 +688,30 @@ class Mode(StrEnum):
     DISABLED = "disabled"
     #: Train with no API and deliver later with `probe sync` (plan 2.12).
     OFFLINE = "offline"
+
+
+def keep_stored_keys_home(settings: Settings, stored: Mapping, context_name: str | None = None) -> Settings:
+    """Plan D26: a stored key is only ever sent to the address it was stored for. Where `settings`
+    aim elsewhere (an address from the environment, a registry entry, a pinned op), only the
+    environment's own keys go there: the stored login's that `resolve` may have paired with it are
+    dropped. AuthError when no key is left. The one rule for the drain and the box watcher."""
+    from .. import errors
+    from ..session_marker import WIZARD_HINT
+
+    stored_base = normalize_endpoint(stored.get("base_url") or DEFAULT_BASE_URL)
+    if stored_base == normalize_endpoint(settings.base_url):
+        return settings
+    if settings.token and settings.token == stored.get("token") and not os.environ.get("PROBE_TOKEN"):
+        settings.token = None
+    if (settings.ingest_token and settings.ingest_token == stored.get("ingest_token")
+            and not os.environ.get("PROBE_INGEST_TOKEN")):
+        settings.ingest_token = None
+    if not (settings.token or settings.ingest_token):
+        raise errors.AuthError(
+            f"the login stored for context {context_name or '<default>'} is {stored_base}'s, never sent to "
+            f"{settings.base_url}; set PROBE_TOKEN for that address ({WIZARD_HINT})"
+        )
+    return settings
 
 
 def resolve_mode(explicit: str | None = None) -> Mode:

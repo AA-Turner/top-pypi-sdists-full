@@ -189,7 +189,10 @@ class HtmlReportHandler(EventHandler["BaseExecutionContext"]):
 
     def _failing_case(self, ctx: BaseExecutionContext, key: str, group: GroupedFailures) -> FailingCase:
         case = failing_case(
-            group, config=ctx.config.output, replay=replay_command(group, record_crashes=ctx.config.cache.enabled)
+            group,
+            config=ctx.config.output,
+            replay=replay_command(group, record_crashes=ctx.config.cache.enabled),
+            classify_status=ctx.classify_status,
         )
         # Keyed like the run's failure groups: run-level failures have no case id.
         case.found_at, case.found_in = self.found.get(key, (None, None))
@@ -476,6 +479,8 @@ def _extraction_notes(ctx: BaseExecutionContext) -> list[ExtractionNote]:
             reason=extraction_failure_reason(failure),
             commands=_extraction_commands(failure),
             status_code=failure.response.status_code,
+            status_line=failure.response.status_line,
+            status_class=ctx.classify_status(failure.response.status_code),
             body=format_response_payload(failure.response, config=ctx.config.output),
         )
         for failure in ctx.statistic.extraction_failures

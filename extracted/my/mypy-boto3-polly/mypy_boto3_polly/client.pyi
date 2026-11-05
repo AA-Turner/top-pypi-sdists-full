@@ -43,6 +43,8 @@ from .type_defs import (
     ListLexiconsOutputTypeDef,
     ListSpeechSynthesisTasksInputTypeDef,
     ListSpeechSynthesisTasksOutputTypeDef,
+    ListTagsForResourceInputTypeDef,
+    ListTagsForResourceOutputTypeDef,
     PutLexiconInputTypeDef,
     StartSpeechSynthesisStreamInputTypeDef,
     StartSpeechSynthesisStreamOutputTypeDef,
@@ -50,6 +52,8 @@ from .type_defs import (
     StartSpeechSynthesisTaskOutputTypeDef,
     SynthesizeSpeechInputTypeDef,
     SynthesizeSpeechOutputTypeDef,
+    TagResourceInputTypeDef,
+    UntagResourceInputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -69,6 +73,7 @@ class Exceptions(BaseClientExceptions):
     InvalidSampleRateException: type[BotocoreClientError]
     InvalidSnsTopicArnException: type[BotocoreClientError]
     InvalidSsmlException: type[BotocoreClientError]
+    InvalidTagParameterException: type[BotocoreClientError]
     InvalidTaskIdException: type[BotocoreClientError]
     LanguageNotSupportedException: type[BotocoreClientError]
     LexiconNotFoundException: type[BotocoreClientError]
@@ -76,12 +81,14 @@ class Exceptions(BaseClientExceptions):
     MarksNotSupportedForFormatException: type[BotocoreClientError]
     MaxLexemeLengthExceededException: type[BotocoreClientError]
     MaxLexiconsNumberExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
     ServiceFailureException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
     SsmlMarksNotSupportedForTextTypeException: type[BotocoreClientError]
     SynthesisTaskNotFoundException: type[BotocoreClientError]
     TextLengthExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
     UnsupportedPlsAlphabetException: type[BotocoreClientError]
     UnsupportedPlsLanguageException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
@@ -181,6 +188,16 @@ class PollyClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/client/#list_speech_synthesis_tasks)
         """
 
+    def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceInputTypeDef]
+    ) -> ListTagsForResourceOutputTypeDef:
+        """
+        Lists the tags for an Amazon Polly resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/list_tags_for_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/client/#list_tags_for_resource)
+        """
+
     def put_lexicon(self, **kwargs: Unpack[PutLexiconInputTypeDef]) -> dict[str, Any]:
         """
         Stores a pronunciation lexicon in an Amazon Web Services Region.
@@ -219,6 +236,22 @@ class PollyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/synthesize_speech.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/client/#synthesize_speech)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
+        """
+        Adds specified tags to a resource with the specified ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/tag_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/client/#tag_resource)
+        """
+
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
+        """
+        Deletes specified tags from a resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/untag_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_polly/client/#untag_resource)
         """
 
     @overload  # type: ignore[override]

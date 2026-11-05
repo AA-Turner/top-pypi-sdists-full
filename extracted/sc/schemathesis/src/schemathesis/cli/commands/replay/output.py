@@ -12,6 +12,7 @@ from schemathesis.cli.commands.replay.executor import (
     ReplayOutcome,
     ReplayStatus,
     bodies_equal,
+    status_label,
 )
 from schemathesis.cli.core import get_terminal_width
 from schemathesis.cli.output import (
@@ -26,6 +27,7 @@ from schemathesis.core import NOT_SET
 from schemathesis.core.failures import case_header, format_failures
 from schemathesis.core.output import pluralize, truncate_text
 from schemathesis.core.transforms import UNRESOLVABLE
+from schemathesis.core.transport import StatusClass
 from schemathesis.generation.meta import report_label
 from schemathesis.reporting.crashes import CrashFile, CrashStep
 
@@ -81,7 +83,7 @@ def render_replay(
     base_url: str | None,
     duration_ms: int,
     output_config: OutputConfig,
-    schema: BaseSchema | None = None,
+    schema: BaseSchema,
     removal_count: int = 0,
     incompatible_count: int = 0,
     interrupted: bool = False,
@@ -228,7 +230,7 @@ def _print_step_chain(
     *,
     sequence: list[CrashStep],
     outcome: ReplayOutcome,
-    schema: BaseSchema | None,
+    schema: BaseSchema,
 ) -> None:
     from rich.text import Text
 
@@ -240,7 +242,7 @@ def _print_step_chain(
     paths = [truncate_text(_step_path(step), path_limit) for step in sequence]
     operation_labels: list[str | None] = []
     for step in sequence:
-        label = schema.operation_label_for_display(step.operation) if schema is not None else None
+        label = schema.operation_label_for_display(step.operation)
         operation_labels.append(truncate_text(label, path_limit) if label is not None else None)
     method_column = max(len(step.method) for step in sequence)
     path_column = max(len(label or path) for label, path in zip(operation_labels, paths, strict=True))
@@ -279,10 +281,10 @@ def _print_step_chain(
         row.append("  ")
         # Show a single status when the step reproduced identically; only spell out
         # `recorded -> replayed` when the status actually drifted.
-        row.append(_status_label(schema, step.response_status), style=_status_style(step.response_status))
+        row.append(status_label(schema, step.response_status), style=_status_style(schema, step.response_status))
         if actual.status_code != step.response_status:
             row.append(f" {ARROW} ", style="dim")
-            row.append(_status_label(schema, actual.status_code), style=_status_style(actual.status_code))
+            row.append(status_label(schema, actual.status_code), style=_status_style(schema, actual.status_code))
         if delta is not None:
             row.append("  ")
             row.append(GLYPH_CHANGED, style=delta)
@@ -417,19 +419,15 @@ def _step_path(step: CrashStep) -> str:
     return urlparse(raw).path
 
 
-def _status_style(status_code: int) -> str:
-    if 200 <= status_code < 300:
+def _status_style(schema: BaseSchema, status_code: int) -> str:
+    status_class = schema.classify_status(status_code)
+    if status_class is StatusClass.SUCCESS:
         return "green"
-    if 400 <= status_code < 500:
+    if status_class.is_client_error:
         return "yellow"
-    if 500 <= status_code < 600:
+    if status_class.is_server_error:
         return "red"
     return "white"
-
-
-def _status_label(schema: BaseSchema | None, status_code: int) -> str:
-    name = schema.status_name_for_code(status_code) if schema is not None else None
-    return name or str(status_code)
 
 
 def _step_delta(

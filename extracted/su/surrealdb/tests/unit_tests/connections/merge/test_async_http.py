@@ -3,6 +3,7 @@ from typing import Any
 
 import pytest
 
+from surrealdb import StringRecordId
 from surrealdb.connections.async_http import AsyncHttpSurrealConnection
 from surrealdb.data.types.record_id import RecordID
 from surrealdb.data.types.table import Table
@@ -35,10 +36,10 @@ async def test_merge_string(
     async_http_connection: AsyncHttpSurrealConnection, setup_user: None
 ) -> None:
     record_id = RecordID("user", "tobie")
-    outcome = await async_http_connection.merge("user:tobie")
+    outcome = await async_http_connection.update(StringRecordId("user:tobie")).merge({})
     assert outcome["id"] == record_id
     assert outcome["name"] == "Tobie"
-    result = await async_http_connection.query("SELECT * FROM user;")
+    result = await async_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Tobie"
 
@@ -50,12 +51,14 @@ async def test_merge_string_with_data(
     setup_user: None,
 ) -> None:
     record_id = RecordID("user", "tobie")
-    first_outcome = await async_http_connection.merge("user:tobie", merge_data)
+    first_outcome = await async_http_connection.update(
+        StringRecordId("user:tobie")
+    ).merge(merge_data)
     assert first_outcome["id"] == record_id
     assert first_outcome["name"] == "Jaime"
     assert first_outcome["email"] == "jaime@example.com"
     assert first_outcome["enabled"] is True
-    result = await async_http_connection.query("SELECT * FROM user;")
+    result = await async_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Jaime"
     assert result[0]["email"] == "jaime@example.com"
@@ -67,10 +70,10 @@ async def test_merge_record_id(
     async_http_connection: AsyncHttpSurrealConnection, setup_user: None
 ) -> None:
     record_id = RecordID("user", "tobie")
-    first_outcome = await async_http_connection.merge(record_id)
+    first_outcome = await async_http_connection.update(record_id).merge({})
     assert first_outcome["id"] == record_id
     assert first_outcome["name"] == "Tobie"
-    result = await async_http_connection.query("SELECT * FROM user;")
+    result = await async_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Tobie"
 
@@ -82,12 +85,12 @@ async def test_merge_record_id_with_data(
     setup_user: None,
 ) -> None:
     record_id = RecordID("user", "tobie")
-    outcome = await async_http_connection.merge(record_id, merge_data)
+    outcome = await async_http_connection.update(record_id).merge(merge_data)
     assert outcome["id"] == record_id
     assert outcome["name"] == "Jaime"
     assert outcome["email"] == "jaime@example.com"
     assert outcome["enabled"] is True
-    result = await async_http_connection.query("SELECT * FROM user;")
+    result = await async_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Jaime"
     assert result[0]["email"] == "jaime@example.com"
@@ -100,10 +103,10 @@ async def test_merge_table(
 ) -> None:
     table = Table("user")
     record_id = RecordID("user", "tobie")
-    first_outcome = await async_http_connection.merge(table)
+    first_outcome = await async_http_connection.update(table).merge({})
     assert first_outcome[0]["id"] == record_id
     assert first_outcome[0]["name"] == "Tobie"
-    result = await async_http_connection.query("SELECT * FROM user;")
+    result = await async_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Tobie"
 
@@ -116,12 +119,12 @@ async def test_merge_table_with_data(
 ) -> None:
     table = Table("user")
     record_id = RecordID("user", "tobie")
-    outcome = await async_http_connection.merge(table, merge_data)
+    outcome = await async_http_connection.update(table).merge(merge_data)
     assert outcome[0]["id"] == record_id
     assert outcome[0]["name"] == "Jaime"
     assert outcome[0]["email"] == "jaime@example.com"
     assert outcome[0]["enabled"] is True
-    result = await async_http_connection.query("SELECT * FROM user;")
+    result = await async_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Jaime"
     assert result[0]["email"] == "jaime@example.com"

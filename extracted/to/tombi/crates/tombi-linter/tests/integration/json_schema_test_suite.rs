@@ -51,6 +51,7 @@ async fn validate_test_suite(
     let linter = Linter::new(
         TomlVersion::default(),
         &lint_options,
+        tombi_config::ExtensionsLintOptions::default(),
         Some(Either::Right(source_path.as_path())),
         &schema_store,
     );
@@ -388,7 +389,7 @@ mod issue_2190_reference_annotations {
             JsonSchema(scalar_dynamic_ref_schema()),
         ) -> Err([
             expected_diagnostic(
-                tombi_validator::DiagnosticKind::Nothing,
+                tombi_validator::DiagnosticKind::AlwaysFails,
                 ((0, 8), (0, 21)),
             ),
         ]);
@@ -435,7 +436,7 @@ mod issue_2190_reference_annotations {
             JsonSchema(scalar_recursive_ref_schema()),
         ) -> Err([
             expected_diagnostic(
-                tombi_validator::DiagnosticKind::Nothing,
+                tombi_validator::DiagnosticKind::AlwaysFails,
                 ((0, 8), (0, 21)),
             ),
         ]);
@@ -806,7 +807,7 @@ mod draft7_dependencies {
                 JsonSchema(schema()),
             ) -> Err([
                 expected_diagnostic(
-                    tombi_validator::DiagnosticKind::Nothing,
+                    tombi_validator::DiagnosticKind::AlwaysFails,
                     ((0, 0), (1, 0))
                 ),
             ]);
@@ -821,7 +822,7 @@ mod draft7_dependencies {
                 JsonSchema(schema()),
             ) -> Err([
                 expected_diagnostic(
-                    tombi_validator::DiagnosticKind::Nothing,
+                    tombi_validator::DiagnosticKind::AlwaysFails,
                     ((0, 0), (2, 0))
                 ),
             ]);
@@ -1159,7 +1160,7 @@ mod draft7_property_names {
                 JsonSchema(schema()),
             ) -> Err([
                 expected_diagnostic(
-                    tombi_validator::DiagnosticKind::Nothing,
+                    tombi_validator::DiagnosticKind::AlwaysFails,
                     ((0, 0), (0, 3))
                 ),
             ]);
@@ -2118,7 +2119,7 @@ mod draft2020_12_dependent_schemas {
                 JsonSchema(schema()),
             ) -> Err([
                 expected_diagnostic(
-                    tombi_validator::DiagnosticKind::Nothing,
+                    tombi_validator::DiagnosticKind::AlwaysFails,
                     ((0, 0), (1, 0))
                 ),
             ]);
@@ -2133,7 +2134,7 @@ mod draft2020_12_dependent_schemas {
                 JsonSchema(schema()),
             ) -> Err([
                 expected_diagnostic(
-                    tombi_validator::DiagnosticKind::Nothing,
+                    tombi_validator::DiagnosticKind::AlwaysFails,
                     ((0, 0), (2, 0))
                 ),
             ]);

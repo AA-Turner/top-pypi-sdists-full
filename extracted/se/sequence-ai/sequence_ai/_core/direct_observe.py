@@ -52,8 +52,6 @@ class _ObservationStream:
             packed, marks = _marked.packed(self, inputs, episode_id, cut)
         except ValueError as exc:
             raise InvalidRequest(f"observe(): this observation cannot be sent - {exc}") from None
-
-        said = bool(self._planner) and isinstance(inputs, dict) and any(k in inputs for k in PROMPT_KEYS)
         with self._lock:
             n = self._numbers.get(episode_id, 0)
             self._numbers[episode_id] = n + 1
@@ -79,7 +77,7 @@ class _ObservationStream:
         if stream is not None:
             for s, f in held:
                 stream.put(wid, s, f)
-            stream.put(wid, n, _observe.frame(n, packed), blocks=cut.last if cut is not None else None, said=said)
+            stream.put(wid, n, _observe.frame(n, packed), blocks=cut.last if cut is not None else None)
             self._say_refusals(stream)
         return n
 

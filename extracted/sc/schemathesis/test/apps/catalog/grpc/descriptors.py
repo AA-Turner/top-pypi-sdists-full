@@ -2,6 +2,7 @@ from pathlib import Path
 
 from google.protobuf import (
     any_pb2,
+    descriptor_database,
     descriptor_pb2,
     descriptor_pool,
     duration_pb2,
@@ -32,6 +33,14 @@ def load_descriptor_set(directory: Path, data: bytes, **config):
     return schemathesis.grpc.from_path(
         write_descriptor_set(directory, data), config=SchemathesisConfig.from_dict(config) if config else None
     )
+
+
+def load_pool(descriptor_set: bytes) -> descriptor_pool.DescriptorPool:
+    # Files load on first lookup, so the set may list a file before its imports.
+    database = descriptor_database.DescriptorDatabase()
+    for file in descriptor_pb2.FileDescriptorSet.FromString(descriptor_set).file:
+        database.Add(file)
+    return descriptor_pool.DescriptorPool(database)
 
 
 def load(server, **config):
@@ -523,6 +532,7 @@ def validated_descriptor_set() -> bytes:
         shades.value.add(name=name, number=number)
     parent = validated.message_type.add(name="Parent")
     _field(parent, "id", 1, FieldDescriptorProto.TYPE_STRING)
+    _field(parent, "enabled", 2, FieldDescriptorProto.TYPE_BOOL)
 
     span = validated.message_type.add(name="Span")
     labels = span.nested_type.add(name="LabelsEntry", options=descriptor_pb2.MessageOptions(map_entry=True))
@@ -680,6 +690,7 @@ def validated_descriptor_set() -> bytes:
         ("BelowEntry", FieldDescriptorProto.TYPE_INT32),
         ("PinnedEntry", FieldDescriptorProto.TYPE_INT64),
         ("OuterEntry", FieldDescriptorProto.TYPE_INT32),
+        ("BetweenEntry", FieldDescriptorProto.TYPE_INT32),
     ):
         keyed = edges.nested_type.add(name=entry, options=descriptor_pb2.MessageOptions(map_entry=True))
         _field(keyed, "key", 1, key_type)
@@ -740,6 +751,18 @@ def validated_descriptor_set() -> bytes:
             {"map": {"keys": {"int32": {"gt": 10, "lt": 5}}}},
         ),
         ("default_kind", FieldDescriptorProto.TYPE_ENUM, {"type_name": ".validated.Kind"}, {"enum": {"const": 0}}),
+        (
+            "between",
+            FieldDescriptorProto.TYPE_MESSAGE,
+            {"type_name": ".validated.Edges.BetweenEntry", "label": repeated},
+            {"map": {"keys": {"int32": {"gt": 5, "lt": 6}}}},
+        ),
+        (
+            "tied",
+            FieldDescriptorProto.TYPE_INT32,
+            {},
+            {"ignore": "IGNORE_IF_ZERO_VALUE", "int32": {"gte": 5, "lt": 5}},
+        ),
     ]
     for number, (name, field_type, extra, value) in enumerate(edge_fields, start=1):
         _field(edges, name, number, field_type, **extra)
@@ -790,11 +813,37 @@ def validated_descriptor_set() -> bytes:
     field_rules(choices.field[-1], "buf.validate.field", {"string": {"minLen": "2"}})
     _field(choices, "alias", 6, FieldDescriptorProto.TYPE_STRING)
 
+    recursive = validated.message_type.add(name="Recursive")
+    recursive.oneof_decl.add(name="kind")
+    _set_extension(
+        rules, recursive.oneof_decl[0].options, "google.protobuf.OneofOptions", "buf.validate.oneof", {"required": True}
+    )
+    recursive_group = validated.message_type.add(name="RecursiveGroup")
+    _field(
+        recursive_group,
+        "items",
+        1,
+        FieldDescriptorProto.TYPE_MESSAGE,
+        type_name=".validated.Recursive",
+        label=repeated,
+    )
+    field_rules(recursive_group.field[-1], "buf.validate.field", {"repeated": {"minItems": "1"}})
+    _field(
+        recursive,
+        "group",
+        1,
+        FieldDescriptorProto.TYPE_MESSAGE,
+        type_name=".validated.RecursiveGroup",
+        oneof_index=0,
+    )
+    _field(recursive, "leaf", 2, FieldDescriptorProto.TYPE_STRING, oneof_index=0)
+
     service = validated.service.add(name="Spans")
     service.method.add(name="Record", input_type=".validated.Span", output_type=".google.protobuf.Empty")
     service.method.add(name="Check", input_type=".validated.Extras", output_type=".google.protobuf.Empty")
     service.method.add(name="Edge", input_type=".validated.Edges", output_type=".google.protobuf.Empty")
     service.method.add(name="Choose", input_type=".validated.Choices", output_type=".google.protobuf.Empty")
+    service.method.add(name="Recurse", input_type=".validated.Recursive", output_type=".google.protobuf.Empty")
     return descriptor_pb2.FileDescriptorSet(file=[*well_known, protovalidate, legacy, validated]).SerializeToString()
 
 

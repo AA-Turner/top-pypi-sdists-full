@@ -5,9 +5,9 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-import requests  # type: ignore
+import requests
 import semver
-import yaml  # type: ignore
+import yaml
 
 from airbyte_ops_mcp.airbyte_repo.bump_version import (
     BumpType,
@@ -20,7 +20,7 @@ from airbyte_ops_mcp.airbyte_repo.list_connectors import (
     get_merge_base,
 )
 from airbyte_ops_mcp.connector_ops.utils import (
-    Connector,  # type: ignore
+    Connector,
 )
 from airbyte_ops_mcp.connector_qa import consts
 from airbyte_ops_mcp.connector_qa.models import (
@@ -274,7 +274,7 @@ class CheckVersionIncrement(Check):
 
     def _get_current_connector_version(self, connector: Connector) -> semver.Version:
         """Get the current version."""
-        return self._parse_version_from_metadata(connector.metadata)
+        return self._parse_version_from_metadata(connector.metadata)  # ty: ignore[invalid-argument-type]
 
     def _are_both_versions_release_candidates(
         self, master_version: semver.Version, current_version: semver.Version

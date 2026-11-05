@@ -3,6 +3,7 @@
 #include "packingsolver/algorithms/common.hpp"
 
 #include <functional>
+#include <memory>
 #include <limits>
 
 namespace packingsolver
@@ -365,6 +366,12 @@ std::ostream& operator<<(
 
 class Solution;
 
+/** Block of the tree search maximal spaces; see 'rectangleguillotine/block.hpp'. */
+struct Block;
+
+/** Cache of the blocks; see 'rectangleguillotine/instance_cache.hpp'. */
+struct BlocksCache;
+
 /**
  * User-provided feasibility callback.
  *
@@ -407,6 +414,22 @@ public:
 
     /** Get the feasibility callback. */
     inline const FeasibilityCallback& feasibility_callback() const { return feasibility_callback_; }
+
+    /**
+     * Get the blocks of the tree search maximal spaces, for each bin type
+     * (see 'rectangleguillotine/block.hpp').
+     *
+     * They are computed at the first call and stored, so that the next calls,
+     * and the sub-instances built from this instance (see
+     * 'InstanceBuilder::set_original_instance'), get them without computing
+     * them again. This method may be called from several threads: a call
+     * waits until the blocks are computed by another one.
+     *
+     * Return 'nullptr' if 'end' becomes true before the blocks are computed;
+     * they are then not stored. In particular, if 'end' is already true, the
+     * blocks are only returned if they have already been computed.
+     */
+    const std::vector<std::vector<Block>>* get_blocks(const bool& end) const;
 
     /** Return true iff the number of stages is unlimited. */
     bool number_of_stages_unlimited() const
@@ -696,6 +719,9 @@ private:
 
     /** True iff all item types are oriented. */
     bool all_item_types_oriented_ = true;
+
+    /** Cache of the blocks; see 'get_blocks'. Shared by the copies of the instance. */
+    std::shared_ptr<BlocksCache> blocks_cache_;
 
     friend class InstanceBuilder;
 

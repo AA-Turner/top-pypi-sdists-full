@@ -470,11 +470,7 @@ def _iter_resolved_responses(
         if not isinstance(response, dict):
             continue
         status_code = str(key)
-        response_resolver, resolved = maybe_resolve_with_resolver(response, resolver)
-        # Resolve one more level to support slightly malformed schemas with nested $ref chains
-        # Some real-world schemas use: response -> $ref to definition -> $ref to actual schema
-        # While technically not spec-compliant, this pattern is common enough to warrant leniency
-        response_resolver, source = maybe_resolve_with_resolver(resolved, response_resolver)
+        response_resolver, source = maybe_resolve_with_resolver(response, resolver)
         resolved = source
         content = source.get("content", {})
         if not isinstance(content, dict):
@@ -742,13 +738,6 @@ def _media_type_schema(
     return schema
 
 
-def _is_json_media_type(value: str) -> bool:
-    try:
-        return media_types.is_json(value)
-    except MalformedMediaType:
-        return False
-
-
 @dataclass(slots=True)
 class OpenApiResponseHeaders:
     """Collection of OpenAPI response header definitions."""
@@ -796,7 +785,7 @@ class OpenApiResponseHeader:
     def is_json(self) -> bool:
         """Whether the header value is a JSON document, as declared by its `content` media type."""
         content = _header_content(self.definition)
-        return content is not None and _is_json_media_type(content[0])
+        return content is not None and media_types.is_json_lenient(content[0])
 
     def _get_bundle(self) -> Bundle:
         """Get the bundled schema for this header."""

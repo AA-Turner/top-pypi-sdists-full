@@ -49,6 +49,9 @@ from .avoidance import (
     AVOID,
     DEFAULT_AVOIDANCE,
     AvoidanceSettings,
+    _check_non_negative,
+    _check_positive,
+    _check_probability,
     accept_command,
     avoid_command,
     avoidable,
@@ -99,16 +102,23 @@ class NadeAdversity:
 class NadeSettings:
     """NADE's numbers; TeraSim's by default.
 
+    Each is refused when built outside its bounds (#1458), as a ``q`` above
+    1 would sample the adversity every time and still weight it by ``p / q``.
+
     Attributes:
-        max_controlled: How many of the nearest vehicles are candidates.
-        control_radius: How near the ego (m) a candidate is.
-        horizon: How far ahead futures are predicted (s).
-        resolution: How far apart their states are (s).
-        magnitude: ``M`` of ``q = clip(p * M, 0, max_is_probability)``.
-        max_is_probability: The most ``q`` is.
+        max_controlled: How many of the nearest vehicles are candidates
+            (>= 0).
+        control_radius: How near the ego (m) a candidate is (finite, >= 0).
+        horizon: How far ahead futures are predicted (s; finite, > 0).
+        resolution: How far apart their states are (s; finite, > 0).
+        magnitude: ``M`` of ``q = clip(p * M, 0, max_is_probability)``
+            (finite, >= 0).
+        max_is_probability: The most ``q`` is (in [0, 1]).
         fixed_is_probability: ``q`` for every adversity when above 0, in
-            place of the clip (TeraSim's ``adversity_sampling_probability``).
-        cooldown: How long after a sampled adversity none is (s).
+            place of the clip (TeraSim's ``adversity_sampling_probability``;
+            in [0, 1]).
+        cooldown: How long after a sampled adversity none is (s; finite,
+            >= 0).
         challenge_npcs: Whether an adversity challenges the other candidates
             too, not the ego only (TeraSim's AV-centred check): their victims
             avoid or accept it (:mod:`.avoidance`).
@@ -125,6 +135,19 @@ class NadeSettings:
     cooldown: float = 5.5
     challenge_npcs: bool = False
     avoidance: AvoidanceSettings = DEFAULT_AVOIDANCE
+
+    def __post_init__(self) -> None:
+        if self.max_controlled < 0:
+            raise ValueError(
+                f"max_controlled must not be negative, not {self.max_controlled}"
+            )
+        _check_non_negative("control_radius", self.control_radius)
+        _check_positive("horizon", self.horizon)
+        _check_positive("resolution", self.resolution)
+        _check_non_negative("magnitude", self.magnitude)
+        _check_probability("max_is_probability", self.max_is_probability)
+        _check_probability("fixed_is_probability", self.fixed_is_probability)
+        _check_non_negative("cooldown", self.cooldown)
 
 
 DEFAULT_NADE = NadeSettings()
@@ -161,7 +184,11 @@ def is_probability(
     probability: float, settings: NadeSettings, avoidable: bool = True
 ) -> float:
     """``q`` for an adversity of naturalistic *probability* ``p``; an
-    unavoidable one's magnitude is multiplied (TeraSim's x40)."""
+    unavoidable one's magnitude is multiplied (TeraSim's x40).
+
+    In [0, 1]: :class:`NadeSettings` refuses a ``max_is_probability`` or
+    ``fixed_is_probability`` outside it (#1458).
+    """
     if settings.fixed_is_probability > 0.0:
         return settings.fixed_is_probability
     magnitude = settings.magnitude

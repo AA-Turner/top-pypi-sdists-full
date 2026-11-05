@@ -157,5 +157,6 @@ def ask_actions(provider: Asana) -> list[AskAction]:
             _schema(task_id=TASK, comment={"type": "string"}),
             comment_summary,
             comment,
+            outward=True,
         ),
     ]

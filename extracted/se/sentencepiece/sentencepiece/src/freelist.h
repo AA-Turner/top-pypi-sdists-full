@@ -15,9 +15,11 @@
 #ifndef FREELIST_H_
 #define FREELIST_H_
 
-#include <string.h>
-
+#include <cstddef>
+#include <cstring>
 #include <memory>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace sentencepiece {
@@ -26,9 +28,9 @@ namespace model {
 // Simple FreeList that allocates a chunk of T at once.
 template <class T>
 class FreeList {
-  static_assert(std::is_trivially_copyable<T>::value,
+  static_assert(std::is_trivially_copyable_v<T>,
                 "T must be trivially copyable.");
-  static_assert(std::is_standard_layout<T>::value,
+  static_assert(std::is_standard_layout_v<T>,
                 "T must be a standard layout type.");
 
  public:
@@ -44,7 +46,7 @@ class FreeList {
   // `Free` doesn't free the object but reuse the allocated memory chunks.
   void Free() {
     for (auto& chunk : freelist_) {
-      memset(static_cast<void*>(chunk.get()), 0, sizeof(T) * chunk_size_);
+      std::memset(static_cast<void*>(chunk.get()), 0, sizeof(T) * chunk_size_);
     }
     chunk_index_ = 0;
     element_index_ = 0;
@@ -62,7 +64,7 @@ class FreeList {
 
     if (chunk_index_ == freelist_.size()) {
       auto chunk = std::make_unique<T[]>(chunk_size_);
-      memset(static_cast<void*>(chunk.get()), 0, sizeof(T) * chunk_size_);
+      std::memset(static_cast<void*>(chunk.get()), 0, sizeof(T) * chunk_size_);
       freelist_.push_back(std::move(chunk));
     }
 
@@ -78,7 +80,7 @@ class FreeList {
   // The last element is stored at freelist_[chunk_index_][element_index_]
   size_t element_index_ = 0;
   size_t chunk_index_ = 0;
-  size_t chunk_size_ = 0;  // Do not modify except in swap()
+  size_t chunk_size_ = 0;
 };
 }  // namespace model
 }  // namespace sentencepiece

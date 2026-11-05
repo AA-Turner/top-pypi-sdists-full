@@ -8,7 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, ClassVar, Iterable, Sequence
+from typing import Any, ClassVar, Iterable, Sequence, cast
 from urllib.parse import urlsplit
 
 import yaml
@@ -346,7 +346,7 @@ def _walk_schema(
         for index, option in enumerate(options):
             if isinstance(option, dict):
                 yield from _walk_schema(
-                    option,
+                    option,  # ty: ignore[invalid-argument-type] JSON Schema keys
                     f"{display_path}.oneOf[{index}]",
                     config_path,
                     inside_one_of=True,
@@ -954,7 +954,7 @@ class CheckFormUx12(FormUxCheck):
             )
             if date_match is None:
                 continue
-            trailing_pattern = pattern[date_match.end() :]
+            trailing_pattern = cast(str, pattern)[date_match.end() :]
             matches_time = (
                 any(marker in trailing_pattern for marker in ("T", ":", r"\s"))
                 or _DATE_TIME_GROUP.search(trailing_pattern) is not None

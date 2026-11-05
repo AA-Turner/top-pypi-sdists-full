@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentenv-framework-protocol
-Version: 0.1.446
+Version: 0.1.458
 Summary: Open data-plane protocol and server SDK for agent environments.
 Project-URL: Homepage, https://www.agentenvframework.com
 Project-URL: Documentation, https://www.agentenvframework.com/docs
@@ -37,11 +37,13 @@ Requires-Dist: uvicorn>=0.30; extra == 'agent'
 Provides-Extra: app
 Requires-Dist: mcp<2,>=1.25; extra == 'app'
 Requires-Dist: uvicorn>=0.30; extra == 'app'
+Requires-Dist: websockets>=13; extra == 'app'
 Provides-Extra: computer
 Requires-Dist: av>=17; extra == 'computer'
 Requires-Dist: mcp<2,>=1.25; extra == 'computer'
 Requires-Dist: pillow>=10.4; extra == 'computer'
 Requires-Dist: uvicorn>=0.30; extra == 'computer'
+Requires-Dist: websockets>=13; extra == 'computer'
 Provides-Extra: dev
 Requires-Dist: a2a-sdk[http-server]<0.4,>=0.3.26; extra == 'dev'
 Requires-Dist: av>=17; extra == 'dev'
@@ -52,6 +54,7 @@ Requires-Dist: pytest-asyncio>=0.23.0; extra == 'dev'
 Requires-Dist: pytest>=9.0; extra == 'dev'
 Requires-Dist: python-multipart>=0.0.13; extra == 'dev'
 Requires-Dist: regex>=2023.12.25; extra == 'dev'
+Requires-Dist: websockets>=13; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # agentenv-framework-protocol
@@ -206,7 +209,8 @@ app without one, so a server that mounted is a server whose tool calls are bound
 To answer a call before the tool runs, override `on_tool_call(self, context)`: return `None` to let
 it proceed, or an `mcp.types.CallToolResult` (`isError=True` for a refusal) to send that as the
 tool's reply. An `@extension` method may declare the same parameter; it is filled from the request's
-`AgentEnv-Role` header. Code that acts as a caller outside any dispatch, such as a test calling a
+`AgentEnv-Role` header. It may also declare a parameter annotated `starlette.requests.Request`, which
+gets the HTTP request itself, its headers say, and stays out of the advertised schema. Code that acts as a caller outside any dispatch, such as a test calling a
 handler directly or a seeding script, binds a context it builds:
 `with bound(ToolContext.as_caller("alice")): ...`.
 
@@ -253,6 +257,16 @@ that already declares an interface with the `mcp` transport (`MCP_TRANSPORT`) ke
 with any other transport are kept beside the SDK's entry. Card URLs are paths, relative to the
 address the card was fetched from. On the client side, `client.mcp_path(card)` returns the
 declared path, or `/mcp` for a card without one.
+
+A composed card, such as a gateway's, nests each backing environment's card under
+`children_environments`, its `url` and endpoints rooted at the route the composer serves it at.
+`client.children(card)` returns each as a `ChildEnv` (its `name`, `url` and `card`, with its
+`extensions`, `operations` and `serves(method)`, and `base_url(address)`, its data plane resolved
+against the composed card's address). Two children may share a name, as a website and an MCP
+server can, so `client.child_at(card, url)` finds one by its url or route; `client.child_named(card,
+name)` raises `AmbiguousChildError` for a shared name, and `client.find_child` returns the first.
+`client.serves(card, method)` says whether a card serves a data-plane method by its declared
+`operations`, None for a card that declares none.
 
 Extensions are invoked from what the card advertises. `client.find_extension_method(card, uri,
 method)` returns one advertised method, whose `endpoint` is the method's own or else the
@@ -681,16 +695,35 @@ driver booted with a control token is probed with it: `--token`, by default
 | Level | Checks | Needs on the computer |
 |---|---|---|
 | `basic` | P0 ready and a screenshot; P1 the card and tool schemas; P2 native frames, regions and JPEG; P5 refusals and their codes; X the declared extensions (`computer-display`, `computer-spaces`, `computer-keyboard`, `computer-exec`, `data/get`, per-role tool access, the pointer) | nothing |
-| `full` | `basic`, then P3 colours land where the mapping says; P4 clicks show their effect; P5 refusals change nothing; P6 typed and pressed keys arrive; P7 scrolls and drags arrive; P9 commands and `data/add` run as one unprivileged user; X pointer and keyboard input, `data/add`, and a recording's segments matching their files with no gap, a repeated `request_id` joining it and `max_concurrent` held | Linux, `python3` with Tk, a 1280x800 screen or larger, `computer-exec` and `data/add` |
+| `full` | `basic`, then P3 colours land where the mapping says; P4 clicks show their effect; P5 refusals change nothing; P6 typed and pressed keys arrive; P7 scrolls and drags arrive; P9 commands and `data/add` run as one unprivileged user; X pointer and keyboard input, `data/add`, and a recording's segments matching their files with no gap, a repeated `request_id` joining it and `max_concurrent` held; on a page, X the page tools: a prompt answered, a file uploaded, a reload, navigation, back and forward, and tabs | Linux, `python3` with Tk (on a page, `python3` and `computer-page/v1`), a 1280x800 screen or larger, `computer-exec` and `data/add` |
 
 At `full` the probe writes the Fixture Desk, a Tk window (`conformance/fixture.py`), into
 `~/.agentenv-probe` with `data/add` and starts it with `computer-exec`. It aims at the boxes the
 window's widgets report, reads back what reached them, and then removes the fixture. When the
-fixture can't be staged, the `full` checks are unverified rather than failed. The probe leaves out
+fixture can't be staged, the `full` checks are unverified rather than failed.
+
+On a driver whose card says `screen: "page"`, the desk is an HTML page with the same widgets at the
+same places (`conformance/page_fixture.py`). The probe starts its server on loopback, which writes
+what the page reports to the same files, and opens the desk with `computer_tabs` in a tab of its
+own. "Typing leaves the clipboard as it was" fails there when typing arrives as a paste. After the
+input checks it checks the page tools against the desk; a browser that answers dialogs itself makes
+the dialog check not applicable. It then closes its tab and removes the desk, and the file it put in
+`~/Uploads`. The tab that was open before keeps its page and history. The probe leaves out
 the checks for an extension the card doesn't declare. P8 is not applicable to a driver without
 leasing, and unverified for one with it until the probe has lease checks. The probe calls as the
 default role; the tool-access check hides a tool from a role of its own, `agentenv-probe-<random>`,
 and gives it back.
+
+### A disk's boot seed
+
+A Linux computer's disk form gets the deploy's environment at boot from a NoCloud seed, a FAT filesystem labelled
+`CIDATA` that the launcher writes and the disk's init reads. `agentenv_protocol.computer.seed` defines it. A disk
+composed by one agent-env version boots under another's launcher, so the seed carries every version its launcher
+writes: version 1 in `user-data`, a later version N in `user-data.vN`, and the oldest it carries in
+`agentenv-seed-oldest`. An init reads the newest version it knows, and stops the boot when the seed carries none of
+them. Version 1 is `#agentenv-environment`, then `NAME=<value, base64'd>` a line, in byte order; `SAMPLE` and
+`SAMPLE_USER_DATA` pin it, for a launcher's writer and an init's reader, wherever either is written, to be tested
+against. A change an older init would misread is a new version; one it ignores, such as a new file on the seed, isn't.
 
 ## Computer apps
 
@@ -807,7 +840,21 @@ launches one at a time, runs a load and a reset with the app stopped and relaunc
 follows a failed load with a reset, and fails a call that runs past `data_timeout_s` (300 s); a sync
 hook runs in a thread, which the reset and relaunch after it wait for. The driver fronts its apps:
 its card lists each one's card as a child environment, rooted at `/svc/<app>/`, where it forwards
-requests to the app's server.
+requests to the app's server, taking the control token:
+
+- every method, its body and the answer's streamed both ways, so a large answer isn't held whole;
+- headers passed on but the hop-by-hop ones, those a `Connection` header names and the control token's
+  `Authorization`; `Host` as the caller sent it, and in place of any address the caller forwarded,
+  the one it reached the driver at: `X-Forwarded-Host`, `X-Forwarded-Proto` and `X-Forwarded-Prefix`
+  (`/svc/<app>`), as the gateway sets them;
+- WebSockets, relayed to the app's server both ways with the subprotocol it picks until either side
+  closes, the other then closed with its code; refused before they open without the token, or with no
+  such app or one not answering. The `computer` extra brings `websockets` for this.
+
+An app's `agent_routes` (`/cdp/` for a website browser) are path prefixes of its own server that
+agents reach this way without the control token: the driver reads them from the app's card
+(`computer-app/v1`'s `agent_routes`) and lets a call under one through, while the app checks it
+itself. A path with a `.` or `..` segment, escaped or not, never counts as under one.
 
 `MailApp.declaration()` returns what the class declares, an `AppDeclaration`, which a `computer_app`
 env stores (`browser: true` for a website browser), and `python -m agentenv_protocol.computer._declare <folder> <file> <class>` prints it as
@@ -860,7 +907,8 @@ are the profile's template. The base class adds:
 - **Its control connection**, `self.control`, a `BrowserControl` over the pipe. At each launch it attaches
   to every page with flattened sessions, telling each page it attached to as it opened, a popup say, to run, and keeps a
   record, `since` its server started: open tabs in opened order, each with its URL and title as the browser has them
-  when the record is read (Chrome sends no event for a title), the one whose page has focus `active`; `closed_tabs`,
+  when the record is read (Chrome sends no event for a title), the visible one whose page has focus `active`;
+  `closed_tabs`,
   each as of its page's last load, with `closed_at` and
   `closed_by` (`agentenv`, over this connection; `unknown`, anyone else; `exit` or `stop`, when the browser
   ended on its own or its server stopped it); `downloads`, into `~/Downloads`, each with its state
@@ -880,12 +928,45 @@ are the profile's template. The base class adds:
   drivers and agentenv's own steps alike:
   - `navigate {url}` and `history {direction}` (`back`, `forward` or `reload`), in the active tab;
   - `tabs/list`, `tabs/open {url?}`, `tabs/activate {tab}` and `tabs/close {tab}`, by the browser's own tab
-    ids. The active tab is the one a dialog is open on, else the one whose page has focus, else the one
-    agentenv last brought to the front;
+    ids. The active tab is the one a dialog is open on, else the visible one whose page has focus (a hidden
+    tab's page that had input still says it has focus), else the one agentenv last brought to the front.
+    Headless, a tab opened at a URL opens blank and goes there once it's held to the window's size;
   - `dialog/answer {accept, text?}`, the agent's answer to the dialog open on the active tab;
   - `files/choose {paths}`, files in `~/Uploads` for the file chooser open on it, which headless, and so
     alone, it intercepts;
   - `page/state`, the active tab's id, URL and title and the dialog or file chooser open on it.
+  - `cdp {user}`, `user`'s CDP address once the browser is ready, `http_url` to discover from and
+    `ws_url` to connect to, both at the address the call reached it at with a token agentenv mints in
+    the path: the same one each time it's asked for. Through the driver they're under
+    `/svc/<app>/cdp/<token>/`. `user` is a name the caller chooses, an agent's `deploy_agent` step id.
+    The server keeps each token in memory and only its SHA-256, with its user and base address, in
+    `.agentenv/cdp-tokens.json`, which code in the computer's session can read but not use; an address
+    outlives a relaunch of the browser and of the server, and the computer's reset ends it.
+- **Its CDP relay**, at those addresses: `json/version` and `json/list` (also with a trailing slash,
+  and `json`) answered from the browser, since a browser on a pipe has none, with its WebSocket at the
+  address the client reached it at; and `devtools/browser`, where each WebSocket connection gets a
+  browser-level session of its own over the pipe (`Target.attachToBrowserTarget`), with its answers
+  and the events of its sessions and those it attaches, and no one else's. Only flattened sessions are
+  served, as Playwright, Puppeteer and Browser Use use. A token agentenv didn't mint is refused, and
+  when the browser goes, each connection is closed with 1012 so its client can connect again.
+  A guard sits on every command, a guardrail, since the sandbox's network is the boundary:
+  - `Browser.close`, `Browser.crash` and `Browser.crashGpuProcess` are answered `{}` and end only that
+    connection, with 1000;
+  - `Target.exposeDevToolsProtocol`, `Target.sendMessageToTarget` (only flattened sessions are
+    served, whose commands the guard sees), a `Target.createBrowserContext` with its own proxy, and a
+    `Page.navigate` or `Target.createTarget` to the browser's own pages (`file:`, `chrome:`,
+    `chrome-extension:`, `chrome-untrusted:`, `view-source:`, `devtools:`, and `about:` but
+    `about:blank` and `about:srcdoc`) get a CDP error, `agentenv refuses …`;
+  - `Browser.setDownloadBehavior` and `Page.setDownloadBehavior` are sent on as agentenv's own, the
+    browser's default into `~/Downloads`, keeping only the context and whether to send events;
+  - when the deploy answers dialogs, an agent's `Page.handleJavaScriptDialog` is answered `{}` and not
+    sent on;
+  - a message that isn't a command, an object with a string `method`, and object `params` and a string
+    `sessionId` if any, gets a CDP error with code -32600.
+
+  `record` lists each connection as `cdp_connections`: its user, when it opened and when it closed,
+  and the first 100 commands the guard refused, changed, answered or closed it on.
+  Puppeteer connects by `ws_url`: its `browserURL` drops the address's path.
 - **Its skill**: sites by their real names, files to upload in `~/Uploads` and downloads in
   `~/Downloads`, folders it makes.
 

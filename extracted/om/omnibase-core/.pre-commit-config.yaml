@@ -158,14 +158,14 @@ repos:
       # CI runs both on full codebase for comprehensive coverage.
       - id: pyright-type-check
         name: pyright (type checking - basic)
-        entry: uv run pyright
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook pyright-type-check --baseline .onex_ratchets/pyright-type-check.yaml
         language: system
-        types: [python]
-        files: ^src/omnibase_core/.*\.py$
+        files: ^(src/omnibase_core/.*\.py|pyrightconfig\.json|\.onex_ratchets/pyright-type-check\.yaml)$
         exclude: ^(tests/|src/omnibase_core/examples|archive/|archived/).*\.py$
         pass_filenames: true  # Only check changed files, CI does full scan
         require_serial: true
-        stages: [pre-push]  # ~1-5s for changed files only
+        stages: [pre-commit, pre-push]  # ~1-5s for changed files only
 
       # Evidence-Source SHAPE check (OMN-14682)
       # Local fail-fast companion to the CI receipt-gate: validates that the
@@ -415,30 +415,31 @@ repos:
         files: ^(src/omnibase_core/enums/enum_hook_bit\.py|scripts/gen_hook_bits\.py|scripts/check_hook_bits_drift\.py)$
         stages: [pre-commit]
 
-      # Dep-provenance gate (OMN-13873)
-      # Forbid first-party git-source overrides (omnibase-core / omnibase-spi /
-      # omnibase-compat) in [tool.uv.sources]. onex-change-control is exempt
-      # (immutable-main pin model). Fires only when pyproject.toml changes.
+      # Dependency provenance (OMN-13873, moved into the generic validator format by OMN-22011).
+      # Core runs its own exported hook id check-dep-provenance: the rules are the rows of
+      # dep_provenance.validation.yaml, tag identity is check-dev-tag-lineage. Fires only when a
+      # pyproject.toml changes.
       - id: check-dep-provenance
-        name: Forbid first-party git-source overrides (OMN-13873)
-        entry: uv run --frozen python scripts/check_dep_provenance.py
+        name: Dependency provenance of first-party packages (OMN-22011)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_dep_provenance:ValidatorDepProvenance
         language: system
-        files: ^pyproject\.toml$
-        pass_filenames: false
+        files: (^|/)pyproject\.toml$
+        pass_filenames: true
+        require_serial: true
         stages: [pre-commit]
 
       # Substrate Gate: silent except-pass (OMN-wire-validators)
-      # Baseline: 102 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Per-file shrink-only source-finding baseline (OMN-22012).
       # Annotate justified cases with: # substrate-allow: <reason>
       - id: substrate-silent-except-pass
         name: No silent except-pass (substrate gate)
-        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.silent_except_pass
-          --max-violations 102
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook substrate-silent-except-pass --baseline .onex_ratchets/substrate-silent-except-pass.yaml
         language: system
-        types: [python]
         pass_filenames: true
         require_serial: true
-        files: ^src/.*\.py$
+        files: ^(src/.*\.py|\.onex_ratchets/substrate-silent-except-pass\.yaml)$
         exclude: ^(tests/|archived/|archive/)
         stages: [pre-commit]
 
@@ -500,77 +501,73 @@ repos:
         stages: [pre-commit]
 
       # Substrate Gate: env silent fallback (OMN-wire-validators)
-      # Baseline: 38 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Per-file shrink-only source-finding baseline (OMN-22012).
       # Annotate justified bootstrap cases with: # substrate-allow: bootstrap-fallback
       - id: substrate-env-silent-fallback
         name: No env silent fallback (substrate gate)
-        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.env_silent_fallback
-          --max-violations 38
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook substrate-env-silent-fallback --baseline .onex_ratchets/substrate-env-silent-fallback.yaml
         language: system
-        types: [python]
         pass_filenames: true
         require_serial: true
-        files: ^src/.*\.py$
+        files: ^(src/.*\.py|\.onex_ratchets/substrate-env-silent-fallback\.yaml)$
         exclude: ^(tests/|archived/|archive/)
         stages: [pre-commit]
 
       # Substrate Gate: identity field optionality (OMN-wire-validators)
-      # Baseline: 122 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Per-file shrink-only source-finding baseline (OMN-22012).
       # Annotate justified cases with: # substrate-allow: <reason>
       - id: substrate-identity-field-optionality
         name: No optional identity fields (substrate gate)
-        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.identity_field_optionality
-          --max-violations 122
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook substrate-identity-field-optionality --baseline .onex_ratchets/substrate-identity-field-optionality.yaml
         language: system
-        types: [python]
         pass_filenames: true
         require_serial: true
-        files: ^src/.*\.py$
+        files: ^(src/.*\.py|\.onex_ratchets/substrate-identity-field-optionality\.yaml)$
         exclude: ^(tests/|archived/|archive/)
         stages: [pre-commit]
 
       # Substrate Gate: loose typing in internal (OMN-wire-validators)
-      # Baseline: 345 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Per-file shrink-only source-finding baseline (OMN-22012).
       # Annotate justified cases with: # substrate-allow: <reason>
       - id: substrate-loose-typing-internal
         name: No loose typing in internal (substrate gate)
-        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.loose_typing_in_internal
-          --max-violations 345
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook substrate-loose-typing-internal --baseline .onex_ratchets/substrate-loose-typing-internal.yaml
         language: system
-        types: [python]
         pass_filenames: true
         require_serial: true
-        files: ^src/.*\.py$
+        files: ^(src/.*\.py|\.onex_ratchets/substrate-loose-typing-internal\.yaml)$
         exclude: ^(tests/|archived/|archive/)
         stages: [pre-commit]
 
       # Substrate Gate: protocol kwargs object (OMN-wire-validators)
-      # Baseline: 6 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Per-file shrink-only source-finding baseline (OMN-22012).
       # Protocol methods must use explicit typed parameters, not *args/**kwargs: object/Any.
       # Annotate justified cases with: # substrate-allow: <reason>
       - id: substrate-protocol-kwargs-object
         name: No protocol *args/**kwargs loose typing (substrate gate)
-        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.protocol_kwargs_object
-          --max-violations 6
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook substrate-protocol-kwargs-object --baseline .onex_ratchets/substrate-protocol-kwargs-object.yaml
         language: system
-        types: [python]
         pass_filenames: true
         require_serial: true
-        files: ^src/.*\.py$
+        files: ^(src/.*\.py|\.onex_ratchets/substrate-protocol-kwargs-object\.yaml)$
         exclude: ^(tests/|archived/|archive/)
         stages: [pre-commit]
 
       # validate-stubbed-functionality (OMN-wire-validators)
-      # Baseline: 124 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Per-file shrink-only source-finding baseline (OMN-22012).
       # Detects NotImplementedError stubs, pass-only methods, TODO/FIXME in prod code.
       - id: validate-stubbed-functionality
         name: ONEX Stubbed Functionality Detection
-        entry: env -u PYTHONPATH uv run python scripts/validation/validate-stubbed-functionality.py --max-violations
-          124
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook validate-stubbed-functionality --baseline .onex_ratchets/validate-stubbed-functionality.yaml
         language: system
         pass_filenames: true
         require_serial: true
-        files: ^src/.*\.py$
+        files: ^(src/.*\.py|\.onex_ratchets/validate-stubbed-functionality\.yaml)$
         exclude: ^(tests/|archived/|archive/|examples/prototypes/).*\.py$
         stages: [pre-commit]
 
@@ -961,7 +958,8 @@ repos:
       # - Mutable defaults must use default_factory
       - id: validate-pydantic-conventions
         name: Validate Pydantic conventions
-        entry: uv run python -m omnibase_core.validation.validator_pydantic_conventions
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_pydantic_conventions:ValidatorPydanticConventions
         language: system
         types: [python]
         files: ^src/omnibase_core/
@@ -969,23 +967,16 @@ repos:
         require_serial: true
         stages: [pre-commit]
 
-      # UNION VALIDATION THRESHOLD (whole-tree ratchet, OMN-19515):
-      # The script scans all of src/ in ONE invocation (pass_filenames: false)
-      # and the ceiling is the measured whole-tree invalid-union total. The old
-      # per-file-list cap (160) was applied to each pre-commit xargs batch, and
-      # pre-commit reshuffles every batch whenever any file is added, so an
-      # unrelated PR could trip it (omnibase_core#1761). protocols/ is excluded
-      # by the script's --exclude-regex; `files:`/`exclude:` below only decide
-      # when the hook triggers. Lower the ceiling when you remove an invalid
-      # union: tests/unit/validation/test_validate_union_usage_whole_tree.py
-      # pins it to the measured total. Never raise it. Tracking: OMN-468, OMN-676
+      # Per-file source identities replace the whole-tree union allowance (OMN-22012).
+      # New findings fail in a staged file; resolved entries must be removed.
       - id: validate-union-usage
         name: ONEX Union Usage Validation
-        entry: uv run python scripts/validation/validate-union-usage.py
-        args: ['--allow-invalid', '422', '--exclude-regex', '^src/omnibase_core/protocols/']
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook validate-union-usage --baseline .onex_ratchets/validate-union-usage.yaml
+        require_serial: true
         language: system
-        pass_filenames: false
-        files: ^src/.*\.py$
+        pass_filenames: true
+        files: ^(src/.*\.py|\.onex_ratchets/validate-union-usage\.yaml)$
         exclude: ^(tests/|archived/|archive/|scripts/validation/|src/omnibase_core/protocols/).*\.py$
         stages: [pre-commit]
 
@@ -1011,7 +1002,8 @@ repos:
 
       - id: check-stub-implementations
         name: ONEX Stub Implementation Detector
-        entry: uv run python scripts/validation/check_stub_implementations.py
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_stub_implementations:ValidatorStubImplementations
         language: system
         pass_filenames: true
         require_serial: true
@@ -1141,43 +1133,52 @@ repos:
         always_run: true
         stages: [pre-commit]
 
-      # OMN-10817: Except-log-no-reraise (silent swallow) detector
-      # Rejects broad except+log blocks that don't re-raise.
+      # OMN-10817, enforced by OMN-22005 (plan task T2.4): Rejects broad except+log blocks that don't re-raise.
       # Annotation: add  # reraise-ok: <reason>  on the except line.
-      # REPORT MODE: exits 0, reports violations. Switch to enforce by removing --report.
+      # The findings that sat in the tree before the refusal are the shrink-only
+      # .onex_ratchets/except_swallow_baseline.yaml (burn-down ticket and zero-target date in its
+      # header); handing the baseline file to the hook checks it did not grow against HEAD.
       - id: no-except-swallow
         name: No except-log-no-reraise (OMN-10817)
-        entry: uv run python scripts/validation/validate_no_except_swallow.py --report
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_except_swallow:ValidatorExceptSwallow
         language: system
+        args: [--baseline, .onex_ratchets/except_swallow_baseline.yaml]
+        files: ^(.*\.py|\.onex_ratchets/except_swallow_baseline\.yaml)$
         pass_filenames: true
         require_serial: true
-        types: [python]
         stages: [pre-commit]
 
-      # OMN-10818: Event-bus none-guard-before-publish detector
-      # Rejects if-bus-is-not-None guards wrapping publish/emit/send calls.
+      # OMN-10818, enforced by OMN-22005 (plan task T2.4): Rejects if-bus-is-not-None guards wrapping publish/emit/send calls.
       # Annotation: add  # none-guard-ok: <reason>  on the if line.
-      # REPORT MODE: exits 0, reports violations. Switch to enforce by removing --report.
+      # The findings that sat in the tree before the refusal are the shrink-only
+      # .onex_ratchets/none_guard_publish_baseline.yaml (burn-down ticket and zero-target date in its
+      # header); handing the baseline file to the hook checks it did not grow against HEAD.
       - id: no-none-guard-publish
         name: No event-bus none-guard-before-publish (OMN-10818)
-        entry: uv run python scripts/validation/validate_no_none_guard_publish.py --report
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_none_guard_publish:ValidatorNoneGuardPublish
         language: system
+        args: [--baseline, .onex_ratchets/none_guard_publish_baseline.yaml]
+        files: ^(.*\.py|\.onex_ratchets/none_guard_publish_baseline\.yaml)$
         pass_filenames: true
         require_serial: true
-        types: [python]
         stages: [pre-commit]
 
-      # OMN-10819: ImportError-assigned-to-None fallback detector
-      # Rejects `except ImportError: Symbol = None` patterns.
+      # OMN-10819, enforced by OMN-22005 (plan task T2.4): Rejects `except ImportError: Symbol = None` patterns.
       # Annotation: add  # import-fallback-ok: <reason>  on the assignment line.
-      # REPORT MODE: exits 0, reports violations. Switch to enforce by removing --report.
+      # The findings that sat in the tree before the refusal are the shrink-only
+      # .onex_ratchets/import_none_fallback_baseline.yaml (burn-down ticket and zero-target date in its
+      # header); handing the baseline file to the hook checks it did not grow against HEAD.
       - id: no-import-none-fallback
         name: No ImportError-assigned-to-None fallback (OMN-10819)
-        entry: uv run python scripts/validation/validate_no_import_none_fallback.py --report
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_import_none_fallback:ValidatorImportNoneFallback
         language: system
+        args: [--baseline, .onex_ratchets/import_none_fallback_baseline.yaml]
+        files: ^(.*\.py|\.onex_ratchets/import_none_fallback_baseline\.yaml)$
         pass_filenames: true
         require_serial: true
-        types: [python]
         stages: [pre-commit]
 
       # SPDX Header Requirement
@@ -1212,7 +1213,8 @@ repos:
       # See: scripts/validation/validate-union-usage.py module docstring for rationale.
       - id: onex-single-class-per-file
         name: ONEX Single Class Per File
-        entry: uv run python scripts/validation/validate-single-class-per-file.py
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_single_class_per_file:ValidatorSingleClassPerFile
         language: system
         pass_filenames: true
         require_serial: true
@@ -1294,7 +1296,7 @@ repos:
       # dict[str, Any] Anti-Pattern Detection
       # TECHNICAL DEBT: Current baseline is 842 violations (2025-12-05)
       # In file mode (pre-commit), any new violation fails
-      # In directory mode (CI), compares against --max-violations threshold
+      # Directory mode (CI) also uses the per-file baseline
       - id: validate-dict-any-usage
         name: ONEX dict[str, Any] Anti-Pattern Detection
         entry: uv run python -m omnibase_core.nodes.node_dict_any_check_compute.runtime_dict_any_check
@@ -1311,18 +1313,19 @@ repos:
       # Bare model_dump() Detection (OMN-4912)
       # Prevents bare model_dump() calls that produce non-JSON-safe types at
       # serialization boundaries. Baseline: 314 violations (2026-03-13).
-      # Ratchet rule: any PR reducing violations must lower --max-violations.
+      # Ratchet rule: any PR reducing violations must remove the resolved baseline entries.
       # OMN-14694: the 5 WS8 validator-node handlers (OMN-14656/OMN-14659) plus
       # the no-io-outside-effects handler all serialise JSON-safe findings
       # via model_dump(mode="json"), removing 5 pre-existing bare calls and
       # taking the tree from 314 to 309; ceiling lowered 310 -> 309 to match.
       - id: validate-model-dump-json-mode
         name: Validate model_dump uses mode="json"
-        entry: uv run python scripts/validation/validate-model-dump-json-mode.py --directory src/ --max-violations
-          309
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook validate-model-dump-json-mode --baseline .onex_ratchets/validate-model-dump-json-mode.yaml
+        require_serial: true
         language: system
-        pass_filenames: false
-        files: ^src/.*\.py$
+        pass_filenames: true
+        files: ^(src/.*\.py|\.onex_ratchets/validate-model-dump-json-mode\.yaml)$
         stages: [pre-commit]
 
       - id: no-pydantic-bypass-in-prod
@@ -1844,6 +1847,20 @@ repos:
         require_serial: true
         stages: [pre-commit]
 
+      # Cross-repository dependency pins (OMN-22360, operator ruling 2026-11-03T14:21:07Z).
+      # Refuses a first-party pin against the declared layer order, a cycle in the declared
+      # and locked graph, a pin past the release bound, the wrong pin style, and a hook rev
+      # past the bound, with every value read from contracts/repo_layers.yaml and
+      # contracts/dependency_pin_policy.yaml. CI runs the same check in the dependency-pins job.
+      - id: check-dependency-pins
+        name: Cross-repository dependency pins (OMN-22360)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_dependency_pins_check_effect.runtime_dependency_pins_check
+        language: system
+        files: (^|/)(pyproject\.toml|uv\.lock|\.pre-commit-config\.yaml)$
+        pass_filenames: true
+        require_serial: true
+        stages: [pre-commit]
+
       # Version drift at source (OMN-19998). Refuses a pyproject.toml floor raise
       # on a sibling registry package while a registry consumer is not ready for
       # it, and a workflow job the merge queue runs that pull request CI skips
@@ -2278,7 +2295,8 @@ repos:
       # NOTE: always_run=true means files: pattern is ignored - script does its own discovery
       - id: check-enum-governance
         name: ONEX Enum Governance Validation
-        entry: uv run python -m omnibase_core.validation.checker_enum_governance src/
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.checker_enum_governance:CheckerEnumGovernance src/
         language: system
         pass_filenames: false
         always_run: true
@@ -2484,27 +2502,23 @@ repos:
         stages: [pre-commit]
 
   # WS7 CI<->pre-commit parity meta-gates (OMN-14671 / OMN-14655).
-  # Local counterpart of .github/workflows/precommit-parity-gate.yml — the
-  # entry: strings are byte-identical to that workflow's steps so a skipped or
-  # weakened gate cannot pass here and fail on CI (or vice-versa). Both run
-  # `uv run --no-project` so they share an identical ephemeral env with CI and
-  # never depend on worktree uv.sources resolution.
+  # The fail-loud meta-gate is a core check in the generic validator format (OMN-22357):
+  # rule rows of precommit_fail_loud.validation.yaml, run here through the same hook id that
+  # every other repository consumes from this repository's .pre-commit-hooks.yaml. Both hook
+  # files are scanned. The pin-parity meta-gate below is the local counterpart of
+  # .github/workflows/precommit-parity-gate.yml: its entry: string is byte-identical to that
+  # workflow's step, and it runs `uv run --no-project` so it shares CI's ephemeral env.
   - repo: local
     hooks:
       - id: precommit-fail-loud-meta-gate
-        name: Pre-commit fail-loud meta-gate (exit-0-on-missing / stages coverage)
-        entry: uv run --no-project --with pyyaml --with pydantic python3 scripts/validation/validate_precommit_fail_loud.py
+        name: Pre-commit fail-loud meta-gate (OMN-22357)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_precommit_fail_loud:ValidatorPrecommitFailLoud .pre-commit-config.yaml
+          .pre-commit-hooks.yaml
         language: system
         pass_filenames: false
         always_run: true
-        stages: [pre-commit]
-
-      - id: precommit-pin-parity
-        name: Pre-commit pin-parity (pre-commit rev vs CI-pinned SHA)
-        entry: uv run --no-project --with pyyaml --with pydantic python3 scripts/validation/validate_precommit_pin_parity.py
-        language: system
-        pass_filenames: false
-        always_run: true
+        require_serial: true
         stages: [pre-commit]
 
   # --------------------------------------------------------------------------

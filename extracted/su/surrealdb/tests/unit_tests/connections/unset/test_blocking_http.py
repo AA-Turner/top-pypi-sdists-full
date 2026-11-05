@@ -1,23 +1,22 @@
-import pytest
+from typing import cast
 
 from surrealdb.connections.blocking_http import BlockingHttpSurrealConnection
 
 
 def test_unset(blocking_http_connection: BlockingHttpSurrealConnection) -> None:
-    blocking_http_connection.query("DELETE person;")
-    outcome = blocking_http_connection.let(
+    blocking_http_connection.query("DELETE person;").execute()
+    blocking_http_connection.let(
         "name",
         {
             "first": "Tobie",
             "last": "Morgan Hitchcock",
         },
     )
-    assert outcome is None
-    blocking_http_connection.query("CREATE person SET name = $name")
+    blocking_http_connection.query("CREATE person SET name = $name").execute()
     outcome = blocking_http_connection.query(
         "SELECT * FROM person WHERE name.first = $name.first"
-    )
-    assert len(outcome) == 1
+    ).first()
+    assert len(cast(list, outcome)) == 1
     assert outcome[0]["name"] == {"first": "Tobie", "last": "Morgan Hitchcock"}
 
     blocking_http_connection.unset(key="name")
@@ -25,7 +24,7 @@ def test_unset(blocking_http_connection: BlockingHttpSurrealConnection) -> None:
     # because the key was unset then $name.first is None returning []
     outcome = blocking_http_connection.query(
         "SELECT * FROM person WHERE name.first = $name.first"
-    )
+    ).first()
     assert outcome == []
 
-    blocking_http_connection.query("DELETE person;")
+    blocking_http_connection.query("DELETE person;").execute()

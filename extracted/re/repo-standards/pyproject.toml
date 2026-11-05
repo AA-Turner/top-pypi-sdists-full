@@ -1,6 +1,6 @@
 [project]
 name = "repo-standards"
-version = "6.17.0"
+version = "6.19.0"
 description = "Deterministic pull-request sizing and reviewed repository policy"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -22,6 +22,7 @@ classifiers = [
 requires-python = ">=3.14,<3.16"
 dependencies = [
     "conventional-pre-commit==4.4.0",
+    "markdown-it-py==4.2.0",
     "PyYAML>=6.0.3,<7",
     "pydantic>=2.14.1,<3",
     "typer>=0.27.3,<1",
@@ -118,3 +119,4 @@ extend-select = [
 
 [tool.ruff.per-file-target-version]
 "test_selection.py" = "py312"
+"src/repo_standards/github_checkout.py" = "py311"

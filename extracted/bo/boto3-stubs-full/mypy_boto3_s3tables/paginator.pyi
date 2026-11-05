@@ -14,6 +14,7 @@ Usage::
     from mypy_boto3_s3tables.paginator import (
         ListNamespacesPaginator,
         ListTableBucketsPaginator,
+        ListTableMigrationsPaginator,
         ListTablesPaginator,
     )
 
@@ -22,6 +23,7 @@ Usage::
 
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
     list_table_buckets_paginator: ListTableBucketsPaginator = client.get_paginator("list_table_buckets")
+    list_table_migrations_paginator: ListTableMigrationsPaginator = client.get_paginator("list_table_migrations")
     list_tables_paginator: ListTablesPaginator = client.get_paginator("list_tables")
     ```
 """
@@ -38,6 +40,8 @@ from .type_defs import (
     ListNamespacesResponseTypeDef,
     ListTableBucketsRequestPaginateTypeDef,
     ListTableBucketsResponseTypeDef,
+    ListTableMigrationsRequestPaginateTypeDef,
+    ListTableMigrationsResponseTypeDef,
     ListTablesRequestPaginateTypeDef,
     ListTablesResponseTypeDef,
 )
@@ -47,7 +51,12 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListNamespacesPaginator", "ListTableBucketsPaginator", "ListTablesPaginator")
+__all__ = (
+    "ListNamespacesPaginator",
+    "ListTableBucketsPaginator",
+    "ListTableMigrationsPaginator",
+    "ListTablesPaginator",
+)
 
 if TYPE_CHECKING:
     _ListNamespacesPaginatorBase = Paginator[ListNamespacesResponseTypeDef]
@@ -83,6 +92,24 @@ class ListTableBucketsPaginator(_ListTableBucketsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/paginator/ListTableBuckets.html#S3Tables.Paginator.ListTableBuckets.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/paginators/#listtablebucketspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListTableMigrationsPaginatorBase = Paginator[ListTableMigrationsResponseTypeDef]
+else:
+    _ListTableMigrationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListTableMigrationsPaginator(_ListTableMigrationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/paginator/ListTableMigrations.html#S3Tables.Paginator.ListTableMigrations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/paginators/#listtablemigrationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTableMigrationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListTableMigrationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/paginator/ListTableMigrations.html#S3Tables.Paginator.ListTableMigrations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/paginators/#listtablemigrationspaginator)
         """
 
 if TYPE_CHECKING:

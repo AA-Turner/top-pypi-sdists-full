@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlframe
-Version: 4.9.1
+Version: 4.10.0
 Summary: Turning PySpark Into a Universal DataFrame API
 Author-email: Ryan Eakman <eakmanrq@gmail.com>
 License: MIT
@@ -16,7 +16,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: prettytable<4
-Requires-Dist: sqlglot<30.28,>=30.0.0
+Requires-Dist: sqlglot<30.30,>=30.0.0
 Requires-Dist: typing_extensions
 Requires-Dist: more-itertools
 Provides-Extra: bigquery
@@ -30,7 +30,7 @@ Provides-Extra: dev
 Requires-Dist: chdb<5,>=4.4; sys_platform != "win32" and extra == "dev"
 Requires-Dist: duckdb<2.1,>=1.2; extra == "dev"
 Requires-Dist: findspark<3,>=2; extra == "dev"
-Requires-Dist: mirakuru<3.0.5; extra == "dev"
+Requires-Dist: mirakuru<3.1.1; extra == "dev"
 Requires-Dist: ty>=0.0.18; extra == "dev"
 Requires-Dist: openai<4,>=1.30; extra == "dev"
 Requires-Dist: pandas<4,>=2; extra == "dev"
@@ -40,7 +40,7 @@ Requires-Dist: pyarrow<27,>=10; extra == "dev"
 Requires-Dist: pyspark<4.4,>=4; extra == "dev"
 Requires-Dist: pytest<9.3,>=8.2.0; extra == "dev"
 Requires-Dist: pytest-forked; extra == "dev"
-Requires-Dist: pytest-postgresql<10,>=6; extra == "dev"
+Requires-Dist: pytest-postgresql<11,>=6; extra == "dev"
 Requires-Dist: pytest-rerunfailures; extra == "dev"
 Requires-Dist: pytest-xdist<3.9,>=3.6; extra == "dev"
 Requires-Dist: pre-commit<5,>=3.7; extra == "dev"

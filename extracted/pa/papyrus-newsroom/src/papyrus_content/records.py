@@ -104,7 +104,10 @@ def build_record_changes_targeted_by_id(
     changes: list[dict[str, Any]] = []
     for record in records:
         current = client.get_record(record["modelName"], record["expected"]["id"])
-        changes.append(build_record_change_from_current(record["modelName"], record["expected"], current))
+        if record.get("createOnly"):
+            changes.append(create_only_change(record["modelName"], record["expected"], current))
+        else:
+            changes.append(build_record_change_from_current(record["modelName"], record["expected"], current))
     return changes
 
 
@@ -114,16 +117,17 @@ KEPT_FEED_FIELDS = ("predictedAcceptProbability", "predictionDecidedAt", "predic
 def _feed_keys_for_new_version(next_reference: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
     """A new version of a Reference is in the feed like the one it replaces: the original prediction, arrival and an editor's stars and its capture state carry over."""
     carried = {key: current[key] for key in ("predictedAcceptProbability", "predictionDecidedAt", "feedArrivalAt") if current.get(key) is not None}
-    keys = feed_keys({**next_reference, **carried})
+    # The capture state carries too (the curation card and the captured text belong to the old version's id, but the newsroom reads a Reference's
+    # attachments by lineage), and with it the settled reason and the content-needed key that derive from it. A new version whose own batch writes
+    # extracted text has that state re-derived afterwards by apply_record_changes.
+    capture = {key: current[key] for key in ("captureState", "captureReason", "thumbnailPath") if current.get(key) and not next_reference.get(key)}
+    keys = feed_keys({**next_reference, **carried, **capture})
     if carried.get("feedArrivalAt"):
         keys["feedArrivalAt"] = carried["feedArrivalAt"]
         keys["predictionSortKey"] = prediction_sort_key(carried.get("predictedAcceptProbability"), carried["feedArrivalAt"], str(next_reference["id"]))
     stars = {key: current[key] for key in ("starRating", "starRatedAt", "starRatedBy") if current.get(key) is not None}
     if stars.get("starRating") is not None:
         stars["starFeedKey"] = star_feed_key(next_reference.get("corpusId"), stars["starRating"])
-    # The capture state carries too (the curation card and the captured text belong to the old version's id, but the newsroom reads a Reference's
-    # attachments by lineage). A new version whose own batch writes extracted text has that state re-derived afterwards by apply_record_changes.
-    capture = {"captureState": current["captureState"]} if current.get("captureState") and not next_reference.get("captureState") else {}
     return {**carried, **keys, **stars, **capture}
 
 
@@ -185,12 +189,26 @@ def build_record_changes(
         model_name = record["modelName"]
         expected = record["expected"]
         current = existing_by_model.get(model_name, {}).get(expected["id"])
-        change = build_record_change_from_current(model_name, expected, current)
+        if record.get("createOnly"):
+            change = create_only_change(model_name, expected, current)
+        else:
+            change = build_record_change_from_current(model_name, expected, current)
         if "attachmentBody" in record:
             change["attachmentBody"] = record["attachmentBody"]
         changes.append(change)
     changes.extend(prepared["postChanges"])
     return changes
+
+
+def create_only_change(
+    model_name: str,
+    expected: dict[str, Any],
+    current: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """A record that must never overwrite: created when missing, left alone when it exists."""
+    if current:
+        return {"modelName": model_name, "expected": current, "current": current, "action": "noop", "createOnly": True}
+    return {"modelName": model_name, "expected": strip_unsupported_payload_fields(model_name, dict(expected)), "current": None, "action": "create", "createOnly": True}
 
 
 def list_existing_records_by_model(
@@ -309,6 +327,8 @@ def prepare_versioned_knowledge_records(
                     "id": current["id"],
                     "versionState": "superseded",
                     "feedStateKey": None,   # a superseded version is in no feed
+                    **({"mediumFeedKey": None} if current.get("mediumFeedKey") else {}),   # nor in a medium list
+                    **({"contentNeededKey": None} if current.get("contentNeededKey") else {}),   # nor in the list of videos waiting for content
                     "updatedAt": expected.get("updatedAt") or expected.get("importedAt"),
                 },
                 current,
@@ -498,6 +518,8 @@ def _apply_change(client: PapyrusGraphQLAuthoringClient, change: dict[str, Any])
         else:
             client.upsert(change["modelName"], change["expected"])
     except RuntimeError as error:
+        if action == "create" and change.get("createOnly") and _is_conditional_conflict_error(error):
+            return
         if action == "create" and _is_conditional_conflict_error(error):
             try:
                 client.update_record(change["modelName"], change["expected"])

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ai
-Version: 0.8.0
+Version: 0.9.0
 Summary: AI Agent Framework for Python
 Project-URL: Homepage, https://ai-python.dev
 Project-URL: Repository, https://github.com/vercel-labs/ai-python
@@ -38,6 +38,8 @@ Requires-Dist: openai<4.0.0,>=2.34.0; extra == 'openai'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30; extra == 'otel'
 Requires-Dist: opentelemetry-sdk>=1.30; extra == 'otel'
+Provides-Extra: typesafe
+Requires-Dist: typesafe-sdk<1,>=0.7.2; extra == 'typesafe'
 Provides-Extra: vercel
 Requires-Dist: vercel-oidc>=0.8.0; extra == 'vercel'
 Description-Content-Type: text/markdown
@@ -176,8 +178,9 @@ class CustomAgent(ai.Agent):
             async with (
                 ai.stream(context=context) as s,
                 ai.ToolRunner() as tr,
+                ai.util.merge(s, tr.events()) as events,
             ):
-                async for event in ai.util.merge(s, tr.events()):
+                async for event in events:
                     yield event
                     if isinstance(event, ai.events.ToolEnd):
                         tr.schedule(self.resolve(event.tool_call))

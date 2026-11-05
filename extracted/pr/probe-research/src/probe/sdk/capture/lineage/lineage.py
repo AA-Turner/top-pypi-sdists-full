@@ -133,7 +133,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from ...run.launch import open_runs as _open_runs
-from ...recording_rules import ignore as _ignore
+from ...recording_rules import recording_rules as _ignore
 from .. import owndirs as _owndirs
 from ....foundation.safe_warn import safe_warn as _diagnostics
 
@@ -437,7 +437,7 @@ class _RunReads:
         #: owner's binding (`_follow`): only such a live worker's spool is the
         #: owner's to take at its close, which marks where to cut it.
         self.follows = False
-        #: The run's `.probeignore` rules (`probe.sdk.recording_rules.ignore.IgnoreRules`), or
+        #: The run's `.probeignore` rules (`probe.sdk.recording_rules.recording_rules.IgnoreRules`), or
         #: None. An excluded read is never spooled, so never hashed.
         self.ignore = ignore
         #: Whether this process notes the run's writes (`writes_enabled`).
@@ -458,8 +458,6 @@ class _RunReads:
         #: past the cap nothing is added, so a run over millions of files
         #: holds 10,000 entries, not millions.
         self.seen: dict[str, tuple] = {}
-        #: Paths a `.probe.config` excludes, judged once (`record`).
-        self.config_excluded: set[str] = set()
         self.count = 0
         self.truncated = False
         self.ambiguous = 0
@@ -532,14 +530,6 @@ class _RunReads:
             return
         ident = _ident(st)
         if self.seen.get(path) == ident:
-            return
-        if path in self.config_excluded:
-            return
-        if _config_excluded(path):
-            # A researcher's `.probe.config`: never noted, never counted toward
-            # MAX_PATHS, never hashed. Judged once per path (bounded).
-            if len(self.config_excluded) < MAX_PATHS * 10:
-                self.config_excluded.add(path)
             return
         self.seen[path] = ident
         self.count += 1
@@ -1277,7 +1267,7 @@ def _tail_workers() -> None:
                     path, ident = row["p"], (row["d"], row["i"], row["s"], row["m"], row["c"])
                 except (ValueError, KeyError, TypeError):
                     continue
-                if excluded(path) or _ignored(state.ignore, path) or _config_excluded(path):
+                if excluded(path) or _ignored(state.ignore, path):
                     continue
                 if state.tailed >= MAX_PATHS:
                     break
@@ -1700,7 +1690,7 @@ def collect_all(
             for path in sorted(noted.rows, key=lambda p: (str(noted.rows[p].get("t", "")), p)):
                 if excluded(path) or write_excluded(path):
                     continue
-                if _ignored(rules, path) or _config_excluded(path):
+                if _ignored(rules, path):
                     w_ignored += 1
                     continue
                 if not _sendable(path):
@@ -1724,8 +1714,6 @@ def collect_all(
             and key[1] not in own
             and not excluded(key[0])
             and not _ignored(rules, key[0])
-            and not _config_excluded(key[0])
-            and not _below_floor(key[0], key[1][2])
         ]
         # Writes that are outputs (changed, and -- recovered -- still the
         # writer's), hashed after the reads; the rest are never read.
@@ -1741,11 +1729,7 @@ def collect_all(
                 verdict[path] = "unverified"  # may be another run's bytes by now
             else:
                 verdict[path] = "output"
-                if (
-                    finals[path] not in _hash_results
-                    and finals[path] not in own
-                    and not _below_floor(path, finals[path][2])
-                ):
+                if finals[path] not in _hash_results and finals[path] not in own:
                     wanted.append((path, finals[path]))
         spent = state.hashed_bytes if state is not None else 0
         budget = [max(RUN_HASH_BUDGET_BYTES - spent, 0)]
@@ -1765,7 +1749,7 @@ def collect_all(
             path, ident = key
             if excluded(path):
                 continue
-            if _ignored(rules, path) or _config_excluded(path):
+            if _ignored(rules, path):
                 n_ignored += 1
                 continue
             if not _sendable(path):
@@ -1779,12 +1763,7 @@ def collect_all(
             observation = _read_observation(run_id, host, path, ident)
             why = None
             rows_n: int | None = None
-            if _below_floor(path, obs.get("s")):
-                # `hash` and under 64 bytes: path and size only (F30), by
-                # design -- neither unhashed nor late.
-                sha = fp = None
-                stable = True
-            elif result is not None:
+            if result is not None:
                 sha, fp, rows_n = result
                 stable = sha is not None or fp is not None
             else:
@@ -1822,9 +1801,7 @@ def collect_all(
                 ident = finals[path]
                 result = own.get(ident) or _hash_results.get(ident)
                 rows_n = None
-                if _below_floor(path, ident[2]):
-                    sha = fp = None  # `hash` and under 64 bytes (F30)
-                elif result is None:
+                if result is None:
                     sha = fp = None
                     w_unhashed += 1
                     why = cut.get(ident, CUT_DEADLINE)
@@ -1943,8 +1920,6 @@ def _resend_late(run_id: str, target: Any, *, reads: bool, writes: bool) -> int:
                 result = own.get(ident) or _hash_results.get(ident)
                 if result is None or (result[0] is None and result[1] is None):
                     continue  # still unhashed, or no longer those bytes
-                if _below_floor(entry.get("p", entry.get("w")), ident[2]):
-                    continue  # `hash` and under 64 bytes: never a hash (F30)
                 sha, fp, rows_n = result
                 if "p" in entry and sha is None:
                     # A read's row is replaced only by a HASH: the server takes
@@ -1990,8 +1965,7 @@ def _named_hash(paths: list[tuple[str, tuple]], wait_s: float) -> dict[tuple, tu
     with _lock:
         _collecting += 1
     try:
-        todo = [(path, ident) for path, ident in paths if not _below_floor(path, ident[2])]
-        _hash_within(todo, [RUN_HASH_BUDGET_BYTES], time.monotonic() + max(wait_s, 0.0), own)
+        _hash_within(list(paths), [RUN_HASH_BUDGET_BYTES], time.monotonic() + max(wait_s, 0.0), own)
         return {ident: own.get(ident) or _hash_results.get(ident) for _path, ident in paths}
     finally:
         with _lock:
@@ -2084,8 +2058,6 @@ from probe.sdk.capture.lineage.exclusions import (  # noqa: E402 -- pieces need 
     _TOOL_CACHE_PARTS,
     _WRITE_ONLY_PARTS,
     _as_prefix,
-    _below_floor,
-    _config_excluded,
     _ignored,
     _interpreter_prefixes,
     _sendable,

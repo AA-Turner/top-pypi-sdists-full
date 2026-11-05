@@ -61,6 +61,8 @@ plugins:
             First Validation: 첫 검증
             Tutorials: 튜토리얼
             Data Profiling: 데이터 프로파일링
+            Data validation MCP: 데이터 검증 MCP
+            Local MCP example: 로컬 MCP 실행 예제
             Custom Validator: 사용자 정의 검증기
             Enterprise Setup: 엔터프라이즈 설정
             Usage Examples: 사용 예시
@@ -257,6 +259,8 @@ nav:
                   - Streaming: guides/datasources/streaming.md
                   - Custom Sources: guides/datasources/custom-sources.md
                   - CLI Datasource Guide: guides/datasources/cli-datasource-guide.md
+                  - Data validation MCP: guides/data-validation-mcp.md
+                  - Local MCP example: guides/local-mcp-example.md
                   - Local MCP: guides/mcp.md
           - Operations & Automation:
               - Repository CI: guides/ci-testing.md
@@ -567,6 +571,7 @@ nav:
       - Prompt Hardening: ai/prompt-hardening.md
       - Smoke and Release Gates: ai/release-gate.md
   - Release Notes:
+      - Truthound 3.3.2: releases/truthound-3.3.2.md
       - Truthound 3.3.1: releases/truthound-3.3.1.md
       - Truthound 3.3.0: releases/truthound-3.3.0.md
       - Latest Verified Benchmark Summary: releases/latest-benchmark-summary.md

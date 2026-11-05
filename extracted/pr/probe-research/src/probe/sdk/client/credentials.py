@@ -25,6 +25,29 @@ def _failure_kind(exc: BaseException) -> str:
 class CredentialsMixin:
     """Part of Client: its methods run with `self` the Client; compose() folds them into Client."""
 
+    def _hand_key_to_service(self, *, should_wait: bool = True) -> None:
+        """Hand the key passed in code to the Probe service (`credentials.hold`, plan D21): at the
+        client's start on a thread (which starts the service), and again at a run's close, so its
+        queue drains after this process is gone. No key in code: nothing. Never raises."""
+        credentials = getattr(self, "_worker_credentials", None)
+        if not credentials or not getattr(self, "_auto_drain", False):
+            return
+        from ..delivery.outbox import hold_key
+
+        if should_wait:
+            hold_key(credentials)
+            return
+        try:
+            threading.Thread(target=hold_key, args=(credentials,), name="probe-key-hold", daemon=True).start()
+        except RuntimeError:  # interpreter shutting down: the close hands it over
+            pass
+
+    def _was_key_handed(self) -> bool:
+        """Whether a service took the key passed in code (no key: True)."""
+        from ..delivery.outbox import key_handed
+
+        return key_handed(getattr(self, "_worker_credentials", None))
+
     def _credential_queue_name(self, stamp: dict) -> str:
         """Which credential queue this client writes to: named by the key its
         ENVIRONMENT holds, so a kick from a shell with that environment finds

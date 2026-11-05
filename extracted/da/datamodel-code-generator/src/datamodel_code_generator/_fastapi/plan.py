@@ -63,15 +63,19 @@ from datamodel_code_generator._target_contract import (
     UnionType,
     api_key_place,
     children_of,
+    exact_status,
     fact,
     http_scheme,
     is_required,
     label,
     literal_text,
     members_by_consumer,
+    openapi_release,
     operation_schemes,
     parameter_place,
+    range_start,
     scheme_catalogues,
+    scope_problem,
     security_requirements,
     symbols_by_id,
     type_uses,
@@ -91,14 +95,12 @@ from datamodel_code_generator._target_operations import (
     declared_in,
     declared_media_type,
     derived_name,
-    exact_status,
     first_use,
     json_null,
     local,
     native_type,
     placeholder_problems,
     raise_planned,
-    range_start,
     resolve_settings,
     response_bodyless,
     type_names,
@@ -107,6 +109,7 @@ from datamodel_code_generator._target_types import present, sole_present
 from datamodel_code_generator._url_redaction import redact_reference
 from datamodel_code_generator.enums import DataModelType
 from datamodel_code_generator.imports import Import
+from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -328,6 +331,7 @@ class ResponseSpec:
     status: str
     declaration: WireDeclaration
     media: tuple[MediaSpec, ...]
+    bodyless: bool
     null: bool = False
 
 
@@ -342,6 +346,7 @@ class PrimarySpec:
     response: ResponseSpec
     media: MediaSpec | None
     decision: Decision
+    bodyless: bool
     null: bool = False
 
 
@@ -454,7 +459,10 @@ def _unresolved(code: str, kind: str, declaration: WireDeclaration) -> Diagnosti
     reason = (
         "whose document could not be loaded" if item.state == "document_not_observed" else f"which reaches no {kind}"
     )
-    message = f"The {kind} {declaration.name!r} references {redact_reference(item.reference)!r}, {reason}"
+    message = (
+        f"The {kind} {stable_repr(declaration.name)} references {stable_repr(redact_reference(item.reference))}, "
+        f"{reason}"
+    )
     return _problem(code, message, declaration.use_site)
 
 
@@ -462,13 +470,13 @@ def _link_operation_problem(link: WireDeclaration) -> str | None:
     """Return why a link does not name its operation with exactly one string operationRef or operationId."""
     named = [(key, value) for key, value in link.facts if key in {"operationRef", "operationId"}]
     if not named:
-        return f"The link {link.name!r} names no operation with operationRef or operationId"
+        return f"The link {stable_repr(link.name)} names no operation with operationRef or operationId"
     if len(named) > 1:
-        return f"The link {link.name!r} names its operation with both operationRef and operationId"
+        return f"The link {stable_repr(link.name)} names its operation with both operationRef and operationId"
     key, value = named[0]
     if literal_text(value) is not None:
         return None
-    return f"The link {link.name!r} has an {key} that is not a string"
+    return f"The link {stable_repr(link.name)} has an {key} that is not a string"
 
 
 def invalid_links(operations: Iterable[OperationContract]) -> tuple[Diagnostic, ...]:
@@ -639,7 +647,11 @@ class Planner:  # noqa: PLR0904
         self.modes: dict[str, HandlerMode] = self.selected("handler_modes", config.handler_modes)
         groups = {group_key(operation, single=config.layout == "single") for operation in request.operations}
         self.problems.extend(
-            _problem("E_CONFIG_VALUE", f"The router_names entry {key!r} names no group", option_path="router_names")
+            _problem(
+                "E_CONFIG_VALUE",
+                f"The router_names entry {stable_repr(key)} names no group",
+                option_path="router_names",
+            )
             for key in config.router_names
             if key not in groups
         )
@@ -690,7 +702,7 @@ class Planner:  # noqa: PLR0904
         """Name each operation's handler: explicit names first, which must differ, then derived ones suffixed apart."""
         explicit = [name for operation in operations if (name := self.names.get(operation.id.use_site.pointer))]
         self.problems.extend(
-            _problem("F_NAME_CONFLICT", f"Several operation names become {name!r}")
+            _problem("F_NAME_CONFLICT", f"Several operation names become {stable_repr(name)}")
             for name, count in sorted(Counter(explicit).items())
             if count > 1
         )
@@ -740,7 +752,7 @@ class Planner:  # noqa: PLR0904
         }
         conflicts.update(stem for stem in stems.values() if _file_stem_conflict(stem, self.target_names.python_version))
         self.problems.extend(
-            _problem("F_NAME_CONFLICT", f"Several router groups or reserved names take {stem!r}")
+            _problem("F_NAME_CONFLICT", f"Several router groups or reserved names take {stable_repr(stem)}")
             for stem in sorted(conflicts)
         )
         named = [key for key in members if stems[key] != "service"]
@@ -827,6 +839,15 @@ class Planner:  # noqa: PLR0904
             return None
         for name in dict.fromkeys(name for requirement in requirements for name, _ in requirement):
             self.scheme(operation, name)
+        declared = operation_schemes(self.scheme_catalogues, operation)
+        for name, scopes in dict.fromkeys(entry for requirement in requirements for entry in requirement):
+            if (
+                name in self.schemes
+                and (declaration := declared.get(name)) is not None
+                and (problem := scope_problem(name, declaration, scopes, self.request.batch.openapi)) is not None
+            ):
+                message = f"The security of {label(operation)} {problem}"
+                self.problems.append(_problem("F_SECURITY_INVALID", message, operation.id.use_site))
         return SecuritySpec(requirements=requirements)
 
     def scheme(self, operation: OperationContract, name: str) -> None:
@@ -834,16 +855,17 @@ class Planner:  # noqa: PLR0904
         if name in self.schemes:
             return
         if (declaration := operation_schemes(self.scheme_catalogues, operation).get(name)) is None:
-            message = f"{label(operation)} requires the undeclared security scheme {name!r}"
+            message = f"{label(operation)} requires the undeclared security scheme {stable_repr(name)}"
             self.problems.append(_problem("F_SECURITY_INVALID", message, operation.id.use_site))
         elif (unresolved := _unresolved("F_SECURITY_INVALID", "security scheme", declaration)) is not None:
             self.problems.append(unresolved)
         elif (scheme := _scheme(name, declaration)) is None:
             message = (
-                f"The apiKey security scheme {name!r} needs a name and a location of header, query, or cookie"
+                f"The apiKey security scheme {stable_repr(name)} needs a name and a location of header, query, or "
+                "cookie, and a header or cookie name that is a token"
                 if fact(declaration, "type") == "apiKey"
-                else f"The security scheme {name!r} needs a type of apiKey, http with a scheme, mutualTLS, oauth2, "
-                "or openIdConnect"
+                else f"The security scheme {stable_repr(name)} needs a type of apiKey, http with a scheme, mutualTLS, "
+                "oauth2, or openIdConnect"
             )
             self.problems.append(_problem("F_SECURITY_INVALID", message, declaration.use_site))
         else:
@@ -878,8 +900,9 @@ class Planner:  # noqa: PLR0904
             if argument.location == "path" and argument.name == argument.wire_name
         }
         taken = {*RESERVED, *(argument.name for argument in arguments if argument.name not in own)}
+        repeatable = openapi_release(self.wire.version, row="legacy-target-version-text") != (3, 2)
         try:
-            return route_path(operation.path, taken, repeatable=not self.wire.version.startswith("3.2"))
+            return route_path(operation.path, taken, repeatable=repeatable)
         except RouteError as error:
             self.problems.append(_problem("F_ROUTE_INVALID", str(error), operation.id.use_site))
             return RoutePath(path=operation.path, route_path=operation.path, placeholders=wire_names, slots=())
@@ -913,8 +936,8 @@ class Planner:  # noqa: PLR0904
         value, default = self.parameter_type(use)
         if plan is not None and plan.content_media_type is None and use is not None and self.strict_bytes(use.type):
             message = (
-                f"The {location} parameter {name!r} of {label(operation)} is strict bytes, which rejects the text "
-                "a parameter carries"
+                f"The {location} parameter {stable_repr(name)} of {label(operation)} is strict bytes, which rejects "
+                "the text a parameter carries"
             )
             self.problems.append(_problem("F_PARAMETER_UNSUPPORTED", message, declaration.use_site))
         kind = (
@@ -1352,9 +1375,9 @@ class Planner:  # noqa: PLR0904
             for item in media
             if item.kind in {"form", "multipart"}
         )
-        status = declaration.name or "default"
+        status = declaration.name or ""
         spec = ResponseSpec(
-            status=status if status == "default" else status.upper(), declaration=declaration, media=media
+            status=status, declaration=declaration, media=media, bodyless=response_bodyless(operation, status)
         )
         return replace(spec, null=True) if self.json_null(default_media(spec)) else spec
 
@@ -1378,9 +1401,7 @@ class Planner:  # noqa: PLR0904
             response = exact[status]
         if response is None:
             return None
-        media = default_media(response)
-        decision = _primary_decision(operation, status, media)
-        return PrimarySpec(status=status, response=response, media=media, decision=decision, null=response.null)
+        return _primary(operation, status, response, default_media(response), null=response.null)
 
     def chosen(
         self, operation: OperationContract, responses: tuple[ResponseSpec, ...], choice: ResponseChoice
@@ -1404,10 +1425,7 @@ class Planner:  # noqa: PLR0904
                 )
             )
             return None
-        decision = _primary_decision(operation, choice.status_code, media)
-        return PrimarySpec(
-            status=choice.status_code, response=response, media=media, decision=decision, null=self.json_null(media)
-        )
+        return _primary(operation, choice.status_code, response, media, null=self.json_null(media))
 
     def arguments(  # noqa: PLR0913
         self,
@@ -1450,7 +1468,7 @@ class Planner:  # noqa: PLR0904
         self.problems.extend(
             _problem(
                 "E_CONFIG_VALUE",
-                f"The parameter_names entry {key!r} of {label(operation)} names no argument",
+                f"The parameter_names entry {stable_repr(key)} of {label(operation)} names no argument",
                 operation.id.use_site,
                 "parameter_names",
             )
@@ -1468,7 +1486,9 @@ class Planner:  # noqa: PLR0904
                 support.append(Argument(name="media_type", kind="media_type", location="media_type"))
         self.problems.extend(
             _problem(
-                "F_NAME_CONFLICT", f"The arguments of {label(operation)} take {name!r} twice", operation.id.use_site
+                "F_NAME_CONFLICT",
+                f"The arguments of {label(operation)} take {stable_repr(name)} twice",
+                operation.id.use_site,
             )
             for name, count in sorted(Counter([*filter(None, given), "self", *(item.name for item in support)]).items())
             if count > 1
@@ -1546,9 +1566,11 @@ def _member(source: object, key: str) -> JSONValue | None:
     return as_mapping(source).get(key)
 
 
-def _primary_decision(operation: OperationContract, status: int, media: MediaSpec | None) -> Decision:
-    """Decide whether a bare primary value goes to FastAPI's response_model or through the response codecs."""
-    bodyless = response_bodyless(SERVER, operation, status)
+def _primary(
+    operation: OperationContract, status: int, response: ResponseSpec, media: MediaSpec | None, *, null: bool
+) -> PrimarySpec:
+    """Return the primary response, deciding whether a bare value goes to FastAPI's response_model or the codecs."""
+    bodyless = response_bodyless(operation, str(status))
     native = (
         not bodyless
         and media is not None
@@ -1556,7 +1578,8 @@ def _primary_decision(operation: OperationContract, status: int, media: MediaSpe
         and (use := media.use) is not None
         and use.type is not None
     )
-    return Decision(transport="fastapi_native" if native else "adapter")
+    decision = Decision(transport="fastapi_native" if native else "adapter")
+    return PrimarySpec(status=status, response=response, media=media, decision=decision, bodyless=bodyless, null=null)
 
 
 def _native(plan: ParameterPlan, location: ParameterLocation, kind: ValueKind | None, *, repeated: bool) -> bool:
@@ -1653,7 +1676,7 @@ def _declaring(responses: tuple[ResponseSpec, ...], status: int) -> ResponseSpec
 def _registration(responses: tuple[ResponseSpec, ...], primary: PrimarySpec | None) -> int:
     if primary is not None:
         return primary.status
-    ranges = (range_start(response.status) for response in responses if response.status.endswith("XX"))
+    ranges = (start for response in responses if (start := range_start(response.status)) is not None)
     return min(ranges, default=_DEFAULT_STATUS)
 
 

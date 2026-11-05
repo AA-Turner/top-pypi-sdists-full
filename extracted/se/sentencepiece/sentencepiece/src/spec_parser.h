@@ -15,16 +15,21 @@
 #ifndef SPEC_PARSER_H_
 #define SPEC_PARSER_H_
 
+#include <cstdint>
+#include <map>
+#include <sstream>
 #include <string>
 #include <vector>
 
+#include "absl/status/status.h"
+#include "absl/status/status_builder.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
+#include "ret_check.h"
 #include "sentencepiece_processor.h"
-#include "third_party/absl/status/status.h"
-#include "third_party/absl/status/status_builder.h"
-#include "third_party/absl/strings/ascii.h"
-#include "third_party/absl/strings/numbers.h"
-#include "third_party/absl/strings/str_split.h"
-#include "third_party/absl/strings/string_view.h"
+#include "sentencepiece_trainer.h"
 #include "util.h"
 
 namespace sentencepiece {
@@ -100,6 +105,12 @@ namespace sentencepiece {
     return absl::OkStatus();                                           \
   }
 
+#define PARSE_DEPRECATED(param_name)                               \
+  if (name == #param_name) {                                       \
+    LOG(WARNING) << "--" << name << " is deprecated and ignored."; \
+    return absl::OkStatus();                                       \
+  }
+
 #define PRINT_PARAM(param_name) \
   os << "  " << #param_name << ": " << message.param_name() << "\n";
 
@@ -133,8 +144,6 @@ inline std::string PrintProto(const TrainerSpec& message,
 
   PRINT_ENUM(model_type, kModelType_Map);
   PRINT_PARAM(vocab_size);
-  PRINT_REPEATED_STRING(accept_language);
-  PRINT_PARAM(self_test_sample_size);
   PRINT_PARAM(character_coverage);
   PRINT_PARAM(input_sentence_size);
   PRINT_PARAM(shuffle_input_sentence);
@@ -155,8 +164,8 @@ inline std::string PrintProto(const TrainerSpec& message,
   PRINT_REPEATED_STRING(user_defined_symbols);
   PRINT_PARAM(required_chars);
   PRINT_PARAM(byte_fallback);
+  PRINT_PARAM(auto_character_coverage);
   PRINT_PARAM(vocabulary_output_piece_score);
-  PRINT_PARAM(train_extremely_large_corpus);
   PRINT_PARAM(seed_sentencepieces_file);
   PRINT_PARAM(hard_vocab_limit);
   PRINT_PARAM(use_all_vocab);
@@ -169,9 +178,6 @@ inline std::string PrintProto(const TrainerSpec& message,
   PRINT_PARAM(eos_piece);
   PRINT_PARAM(pad_piece);
   PRINT_PARAM(unk_surface);
-  PRINT_PARAM(enable_differential_privacy);
-  PRINT_PARAM(differential_privacy_noise_level);
-  PRINT_PARAM(differential_privacy_clipping_threshold);
 
   os << "}\n";
 
@@ -213,8 +219,6 @@ absl::Status SentencePieceTrainer::SetProtoField(absl::string_view name,
 
   PARSE_ENUM(model_type, kModelType_Map);
   PARSE_INT32(vocab_size);
-  PARSE_REPEATED_STRING(accept_language);
-  PARSE_INT32(self_test_sample_size);
   PARSE_DOUBLE(character_coverage);
   PARSE_UINT64(input_sentence_size);
   PARSE_BOOL(shuffle_input_sentence);
@@ -235,9 +239,9 @@ absl::Status SentencePieceTrainer::SetProtoField(absl::string_view name,
   PARSE_REPEATED_STRING(user_defined_symbols);
   PARSE_STRING(required_chars);
   PARSE_BOOL(byte_fallback);
+  PARSE_BOOL(auto_character_coverage);
   PARSE_BOOL(hard_vocab_limit);
   PARSE_BOOL(vocabulary_output_piece_score);
-  PARSE_BOOL(train_extremely_large_corpus);
   PARSE_STRING(seed_sentencepieces_file);
   PARSE_BOOL(use_all_vocab);
   PARSE_INT32(unk_id);
@@ -249,9 +253,16 @@ absl::Status SentencePieceTrainer::SetProtoField(absl::string_view name,
   PARSE_STRING(eos_piece);
   PARSE_STRING(pad_piece);
   PARSE_STRING(unk_surface);
-  PARSE_BOOL(enable_differential_privacy);
-  PARSE_DOUBLE(differential_privacy_noise_level);
-  PARSE_UINT64(differential_privacy_clipping_threshold);
+
+  // Deprecated fields.
+  PARSE_DEPRECATED(accept_language);
+  PARSE_DEPRECATED(self_test_sample_size);
+  PARSE_DEPRECATED(mining_sentence_size);
+  PARSE_DEPRECATED(training_sentence_size);
+  PARSE_DEPRECATED(train_extremely_large_corpus);
+  PARSE_DEPRECATED(enable_differential_privacy);
+  PARSE_DEPRECATED(differential_privacy_noise_level);
+  PARSE_DEPRECATED(differential_privacy_clipping_threshold);
 
   return absl::StatusBuilder(absl::StatusCode::kNotFound)
          << "unknown field name \"" << name << "\" in TrainerSpec.";
@@ -278,9 +289,11 @@ absl::Status SentencePieceTrainer::SetProtoField(absl::string_view name,
 #undef PARSE_BOOL
 #undef PARSE_BYTE
 #undef PARSE_INT32
-#undef PARSE_DUOBLE
+#undef PARSE_UINT64
+#undef PARSE_DOUBLE
 #undef PARSE_ENUM
-#undef PRINT_MAP
+#undef PARSE_DEPRECATED
+#undef PRINT_PARAM
 #undef PRINT_REPEATED_STRING
 #undef PRINT_ENUM
 }  // namespace sentencepiece

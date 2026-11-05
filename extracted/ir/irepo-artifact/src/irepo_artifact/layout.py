@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import hashlib
 import getpass
+import logging
 from pathlib import Path
 import re
 import shutil
@@ -12,6 +13,9 @@ import tarfile
 import tempfile
 
 from .errors import ArtifactError, ConfigurationError, DownloadError, ProtocolError
+from .tar_reader import open_archive
+
+logger = logging.getLogger(__name__)
 
 
 def relative_path(path: str, error=ProtocolError) -> str:
@@ -172,6 +176,12 @@ class JobOutput:
                 raise
             raise DownloadError('cannot prepare output; check directory or active download lock') from None
 
+    def reset_selected(self) -> None:
+        """Discard the archive attempt before falling back to individual files."""
+        self.archive_temp.unlink(missing_ok=True)
+        shutil.rmtree(self.files_temp)
+        self.files_temp.mkdir(parents=True)
+
     def extract_archive(self):
         raw = self.stage / 'unpacked'
         raw.mkdir()
@@ -190,8 +200,8 @@ class JobOutput:
                 elif os.utime in os.supports_follow_symlinks:
                     os.utime(path, (member.mtime, member.mtime), follow_symlinks=False)
 
-            with tarfile.open(self.archive_temp, 'r:gz') as tar:
-                for member in tar:
+            with open_archive(self.archive_temp) as (tar, members):
+                for member in members:
                     name = member.name.rstrip('/') if member.isdir() else member.name
                     # Conventional tar root '.' and './' prefixes carry no path traversal.
                     while name.startswith('./'):
@@ -215,11 +225,15 @@ class JobOutput:
                         directories[name] = member
                     else:
                         link = member.linkname
-                        if (not link or link.startswith('/') or '\\' in link or '\x00' in link
+                        if (not link or '\\' in link or '\x00' in link
                                 or re.match(r'^[A-Za-z]:', link)):
                             raise DownloadError('unsafe archive link')
                         target = (dest.parent if member.issym() else raw) / link
-                        contained(target)
+                        if link.startswith('/') or not target.resolve().is_relative_to(raw.resolve()):
+                            # Container-local convenience links cannot be recreated
+                            # safely on the downloader's filesystem.
+                            logger.warning('Skipping unsafe artifact link: %r -> %r', member.name, link)
+                            continue
                         if member.islnk() and not target.is_file():
                             raise DownloadError('archive hard link target is not a regular file')
                         if dest.is_symlink() or dest.exists():

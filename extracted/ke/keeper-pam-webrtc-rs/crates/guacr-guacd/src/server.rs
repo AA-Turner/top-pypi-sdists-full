@@ -151,10 +151,22 @@ pub struct SelectResult {
 }
 
 /// Result of parsing a connect instruction
-#[derive(Debug)]
 pub struct ConnectResult {
     /// Connection parameters as key-value pairs
     pub params: HashMap<String, String>,
+}
+
+/// `params` carries the password and other credentials, so `Debug` shows parameter names
+/// only. Read values from the field directly when you really need them.
+impl std::fmt::Debug for ConnectResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut names: Vec<&str> = self.params.keys().map(String::as_str).collect();
+        names.sort_unstable();
+        f.debug_struct("ConnectResult")
+            .field("param_names", &names)
+            .field("values", &"***")
+            .finish()
+    }
 }
 
 /// Count the `connect` values a client sent past the argument list we advertised.

@@ -15,13 +15,11 @@ class CreateSimilarSecurityEventsQueryTaskRequest(DaraModel):
         similar_event_scenario_code: str = None,
         source_ip: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. Different requests should use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You can use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies whether to perform only a dry run of the request. Valid values:
-        # 
-        # - true: performs only a dry run without executing the actual operation.
+        # Specifies whether to perform a dry run of the request. Valid values:
+        # - true: performs a dry run without performing the actual operation.
         # - false: performs the actual operation.
-        # 
         # Default value: false.
         self.dry_run = dry_run
         self.resource_directory_account_id = resource_directory_account_id
@@ -30,9 +28,9 @@ class CreateSimilarSecurityEventsQueryTaskRequest(DaraModel):
         # 
         # This parameter is required.
         self.security_event_id = security_event_id
-        # The code of the alerting event that has the same type or rule hits.
+        # The code value of alerting events of the same type or rule hits.
         self.similar_event_scenario_code = similar_event_scenario_code
-        # The IP address of the access source.
+        # The source IP address.
         self.source_ip = source_ip
 
     def validate(self):

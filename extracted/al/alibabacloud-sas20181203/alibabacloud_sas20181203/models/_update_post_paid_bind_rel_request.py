@@ -19,24 +19,23 @@ class UpdatePostPaidBindRelRequest(DaraModel):
         update_if_necessary: bool = None,
     ):
         # Specifies whether to enable automatic binding for newly added assets. Valid values:
-        # 
-        # - **0**: Disabled.
-        # - **1**: Enabled.
+        # - **0**: Disable.
+        # - **1**: Enable.
         self.auto_bind = auto_bind
-        # The edition to automatically bind to newly added assets. Valid values:
+        # Specifies the protection edition to automatically bind to newly added assets. Valid values:
         # - **1**: Free Edition 
         # - **3**: Enterprise Edition
         # - **5**: Premium Edition
         # - **6**: Anti-virus Edition    
         # - **7**: Ultimate Edition
         self.auto_bind_version = auto_bind_version
-        # The action parameters for the binding operation.
+        # Specifies the action parameters for the binding operation.
         self.bind_action = bind_action
         # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies whether to perform a dry run for the request. A value of true indicates that only a dry run is performed and no actual operation is executed. A value of false indicates that the request is normally executed. Default value: false.
+        # Specifies whether to perform a dry run on the request. true: performs a dry run and does not perform the actual operation. false: performs the actual operation. Default value: false.
         self.dry_run = dry_run
-        # The abbreviation of the cloud service. Valid values:
+        # Specifies the abbreviated name of the cloud service. Valid values:
         # - **sas**: Security Center
         self.product_code = product_code
         # Specifies whether to forcibly upgrade the edition.
@@ -115,15 +114,14 @@ class UpdatePostPaidBindRelRequestBindAction(DaraModel):
         version: str = None,
     ):
         # Specifies whether to bind all servers. Default value: **false**. Valid values:
-        # 
         # - **true**: Yes.
         # - **false**: No.
         self.bind_all = bind_all
-        # The type of free quota used for the binding operation.
+        # Specifies the type of free quota used for the binding action.
         self.free_type = free_type
-        # The UUIDs of the specified servers.
+        # Specifies the list of server UUIDs.
         self.uuid_list = uuid_list
-        # The Security Center protection edition to bind. Valid values:  
+        # Specifies the Security Center protection edition to bind. Valid values:  
         # - **1**: Free Edition 
         # - **3**: Enterprise Edition
         # - **5**: Premium Edition

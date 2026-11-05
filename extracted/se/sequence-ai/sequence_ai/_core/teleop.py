@@ -8,7 +8,7 @@ check it by, a token of the robot's session - and who drives it → one WebSocke
 /teleop), pinged every HEARTBEAT_S - a driving console silent for 3 s stops its robot → take(), release() and stop()
 each said and answered with who drives then (Conflict while another person drives), send(chunk) each chunk to the robot
 at once - what its act() hands back, in its policy's answers' form - stream() each step the robot observes, as its
-observe() made it, requests() each time its planner asks for a person.
+observe() made it, requests() each time its policy's plan asks for a person.
 WHY one hop to the worker: the robot's frames and acts are already there - a person's chunk reaches the robot in one
 trip. {the user 10-27: "we should do 1 jump by direct connnect gpu to telloerpator"; "key doesnt need to change key is
 the same robot key"}
@@ -209,7 +209,7 @@ class Teleop:
     @property
     def driver(self) -> dict:
         """Who drives the robot now, as its worker last said: {"driver": "model" | "human" | "stopped", "by": the
-        operator's name, "planner", or None, "since": its epoch second, or None}."""
+        operator's name, "plan", or None, "since": its epoch second, or None}."""
         with self._lock:
             return dict(self._driver)
 
@@ -243,9 +243,9 @@ class Teleop:
                 yield {"episode": episode, "seq": seq, "observation": observation}
 
     def requests(self) -> Iterator[dict]:
-        """Each time the robot's planner asks for a person (seq.ask_human), as its worker tells this console - once a
-        request opens, its reason changes or it turns to hold, and first thing to a console that connects while one
-        waits: {"id", "robot" (its name), "reason", "planner", "at" (the epoch second it first asked), "hold", "frame" (a
+        """Each time the robot's policy asks for a person (a @seq.plan returning seq.ask_human), as its worker tells this
+        console - once a request opens, its reason changes or it turns to hold, and first thing to a console that connects while one
+        waits: {"id", "robot" (its name), "reason", "policy", "at" (the epoch second it first asked), "hold", "frame" (a
         small JPEG of its latest frame, or None)}. Ends with the connection.
 
         """

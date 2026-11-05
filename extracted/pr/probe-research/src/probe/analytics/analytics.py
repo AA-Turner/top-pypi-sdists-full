@@ -4,18 +4,25 @@ Events, funnel semantics, the contract (metadata only, async, gates): DESIGN.md 
 """
 
 from __future__ import annotations
+import logging
 import os
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from probe.analytics import core as core
 from probe.foundation.tls.tls import ssl_context
+from probe.analytics.generated import ProductSurface
 from probe.analytics.outcomes import IdentityMode, InvokedBy, Via
 from probe.analytics import sender  # call through the module: one binding for tests to patch
 from probe.generated.transcript_switch import SwitchedBy
 # Set only on a child's explicit desktop action, independently of its stdin TTY.
 DESKTOP_HUMAN_ENV = "PROBE_DESKTOP_HUMAN"
-DESKTOP_SURFACE = "desktop"
+DESKTOP_SURFACE = ProductSurface.DESKTOP.value
+#: Every wire value `surface` may carry (S5): anything else is left off the event.
+_SURFACES = frozenset(member.value for member in ProductSurface)
+#: Surfaces `emit` refused this process, so each is logged once.
+_refused_surfaces: set[str] = set()
+_logger = logging.getLogger(__name__)
 #: Who asked for a Probe service action (`SwitchedBy`'s word), set on its child (plan R30).
 ASKED_BY_ENV = "PROBE_ASKED_BY"
 
@@ -44,18 +51,21 @@ class TelemetryContext:
     #: Identity resolved AHEAD of the one flow that destroys its credential
     #: (:meth:`pin_identity`); None for every other event.
     pinned_identity: dict | None = None
+    #: The program this context's events came through (a `ProductSurface` value): written on
+    #: every event last, so a payload `surface` never replaces it. None only on a null context.
     surface: str | None = None
 
     @classmethod
-    def start(cls, *, via: str, interactive: bool, base_url: str | None) -> "TelemetryContext":
+    def start(
+        cls, *, via: str, interactive: bool, base_url: str | None, surface: ProductSurface
+    ) -> "TelemetryContext":
         # Killswitch + hosted gate, once per context, before the sender thread exists. Accepted: a
         # mid-session switch to self-host emits until exit (the per-batch gate guards identity).
         try:
             is_enabled = not core.telemetry_disabled() and core.hosted_base_url(base_url)
         except Exception:
             is_enabled = False
-        desktop = (os.environ.get(DESKTOP_HUMAN_ENV) == "1"
-                   and via in (Via.WIZARD, Via.COMMAND))
+        desktop = is_desktop_launched(via)
         # A terminal's action run by the Probe service keeps its asker, under `via: service`
         # (plan T26): the install funnel does not split between the two paths.
         for_terminal = (not desktop and via in (Via.WIZARD, Via.COMMAND)
@@ -66,7 +76,8 @@ class TelemetryContext:
             via=Via.SERVICE if for_terminal else via,
             invoked_by=InvokedBy.HUMAN if interactive or desktop or person else InvokedBy.AUTOMATION,
             enabled=is_enabled,
-            surface=DESKTOP_SURFACE if desktop else None,
+            # The app's own launch wins over the program it launched (S4).
+            surface=DESKTOP_SURFACE if desktop else str(surface),
         )
         if is_enabled:
             try:
@@ -105,14 +116,15 @@ class TelemetryContext:
                 "invoked_by": self.invoked_by,
                 "identity_mode": mode,
             }
-            if self.surface is not None:
-                properties["surface"] = self.surface
-            properties.update({k: v for k, v in props.items() if v is not None})
+            properties.update({k: v for k, v in props.items() if v is not None and k != "surface"})
             # Same contract as core.build_batch: detected or absent, never a
             # placeholder that reads as Claude Code for a Codex or pi user.
             detected = core.detect_agent_label()
             if detected is not None:
                 properties.setdefault("agent", detected)
+            # Last, and the context's own: the program is the context's to say, not a payload's (S5).
+            if _is_known_surface(self.surface):
+                properties["surface"] = self.surface
             record = {
                 "event": event,
                 "identity_mode": mode,
@@ -144,6 +156,24 @@ class TelemetryContext:
                 self.pinned_identity = identity
         except Exception:
             pass  # observability must never become observable
+
+
+def is_desktop_launched(via: str) -> bool:
+    """Is this a wizard or command run the desktop app launched (`PROBE_DESKTOP_HUMAN=1`)? Its events
+    say `desktop` (and a started context's `invoked_by` is human); background vias never infer it."""
+    return os.environ.get(DESKTOP_HUMAN_ENV) == "1" and via in (Via.WIZARD, Via.COMMAND)
+
+
+def _is_known_surface(surface: str | None) -> bool:
+    """Is `surface` one of the closed list's values? An unknown one is logged once per process and
+    left off the event, which still goes: analytics never breaks a command."""
+    if surface in _SURFACES:
+        return True
+    if surface is not None and surface not in _refused_surfaces:
+        _refused_surfaces.add(surface)
+        # INFO, not WARNING: with no logging set up a WARNING prints on the person's terminal.
+        _logger.info("telemetry: surface %r is not a ProductSurface; sent without one", surface)
+    return False
 
 
 def null_context() -> TelemetryContext:

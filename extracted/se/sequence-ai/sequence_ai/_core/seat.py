@@ -256,9 +256,7 @@ class _KeptSeat:
         sent_on = self._worker
         self._beat_mono = time.monotonic()
         try:
-
-            body = self._gateway.post("/v1/act/keepalive", {"model": self._model, "session": self._session,
-                                                            **({"through": True} if self._planner else {})},
+            body = self._gateway.post("/v1/act/keepalive", {"model": self._model, "session": self._session},
                                       timeout_s=5.0)
         except Exception:
             return "unreached"

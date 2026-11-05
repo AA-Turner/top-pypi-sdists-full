@@ -144,7 +144,7 @@ def find_model(env: Any, depth: int = 6) -> Found:
                     nxt.append((val, f"{path}.{name}"))
         queue = nxt
     raise PortError("no MuJoCo model inside the benchmark after its reset (searched sim, physics, unwrapped, env, model, "
-                    "data and every instance attribute): this is not a MuJoCo benchmark")
+                    "data and the attributes of every object in them): this is not a MuJoCo benchmark")
 
 
 def _own(obj: Any, name: str) -> bool:

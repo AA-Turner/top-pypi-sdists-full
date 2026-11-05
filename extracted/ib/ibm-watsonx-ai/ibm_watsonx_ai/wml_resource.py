@@ -232,6 +232,23 @@ class WMLResource:
             )
 
     @staticmethod
+    def _drop_nones_from_payload(
+        passed_kwargs: dict | None = None, **params: object
+    ) -> dict:
+        """Return a dict of `params` with `None` values removed, merged with `extra`.
+        `extra` is a pass-through dictionary (typically `**kwargs` from the caller)
+        that is merged first, so explicit keyword arguments take precedence.
+
+        >>> call_params = drop_nones(kwargs, temperature=temperature, seed=seed)
+        """
+
+        return {
+            k: v
+            for k, v in {**(passed_kwargs or {}), **params}.items()
+            if v is not None
+        }
+
+    @staticmethod
     def _get_required_element_from_dict(
         el: dict,
         root_path: str,

@@ -34,7 +34,7 @@ from pathlib import Path
 #
 # The version number of pygit2
 #
-__version__ = '1.20.1'
+__version__ = '1.21.0'
 
 
 #
@@ -70,5 +70,13 @@ def get_libgit2_paths() -> tuple[Path, dict[str, list[str]]]:
             'libraries': ['git2'],
             'include_dirs': [str(x) for x in include_dirs],
             'library_dirs': [str(x) for x in library_dirs],
+            # For debugging memory issues (segfaults) during development, uncomment the
+            # following lines and rebuild everything. YMMV
+            # 'extra_compile_args': [
+            #     '-fsanitize=address',
+            #     '-fsanitize-address-use-after-scope',
+            #     '-fsanitize-address-use-odr-indicator',
+            # ],
+            # 'extra_link_args': ['-fsanitize=address'],
         },
     )

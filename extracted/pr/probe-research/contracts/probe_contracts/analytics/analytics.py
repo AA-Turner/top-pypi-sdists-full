@@ -1,6 +1,8 @@
-"""EventCatalog: the one list of product-analytics events (events.json beside it), checked on load.
+"""EventCatalog and SurfaceCatalog: the one list of product-analytics events (events.json) and of
+the product surfaces every event carries (surfaces.json), each beside it and checked on load.
 
-Codegen draws each runtime's `Event` enum from it; nothing reads the JSON at run time.
+Codegen draws each runtime's `Event` and `ProductSurface` enums from them; nothing reads the JSON
+at run time.
 """
 
 from __future__ import annotations
@@ -14,8 +16,11 @@ from ..compat import StrEnum
 
 #: The catalog this package ships.
 CATALOG_PATH = Path(__file__).with_name("events.json")
+#: The surface list this package ships.
+SURFACE_CATALOG_PATH = Path(__file__).with_name("surfaces.json")
 
 _KEY = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*")
+_SURFACE_VALUE = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")
 
 
 class Runtime(StrEnum):
@@ -47,7 +52,7 @@ class CatalogGroup:
 
 
 class CatalogError(ValueError):
-    """events.json breaks a catalog rule (named in the message)."""
+    """events.json or surfaces.json breaks a catalog rule (named in the message)."""
 
 
 @dataclass(frozen=True)
@@ -114,3 +119,56 @@ class EventCatalog:
     def get_names(self, runtime: Runtime) -> list[str]:
         """Every wire name `runtime` sends, in catalog order."""
         return [event.name for group in self.get_groups(runtime) for event in group.events]
+
+
+@dataclass(frozen=True)
+class CatalogSurface:
+    """One product surface: its enum key (UPPER_SNAKE), wire value (lower_snake) and who stamps it."""
+
+    key: str
+    value: str
+    doc: str
+
+
+@dataclass(frozen=True)
+class SurfaceCatalog:
+    """The closed list of `surface` values: which program an event came through."""
+
+    about: str
+    surfaces: tuple[CatalogSurface, ...]
+
+    @classmethod
+    def load(cls, path: Path = SURFACE_CATALOG_PATH) -> SurfaceCatalog:
+        """Read and check the list: unique UPPER_SNAKE keys, unique lower_snake values, each documented."""
+        data = json.loads(path.read_text(encoding="utf-8"))
+        surfaces = tuple(
+            CatalogSurface(key=surface["key"], value=surface["value"], doc=surface.get("doc", ""))
+            for surface in data["surfaces"]
+        )
+        catalog = cls(about=data["about"], surfaces=surfaces)
+        catalog.check()
+        return catalog
+
+    def check(self) -> None:
+        """Raise CatalogError on the first broken rule."""
+        if not self.surfaces:
+            raise CatalogError("surfaces.json lists no surface")
+        keys: set[str] = set()
+        values: set[str] = set()
+        for surface in self.surfaces:
+            if not _KEY.fullmatch(surface.key):
+                raise CatalogError(f"{surface.value}: key {surface.key!r} is not UPPER_SNAKE")
+            if not _SURFACE_VALUE.fullmatch(surface.value):
+                raise CatalogError(f"{surface.key}: value {surface.value!r} is not lower_snake")
+            if not surface.doc.strip():
+                raise CatalogError(f"{surface.key}: says nothing about who stamps it (doc)")
+            if surface.key in keys:
+                raise CatalogError(f"key {surface.key} is used twice")
+            if surface.value in values:
+                raise CatalogError(f"value {surface.value!r} is used twice")
+            keys.add(surface.key)
+            values.add(surface.value)
+
+    def get_values(self) -> list[str]:
+        """Every wire value, in list order."""
+        return [surface.value for surface in self.surfaces]

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -30,10 +31,63 @@ def test_grpc_run_finds_server_error(ctx, cli, tmp_path, snapshot_cli, source):
     assert cli.run(*args, "--max-examples=10", "--phases=fuzzing", "--seed=1") == snapshot_cli
 
 
+@pytest.mark.parametrize("user_id", [1, 503], ids=["ok", "unavailable"])
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_expected_status_name(ctx, cli, snapshot_cli, user_id):
+    server = ctx.grpc.apps.users()
+    module = ctx.write_pymodule(
+        f"""
+@schemathesis.hook
+def map_body(context, body):
+    return {{"userId": {user_id}}}
+        """
+    )
+    assert (
+        cli.main(
+            "run",
+            server.target,
+            "--include-name=pkg.Users/GetUser",
+            "--max-examples=1",
+            "--phases=fuzzing",
+            config={
+                "operations": [
+                    {
+                        "include-name": "pkg.Users/GetUser",
+                        "checks": {"not_a_server_error": {"expected-statuses": ["UNAVAILABLE"]}},
+                    }
+                ]
+            },
+            hooks=module,
+        )
+        == snapshot_cli
+    )
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_descriptor_set_requires_url(cli, tmp_path, snapshot_cli):
     write_descriptor_set(tmp_path, users_descriptor_set())
     assert cli.run("api.binpb") == snapshot_cli
+
+
+@pytest.mark.parametrize("filename", ["api.desc", "api.proto.bin"])
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_descriptor_set_detected_by_content(cli, tmp_path, snapshot_cli, filename):
+    (tmp_path / filename).write_bytes(users_descriptor_set())
+    assert cli.run(filename) == snapshot_cli
+
+
+@pytest.mark.parametrize(
+    ("filename", "data"),
+    [
+        ("random.bin", b"\xff"),
+        ("api.desc", b"\x00"),
+    ],
+    ids=["invalid-utf8", "control-byte"],
+)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_binary_schema_file_error(cli, tmp_path, snapshot_cli, filename, data):
+    (tmp_path / filename).write_bytes(data)
+    assert cli.run(filename, "--url=grpc://127.0.0.1:1") == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -125,11 +179,18 @@ def map_body(context, body):
     assert sorted(crash_cache_dir(tmp_path).glob("*.json")) == crash_files
 
 
-@pytest.mark.parametrize("report", ["har", "vcr", "pytest"])
+@pytest.mark.parametrize(
+    "option",
+    ["--report=har", "--report=vcr", "--report=pytest", "--report=wfc", "--auth-wfc=auth.json"],
+    ids=["har", "vcr", "pytest", "wfc", "auth-wfc"],
+)
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_http_reports_refused(cli, tmp_path, snapshot_cli, report):
+def test_http_only_options_refused(cli, tmp_path, snapshot_cli, option):
+    (tmp_path / "auth.json").write_text(
+        json.dumps({"auth": [{"name": "user", "fixedHeaders": [{"name": "authorization", "value": "Bearer token"}]}]})
+    )
     # Refused before connecting, so an unreachable target gets the same answer.
-    assert cli.run("grpc://127.0.0.1:1", f"--report={report}") == snapshot_cli
+    assert cli.run("grpc://127.0.0.1:1", option) == snapshot_cli
     assert not (tmp_path / "schemathesis-report").exists()
 
 
@@ -147,6 +208,20 @@ def test_remote_descriptor_set_extension_is_not_grpc(cli, snapshot_cli):
 def test_unusable_options_refused(ctx, cli, snapshot_cli, location, option):
     server = ctx.grpc.apps.users(tls=True)
     assert cli.run(location or server.target, option) == snapshot_cli
+
+
+@pytest.mark.parametrize("source", ["flag", "config"])
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_missing_tls_verify_file(ctx, cli, tmp_path, snapshot_cli, source):
+    server = ctx.grpc.apps.users(tls=True)
+    args = [server.target]
+    missing = tmp_path / "missing.pem"
+    if source == "flag":
+        args.append(f"--tls-verify={missing}")
+        config = None
+    else:
+        config = {"tls-verify": str(missing)}
+    assert cli.run(*args, config=config) == snapshot_cli
 
 
 BLOCK_MODULE_AND_RUN = """
@@ -255,7 +330,7 @@ def test_tls_failure_reported(ctx, cli, snapshot_cli, tls, scheme, source, extra
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_any_fields_warning(ctx, cli, tmp_path, snapshot_cli):
-    server = ctx.grpc.apps.users()
+    server = ctx.grpc.apps.envelope()
     write_descriptor_set(tmp_path, all_types_descriptor_set())
     assert (
         cli.run(
@@ -334,8 +409,9 @@ def test_unreachable_descriptor_set_target(cli, tmp_path, snapshot_cli):
         (404, []),
         # A cancelled call says nothing about the data sent, so it is no validation mismatch.
         (499, []),
+        (501, []),
     ],
-    ids=["library-decode-error", "unauthenticated", "deadline-exceeded", "not-found", "cancelled"],
+    ids=["library-decode-error", "unauthenticated", "deadline-exceeded", "not-found", "cancelled", "unimplemented"],
 )
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_get_user_status(ctx, cli, snapshot_cli, user_id, extra):
@@ -359,6 +435,35 @@ def map_body(context, body):
         )
         == snapshot_cli
     )
+
+
+def test_replay_sends_supplied_credentials_in_place_of_masked_ones(ctx, cli):
+    server = ctx.grpc.apps.users()
+    module = ctx.write_pymodule(
+        """
+@schemathesis.hook
+def map_body(context, body):
+    return {"userId": -1}
+        """
+    )
+    headers = ["-H", "Authorization: Bearer secret", "-H", "token-bin: U0VDUkVU"]
+    cli.main(
+        "run",
+        server.target,
+        "--include-name=pkg.Users/GetUser",
+        "--max-examples=1",
+        "--phases=fuzzing",
+        *headers,
+        hooks=module,
+    )
+    server.calls.clear()
+
+    result = cli.main("replay", "--keep", *headers)
+
+    assert ("ERROR" in result.output, "1 failed" in result.output) == (False, True), result.output
+    assert {(dict(call.metadata)["authorization"], dict(call.metadata)["token-bin"]) for call in server.calls} == {
+        ("Bearer secret", b"SECRET")
+    }
 
 
 def test_methods_with_side_effects_run_last(ctx, cli, tmp_path):
@@ -397,6 +502,29 @@ def test_fuzz_follows_links(ctx, cli, snapshot_cli, include):
     server = ctx.grpc.apps.library()
     # The run ends at the first failure; the time limit only stops a regression from hanging the test.
     assert cli.main("fuzz", server.target, "--max-time=60", *include) == snapshot_cli
+
+
+@pytest.mark.parametrize(("fixed", "expected"), [(False, "x FAILED"), (True, "+ FIXED")], ids=["buggy", "fixed"])
+def test_replay_reextracts_created_names_on_fresh_server(ctx, cli, tmp_path, fixed, expected):
+    server = ctx.grpc.apps.library()
+    cli.run(
+        server.target,
+        "--include-name=library.Library/CreateBook",
+        "--include-name=library.Library/GetBook",
+        "--phases=stateful",
+        "--max-examples=10",
+        "--seed=1",
+    )
+    crash_files = sorted(crash_cache_dir(tmp_path).glob("library*.json"))
+    # A fresh server knows none of the recorded names, so only a name taken from its own response reaches the bug.
+    fresh = ctx.grpc.apps.library(fixed=fixed)
+
+    result = cli.main("replay", f"--url={fresh.target}")
+
+    assert (
+        re.findall(r"^  ([+x!] [A-Z]+)", result.stdout, re.MULTILINE),
+        [path.exists() for path in crash_files],
+    ) == ([expected], [not fixed]), result.output
 
 
 def test_unique_inputs_send_a_repeated_message_once(ctx, cli):

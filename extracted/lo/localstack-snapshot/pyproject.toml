@@ -7,7 +7,7 @@ name = "localstack-snapshot"
 authors = [
     { name = "LocalStack Contributors", email = "info@localstack.cloud" }
 ]
-version = "0.4.0"
+version = "0.4.1"
 description = "Extracted snapshot testing lib for LocalStack"
 dependencies = [
     "jsonpath-ng>=1.9",
@@ -21,6 +21,8 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dynamic = ["readme"]
 

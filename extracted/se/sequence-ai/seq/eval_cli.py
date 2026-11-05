@@ -159,9 +159,7 @@ def eval_remote(args: argparse.Namespace) -> int:
     adapter = adapter_cli.resolve(args.adapter, base_url=args.base_url,
                                   echo=(lambda _line: None) if args.json else print)
 
-
     body = {"model": args.policy, "benchmark": args.benchmark, "adapter": adapter, **chosen,
-            **({"policy": args.member} if getattr(args, "member", None) else {}),
             "dry_run": args.dry_run or None,
             "spend_cap_usd": args.spend_cap, "rerun_of": args.rerun_failed, "params": params,
             "rerun_unsuccessful_of": args.rerun_unsuccessful, "replay": args.replay, "sweep": sweep,
@@ -264,9 +262,8 @@ def fastest_line(fastest: dict | None, *, arms: int = 1) -> None:
 def parts_lines(parts: dict | None) -> None:
     """The estimate's cost by machine and by what it is billed for - GPU, CPU, memory - each the whole eval's, as the
     platform worked it out (gateway eval/estimate.py burn_parts): a line for the policy machines and one for the
-    benchmark machines - and a composite eval's planner, its containers on those machines - a part with nothing in it
-    left out (a CPU machine has no GPU)."""
-    for role, label in (("policy", "policy machines"), ("benchmark", "benchmark machines"), ("planner", "planner")):
+    benchmark machines - a part with nothing in it left out (a CPU machine has no GPU)."""
+    for role, label in (("policy", "policy machines"), ("benchmark", "benchmark machines")):
         kinds = (parts or {}).get(role)
         if not kinds:
             continue
@@ -314,11 +311,10 @@ def print_dry_run(started: dict) -> None:
 
         print(f"policy: {g['model']} x {g['machines']} machine(s) on " + ("CPU" if g["gpu"] == "cpu" else str(g["gpu"]))
               + (f" ({g['cards_each']} cards each)" if int(g.get("cards_each") or 1) > 1 else ""))
-    planner = lay.get("planner")
-    if planner:
+    plan = lay.get("plan")
+    if plan:
 
-        print(f"planner: {planner['name']} plans for {planner['policy']} every {planner['every_s']:g} s of each "
-              f"episode, on CPU beside it")
+        print(f"plan: the policy plans every {plan['every_s']:g} s of each episode")
     b = lay.get("benchmark") or {}
 
 
@@ -346,7 +342,8 @@ def print_dry_run(started: dict) -> None:
     parts_lines(started.get("cost_parts"))
 
 
-    calls = (est.get("breakdown") or {}).get("planner_calls_usd")
+    breakdown = est.get("breakdown") or {}
+    calls = breakdown.get("plan_calls_usd") or breakdown.get("planner_calls_usd")
     if calls:
         print(f"  model calls: ~{money(calls)} (up to {int(est.get('vlm_calls') or 0)} plans)")
     print(f"time: about {about_time(est.get('wall_clock_s'))}")
@@ -647,11 +644,18 @@ def starting_said(snap: dict | None) -> str | None:
 
 def start_said(timing: Any) -> str | None:
     """The report's word on its machines' start: its wait for a card, which is not billed, and its machines' own - their
-    boot, image and weights - billed as the rest of their time, each as long as the longest of its machines'; None when it
-    had neither.
+    boot, image and weights - billed as the rest of their time, each as long as the longest of its machines', and, said
+    apart, the first machine of its benchmark's version building and saving an image the platform's next machines load, a
+    build on the owner's bill; None when it had none of them.
 """
     cold = getattr(timing, "cold_start_s", None) or {}
+
+
     parts = [(f"waited {about_time(cold['card_wait_s'])} for a card (not billed)") if cold.get("card_wait_s") else None,
+             (f"waited {about_time(cold['machine_wait_s'])} for a machine (not billed)")
+             if cold.get("machine_wait_s") else None,
+             (f"its first machine took {about_time(cold['image_build_s'])} to build and save its image (billed as a "
+              "build; machines after it load that image)") if cold.get("image_build_s") else None,
              (f"its machines took {about_time(cold['machine_start_s'])} to start (billed)")
              if cold.get("machine_start_s") else None]
     said = [p for p in parts if p]
@@ -926,13 +930,18 @@ def print_report(report: Any, details: dict | None = None, *, earlier_cost: floa
         cost += (f" this run, with the {money(earlier_cost)} eval {of} cost before it: "
                  f"{money(report.cost_usd + earlier_cost)} for the episodes this report covers")
     echo(f"report: {report.status.value}  {cost}")
-    planner = getattr(report, "planner", None)
-    if planner is not None:
+    plan = getattr(report, "plan", None)
+    old = getattr(report, "planner", None)
+    if plan is not None:
 
 
-        calls = money(planner.model_calls_usd) if planner.model_calls_usd is not None else "unknown"
-        echo(f"planner: {planner.name} planned for {planner.policy} every {planner.every_s:g} s of each episode, "
-             f"{planner.plans:,} plan(s); its model calls {calls}")
+        calls = money(plan.model_calls_usd) if plan.model_calls_usd is not None else "unknown"
+        echo(f"plan: every {plan.every_s:g} s of each episode, {plan.plans:,} plan(s); its model calls {calls}")
+    elif old is not None:
+
+        calls = money(old.model_calls_usd) if old.model_calls_usd is not None else "unknown"
+        echo(f"planner: {old.name} planned for {old.policy} every {old.every_s:g} s of each episode, "
+             f"{old.plans:,} plan(s); its model calls {calls}")
     time_note(details.get("time_limit"), echo)
     limit_lines(details.get("max_seconds"), echo=echo)
     repeats_lines(details.get("repeats"), echo=echo)
@@ -978,7 +987,6 @@ def print_report(report: Any, details: dict | None = None, *, earlier_cost: floa
     _print_usage(details.get("usage") or [], echo)
     if (place := placement_line(details.get("placement"))) is not None:
         echo(place)
-    _print_warning(details.get("warning") or [], echo)
     if (taken := taken_line(details.get("taken"))) is not None:
         echo(taken)
 
@@ -1147,18 +1155,6 @@ def placement_line(place: Any) -> str | None:
         pol, ben = region["policy"], region["benchmark"]
         where = f" both in {pol}" if pol == ben else f" (policy in {pol}, benchmark in {ben})"
     return "placement: the policy and benchmark ran on separate machines" + where
-
-
-def _print_warning(warnings: list[dict], echo: Callable[[str], Any] = print) -> None:
-    """A warning per arm whose acts ran clearly slower than its policy's build check (details["warning"]), naming the
-    resource that was its bottleneck and what to change. {the user 11-02: "also send warning fro these if needed so
-    seru know"}"""
-    for w in warnings:
-        arm = f" (arm {w['arm']})" if len(warnings) > 1 else ""
-        echo(f"warning{arm}: {w.get('note')}")
-        if w.get("act_ms") is not None and w.get("check_p95_ms") is not None:
-            echo(f"  its acts took about {float(w['act_ms']):.0f} ms each against the build check's "
-                 f"{float(w['check_p95_ms']):.0f} ms ({w.get('slower_x')}x slower)")
 
 
 def _span(seeds: list) -> str:

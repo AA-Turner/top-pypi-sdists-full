@@ -123,9 +123,12 @@ def ppid_from_stat(text: str) -> int:
 
 def _parent_chain(max_hops: int = 10) -> tuple[list[str], str | None]:
     """Walk parent processes to a recognized launcher. Best-effort, bounded."""
+    from ....foundation.caller import Caller
+
     chain: list[str] = []
     launcher: str | None = None
-    pid = os.getppid()
+    # A command the Probe service runs (`cli.run`): its shim's parents, not the service's (T6).
+    pid = Caller.get_current().get_parent_pid() or 0
     for _ in range(max_hops):
         if pid <= 1:
             break

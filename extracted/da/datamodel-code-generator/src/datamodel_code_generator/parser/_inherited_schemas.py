@@ -28,7 +28,7 @@ from datamodel_code_generator._json_schema import (
     schema_positions,
 )
 from datamodel_code_generator._mro import linearize, sort_descendants_first
-from datamodel_code_generator._url_redaction import named_location, redact_reference
+from datamodel_code_generator._url_redaction import named_location
 from datamodel_code_generator.imports import IMPORT_ANY
 from datamodel_code_generator.model import DataModel, DataModelFieldBase
 from datamodel_code_generator.model.base import _field_source_name, get_inherited_fields
@@ -66,6 +66,7 @@ from datamodel_code_generator.parser.base import (
     _DEFERRED_INHERITED_TYPE_KEY,
     _get_inherited_type_modifiers,
 )
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import Reference, _is_special_path, get_inferred_module_name
 from datamodel_code_generator.types import ANY, DataType
 
@@ -576,6 +577,7 @@ class InheritedSchemasHost(Protocol):
         source_name: str,
         class_name: str,
         row: FieldAliasRow,
+        inherits: bool | None = None,
     ) -> None:
         """Give a field built earlier the name ``name`` and the aliases ``_field_aliases`` derives, by ``row``."""
 
@@ -1090,9 +1092,7 @@ def resolve_inherited_parent_property(
             schema = parser._intersect_ref_siblings_schema(  # noqa: SLF001
                 referenced_schema.model_dump(exclude_unset=True, by_alias=True),
                 schema.model_dump(exclude={"ref"}, exclude_unset=True, by_alias=True),
-                named_location(
-                    schema.schema_location, redact_reference(resolved_ref), row="legacy-unredacted-locations"
-                ),
+                named_location(schema.schema_location, resolved_ref),
                 siblings_are_parts=parser._ref_siblings_are_parts_of(schema),  # noqa: SLF001
             )
         else:
@@ -1495,7 +1495,7 @@ def merge_properties_with_parent_constraints(  # noqa: PLR0912
             parent_prop,
             effective_child,
             parent_ref,
-            named_location(child_prop.schema_location, f"property {prop_name!r}", row="legacy-unredacted-locations"),
+            named_location(child_prop.schema_location, f"property {stable_repr(prop_name)}"),
         )
         merged_properties[prop_name] = merged_property
         merged_changed = merged_changed or merged_property is not effective_child
@@ -1927,6 +1927,7 @@ def build_missing_required_field(  # noqa: PLR0913, PLR0917
             source_name=required_field_name,
             class_name=class_name,
             row="required-copy",
+            inherits=bool(base_classes),
         )
         parser._prepare_required_inherited_field(copied_field, inherited_field)  # noqa: SLF001
         parser._apply_inherited_field_default(copied_field, inherited_field, class_name=class_name)  # noqa: SLF001

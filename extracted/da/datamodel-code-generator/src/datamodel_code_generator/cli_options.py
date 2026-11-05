@@ -32,6 +32,7 @@ from datamodel_code_generator.enums import (
     ReuseScope,
     TargetPydanticVersion,
 )
+from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     from argparse import Action, ArgumentParser
@@ -473,7 +474,11 @@ CLI_OPTION_META: dict[str, CLIOptionMeta] = {
         "--enable-version-header --enable-command-header --enable-generated-header-marker",
         group=_G.GENERATED_OUTPUT,
     ),
-    **_opts(_C.TEMPLATE, "--formatters --custom-formatters --custom-formatters-kwargs", group=_G.OUTPUT_FORMATTING),
+    **_opts(
+        _C.TEMPLATE,
+        "--formatters --no-formatters --custom-formatters --custom-formatters-kwargs",
+        group=_G.OUTPUT_FORMATTING,
+    ),
     **_opts(_C.OPENAPI, "--openapi-scopes", group=_G.OPENAPI_SCOPES),
     **_opts(_C.OPENAPI, "--use-operation-id-as-name --use-status-code-in-response-name", group=_G.OPENAPI_NAMING),
     **_opts(
@@ -589,10 +594,13 @@ def _validate_option_topic_groups() -> None:
             continue
         allowed_groups = OPTION_TOPIC_ALLOWED_GROUPS.get(meta.topic)
         if allowed_groups is None:  # pragma: no cover
-            msg = f"{option}: topic {meta.topic.value!r} has no allowed groups"
+            msg = f"{option}: topic {stable_repr(meta.topic.value)} has no allowed groups"
             raise AssertionError(msg)
         if meta.group not in allowed_groups:  # pragma: no cover
-            msg = f"{option}: group {meta.group.value!r} is not allowed for topic {meta.topic.value!r}"
+            msg = (
+                f"{option}: group {stable_repr(meta.group.value)} is not allowed for topic "
+                f"{stable_repr(meta.topic.value)}"
+            )
             raise AssertionError(msg)
 
 
@@ -661,9 +669,14 @@ def _no_option(action: Action) -> str | None:
 
 
 def _negative_option(dest: str) -> str | None:
-    """Return the --no- flag the parser defines for a boolean destination, or None."""
-    action = _argparse_index().actions.get(dest)
-    return _no_option(action) if isinstance(action, BooleanOptionalAction) else None
+    """Return the --no- flag the parser defines for a destination, or None.
+
+    A boolean's is the --no- string of its action; a list option's is the flag that turns it off with an empty list.
+    """
+    index = _argparse_index()
+    if isinstance(action := index.actions.get(dest), BooleanOptionalAction):
+        return _no_option(action)
+    return flag if (flag := option_flag(dest, negative=True)) in index.canonical else None
 
 
 @lru_cache(maxsize=1)

@@ -264,10 +264,15 @@ UTILITY_AGENT_TOOLS_RUN_BETA = "{}/wx/v1-beta/utility_agent_tools/run"
 
 VECTOR_INDEXES = "{}/wx/v1/vector_indexes"
 VECTOR_INDEX = "{}/wx/v1/vector_indexes/{}"
-
 VECTOR_INDEXES_GET_ALL = "{}/v2/asset_types/vector_index/search"
+
+TRANSACTIONAL_VECTOR_INDEXES = "{}/wx/v1/transactional_vector_indexes"
+TRANSACTIONAL_VECTOR_INDEX = "{}/wx/v1/transactional_vector_indexes/{}"
+TRANSACTIONAL_VECTOR_INDEX_STATUS = "{}/wx/v1/transactional_vector_indexes/{}/status"
+
 # AI GATEWAY
 GATEWAY_TENANT = "{}/ml/gateway/v1/tenant"
+GATEWAY_TENANT_CONFIG = "{}/ml/gateway/v1/tenant/config"
 GATEWAY_PROVIDERS = "{}/ml/gateway/v1/providers"
 GATEWAY_PROVIDER = "{}/ml/gateway/v1/providers/{}"
 GATEWAY_PROVIDER_AVAILABLE_MODELS = "{}/ml/gateway/v1/providers/{}/models/available"
@@ -1087,8 +1092,24 @@ class HrefDefinitions:
     def get_vector_indexes_all_href(self) -> str:
         return VECTOR_INDEXES_GET_ALL.format(self._get_platform_url_if_exists())
 
+    def get_transactional_vector_indexes_href(self) -> str:
+        return TRANSACTIONAL_VECTOR_INDEXES.format(self._get_platform_url_if_exists())
+
+    def get_transactional_vector_index_href(self, vector_index_id: str) -> str:
+        return TRANSACTIONAL_VECTOR_INDEX.format(
+            self._get_platform_url_if_exists(), vector_index_id
+        )
+
+    def get_transactional_vector_index_status_href(self, vector_index_id: str) -> str:
+        return TRANSACTIONAL_VECTOR_INDEX_STATUS.format(
+            self._get_platform_url_if_exists(), vector_index_id
+        )
+
     def get_gateway_tenant_href(self) -> str:
         return GATEWAY_TENANT.format(self.url)
+
+    def get_gateway_tenant_config_href(self) -> str:
+        return GATEWAY_TENANT_CONFIG.format(self.url)
 
     def get_gateway_providers_href(self) -> str:
         return GATEWAY_PROVIDERS.format(self.url)

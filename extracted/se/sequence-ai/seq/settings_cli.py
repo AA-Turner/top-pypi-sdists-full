@@ -1,7 +1,6 @@
 """
 `seq policy settings` / `seq policy set` and seq.policy_settings / seq.policy_set: a deployment's settings, read and
-changed without a redeploy - a dev policy's and a production one's alike; which policy a key reaches is the platform's
-rule.
+changed without a redeploy.
 
 In one sentence: each key is read as sequence-base's one table holds it (contract.settings: `parse` for a command line's
 KEY=VALUE, `check` for a value from Python) → one PATCH /v1/deployments/{name}/settings changes them, all or none → the

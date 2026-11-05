@@ -10,6 +10,7 @@ class ModifyPostPayModuleSwitchShrinkRequest(DaraModel):
         client_token: str = None,
         dry_run: bool = None,
         edr_module_switch_shrink: str = None,
+        free_trial: bool = None,
         post_paid_host_auto_bind: int = None,
         post_paid_host_auto_bind_version: int = None,
         post_pay_instance_id: str = None,
@@ -18,12 +19,14 @@ class ModifyPostPayModuleSwitchShrinkRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request. You can use different tokens for different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies whether to only precheck the request. Valid values:
-        # - true: Only prechecks the request and does not perform the actual operation.
-        # - false: Performs the actual operation.
+        # Specifies whether to perform a dry run on the request. Valid values:
+        # - **true**: Performs a dry run only and does not perform the actual operation.
+        # - **false**: Performs the actual operation.
         self.dry_run = dry_run
-        # The switch configuration for the EDR module.
+        # The switch configuration of the EDR module.
         self.edr_module_switch_shrink = edr_module_switch_shrink
+        # Specifies whether to enable the free trial. Default value: false. You cannot modify this parameter.
+        self.free_trial = free_trial
         # Specifies whether to automatically bind new assets to the host and container protection feature. Valid values:
         # 
         # - **0**: disabled
@@ -40,26 +43,26 @@ class ModifyPostPayModuleSwitchShrinkRequest(DaraModel):
         # 
         # > Invoke the [DescribeVersionConfig](~~DescribeVersionConfig~~) operation to obtain this parameter.
         self.post_pay_instance_id = post_pay_instance_id
-        # The switch status of the pay-as-you-go modules. The value is a JSON string. Valid values:
+        # The switch status of pay-as-you-go modules. The value is a JSON string. Valid values:
         # - Key:
-        #   - **VUL**: Vulnerability fixing module
-        #   - **CSPM**: Cloud Security Posture Management module
+        #   - **VUL**: Vulnerability remediation module
+        #   - **CSPM**: Cloud Security Posture Management (CSPM) module
         #   - **AGENTLESS**: Agentless detection module
         #   - **SERVERLESS**: Serverless security module
-        #   - **CTDR**: Cloud Threat Detection and Response module
+        #   - **CTDR**: Cloud Threat Detection and Response (CTDR) module
         #   - **POST_HOST**: Host and container security module
         #   - **SDK**: Malicious file detection SDK module
         #   - **RASP**: Application protection module
         #   - **CTDR_STORAGE**: Log management module
-        #   - **ANTI_RANSOMWARE**: Anti-ransomware management
+        #   - **ANTI_RANSOMWARE**: Anti-ransomware module
         # - Value: 0 indicates disabled, and 1 indicates enabled.
         # 
         # > The values of modules that are not specified remain unchanged.
         # 
-        # <notice>This parameter has the same meaning as the PostPayModuleSwitchObj parameter. If both parameters are specified, the value of PostPayModuleSwitch takes precedence.</notice>
+        # <notice>This parameter has the same meaning as the PostPayModuleSwitchObj parameter. If both parameters are specified, the value of PostPayModuleSwitch takes precedence.
         self.post_pay_module_switch = post_pay_module_switch
-        # The switch status of the pay-as-you-go modules.
-        # >Notice: This parameter has the same meaning as the PostPayModuleSwitch parameter. If both parameters are specified, the value of PostPayModuleSwitch takes precedence.</notice>
+        # The switch status of pay-as-you-go modules.
+        # >Notice: This parameter has the same meaning as the PostPayModuleSwitch parameter. If both parameters are specified, the value of PostPayModuleSwitch takes precedence.
         self.post_pay_module_switch_obj_shrink = post_pay_module_switch_obj_shrink
 
     def validate(self):
@@ -78,6 +81,9 @@ class ModifyPostPayModuleSwitchShrinkRequest(DaraModel):
 
         if self.edr_module_switch_shrink is not None:
             result['EdrModuleSwitch'] = self.edr_module_switch_shrink
+
+        if self.free_trial is not None:
+            result['FreeTrial'] = self.free_trial
 
         if self.post_paid_host_auto_bind is not None:
             result['PostPaidHostAutoBind'] = self.post_paid_host_auto_bind
@@ -106,6 +112,9 @@ class ModifyPostPayModuleSwitchShrinkRequest(DaraModel):
 
         if m.get('EdrModuleSwitch') is not None:
             self.edr_module_switch_shrink = m.get('EdrModuleSwitch')
+
+        if m.get('FreeTrial') is not None:
+            self.free_trial = m.get('FreeTrial')
 
         if m.get('PostPaidHostAutoBind') is not None:
             self.post_paid_host_auto_bind = m.get('PostPaidHostAutoBind')

@@ -1,11 +1,13 @@
 """How the parser writes the exports of a package's ``__init__.py`` (``--all-exports-scope``).
 
 ``init_export_imports`` returns the imports by which an ``__init__.py`` exports the models of the modules below it:
-``collect_exports_for_init`` collects them by scope, ``resolve_export_collisions`` resolves the names that collide by
-``--all-exports-collision-strategy`` (``raise_collision_error`` reports them), and ``build_all_exports_code`` builds
-the imports. They take the parser through ``InitExportsHost``, which ``Parser`` satisfies structurally. ``Parser``
-keeps each method as the hook that calls its function here, and keeps ``_make_prefixed_name``, the staticmethod that
-builds a prefixed name.
+the names of a module's models it exports (``exported_names``) of each module below the package that its scope reaches
+(``exports_reach``), which ``collect_exports_for_init`` collects, ``resolve_export_collisions`` resolves the names that
+collide by ``--all-exports-collision-strategy`` (``raise_collision_error`` reports them), and ``build_all_exports_code``
+builds the imports; the import cycles that merge modules read the same exports (``parser/_passes/structure.py``). The
+functions take the parser through ``InitExportsHost``, which ``Parser`` satisfies structurally. ``Parser`` keeps each
+method as the hook that calls its function here, and keeps ``_make_prefixed_name``, the staticmethod that builds a
+prefixed name.
 """
 
 from __future__ import annotations
@@ -15,7 +17,8 @@ from typing import TYPE_CHECKING, TypeAlias
 from typing_extensions import Protocol, TypeVar
 
 from datamodel_code_generator import Error
-from datamodel_code_generator._module_paths import is_package_init, module_parts, written_names
+from datamodel_code_generator._free_names import first_free
+from datamodel_code_generator._module_paths import is_below, is_package_init, module_parts, written_names
 from datamodel_code_generator.enums import AllExportsCollisionStrategy, AllExportsScope
 from datamodel_code_generator.imports import Import, Imports
 
@@ -38,6 +41,7 @@ __all__ = [
     "build_all_exports_code",
     "collect_exports_for_init",
     "exported_names",
+    "exports_reach",
     "init_export_imports",
     "raise_collision_error",
     "resolve_export_collisions",
@@ -110,6 +114,15 @@ def exported_names(models: Iterable[DataModel]) -> Iterator[str]:
     return (ref.short_name for model in models if (ref := model.reference) and not ref.short_name.startswith("_"))
 
 
+def exports_reach(depth: int, scope: AllExportsScope) -> bool:
+    """Return whether the exports of a package's ``__init__.py`` reach a module ``depth`` levels below the package.
+
+    The scope ``children`` reaches the modules directly below the package (``depth`` 1), ``recursive`` every module
+    below it.
+    """
+    return depth == 1 or (depth > 1 and scope != AllExportsScope.Children)
+
+
 def collect_exports_for_init(
     cls: type[InitExportsHost],  # noqa: ARG001
     module: tuple[str, ...],
@@ -127,9 +140,7 @@ def collect_exports_for_init(
         if not proc_models or normalized_proc_module == normalized_module:
             continue
         prefix = module_parts(normalized_proc_module)
-        if prefix[:base_len] != base or (depth := len(prefix) - base_len) < 1:
-            continue
-        if scope == AllExportsScope.Children and depth != 1:
+        if not (is_below(prefix, base) and exports_reach(len(prefix) - base_len, scope)):
             continue
         rel = prefix[base_len:]
         exports.extend((name, rel, ".".join(rel)) for name in exported_names(proc_models))
@@ -143,7 +154,12 @@ def resolve_export_collisions(
     reserved: set[str] | None = None,
     target_python_version: PythonVersion | None = None,
 ) -> dict[str, list[tuple[str, tuple[str, ...], str]]]:
-    """Resolve name collisions in exports based on strategy, titling module names as the target does."""
+    """Resolve name collisions in exports based on strategy, titling module names as the target does.
+
+    A prefixed name is written over the export that holds the name, as before. The export it displaces takes the next
+    free name (``Name1``, ``Name2``) once every name is assigned, so that no export is left out and every name keeps the
+    export it refers to.
+    """
     reserved = reserved or set()
     by_name: dict[str, list[tuple[str, tuple[str, ...], str]]] = {}
     for item in exports:
@@ -156,6 +172,7 @@ def resolve_export_collisions(
 
     used: set[str] = {n for n in by_name if n not in colliding} | reserved
     result = {n: items for n, items in by_name.items() if n not in colliding}
+    displaced: list[tuple[str, tuple[str, tuple[str, ...], str]]] = []
 
     for name in sorted(colliding):
         for item in sorted(by_name[name], key=lambda x: len(x[1])):
@@ -172,8 +189,14 @@ def resolve_export_collisions(
                     "Please rename one of the models."
                 )
                 raise Error(msg)
+            if new_name in result:
+                displaced.append((new_name, result[new_name][0]))
             result[new_name] = [item]
             used.add(new_name)
+    for held, item in displaced:
+        free, _ = first_free(held, used.__contains__, "joined")
+        result[free] = [item]
+        used.add(free)
     return result
 
 

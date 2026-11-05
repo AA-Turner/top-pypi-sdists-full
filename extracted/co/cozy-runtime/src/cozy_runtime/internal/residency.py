@@ -16,7 +16,7 @@ import time
 import warnings
 import weakref
 from collections import OrderedDict
-from collections.abc import Callable, Collection, Hashable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Hashable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
@@ -309,6 +309,8 @@ def paging(module: nn.Module) -> tuple[str, list[str]]:
     return ("repeated", best) if best else ("none", [])
 
 
+#: Left free under a software cap: s8-h3 on an RTX 5090 peaked 57 MiB over 8 GiB with none.
+_CAP_SLACK = 128 << 20
 #: A paging unit larger than this is a warning: a quarter of an 8 GB card.
 _LARGEST_UNIT = 2 << 30
 #: A paging unit holding more than this splits (`split`), the same on every card.
@@ -602,6 +604,7 @@ class Model:
         self.retiring = False
         self.retire_graphs: Callable[[], None] | None = None
         self.sites = _sites(module)
+        self._block_sites: dict[str, list[_Site]] | None = None
         self.handles: list[Any] = []
         self.holds: list[Hold] = []
         self.blocks: dict[str, _Block] = {}
@@ -611,6 +614,22 @@ class Model:
         self.prefix: int | None = None
         #: the block entered last, whose successor in execution order `_enter` records (`next`)
         self.entered: _Block | None = None
+
+    def sites_in(self, groups: Iterable[_Block]) -> list[_Site]:
+        """The weight sites `groups` hold, mapped once: a LoRA bake binds one source block per
+        linear, and walking every site for each took 6 s of Qwen's first step (cr-245)."""
+        if self._block_sites is None:
+            paths = list(self.blocks)
+            held: dict[int, tuple[str, list[_Site]]] = {}
+            for name, sites in self.sites.items():
+                path = _block_of(name, paths)
+                was = held.get(id(sites))
+                # A tied tensor used by distinct blocks stays common, as `_register` places it.
+                held[id(sites)] = (path if was is None or was[0] == path else "", sites)
+            self._block_sites = {}
+            for path, sites in held.values():
+                self._block_sites.setdefault(path, []).extend(sites)
+        return [site for block in groups for site in self._block_sites.get(block.path, ())]
 
     def wanted_identity(self) -> str | None:
         fill = "stored" if self.fill is None else self.fill.identity
@@ -807,8 +826,7 @@ class Binding:
         self.generation = model.generation
         self.targets = [
             (site, tuple(value.shape), value.dtype)
-            for sites in model.sites.values()
-            for site in sites
+            for site in model.sites_in(groups)
             if (value := site.table[site.name]) is not None
         ]
         self.identity = hashlib.sha256(
@@ -1437,11 +1455,11 @@ class Memory:
             try:
                 if budget_bytes is not None:
                     varena.set_activation_limit(self.device.index or 0, budget_bytes)
-                    if yields():
-                        # A smaller room reads as a smaller card to every fill, a prefetch's too: on
-                        # a 32 GB card an 8 GiB cap let H3's text encoder fill 22 GB (s8-h3).
-                        varena.make_room(self.device.index or 0, budget_bytes)
                 self.native = varena.Arena(self.device.index or 0)
+                if budget_bytes is not None and yields():
+                    # A smaller room reads as a smaller card to every fill, a prefetch's too: on
+                    # a 32 GB card an 8 GiB cap let H3's text encoder fill 22 GB (s8-h3).
+                    self._apply_room(None)
                 self.granularity = int(self.native.granularity)
                 self.prefetch_supported = bool(
                     callable(getattr(varena, "replay", None))
@@ -1600,10 +1618,20 @@ class Memory:
         except RuntimeError:
             pass  # a capture is in progress: the room bounds its next allocations
 
+    def _capped(self) -> int:
+        """The development cap as a room: what the driver charges beyond Torch's reserve and the
+        weight pages (this process's context and kernels, anyone else's) is on a card of that size
+        too, so it comes out of the cap (s8-h3: pages and reserve held 7.99 GiB, the driver read
+        9.03). `_CAP_SLACK` is what that charge grows by before the next pass reads it."""
+        assert self.budget_bytes is not None
+        free, total = torch.cuda.mem_get_info(self.device)
+        outside = max(int(total) - int(free) - self._figures()[1], 0)
+        return max(self.budget_bytes - outside - _CAP_SLACK, 0)
+
     def _apply_room(self, limit: int | None) -> None:
         self.room_limit = limit
         if self.budget_bytes is not None:  # the development cap stays whatever the machine asks
-            limit = self.budget_bytes if limit is None else min(limit, self.budget_bytes)
+            limit = self._capped() if limit is None else min(limit, self._capped())
         reclaimed = varena.make_room(self.device.index or 0, limit)
         self.last_room = {"limit": limit, "reclaimed": reclaimed, "at_ns": time.time_ns()}
 
@@ -1612,6 +1640,8 @@ class Memory:
         pending, self._room_pending = self._room_pending, None
         if pending is not None:
             self._apply_room(pending[0])
+        elif self.budget_bytes is not None and yields():
+            self._apply_room(self.room_limit)  # what the cap's room leaves moves with the context
 
     def room(self, current: Collection[str] = ()) -> Room:
         if self.cuda:

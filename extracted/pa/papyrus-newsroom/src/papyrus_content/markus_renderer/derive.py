@@ -12,7 +12,9 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from .body_features import CITATIONS_OFF, IMAGES_OFF, BodyFeatures, current_body_features
 from .citations import CitationCollector, CitationError, CitationRendering
+from .equations import equation_problems
 from .content_markup import ContentMarkupError, prepare_page, read_citation_entries
 from .images import ImagePipeline, ImagePipelineError, assert_safe_asset_src
 from .security import assert_supported_markus_version
@@ -38,6 +40,9 @@ class BodyDerivation:
     ok: bool
     body_ir: dict | None
     errors: tuple[BodyError, ...]
+    #: Problems that do not stop a save: the page still builds and shows the author's text. An equation that
+    #: will not convert is shown as its TeX source, and is reported here.
+    warnings: tuple[BodyError, ...] = ()
 
 
 def _failure(*errors: BodyError) -> BodyDerivation:
@@ -77,7 +82,13 @@ def _markus_document(markdown: str) -> dict[str, Any]:
     return document.to_dict(markdown=make_markdown(allow_html=False))
 
 
-def derive_body(front_matter_yaml: str | None, body_markus: str) -> BodyDerivation:
+def derive_body(front_matter_yaml: str | None, body_markus: str, features: BodyFeatures | None = None) -> BodyDerivation:
+    """Validate a body and derive its ``bodyIr``.
+
+    ``features`` are the site's (see ``body_features``); the installed ones when omitted. A feature the site turned off
+    is not lowered, so Markus meets the markup exactly as it does when the page is projected and rejects it the same way.
+    """
+    features = features if features is not None else current_body_features()
     source = compose_source(front_matter_yaml, body_markus)
 
     front_matter_problem = _front_matter_error(front_matter_yaml)
@@ -91,9 +102,18 @@ def derive_body(front_matter_yaml: str | None, body_markus: str) -> BodyDerivati
 
     citations = CitationRendering()
     try:
-        prepared = prepare_page(source, images=ImagePipeline(), citations=citations)
+        # Always read the image markup, to say what a body asks of the site; only an enabled feature is lowered below.
+        requested = prepare_page(source, images=ImagePipeline(), citations=None)
+        prepared = prepare_page(
+            source,
+            images=ImagePipeline() if features.images else None,
+            citations=citations if features.citations else None,
+        )
     except ContentMarkupError as exc:
         return _failure(BodyError("image-attrs", str(exc)))
+
+    if (requested.images or features.plain_images_upgraded) and features.images and features.images_unavailable:
+        return _failure(BodyError("images-unavailable", features.images_unavailable))
 
     image_errors = []
     for request in prepared.images.values():
@@ -114,7 +134,12 @@ def derive_body(front_matter_yaml: str | None, body_markus: str) -> BodyDerivati
     except MarkusSyntaxError as exc:
         return _failure(BodyError("markus-syntax", str(exc), getattr(exc, "line", None)))
     except MarkusValidationError as exc:
-        return _failure(BodyError("markus-validation", str(exc), getattr(exc, "line", None)))
+        message = str(exc)
+        if requested.images and not features.images:
+            message = f"{message}. {IMAGES_OFF}"
+        elif not features.citations and "citations" in message:
+            message = f"{message}. {CITATIONS_OFF}"
+        return _failure(BodyError("markus-validation", message, getattr(exc, "line", None)))
 
     collector = CitationCollector(entries, citations)
     first_cited_keys: list[str] = []
@@ -163,7 +188,15 @@ def derive_body(front_matter_yaml: str | None, body_markus: str) -> BodyDerivati
                 f"Article is too long to store; split it ({size} bytes of IR, limit {MAX_BODY_IR_BYTES}).",
             )
         )
-    return BodyDerivation(ok=True, body_ir=envelope, errors=())
+    warnings = tuple(
+        BodyError(
+            "equation-tex",
+            f"{'Display' if equation.display else 'Inline'} equation will be shown as TeX source: {reason}. {equation.tex.strip()[:80]!r}",
+            equation.line,
+        )
+        for equation, reason in equation_problems(document)
+    )
+    return BodyDerivation(ok=True, body_ir=envelope, errors=(), warnings=warnings)
 
 
 def envelope_byte_count(envelope: dict) -> int:

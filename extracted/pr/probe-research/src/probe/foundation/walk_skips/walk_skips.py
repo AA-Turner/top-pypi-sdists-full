@@ -1,5 +1,5 @@
 """Folders every walk of a researcher's tree skips: rebuilt by a tool, never authored.
-Each walk adds its own names to GENERATED_DIRS; the vendored `.probe.config` scan keeps its own copy."""
+Each walk adds its own names to GENERATED_DIRS."""
 
 from __future__ import annotations
 

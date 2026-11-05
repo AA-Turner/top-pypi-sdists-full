@@ -1,8 +1,9 @@
 from collections.abc import Generator
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
+from surrealdb import StringRecordId
 from surrealdb.connections.blocking_http import BlockingHttpSurrealConnection
 from surrealdb.data.types.record_id import RecordID
 from surrealdb.data.types.table import Table
@@ -22,18 +23,25 @@ def create_data() -> dict[str, Any]:
 def setup_user(
     blocking_http_connection: BlockingHttpSurrealConnection,
 ) -> Generator[None, None, None]:
-    blocking_http_connection.query("DELETE user;")
+    blocking_http_connection.query("DELETE user;").execute()
     yield
-    blocking_http_connection.query("DELETE user;")
+    blocking_http_connection.query("DELETE user;").execute()
 
 
 def test_create_string(
     blocking_http_connection: BlockingHttpSurrealConnection, setup_user: None
 ) -> None:
-    outcome = blocking_http_connection.create("user")
+    outcome = blocking_http_connection.create("user").execute()
     assert "user" == outcome["id"].table_name
 
-    assert len(blocking_http_connection.query("SELECT * FROM user;")) == 1
+    assert (
+        len(
+            cast(
+                list[Any], blocking_http_connection.query("SELECT * FROM user;").first()
+            )
+        )
+        == 1
+    )
 
 
 def test_create_string_with_data(
@@ -47,7 +55,9 @@ def test_create_string_with_data(
     assert create_data["email"] == outcome["email"]
     assert create_data["enabled"] == outcome["enabled"]
 
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    result = cast(
+        list[Any], blocking_http_connection.query("SELECT * FROM user;").first()
+    )
     assert len(result) == 1
     assert "user" == result[0]["id"].table_name
     assert create_data["name"] == result[0]["name"]
@@ -56,16 +66,22 @@ def test_create_string_with_data(
 
 
 def test_create_string_with_data_and_id(
-    blocking_http_connection, create_data: dict[str, Any], setup_user
-):
-    first_outcome = blocking_http_connection.create("user:tobie", create_data)
+    blocking_http_connection: BlockingHttpSurrealConnection,
+    create_data: dict[str, Any],
+    setup_user: None,
+) -> None:
+    first_outcome = blocking_http_connection.create(
+        StringRecordId("user:tobie"), create_data
+    )
     assert "user" == first_outcome["id"].table_name
     assert "tobie" == first_outcome["id"].id
     assert create_data["name"] == first_outcome["name"]
     assert create_data["email"] == first_outcome["email"]
     assert create_data["enabled"] == first_outcome["enabled"]
 
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    result = cast(
+        list[Any], blocking_http_connection.query("SELECT * FROM user;").first()
+    )
     assert len(result) == 1
     assert "user" == result[0]["id"].table_name
     assert "tobie" == result[0]["id"].id
@@ -78,11 +94,18 @@ def test_create_record_id(
     blocking_http_connection: BlockingHttpSurrealConnection, setup_user: None
 ) -> None:
     record_id = RecordID("user", 1)
-    outcome = blocking_http_connection.create(record_id)
+    outcome = blocking_http_connection.create(record_id).execute()
     assert "user" == outcome["id"].table_name
     assert 1 == outcome["id"].id
 
-    assert len(blocking_http_connection.query("SELECT * FROM user;")) == 1
+    assert (
+        len(
+            cast(
+                list[Any], blocking_http_connection.query("SELECT * FROM user;").first()
+            )
+        )
+        == 1
+    )
 
 
 def test_create_record_id_with_data(
@@ -98,7 +121,9 @@ def test_create_record_id_with_data(
     assert create_data["email"] == outcome["email"]
     assert create_data["enabled"] == outcome["enabled"]
 
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    result = cast(
+        list[Any], blocking_http_connection.query("SELECT * FROM user;").first()
+    )
     assert len(result) == 1
     assert "user" == result[0]["id"].table_name
     assert create_data["name"] == result[0]["name"]
@@ -110,10 +135,17 @@ def test_create_table(
     blocking_http_connection: BlockingHttpSurrealConnection, setup_user: None
 ) -> None:
     table = Table("user")
-    outcome = blocking_http_connection.create(table)
+    outcome = blocking_http_connection.create(table).execute()
     assert "user" == outcome["id"].table_name
 
-    assert len(blocking_http_connection.query("SELECT * FROM user;")) == 1
+    assert (
+        len(
+            cast(
+                list[Any], blocking_http_connection.query("SELECT * FROM user;").first()
+            )
+        )
+        == 1
+    )
 
 
 def test_create_table_with_data(
@@ -128,7 +160,9 @@ def test_create_table_with_data(
     assert create_data["email"] == outcome["email"]
     assert create_data["enabled"] == outcome["enabled"]
 
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    result = cast(
+        list[Any], blocking_http_connection.query("SELECT * FROM user;").first()
+    )
     assert len(result) == 1
     assert "user" == result[0]["id"].table_name
     assert create_data["name"] == result[0]["name"]

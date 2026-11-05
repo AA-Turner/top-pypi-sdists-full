@@ -58,6 +58,13 @@ class LegacyTaskSessionEventPublisher(workflow_events.WorkflowSessionEventPublis
     ) -> workflow_events.WorkflowTaskProjection | None:
         if _is_command_user_message(entry) or _is_empty_assistant_message(entry):
             return None
+        if isinstance(
+            entry,
+            harness_session.CapabilityContextMessageHistoryEntry | harness_session.InputContextMessageHistoryEntry,
+        ):
+            # The task protocol has no context message; a capability's notice is published
+            # as an alert.
+            return None
         return workflow_events.WorkflowTaskProjection(state=_history_entry_state(entry))
 
     def project_session_event(
@@ -270,6 +277,7 @@ def _history_entry_to_legacy_task_protocol(
                 notice_kind=entry.notice_kind,
                 level=entry.level,
                 message=entry.message,
+                details=entry.details,
             ),
         )
     if isinstance(entry, harness_session.CheckpointHistoryEntry):

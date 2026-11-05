@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-admin-tools
-Version: 0.9.3
+Version: 0.9.4
 Summary: A collection of tools for the django administration interface
 Home-page: https://github.com/django-admin-tools/django-admin-tools
+Download-URL: https://pypi.python.org/packages/source/d/django-admin-tools/django-admin-tools-0.9.4.tar.gz
 Author: David Jean Louis
 Author-email: izimobil@gmail.com
 License: MIT License
-Download-URL: https://pypi.python.org/packages/source/d/django-admin-tools/django-admin-tools-0.9.3.tar.gz
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
@@ -21,6 +20,13 @@ Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Framework :: Django
 Classifier: Framework :: Django :: 1.11
 Classifier: Framework :: Django :: 2.1
 Classifier: Framework :: Django :: 2.2
@@ -28,10 +34,27 @@ Classifier: Framework :: Django :: 3.0
 Classifier: Framework :: Django :: 3.1
 Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.0
+Classifier: Framework :: Django :: 4.1
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 
 django-admin-tools
@@ -64,7 +87,7 @@ Please join the `mailing list <http://groups.google.fr/group/django-admin-tools>
 Requirements
 ------------
 
-django-admin-tools is compatible with Django 1.11 LTS up to Django 4.0 as well Python 2.7, 3.5+.
+django-admin-tools is compatible with Django 1.11 LTS up to Django 6.1 as well as Python 2.7, 3.5+.
 
 For older python and django versions please use the 0.8.1 version of django-admin-tools which is available on Pypi.
 
@@ -157,6 +180,24 @@ The app index dashboard:
 
 django-admin-tools changelog
 ============================
+
+Version 0.9.4, 4 November 2026:
+-------------------------------
+
+This is a security release, all users are strongly encouraged to upgrade as
+soon as possible.
+
+* Security: fixed open redirect (CWE-601) in bookmark views via the "next"
+  parameter (reported by @boringed)
+* Security: removed csrf_exempt from bookmark and dashboard preferences views
+* Security: fixed stored XSS via bookmark titles and dashboard preferences
+* Security: users can no longer edit other users' bookmarks
+* Security: reject bookmark URLs with a scheme other than http(s)
+* Fixed compatibility with Django 6.0 (removed django.utils.itercompat import)
+
+Note: if you override "admin_tools/dashboard/dashboard.html", pass
+'{{ csrf_token|escapejs }}' as the last argument of init_dashboard().
+
 
 Version 0.9.3, 10 August 2023:
 ------------------------------
@@ -487,6 +528,4 @@ Version 0.1.0, 10 February 2010:
 --------------------------------
 
 * Initial release
-
-
 

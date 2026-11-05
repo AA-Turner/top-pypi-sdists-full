@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: open-terminal
-Version: 0.16.0
+Version: 0.16.2
 Summary: A remote computer API.
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License-Expression: MIT
@@ -10,9 +10,7 @@ Requires-Dist: aiofiles>=25.1.0
 Requires-Dist: click>=8.1.0
 Requires-Dist: fastapi>=0.115.0
 Requires-Dist: httpx>=0.27.0
-Requires-Dist: ipykernel>=6.0.0
 Requires-Dist: mss>=10.0.0; sys_platform == 'darwin' or sys_platform == 'win32'
-Requires-Dist: nbclient>=0.10.0
 Requires-Dist: openpyxl>=3.1.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: pyautogui>=0.9.54; sys_platform == 'darwin' or sys_platform == 'win32'
@@ -29,6 +27,9 @@ Requires-Dist: websockets>=14.0
 Requires-Dist: xlrd>=2.0.0
 Provides-Extra: mcp
 Requires-Dist: fastmcp>=4.0.0; extra == 'mcp'
+Provides-Extra: notebooks
+Requires-Dist: ipykernel>=6.0.0; extra == 'notebooks'
+Requires-Dist: nbclient>=0.10.0; extra == 'notebooks'
 Description-Content-Type: text/markdown
 
 # ⚡ Open Terminal

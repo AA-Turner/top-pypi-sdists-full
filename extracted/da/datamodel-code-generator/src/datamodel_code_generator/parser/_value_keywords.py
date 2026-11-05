@@ -34,13 +34,18 @@ from datamodel_code_generator._constraint_applicability import (
     untaken_values,
     writes_beside_literal,
 )
-from datamodel_code_generator._container_kinds import CONTAINERS, MAPPINGS
+from datamodel_code_generator._container_kinds import ARRAYS, CONTAINERS, MAPPINGS
 from datamodel_code_generator._document_reader import as_mapping
 from datamodel_code_generator._json_schema import SCHEMA_MAP_KEYS, SCHEMA_VALUE_KEYS, non_null_types
 from datamodel_code_generator.imports import IMPORT_ANY, _import_path
 from datamodel_code_generator.model._decisions.enum_kind import enum_as_literal, is_literal_kind, literal_value_kind
 from datamodel_code_generator.model._decisions.literal_default import const_type
-from datamodel_code_generator.parser._intersection import declared_types, inherited_positional_tail
+from datamodel_code_generator.model.base import ConstraintsBase
+from datamodel_code_generator.parser._intersection import (
+    declared_positional_tail,
+    declared_types,
+    inherited_positional_tail,
+)
 from datamodel_code_generator.parser._null_facts import NullSources, dump_null_sources, resolve_null_facts
 from datamodel_code_generator.parser._schema_object import _ANNOTATION_KEYWORDS, JsonSchemaObject, _locate
 from datamodel_code_generator.parser._schema_reading import (
@@ -104,6 +109,7 @@ __all__ = [
     "has_prefix_items_tail_schema_or_boolean",
     "is_constraints_field",
     "is_fixed_length_tuple",
+    "is_union_schema",
     "keywords_taken",
     "literal_written",
     "mark_type_dependent_constraints",
@@ -115,6 +121,8 @@ __all__ = [
     "split_constraint_values",
     "suppress_array_length_constraints",
     "type_enforced_keywords",
+    "type_list_keywords",
+    "union_sibling_constraints",
 ]
 
 _CONST_ENUM_TYPES: Final[Mapping[LiteralValueKind, str]] = {
@@ -211,6 +219,33 @@ def _enforcing_leaves(data_type: DataType) -> Iterator[tuple[str | None, Sequenc
             yield from _enforcing_leaves(member)
     else:
         yield (None, data_type.literals) if _is_value_literal(data_type) else (data_type.type, ())
+
+
+def can_hold_array(data_type: DataType, *, models: bool) -> bool:
+    """Return whether a value of the type, but ``None``, is an array itself: an array, a custom type or a union of them.
+
+    A model (a ``$ref``) is one too when ``models`` says so, whose field Pydantic cannot apply an item count to.
+    """
+    return (
+        data_type in ARRAYS
+        or (models and data_type.reference is not None)
+        or data_type.python_type is not None
+        or any(can_hold_array(member, models=models) for member in data_type.data_types if not _is_plain_none(member))
+    )
+
+
+def admits_array(obj: JsonSchemaObject) -> bool:
+    """Return whether the types a schema declares admit an array: it declares none, or an array is one of them."""
+    return obj.type is None or "array" in declared_types(obj.type)
+
+
+def type_list_keywords(obj: JsonSchemaObject) -> dict[str, Any]:
+    """Return the keywords a field whose schema lists an array beside other types keeps: ``uniqueItems``.
+
+    The other keywords would apply to every member of its type, but ``uniqueItems`` only to its array, which
+    ``--use-unique-items-as-set`` writes as a set as it writes a plain array; no output writes the keyword.
+    """
+    return {"uniqueItems": True} if obj.uniqueItems and admits_array(obj) else {}
 
 
 def _imported_type_paths(data_type: DataType) -> Iterator[str]:
@@ -596,18 +631,48 @@ def create_synthetic_enum_obj(  # noqa: PLR0913, PLR0917
     return _locate(synthetic, original.schema_location)
 
 
-def is_constraints_field(parser: ValueKeywordsHost, obj: JsonSchemaObject) -> bool:
-    """Check if a field should include constraints."""
+def is_constraints_field(parser: ValueKeywordsHost, obj: JsonSchemaObject, data_type: DataType | None = None) -> bool:
+    """Check if a field should include constraints.
+
+    An array's keywords are always written on its field; the others only under ``--field-constraints`` and not beside
+    a ``$ref``, a combinator, an object or an enum (#1083), whose model or class holds them. An enum written as a
+    ``Literal`` (``data_type``) leaves them to its field as a const does, unless the literal check removed the values
+    they reject.
+    """
     return obj.is_array or (
         parser.field_constraints
         and not (
             obj.ref
-            or obj.anyOf
-            or obj.oneOf
+            or is_union_schema(obj)
             or obj.allOf
             or obj.is_object
-            or (obj.enum and not parser.ignore_enum_constraints)
+            or (obj.enum and not parser.ignore_enum_constraints and not _field_holds_literal(parser, data_type))
         )
+    )
+
+
+def is_union_schema(obj: JsonSchemaObject) -> bool:
+    """Return whether a schema is a union of the schemas it lists (``anyOf`` or ``oneOf``)."""
+    return bool(obj.anyOf or obj.oneOf)
+
+
+def union_sibling_constraints(obj: JsonSchemaObject, constraints: object) -> dict[str, Any] | None:
+    """Return the constraint values a field writes from the keywords a union schema declares beside it, or None.
+
+    The decision phase decides them again once the members of the field's type are final
+    (``parser/_union_constraints.py``).
+    """
+    if not is_union_schema(obj) or not isinstance(constraints, ConstraintsBase):
+        return None
+    return constraints.model_dump(by_alias=True, exclude_none=True) or None
+
+
+def _field_holds_literal(parser: ValueKeywordsHost, data_type: DataType | None) -> bool:
+    """Return whether a field types its values as a ``Literal`` that no literal check narrowed."""
+    return (
+        data_type is not None
+        and not parser.checks_literal_values
+        and all(literals for _, literals in _enforcing_leaves(data_type))
     )
 
 
@@ -808,22 +873,24 @@ def get_fixed_length_homogeneous_tuple_length(parser: ValueKeywordsHost, obj: Js
 
 def positions_with_tail(
     cls: type[ValueKeywordsHost],
-    positions: Sequence[JsonSchemaObject | bool],
-    *tail_candidates: JsonSchemaObject | bool | list[JsonSchemaObject | bool] | None,
+    obj: JsonSchemaObject,
+    key: str,
+    *,
     include_true_schema: bool,
 ) -> list[JsonSchemaObject | bool]:
-    """Return the positions before the first false one, or all of them and the first schema of the candidates.
+    """Return the positions of ``key`` before the first false one, or all of them and the schema of later positions.
 
-    ``true`` is a candidate only under ``include_true_schema``.
+    The later positions take the tail ``obj`` declares (``declared_positional_tail``); ``true`` only under
+    ``include_true_schema``.
     """
+    positions = cast("list[JsonSchemaObject | bool]", getattr(obj, key))
     if (false_index := get_first_false_schema_index(cls, positions)) is not None:
         return [*positions[:false_index]]
-    for tail_candidate in tail_candidates:
-        match tail_candidate:
-            case JsonSchemaObject():
-                return [*positions, tail_candidate]
-            case True if include_true_schema:
-                return [*positions, True]
+    match tail := declared_positional_tail(partial(getattr, obj), key):
+        case JsonSchemaObject():
+            return [*positions, tail]
+        case True if include_true_schema:
+            return [*positions, True]
     return [*positions]
 
 
@@ -864,17 +931,13 @@ def get_list_item_schemas(
 ) -> list[JsonSchemaObject | bool]:
     """Return the item schemas whose union the list form of an array holds; none means any item."""
     if obj.prefixItems is not None and (force_prefix_items or has_prefix_items_tail_schema_or_boolean(parser, obj)):
-        return positions_with_tail(
-            type(parser), obj.prefixItems, obj.items, obj.unevaluatedItems, include_true_schema=include_true_tail_schema
-        )
+        return positions_with_tail(type(parser), obj, "prefixItems", include_true_schema=include_true_tail_schema)
 
     match obj.items:
         case JsonSchemaObject() as item_schema:
             return [item_schema]
-        case list() as item_schemas:
-            return positions_with_tail(
-                type(parser), item_schemas, obj.additionalItems, include_true_schema=include_true_tail_schema
-            )
+        case list():
+            return positions_with_tail(type(parser), obj, "items", include_true_schema=include_true_tail_schema)
 
     match obj.unevaluatedItems:
         case JsonSchemaObject() as item_schema:
@@ -926,19 +989,20 @@ def should_parse_empty_object_as_dict(parser: ValueKeywordsHost, obj: JsonSchema
 
 
 def get_array_max_items_constraints(cls: type[ValueKeywordsHost], obj: JsonSchemaObject) -> list[int]:
-    max_items = [
-        index
-        for positions in (obj.prefixItems, obj.items if isinstance(obj.items, list) else None)
-        if (index := get_first_false_schema_index(cls, positions)) is not None
-    ]
-    if obj.items is False and obj.prefixItems is None:
+    """Return the upper length bounds of an array: its first false position and each tuple its false tail closes."""
+    max_items: list[int] = []
+    for key, positions in (
+        ("prefixItems", obj.prefixItems),
+        ("items", obj.items if isinstance(obj.items, list) else None),
+    ):
+        if positions is None:
+            continue
+        if (index := get_first_false_schema_index(cls, positions)) is not None:
+            max_items.append(index)
+        if declared_positional_tail(partial(getattr, obj), key) is False:
+            max_items.append(len(positions))
+    if obj.prefixItems is None and (obj.items is False or (obj.items is None and obj.unevaluatedItems is False)):
         max_items.append(0)
-    if obj.items is False and obj.prefixItems is not None:
-        max_items.append(len(obj.prefixItems))
-    if obj.additionalItems is False and isinstance(obj.items, list):
-        max_items.append(len(obj.items))
-    if obj.unevaluatedItems is False and obj.items is None:
-        max_items.append(len(obj.prefixItems or []))
     return max_items
 
 
@@ -1056,11 +1120,9 @@ def get_array_constraints(parser: ValueKeywordsHost, obj: JsonSchemaObject, data
 
 def get_first_false_schema_index(
     cls: type[ValueKeywordsHost],  # noqa: ARG001
-    items: Sequence[JsonSchemaObject | bool] | None,
+    items: Sequence[JsonSchemaObject | bool],
 ) -> int | None:
     """Return the first tuple/prefix item index that rejects every value."""
-    if items is None:
-        return None
     return next((index for index, item in enumerate(items) if item is False), None)
 
 

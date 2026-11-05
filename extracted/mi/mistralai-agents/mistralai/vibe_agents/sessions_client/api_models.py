@@ -14,7 +14,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 import structlog
-from pydantic import ConfigDict, Field, StringConstraints
+from pydantic import ConfigDict, Field, PrivateAttr, StringConstraints, ValidatorFunctionWrapHandler, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from mistralai.vibe_agents._internal.wire_models import ForwardCompatibleModel
@@ -159,6 +159,23 @@ class AgentSessionResponse(_APIModel):
     last_event_insert_seq: int
     created_at: datetime
     updated_at: datetime
+    _status_text: str | None = PrivateAttr(default=None)
+
+    @property
+    def status_text(self) -> str:
+        """The status as the server sent it: for ``UNKNOWN``, the status this SDK does not know."""
+        if self.status is AgentSessionStatus.UNKNOWN and self._status_text is not None:
+            return self._status_text
+        return self.status.value
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _keep_status_text(cls, value: Any, handler: ValidatorFunctionWrapHandler) -> "AgentSessionResponse":
+        response: AgentSessionResponse = handler(value)
+        status = value.get("status") if isinstance(value, dict) else None
+        if response.status is AgentSessionStatus.UNKNOWN and isinstance(status, str):
+            response._status_text = status
+        return response
 
 
 class _CatalogScopeInput(_APIModel):

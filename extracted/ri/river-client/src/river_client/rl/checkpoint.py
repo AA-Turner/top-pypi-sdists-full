@@ -11,6 +11,7 @@ import re
 import shutil
 import threading
 import uuid
+import warnings
 import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -109,12 +110,8 @@ class Checkpointing:
             Must fit the server retention cap. Resume before the base expires.
         rollout_every: Seconds between rollout-state snapshots.
         on_signal: Signals that request a final checkpoint before shutdown.
-        spill_arrays: After a save commits, drop the span arrays it wrote
-            (logprobs, top-K candidates, sampling log masses, and token ids of
-            runs before a rewrite or of completed trajectories) from memory
-            and read them back from run_dir when needed. Set False to keep
-            them in memory, for example when run_dir is slow to read; the run
-            directory then stays smaller.
+        spill_arrays: Deprecated; use ``AsyncTrainer(spill=...)``, where
+            ``spill=False`` keeps span arrays in memory.
     """
 
     run_dir: str | Path
@@ -122,7 +119,7 @@ class Checkpointing:
     rollout_every: float = 60.0
     on_signal: tuple[str, ...] = ()
     recovery_ttl_seconds: int = 7 * 24 * 60 * 60
-    spill_arrays: bool = True
+    spill_arrays: bool | None = None
 
     def __post_init__(self):
         _integer(self.weights_every, "weights_every", 1)
@@ -139,8 +136,15 @@ class Checkpointing:
             raise ValueError("checkpoint cadences must be finite and positive")
         if any(s not in {"SIGINT", "SIGTERM"} for s in self.on_signal):
             raise ValueError("supported checkpoint signals are SIGINT and SIGTERM")
-        if not isinstance(self.spill_arrays, bool):
-            raise ValueError("spill_arrays must be a bool")
+        if self.spill_arrays is not None:
+            if not isinstance(self.spill_arrays, bool):
+                raise ValueError("spill_arrays must be a bool")
+            warnings.warn(
+                "Checkpointing(spill_arrays=...) is deprecated and will be removed "
+                "in a future river-client release; use AsyncTrainer(spill=...)",
+                DeprecationWarning,
+                stacklevel=3,
+            )
 
 
 class StateStore:
@@ -160,10 +164,10 @@ class StateStore:
     and read back from their segment when accessed. Unfinished
     trajectories that are not saved for recovery get records of their arrays
     only. Segments stay on disk while spans still reference them.
-    ``Checkpointing.spill_arrays`` turns this off.
+    ``spill_arrays=False`` turns this off.
     """
 
-    def __init__(self, config: Checkpointing):
+    def __init__(self, config: Checkpointing, *, spill_arrays=None):
         self.directory = Path(config.run_dir)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.path = self.directory / "trainer.json"
@@ -173,10 +177,14 @@ class StateStore:
         self._cursors = {}
         self._records = {}
         self._spill_cursors = {}
+        # Committed trajectory cursors by span list, which journal batches share.
+        self._span_cursors = {}
         self._segments = {}
         self._version = None
         self._spill = _spill_files(self.directory)
-        self._spill_arrays = config.spill_arrays
+        if spill_arrays is None:
+            spill_arrays = config.spill_arrays is not False
+        self._spill_arrays = spill_arrays
 
     def __enter__(self):
         import fcntl
@@ -214,12 +222,15 @@ class StateStore:
             return None
         state = _read_json(self.path)
         storage = state.pop("__river_arrays__", None)
-        if not isinstance(storage, dict) or storage.get("version") not in (2, 3):
-            raise ValueError("checkpoint requires binary array storage version 2 or 3")
+        if not isinstance(storage, dict) or storage.get("version") not in (2, 3, 4):
+            raise ValueError(
+                "checkpoint requires binary array storage version 2, 3 or 4"
+            )
         self._version = storage["version"]
-        if storage["version"] == 2:
+        if self._version < STORAGE_VERSION:
             # Fail before the trainer loads weights or saves anything.
-            _require_migration(self.directory)
+            _require_migration(self.directory, self._version)
+        if storage["version"] == 2:
             return self._load_v2(state, storage)
         segments = {}
         try:
@@ -275,43 +286,68 @@ class StateStore:
             return _unpack_v2(decode_state(state), _ArrayWindow(stream.fileno(), size))
 
     def read(self, value):
-        """Return a lazily loaded or released journal record's content."""
-        if not isinstance(value, _CommittedRecord):
+        """Return a lazily loaded or released journal update's content.
+
+        An update journaled by reference returns its recipes and the states of
+        the trajectories they build from, without messages.
+        """
+        if not isinstance(value, (_CommittedRecord, _CommittedUpdate)):
             return value
-        name, offset, array_bytes, text_bytes = value.ref[:4]
-        if (
-            name not in self._segments
-            or any(
-                type(n) is not int or n < 0 for n in (offset, array_bytes, text_bytes)
-            )
-            or offset + array_bytes + text_bytes > self._segments[name]["bytes"]
-        ):
-            raise ValueError("invalid checkpoint record bounds")
-        with (self.directory / _segment_file(name)).open("rb") as stream:
+        streams = {}
+        try:
 
-            def read(_name, start, length):
-                return b"".join(_read_chunks(stream.fileno(), length, start))
+            def read(name, offset, length):
+                if (
+                    name not in self._segments
+                    or type(offset) is not int
+                    or type(length) is not int
+                    or offset < 0
+                    or length < 0
+                    or offset + length > self._segments[name]["bytes"]
+                ):
+                    raise ValueError("invalid checkpoint record bounds")
+                if name not in streams:
+                    streams[name] = (self.directory / _segment_file(name)).open("rb")
+                return b"".join(_read_chunks(streams[name].fileno(), length, offset))
 
-            return _read_record(value.ref, read, {})
+            if isinstance(value, _CommittedRecord):
+                return _read_record(value.ref, read, {})
+            cache = {}
+            return {
+                "optimizer": value.optimizer,
+                **_read_record(value.recipes.ref, read, cache),
+                "trajectories": [
+                    _trajectory_state(t.fields, t.records, read, cache, messages=False)
+                    for t in value.trajectories
+                ],
+            }
+        finally:
+            for stream in streams.values():
+                stream.close()
 
     def release(self, value):
-        """Return a reference for a committed journal record, else ``value``.
+        """Return a reference for a committed journal update, else ``value``.
 
         The store keeps no copy of a released value; ``read`` reloads it.
+        Releasing an update journaled by reference also drops its batches,
+        and with them the trajectory spans they hold.
         """
         entry = self._records.get(id(value))
         if entry is None or entry[0] is not value:
             return value
         del self._records[id(value)]
+        if isinstance(entry[1], _CommittedUpdate):
+            return entry[1]
         return _CommittedRecord(entry[1])
 
     def save(self, state, *, images=None, spills=()):
         """Commit ``state``; ``spills`` come from ``capture().spill``."""
         if "__river_arrays__" in state:
             raise ValueError("checkpoint state contains reserved storage metadata")
-        if self._committed_version() == 2:
-            _require_migration(self.directory)
-            self._preserve_version_2()
+        committed = self._committed_version()
+        if committed is not None and committed < STORAGE_VERSION:
+            _require_migration(self.directory, committed)
+            self._preserve_version(committed)
         name = uuid.uuid4().hex
         path = self.directory / _segment_file(name)
         stream = path.open("x+b")
@@ -335,7 +371,7 @@ class StateStore:
             self._sync_directory()
             state = encode_state(state)
             state["__river_arrays__"] = {
-                "version": 3,
+                "version": STORAGE_VERSION,
                 "segments": segments,
                 "arrays": manifest_arrays,
             }
@@ -359,7 +395,10 @@ class StateStore:
         # Readers of spilled arrays resolve records under this lock.
         with self._spill.lock:
             self._cursors, self._records, self._spill_cursors = writer.commit()
-            self._segments, self._version = segments, 3
+            self._span_cursors = {
+                id(cursor.spans): cursor for cursor in self._cursors.values()
+            }
+            self._segments, self._version = segments, STORAGE_VERSION
             # Only a durably committed manifest may release unreferenced files.
             files = self._spill.files
             for segment in [s for s in files if s not in segments]:
@@ -381,7 +420,7 @@ class StateStore:
             self._version = (
                 storage.get("version") if isinstance(storage, dict) else None
             )
-            if self._version == 3:
+            if self._version in (3, 4):
                 # Spans from an earlier store on this directory may still
                 # read these segments.
                 if not all(
@@ -391,21 +430,26 @@ class StateStore:
                 self._segments = storage["segments"]
         return self._version
 
-    def _preserve_version_2(self):
-        """Keep a resumable copy of the version 2 state before replacing it.
+    def _preserve_version(self, version):
+        """Keep a resumable copy of an older version's state before replacing it.
 
-        Files are hard-linked where possible: version 3 never modifies an
-        existing file, it only deletes ones it no longer needs. Every attempt
+        Files are hard-linked where possible: later versions never modify an
+        existing file, they only delete ones they no longer need. Every attempt
         rebuilds the copy from the committed state, so a backup left by an
         interrupted migration is never trusted.
         """
-        backup = self.directory / BACKUP_DIRECTORY
-        staging = self.directory / f".{BACKUP_DIRECTORY}.tmp"
+        name = backup_directory(version)
+        backup = self.directory / name
+        staging = self.directory / f".{name}.tmp"
         shutil.rmtree(staging, ignore_errors=True)
         (staging / "images").mkdir(parents=True)
         sources = [
             self.path,
-            *self.directory.glob("trainer-arrays-*.bin"),
+            *(
+                self.directory.glob("trainer-arrays-*.bin")
+                if version == 2
+                else (self.directory / _segment_file(name) for name in self._segments)
+            ),
             *(
                 self.images.directory.iterdir()
                 if self.images.directory.exists()
@@ -428,7 +472,7 @@ class StateStore:
                 os.fsync(descriptor)
             finally:
                 os.close(descriptor)
-        stale = self.directory / f".{BACKUP_DIRECTORY}.stale"
+        stale = self.directory / f".{name}.stale"
         shutil.rmtree(stale, ignore_errors=True)
         if backup.exists():
             os.replace(backup, stale)
@@ -459,27 +503,38 @@ def _read_chunks(descriptor, length, offset):
         length -= len(data)
 
 
+# Version 4 journals updates by reference to trajectory records.
+STORAGE_VERSION = 4
 MIGRATE_ENV = "RIVER_RL_MIGRATE_CHECKPOINT"
-BACKUP_DIRECTORY = "checkpoint-v2-backup"
+# The clients that last wrote each older storage version.
+_WRITTEN_BY = {2: "0.17 or older", 3: "0.18.0 to 0.19.0"}
 
 
-def _require_migration(directory):
-    """Refuse the one-way version 2 to 3 rewrite unless the user opted in."""
+def backup_directory(version):
+    return f"checkpoint-v{version}-backup"
+
+
+def _require_migration(directory, version):
+    """Refuse a one-way rewrite of an older storage version unless opted in."""
     if os.environ.get(MIGRATE_ENV) == "1":
         return
     raise RuntimeError(
-        f"{directory} holds a version 2 RL checkpoint written by river-client "
-        "0.17 or older. Resuming it with this client overwrites the run's "
-        "checkpoint in storage version 3 on the next save; older clients cannot "
-        f"resume it afterwards. Back up the directory first (for example, cp -a "
-        f"{directory} {directory}.bak), then set {MIGRATE_ENV}=1 to resume and "
-        f"migrate. The migration also keeps the version 2 state in "
-        f"{directory / BACKUP_DIRECTORY}."
+        f"{directory} holds a version {version} RL checkpoint written by "
+        f"river-client {_WRITTEN_BY[version]}. Resuming it with this client "
+        f"overwrites the run's checkpoint in storage version {STORAGE_VERSION} "
+        "on the next save; older clients cannot resume it afterwards. Back up the "
+        f"directory first (for example, cp -a {directory} {directory}.bak), then "
+        f"set {MIGRATE_ENV}=1 to resume and migrate. The migration also keeps "
+        f"the version {version} state in {directory / backup_directory(version)}."
     )
 
 
 _TRAJECTORY = "__river_trajectory__"
 _RECORD = "__river_record__"
+# A journaled update: recipes record plus the trajectories its datums build from.
+_UPDATE = "__river_update__"
+_JOURNAL_TRAJECTORY = "__river_journal_trajectory__"
+_RESERVED = (_TRAJECTORY, _RECORD, _UPDATE, _JOURNAL_TRAJECTORY)
 # Relocate a segment's live records once less than this fraction is live.
 _COMPACT_BELOW = 0.5
 # Merge the smallest segments into the new one beyond this many; bounds the
@@ -602,7 +657,7 @@ class _SpillFiles:
             except (OSError, ValueError) as error:
                 raise RuntimeError(
                     f"cannot read spilled trajectory data from {path}; keep the "
-                    "checkpoint directory available while trajectories are in use"
+                    "run or spill directory available while trajectories are in use"
                 ) from error
         arrays = []
         for value in values:
@@ -665,11 +720,54 @@ class _CommittedRecord:
 
 
 class _RecordCapture:
-    """An immutable value written once and referenced by later saves."""
+    """An immutable value written once and referenced by later saves.
+
+    ``value`` is None for a record that is part of a larger capture.
+    """
 
     def __init__(self, value, payload, ref):
         self.value, self.payload, self.ref = value, payload, ref
         self.records = None
+
+
+class _CommittedTrajectory:
+    """A journaled trajectory's committed records; ``StateStore.read`` loads it."""
+
+    __slots__ = ("fields", "records")
+
+    def __init__(self, fields, records):
+        self.fields, self.records = fields, records
+
+
+class _CommittedUpdate:
+    """An update journaled by reference; ``StateStore.read`` loads it.
+
+    ``recipes`` holds each datum's run, advantage, normalization and
+    corrections; ``trajectories`` the span records they build from.
+    """
+
+    __slots__ = ("optimizer", "recipes", "trajectories")
+
+    def __init__(self, optimizer, recipes, trajectories):
+        self.optimizer, self.recipes = optimizer, recipes
+        self.trajectories = trajectories
+
+
+class _JournalTrajectoryCapture:
+    """A trained trajectory's spans: committed records plus any new spans."""
+
+    def __init__(
+        self, fields, base, delta=None, written=(), unspilled=(), committed=None
+    ):
+        self.fields, self.base, self.delta = fields, base, delta
+        self.written, self.unspilled, self.committed = written, unspilled, committed
+        self.records = self.packed = None
+
+
+class _UpdateCapture:
+    def __init__(self, value, optimizer, recipes, trajectories):
+        self.value, self.optimizer = value, optimizer
+        self.recipes, self.trajectories = recipes, trajectories
 
 
 class _Capture:
@@ -765,6 +863,138 @@ class _Capture:
             )
         )
 
+    def update(self, update):
+        """Reference a journal update, writing it only on its first save.
+
+        An update whose chunks are ``TrainingBatch`` objects is journaled by
+        reference: the trajectories its datums build from, which earlier saves
+        usually wrote already, plus a small record of each datum's recipe.
+        Other updates are written as datums.
+        """
+        if isinstance(update, _CommittedUpdate):
+            return self._committed_update(update)
+        committed = self._store._records.get(id(update))
+        if committed is not None and committed[0] is update:
+            if isinstance(committed[1], _CommittedUpdate):
+                return self._committed_update(committed[1])
+            return _RecordCapture(update, None, committed[1])
+        if not isinstance(update, dict):
+            return self.record(update)
+        chunks = update.get("chunks")
+        kind = "chunks"
+        if chunks is None:
+            chunks, kind = [update["data"]], "data"
+        if not all(isinstance(chunk, TrainingBatch) for chunk in chunks):
+            return self.record(update)
+        sources, builds, trajectories, recipes, proximal = {}, {}, [], [], []
+        for chunk in chunks:
+            custom = {item.custom is not None for item in chunk._items}
+            if len(custom) > 1:
+                return self.record(update)
+            items = []
+            for item in chunk._items:
+                if id(item.source) not in sources:
+                    sources[id(item.source)] = len(trajectories)
+                    trajectories.append(self._journal_trajectory(item.source))
+                build = item.build
+                if id(build) not in builds:
+                    builds[id(build)] = (
+                        len(builds),
+                        {
+                            "current_step": build.current_step,
+                            "max_staleness": build.max_staleness,
+                            "include_loss_mask": build.include_loss_mask,
+                            "loss": build.loss is not None,
+                        },
+                    )
+                row = None
+                if item.proximal is not None:
+                    row = len(proximal)
+                    array = np.asarray(item.proximal[0])
+                    if array.dtype not in (np.float32, np.float64):
+                        array = array.astype(np.float64)
+                    proximal.append(array)
+                items.append(
+                    {
+                        "trajectory": sources[id(item.source)],
+                        "run": item.run,
+                        "advantage": float(item.advantage),
+                        "denominator": float(item.denominator),
+                        "length": item.length,
+                        "advantaged": item.advantaged,
+                        "routing_handle": item.routing_handle,
+                        "recovered": item.recovered,
+                        "build": builds[id(build)][0],
+                        "proximal": row,
+                        "max_importance_weight": None
+                        if item.proximal is None
+                        else float(item.proximal[1]),
+                        "drop_recovery": item.drop_recovery,
+                        "drop_routing": item.drop_routing,
+                    }
+                )
+            recipes.append({"custom": True in custom, "items": items})
+        payload = {
+            "kind": kind,
+            "chunks": recipes,
+            "builds": [build for _, build in builds.values()],
+            "proximal": proximal,
+        }
+        return _UpdateCapture(
+            update,
+            update["optimizer"],
+            _RecordCapture(None, payload, None),
+            trajectories,
+        )
+
+    def _committed_update(self, update):
+        return _UpdateCapture(
+            update,
+            update.optimizer,
+            _RecordCapture(update.recipes, None, update.recipes.ref),
+            [
+                _JournalTrajectoryCapture(t.fields, t.records, committed=t)
+                for t in update.trajectories
+            ],
+        )
+
+    def _journal_trajectory(self, source):
+        """Reference a batch's trajectory, writing only spans no save holds yet.
+
+        A batch shares its trajectory's span list, so the trajectory's last
+        committed records usually cover every span. Spans are append-only and
+        restamping replaces the list, so a different list is written whole.
+        """
+        spans = source._spans
+        cursor = self._store._span_cursors.get(id(spans))
+        if (
+            cursor is not None
+            and cursor.spans is spans
+            and len(spans) >= cursor.span_count
+        ):
+            base, start = cursor.records, cursor.span_count
+            message_start, unspilled = cursor.message_count, cursor.unspilled
+        else:
+            base, start, message_start, unspilled = (), 0, 0, ()
+        fields = encode_state(
+            {key: value for key, value in vars(source).items() if key != "_spans"}
+        )
+        written = spans[start:]
+        if base and not written:
+            return _JournalTrajectoryCapture(fields, base, unspilled=unspilled)
+        return _JournalTrajectoryCapture(
+            fields,
+            base,
+            {
+                "spans": [span._state(read=False) for span in written],
+                # Messages are not replayed; keep those already saved.
+                "messages_start": message_start,
+                "messages": [],
+            },
+            written,
+            unspilled,
+        )
+
     def record(self, value):
         """Reference ``value``, writing a copy of it only on its first save."""
         if isinstance(value, _CommittedRecord):
@@ -822,8 +1052,27 @@ class _SegmentWriter:
                 self.captures[id(value)] = value
                 self.containers.append(value.records)
             return {_RECORD: value.records}
+        if isinstance(value, _JournalTrajectoryCapture):
+            if value.records is None:
+                records = list(value.base)
+                if value.delta is not None:
+                    ref, packed = self.write(value.delta)
+                    records.append(ref)
+                    value.packed = packed["spans"]
+                value.records = records
+                self.captures[id(value)] = value
+                self.containers.append(records)
+            return {**value.fields, _JOURNAL_TRAJECTORY: value.records}
+        if isinstance(value, _UpdateCapture):
+            self.captures[id(value)] = value
+            return {
+                _UPDATE: 1,
+                "optimizer": value.optimizer,
+                "recipes": self.resolve(value.recipes),
+                "trajectories": [self.resolve(t) for t in value.trajectories],
+            }
         if isinstance(value, dict):
-            if _TRAJECTORY in value or _RECORD in value:
+            if any(key in value for key in _RESERVED):
                 raise ValueError("checkpoint state contains reserved record metadata")
             return {key: self.resolve(item) for key, item in value.items()}
         if isinstance(value, (list, tuple)):
@@ -950,8 +1199,35 @@ class _SegmentWriter:
                 if isinstance(capture.value, _CommittedRecord):
                     # Compaction may have moved the record.
                     capture.value.ref = capture.records[0]
-                else:
+                elif capture.value is not None:
                     records[id(capture.value)] = (capture.value, capture.records[0])
+            elif isinstance(capture, _JournalTrajectoryCapture):
+                if capture.committed is not None:
+                    capture.committed.records = tuple(capture.records)
+                elif spilling:
+                    # Trained trajectories are complete: no turn resends ids.
+                    for span, holder, locations in capture.unspilled:
+                        _spill_tokens(span, locations, holder)
+                    if capture.packed is not None:
+                        holder = self._holder(capture.records[-1])
+                        for span, packed in zip(
+                            capture.written, capture.packed, strict=True
+                        ):
+                            _spill(span, packed, holder)
+                            _spill_tokens(span, _token_locations(packed), holder)
+            elif isinstance(capture, _UpdateCapture):
+                if not isinstance(capture.value, _CommittedUpdate):
+                    records[id(capture.value)] = (
+                        capture.value,
+                        _CommittedUpdate(
+                            capture.optimizer,
+                            _CommittedRecord(capture.recipes.records[0]),
+                            [
+                                _CommittedTrajectory(t.fields, tuple(t.records))
+                                for t in capture.trajectories
+                            ],
+                        ),
+                    )
             elif (
                 id(capture.trajectory) not in serials
                 or serials[id(capture.trajectory)] < capture.serial
@@ -1094,20 +1370,28 @@ def _expand(value, read, cache, lazy_records=False):
     """Replace record references with their content."""
     if isinstance(value, dict):
         if _TRAJECTORY in value:
-            fields = {
-                k: _expand(v, read, cache, lazy_records)
-                for k, v in value.items()
-                if k != _TRAJECTORY
+            fields = {k: v for k, v in value.items() if k != _TRAJECTORY}
+            return _trajectory_state(fields, value[_TRAJECTORY], read, cache)
+        if _UPDATE in value:
+            trajectories = [
+                _CommittedTrajectory(
+                    {k: v for k, v in t.items() if k != _JOURNAL_TRAJECTORY},
+                    tuple(tuple(ref) for ref in t[_JOURNAL_TRAJECTORY]),
+                )
+                for t in value["trajectories"]
+            ]
+            recipes = _CommittedRecord(tuple(value["recipes"][_RECORD][0]))
+            update = _CommittedUpdate(value["optimizer"], recipes, trajectories)
+            if lazy_records:
+                return update
+            return {
+                "optimizer": update.optimizer,
+                **_read_record(recipes.ref, read, cache),
+                "trajectories": [
+                    _trajectory_state(t.fields, t.records, read, cache, messages=False)
+                    for t in trajectories
+                ],
             }
-            spans, messages = [], []
-            for ref in value[_TRAJECTORY]:
-                content = _read_record(ref, read, cache)
-                spans.extend(content["spans"])
-                messages = [
-                    *messages[: content["messages_start"]],
-                    *content["messages"],
-                ]
-            return {"version": 1, **fields, "spans": spans, "messages": messages}
         if _RECORD in value:
             if lazy_records:
                 # Writers use references as keys; JSON returns them as lists.
@@ -1119,6 +1403,17 @@ def _expand(value, read, cache, lazy_records=False):
     if isinstance(value, list):
         return [_expand(item, read, cache, lazy_records) for item in value]
     return value
+
+
+def _trajectory_state(fields, records, read, cache, *, messages=True):
+    """A ``Trajectory.state_dict`` from its fields and records, in order."""
+    spans, history = [], []
+    for ref in records:
+        content = _read_record(ref, read, cache)
+        spans.extend(content["spans"])
+        if messages:
+            history = [*history[: content["messages_start"]], *content["messages"]]
+    return {"version": 1, **fields, "spans": spans, "messages": history}
 
 
 def _read_record(ref, read, cache):

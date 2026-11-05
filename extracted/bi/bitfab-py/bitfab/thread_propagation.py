@@ -17,8 +17,8 @@ the SDK's own span-transport threads are excluded so a long-lived dispatch
 loop can never pin the context of whichever trace happened to spawn it.
 Callables that already carry a context (``asyncio.to_thread`` submits
 ``Context.run``) pass through untouched. Only Bitfab's own variables are
-carried (the span stack, the replay context, the seed context, and the submit
-origin: the identity of the thread that called submit()/start(), recorded onto
+carried (the span stack, the keys of the trace functions around a nested
+trace root, the replay context, the seed context, and the submit origin: the identity of the thread that called submit()/start(), recorded onto
 worker spans as ``runtime.submit_thread_id``), so no other library's
 contextvars change behavior.
 
@@ -54,7 +54,7 @@ _installed = False
 _original_submit: Callable[..., Any] | None = None
 _original_thread_start: Callable[..., Any] | None = None
 
-_CapturedState = tuple[Any, Any, Any, dict[str, Any]]
+_CapturedState = tuple[Any, tuple[str, ...], Any, Any, dict[str, Any]]
 
 
 def _span_stack_var() -> contextvars.ContextVar[Any]:
@@ -63,9 +63,16 @@ def _span_stack_var() -> contextvars.ContextVar[Any]:
     return _span_stack
 
 
+def _enclosing_keys_var() -> contextvars.ContextVar[tuple[str, ...]]:
+    from bitfab.client import _enclosing_trace_function_keys
+
+    return _enclosing_trace_function_keys
+
+
 def _capture() -> _CapturedState | None:
     try:
         stack = _span_stack_var().get()
+        enclosing_keys = _enclosing_keys_var().get()
         replay_ctx = _replay_context.get()
         seed_ctx = _seed_context.get()
     except Exception:
@@ -74,14 +81,16 @@ def _capture() -> _CapturedState | None:
         return None
     submitter = threading.current_thread()
     origin = {"thread_id": submitter.ident, "thread_name": submitter.name}
-    return (stack, replay_ctx, seed_ctx, origin)
+    return (stack, enclosing_keys, replay_ctx, seed_ctx, origin)
 
 
 @contextlib.contextmanager
 def _entered(state: _CapturedState) -> Any:
-    stack, replay_ctx, seed_ctx, origin = state
+    stack, enclosing_keys, replay_ctx, seed_ctx, origin = state
     span_var = _span_stack_var()
+    keys_var = _enclosing_keys_var()
     span_token = span_var.set(stack)
+    keys_token = keys_var.set(enclosing_keys)
     replay_token = _replay_context.set(replay_ctx)
     seed_token = _seed_context.set(seed_ctx)
     origin_token = _submit_origin.set(origin)
@@ -89,6 +98,7 @@ def _entered(state: _CapturedState) -> Any:
         yield
     finally:
         span_var.reset(span_token)
+        keys_var.reset(keys_token)
         _replay_context.reset(replay_token)
         _seed_context.reset(seed_token)
         _submit_origin.reset(origin_token)

@@ -5001,9 +5001,17 @@ class Models(WMLResource):
             if json_filename is not None:
                 with tarfile.open(filename, "r:gz") as tar:
                     file_name = Path(tar.getnames()[0])
+                    if file_name.is_absolute() or ".." in file_name.parts:
+                        raise WMLClientError(
+                            "Downloaded model archive contains an invalid path."
+                        )
                     if file_name.suffix != ".json":
                         raise WMLClientError("Downloaded model is not json.")
-                    tar.extractall()
+                    member = tar.getmember(tar.getnames()[0])
+                    f = tar.extractfile(member)
+                    if f is None:
+                        raise WMLClientError("Downloaded model is not a regular file.")
+                    file_name.write_bytes(f.read())
 
                 file_name.rename(json_filename)
                 filename.unlink()
@@ -5185,9 +5193,17 @@ class Models(WMLResource):
             if json_filename is not None:
                 with tarfile.open(filename, "r:gz") as tar:
                     file_name = Path(tar.getnames()[0])
+                    if file_name.is_absolute() or ".." in file_name.parts:
+                        raise WMLClientError(
+                            "Downloaded model archive contains an invalid path."
+                        )
                     if not file_name.suffix == ".json":
                         raise WMLClientError("Downloaded model is not json.")
-                    tar.extractall()
+                    member = tar.getmember(tar.getnames()[0])
+                    f = tar.extractfile(member)
+                    if f is None:
+                        raise WMLClientError("Downloaded model is not a regular file.")
+                    file_name.write_bytes(f.read())
 
                 file_name.rename(json_filename)
                 filename.unlink()

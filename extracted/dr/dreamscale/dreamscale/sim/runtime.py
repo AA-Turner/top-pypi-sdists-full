@@ -423,19 +423,31 @@ class LiberoSimEnv:
 
 
 class HistoryLiberoSimEnv(LiberoSimEnv):
-    """LIBERO with RLDX-1's camera history: frames at env steps -6, -4, -2 and 0.
+    """LIBERO with a camera history: by default RLDX-1's frames at env steps -6, -4, -2 and 0,
+    or the steps back a model's ``history_ticks`` names (oldest first).
 
     Every step renders both 256px cameras, rotated 180 degrees as upstream's LIBERO
-    wrapper does. Before an episode has seven steps, the oldest frame repeats, matching
+    wrapper does. Before an episode has enough steps, the oldest frame repeats, matching
     upstream's padding with copies of the first observation.
     """
 
-    def __init__(self, task_handle, **kwargs) -> None:
+    RLDX_TICKS = (6, 4, 2, 0)
+
+    def __init__(self, task_handle, *, history_ticks=RLDX_TICKS, **kwargs) -> None:
+        super().__init__(task_handle, **kwargs)
+        self.set_history_ticks(history_ticks)
+        self._last_gripper = -1.0
+
+    def set_history_ticks(self, history_ticks) -> None:
+        """The steps back of each window frame, oldest first, ending at the current step."""
         from collections import deque
 
-        super().__init__(task_handle, **kwargs)
-        self._history: deque = deque(maxlen=7)
-        self._last_gripper = -1.0
+        ticks = tuple(int(tick) for tick in history_ticks)
+        descending = all(a > b for a, b in zip(ticks, ticks[1:], strict=False))
+        if not ticks or ticks[-1] != 0 or not descending:
+            raise ValueError("history_ticks must count down to 0, oldest first")
+        self._ticks = ticks
+        self._history: deque = deque(maxlen=ticks[0] + 1)
 
     def reset(self) -> dict:
         obs = super().reset()
@@ -461,7 +473,7 @@ class HistoryLiberoSimEnv(LiberoSimEnv):
         history = list(self._history)
         if not history:
             raise RuntimeError("Reset the simulator before requesting a policy observation")
-        sampled = [history[max(0, len(history) - 1 - (3 - index) * 2)] for index in range(4)]
+        sampled = [history[max(0, len(history) - 1 - tick)] for tick in self._ticks]
         return {"agent_frames": np.stack([agent for agent, _ in sampled]),
                 "wrist_frames": np.stack([wrist for _, wrist in sampled]),
                 "libero_state": self.proprio(obs)}

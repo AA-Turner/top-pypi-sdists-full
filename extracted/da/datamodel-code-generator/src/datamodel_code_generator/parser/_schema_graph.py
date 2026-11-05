@@ -6,7 +6,7 @@ location table, which ``JsonSchemaObject`` reads through ``SCHEMA_GRAPH`` while 
 makes each `$ref` and `$dynamicRef` keyword of the document a ``ResolvedRef``, the string as written that also carries
 its ``RefEdge`` (``SchemaGraphBuilder.with_ref_edges`` does it alone for a schema a reference names that the walk read
 as data). ``walk_schema_resources`` finds which absolute URI names which schema of the document (its root, every schema
-with an `$id` or draft-04 `id`, the implicit component resources of OpenAPI, `$anchor` and `$dynamicAnchor`), and
+with an `$id` or draft-04 `id`, the implicit resources of OpenAPI, `$anchor` and `$dynamicAnchor`), and
 ``ResourceRegistry.register`` fills the registry dicts L1 resolves references through from that record.
 ``SchemaGraphBuilder.edge_key`` keeps the ``RefKey`` each edge resolves to in its own document, and
 ``SchemaGraphBuilder.schema`` the object each JSON object of a loaded document validates to, which every reader of that
@@ -29,7 +29,7 @@ from urllib.parse import urljoin
 
 from typing_extensions import ReadOnly, Self, TypedDict, final, override
 
-from datamodel_code_generator._json_pointer import join_pointer
+from datamodel_code_generator._json_pointer import is_pointer_fragment, join_pointer, pointer_opening
 from datamodel_code_generator._records import record
 from datamodel_code_generator.reference import SchemaLocation
 
@@ -53,6 +53,7 @@ __all__ = [
     "SchemaNodeId",
     "canonical_ref_spelling",
     "keep_resolved_ref",
+    "pointer_ref_spelling",
     "walk_schema_resources",
 ]
 
@@ -145,8 +146,24 @@ class ConvertedRefs:
     schema's value: the parser keeps the schema in a document of its own."""
 
 
+def pointer_ref_spelling(value: str) -> str:
+    """Return a reference whose fragment opens its pointer with ``/``, also where the octet ``%2F`` opens it.
+
+    RFC 6901 reads a fragment after percent-decoding it, so `x#%2Fa` names the pointer `x#/a`. A fragment that opens
+    no pointer is a plain name, which names an anchor.
+    """
+    document, separator, fragment = value.partition("#")
+    if not separator or (opening := pointer_opening(fragment)) in {None, 1}:
+        return value
+    return f"{document}#/{fragment[opening:]}"
+
+
 def canonical_ref_spelling(value: str) -> str:
-    """Return a reference as the parser reads it: an empty pointer after a document (`x#/`) names its root (`x#`)."""
+    """Return a reference as the parser reads it: an empty pointer after a document (`x#/`) names its root (`x#`).
+
+    The fragment opens its pointer with ``/`` (``pointer_ref_spelling``).
+    """
+    value = pointer_ref_spelling(value)
     return value[:-1] if "#" in value and value.endswith("#/") else value
 
 
@@ -179,7 +196,11 @@ class ResolvedRef(str):  # noqa: FURB189 - it must be a str wherever the parser 
 def _keyword_ref(
     ref: str, source: SchemaLocation, keyword: str, document: DocumentId, converted: ConvertedRefs | None
 ) -> ResolvedRef:
-    """Return the reference keyword ``ref`` of ``source`` carrying its edge, read as ``converted`` says if given."""
+    """Return the reference keyword ``ref`` of ``source`` carrying its edge, read as ``converted`` says if given.
+
+    The keyword holds the reference with its pointer opened by ``/`` (``pointer_ref_spelling``).
+    """
+    ref = pointer_ref_spelling(ref)
     mounted, home = (converted.mounted(ref), converted.home) if converted is not None else (ref, None)
     return ResolvedRef(ref, RefEdge(source, keyword, document, mounted, canonical_ref_spelling(ref), home=home))
 
@@ -349,7 +370,7 @@ class ResourceRegistry:
         if (location := self.locations.get(absolute)) is not None:
             return location
         resource, _, fragment = absolute.partition("#")
-        if (not fragment or fragment.startswith("/")) and (root := self.locations.get(resource)):
+        if is_pointer_fragment(fragment) and (root := self.locations.get(resource)):
             return f"{root}{fragment}" if fragment else root
         return None
 

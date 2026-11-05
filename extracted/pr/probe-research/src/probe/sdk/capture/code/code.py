@@ -33,7 +33,7 @@ from probe.foundation.walk_skips import (  # noqa: F401 -- CACHEDIR_* served her
     GENERATED_DIRS,
     is_tagged_cache_dir,
 )
-from ...recording_rules import ignore as _ignore
+from ...recording_rules import recording_rules as _ignore
 from .. import owndirs as _owndirs
 from ...errors import RosError
 from ...artifact.hashing import local_file_uri
@@ -147,21 +147,6 @@ def _classify_by_size(
 PROBEIGNORE_REPORT_LIMIT = 50
 
 
-def _probe_config_excluded(path: str, is_dir: bool) -> bool:
-    """Excluded by a researcher's `.probe.config` (paths Probe never records).
-    Never reported: not even the name of an excluded path goes into a manifest."""
-    from ...recording_rules import recording_rules as _exclusions
-
-    return _exclusions.excluded(path, is_dir=is_dir, hot=True).excluded
-
-
-def _config_checker():
-    """A `.probe.config` checker for one snapshot (`probe_config.Checker`)."""
-    from ...recording_rules import recording_rules as _exclusions
-
-    return _exclusions.checker(hot=True)
-
-
 class _Ignored:
     """Paths a ``.probeignore`` pattern excluded (plan (n)), reported under
     reason ``probeignore``: an excluded directory once (the top-most one), not
@@ -169,9 +154,7 @@ class _Ignored:
     with the exact count in ``count``.
 
     Applied AFTER the safety stops: a credential is reported as one whatever
-    the patterns say, and nothing here can re-include a path. A path a
-    researcher's ``.probe.config`` excludes is dropped BEFORE everything,
-    silently (`config_excluded`): no record names it.
+    the patterns say, and nothing here can re-include a path.
     """
 
     def __init__(self, rules: _ignore.IgnoreRules | None, cwd: str) -> None:
@@ -179,7 +162,6 @@ class _Ignored:
         self.cwd = cwd
         self.records: dict[str, dict[str, Any]] = {}
         self._dirs: dict[str, bool] = {}
-        self._config = _config_checker()
         self.count = 0
 
     def _dir(self, rel_dir: str) -> bool:
@@ -191,31 +173,9 @@ class _Ignored:
             )
         return hit
 
-    def _config_dir(self, rel_dir: str) -> bool:
-        """For a walk that prunes: is this folder closed (`off`)? A `read` folder
-        stays open, for an `@probe on` line inside it; its files are checked."""
-        return self._config.closed(os.path.join(self.cwd, rel_dir))
-
-    def config_excluded(self, rel: str) -> bool:
-        """Is this file excluded by a `.probe.config` (itself, or a closed folder
-        above it)? One `Checker` per snapshot: paths in a row share their folders."""
-        return self._config.check(os.path.join(self.cwd, rel), is_dir=False).excluded
-
-    def unnamed(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """`records` minus any whose path a `.probe.config` excludes (as a file
-        or a folder): a manifest never names an excluded path, whatever the
-        reason it would have been reported for."""
-        return [
-            r for r in records
-            if not isinstance(r.get("path"), str)
-            or not self._config.check(os.path.join(self.cwd, r["path"])).excluded
-        ]
-
     def directory(self, rel_dir: str) -> bool:
         """For a walk that prunes: is this directory excluded (recorded if a
         `.probeignore` excluded it)?"""
-        if self._config_dir(rel_dir):
-            return True
         if self.rules is None or not self._dir(rel_dir):
             return False
         self.records.setdefault(rel_dir, {"path": rel_dir, "reason": _ignore.REASON})
@@ -223,8 +183,6 @@ class _Ignored:
 
     def path(self, rel: str) -> bool:
         """Is this file excluded, by itself or by an excluded parent directory?"""
-        if self.config_excluded(rel):
-            return True
         if self.rules is None:
             return False
         parts = rel.split("/")
@@ -282,7 +240,6 @@ def _include_entries(
     same goes for the SDK's own folders (``own``, `probe.sdk.capture.owndirs`): its
     queue is never the run's code, reported once per folder.
     """
-    config = _config_checker()
     import glob as _glob
 
     own_reported = {s["path"] for s in skipped if s.get("reason") == _owndirs.REASON}
@@ -311,8 +268,6 @@ def _include_entries(
                     raise SnapshotError(f"--include {pattern!r} escapes {cwd}: {rel}")
                 if rel in already or rel in seen:
                     continue
-                if config.check(full, is_dir=os.path.isdir(full)).excluded:
-                    continue  # a researcher's `.probe.config` beats an explicit include
                 top = own.top(rel) if own is not None else None
                 if top is not None:
                     if top not in own_reported:

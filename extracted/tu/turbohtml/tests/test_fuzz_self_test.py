@@ -7,6 +7,7 @@ import importlib
 import importlib.util
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from subprocess import run  # ruff: ignore[suspicious-subprocess-import] - libFuzzer owns a separate interpreter.
@@ -17,7 +18,7 @@ from fuzz.atheris_header import HEADER_SIZE, SEED_HEADER, Header
 from fuzz.atheris_runtime import build_runtime
 
 import turbohtml
-from turbohtml import Html, Markdown, Minify, NodeIterator, _html, detect, parse, parse_xml
+from turbohtml import Html, Indent, Markdown, Minify, NodeIterator, _html, detect, parse, parse_xml
 from turbohtml._html import _tree_verify
 from turbohtml.clean import (
     CSSMinify,
@@ -30,6 +31,7 @@ from turbohtml.clean import (
     PhoneNumbers,
     Policy,
     Sanitizer,
+    collapse_whitespace_node,
     minify,
     minify_css,
     minify_css_inline,
@@ -39,9 +41,11 @@ from turbohtml.conformance import check
 from turbohtml.cssom import StyleDeclaration, StyleSheet, computed_style
 from turbohtml.extract import normalize_url
 from turbohtml.migration.stdlib import HTMLParser
+from turbohtml.mutations import MutationObserver
 from turbohtml.rewrite import rewrite
 from turbohtml.transform import Transform, strparam
 from turbohtml.treebuild import parse_into
+from turbohtml.validate import RelaxNG, XMLSchema
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -476,6 +480,10 @@ _MINIFY_CSS: Final[Html] = Html(layout=Minify(minify_css=CSSMinify()))
         pytest.param(lambda: minify_css_inline(_DECLARATIONS), id="inline"),
         pytest.param(lambda: minify_css(".\\31 x{color:red}.y{content:'open"), id="spelled"),
         pytest.param(lambda: minify_css(_MERGES), id="merges"),
+        # a nested selector whose first token fails to land, then whitespace and a comment ahead of the next token
+        pytest.param(lambda: minify_css(".a{b c{color:red}b/**/c{color:red}}"), id="nested-selector"),
+        # a spaced math operator that fails to land, so its trailing space would start the argument buffer
+        pytest.param(lambda: minify_css(".a{width:max( + )}"), id="math-operator"),
     ],
 )
 def test_css_minify_allocation_failure_raises_memory_error(
@@ -584,6 +592,38 @@ def test_xslt_number_allocation_failure_raises_memory_error(alloc_sweep: Callabl
         "</xsl:stylesheet>"
     )
     assert set(alloc_sweep(Transform(stylesheet), lambda: parse_xml("<r><p/><p/></r>"))) == {"MemoryError"}
+
+
+# lazily built defines and every name class form, so both the compile and the validation derivatives allocate patterns
+_RELAXNG: Final = (
+    '<grammar xmlns="http://relaxng.org/ns/structure/1.0" '
+    'datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes"><start><ref name="doc"/></start>'
+    '<define name="doc"><element name="doc"><attribute name="id"><data type="int">'
+    '<param name="minInclusive">1</param></data></attribute><interleave><zeroOrMore><ref name="item"/></zeroOrMore>'
+    '<element name="x"><list><oneOrMore><value>a</value></oneOrMore></list></element></interleave></element></define>'
+    '<define name="item"><element><nsName ns=""><except><name>x</name></except></nsName><mixed><optional>'
+    '<element><anyName><except><choice><name>c</name><nsName ns="urn:p"/></choice></except></anyName><empty/>'
+    "</element></optional></mixed></element></define></grammar>"
+)
+_RELAXNG_SCHEMA: Final = RelaxNG(_RELAXNG)
+
+
+@pytest.mark.fuzz_build
+@pytest.mark.parametrize(
+    ("call", "setup"),
+    [
+        pytest.param(lambda _: RelaxNG(_RELAXNG), lambda: None, id="relaxng-compile"),
+        pytest.param(
+            _RELAXNG_SCHEMA.validate,
+            lambda: parse_xml('<doc id="2"><a>t<b/></a><x>a a</x><z/></doc>'),
+            id="relaxng-validate",
+        ),
+    ],
+)
+def test_relaxng_allocation_failure_raises_memory_error(
+    alloc_sweep: Callable[..., list[str]], call: Callable[[object], object], setup: Callable[[], object]
+) -> None:
+    assert set(alloc_sweep(call, setup)) == {"MemoryError"}
 
 
 @pytest.mark.fuzz_build
@@ -782,6 +822,165 @@ def test_selector_allocation_failure_raises_memory_error(
     alloc_sweep: Callable[..., list[str]], call: Callable[[turbohtml.Document], object]
 ) -> None:
     assert set(alloc_sweep(call, _document)) == {"MemoryError"}
+
+
+_AB: Final = re.compile(r"ab")
+# more code points than the largest arena block holds, so realizing the span always allocates
+_BIG: Final = "a" * 70_000
+
+
+def _markdown(markup: str, name: str) -> object:
+    return pytest.param(lambda node: node.to_markdown(), lambda: parse(markup), id=f"markdown-{name}")
+
+
+def _big_paragraph() -> turbohtml.Element:
+    return cast("turbohtml.Element", parse(f"<p>{_BIG}</p><i>b</i>").select_one("p"))
+
+
+def _big_text() -> turbohtml.Text:
+    return cast("turbohtml.Text", _big_paragraph().children[0])
+
+
+def _split_paragraph() -> turbohtml.Element:
+    paragraph = _big_paragraph()
+    paragraph.append(turbohtml.Text("b"))
+    return paragraph
+
+
+def _range(*, across: bool) -> turbohtml.Range:
+    paragraph = _big_paragraph()
+    text = paragraph.children[0]
+    boundary = turbohtml.Range(text, 1)
+    if across:
+        boundary.set_end(cast("turbohtml.Element", paragraph.next_sibling), 0)
+    else:
+        boundary.set_end(text, 5)
+    return boundary
+
+
+@pytest.mark.fuzz_build
+@pytest.mark.parametrize(
+    ("call", "setup"),
+    [
+        pytest.param(lambda node: node.canonicalize(), lambda: parse(f"<p>{_BIG}</p>"), id="c14n"),
+        pytest.param(lambda node: node.canonicalize(), lambda: parse_xml(f"<r>{_BIG}</r>"), id="c14n-xml"),
+        pytest.param(
+            lambda node: node.serialize(Html(layout=Indent())),
+            lambda: parse(f"<div><p>a</p>{_BIG}<p>b</p></div>"),
+            id="indent",
+        ),
+        pytest.param(lambda node: node.serialize(), lambda: parse(f"<pre>{_BIG}</pre>"), id="pre-newline"),
+        pytest.param(lambda node: node.to_source(), lambda: parse(f"<pre>{_BIG}</pre>"), id="lossless"),
+        pytest.param(
+            lambda node: node.serialize(Html(layout=Minify(collapse_whitespace=True))),
+            lambda: parse(f"<p>{_BIG}</p>"),
+            id="minify",
+        ),
+        pytest.param(
+            lambda node: node.serialize(Html(layout=Minify(omit_optional_tags=True))),
+            lambda: parse(f"<body>{_BIG}</body>"),
+            id="minify-body",
+        ),
+        pytest.param(
+            lambda node: node.serialize(Html(layout=Minify(minify_js=JSMinify()))),
+            lambda: parse(f"<script>{_BIG}</script>"),
+            id="minify-js",
+        ),
+        pytest.param(
+            lambda node: node.serialize(Html(layout=Minify(minify_css=CSSMinify()))),
+            lambda: parse(f"<style>{_BIG}</style>"),
+            id="minify-css",
+        ),
+        pytest.param(lambda node: node.find("p", text=_AB), lambda: parse(f"<p>a<b>{_BIG}</b></p>"), id="find"),
+        _markdown(f"<p><em>{_BIG}.</em>b</p>", "flank"),
+        _markdown(f"<p><em>a.</em>{_BIG}</p>", "after"),
+        _markdown(f"<ul><li>{_BIG}</li></ul>", "item"),
+        _markdown(f"<ul><li> <p>{_BIG}</p></li></ul>", "item-lead"),
+        _markdown(f"<pre>{_BIG}</pre>", "pre"),
+        _markdown(f"<p>a<br>{_BIG}</p>", "break"),
+        _markdown(f"<p><b>{_BIG}</b></p>", "edge"),
+        pytest.param(lambda text: setattr(text, "data", "b"), _big_text, id="set-data"),
+        pytest.param(
+            lambda pair: pair[0].equals(pair[1]),
+            lambda: (parse(f"<p>{_BIG}</p>"), parse(f"<p>{_BIG}</p>")),
+            id="equals",
+        ),
+        pytest.param(copy.copy, _big_text, id="copy"),
+        pytest.param(lambda paragraph: paragraph.normalize(), _split_paragraph, id="normalize"),
+        pytest.param(lambda boundary: boundary.clone_contents(), lambda: _range(across=False), id="range-clone"),
+        pytest.param(lambda boundary: boundary.extract_contents(), lambda: _range(across=True), id="range-extract"),
+        pytest.param(lambda boundary: boundary.delete_contents(), lambda: _range(across=False), id="range-delete"),
+        pytest.param(
+            Transform(
+                parse_xml(
+                    '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+                    '<xsl:strip-space elements="*"/>'
+                    '<xsl:template match="/"><xsl:value-of select="string-length(/r)"/></xsl:template>'
+                    "</xsl:stylesheet>"
+                )
+            ),
+            lambda: parse_xml(f"<r>{_BIG}</r>"),
+            id="xslt-strip-space",
+        ),
+    ],
+)
+def test_lazy_text_allocation_failure_raises_memory_error(
+    alloc_sweep: Callable[..., list[str]], call: Callable[[turbohtml.Node], object], setup: Callable[[], object]
+) -> None:
+    assert set(alloc_sweep(call, setup)) == {"MemoryError"}
+
+
+_ARTICLE: Final = f"<html><body><article><p>{_BIG},</p></article></body></html>"
+_EMPTY_CONTENT: Final = XMLSchema(
+    '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">'
+    '<xs:element name="r"><xs:complexType><xs:sequence/></xs:complexType></xs:element>'
+    "</xs:schema>"
+)
+
+
+def _observed_text() -> tuple[turbohtml.Text, MutationObserver]:
+    text = _big_text()
+    observer = MutationObserver()
+    observer.observe(text, character_data=True, character_data_old_value=True)
+    return text, observer
+
+
+def _set_observed_data(pair: tuple[turbohtml.Text, MutationObserver]) -> str:
+    pair[0].data = "b"
+    return pair[0].data
+
+
+def _collapse_after_failed_render(document: turbohtml.Document) -> str:
+    # a render that fails to realize the text leaves the node without it, and the next walk must not read it
+    with contextlib.suppress(MemoryError):
+        document.canonicalize()
+    return collapse_whitespace_node(document).serialize()
+
+
+@pytest.mark.fuzz_build
+@pytest.mark.parametrize(
+    ("call", "setup"),
+    [
+        pytest.param(lambda document: document.main_text(), lambda: parse(_ARTICLE), id="main-text"),
+        pytest.param(lambda document: document.article().text, lambda: parse(_ARTICLE), id="article"),
+        pytest.param(_set_observed_data, _observed_text, id="set-data-observed"),
+        pytest.param(
+            lambda document: _EMPTY_CONTENT.validate(document).valid,
+            lambda: parse_xml(f"<r>{_BIG}</r>"),
+            id="xsd-element-only",
+        ),
+        pytest.param(_collapse_after_failed_render, lambda: parse(f"<p>{_BIG}  b</p>"), id="collapse-after-failure"),
+    ],
+)
+def test_lazy_text_allocation_failure_raises_or_keeps_result(
+    alloc_sweep: Callable[..., list[str]], call: Callable[[object], object], setup: Callable[[], object]
+) -> None:
+    # these walks already shrug off some failures they cannot report (a dropped readability candidate or mutation
+    # record), so a run may still succeed; it must then match the unfailed result
+    expected: Final = call(setup())
+    outcomes: Final = set(alloc_sweep(call, setup, valid=lambda result: result == expected))
+    assert outcomes <= {"MemoryError", "result"}
+    assert "MemoryError" in outcomes
 
 
 if TYPE_CHECKING:

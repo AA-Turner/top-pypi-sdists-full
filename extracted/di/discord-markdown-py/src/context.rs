@@ -1,15 +1,13 @@
-use std::{collections::HashSet, fmt::Debug, marker::PhantomData, rc::Rc};
+use std::{collections::HashSet, fmt::Debug, rc::Rc};
 
-use nom::Parser;
-use start_sequence::StartSequence;
-use syntax_set::ContextualSyntaxes;
-use terminal_sequence::TerminalSequence;
+use enumset::enum_set;
 
 use crate::{
-	context::{fuel::Fuel, line_prefix::LinePrefix, matched_pairs::MatchedPairsParser},
-	error::ParseError,
+	context::fuel::Fuel,
+	error::{Fail, PResult},
 	range::delim::Offset,
 	scope::Scope,
+	util::balanced_span,
 };
 
 use super::{
@@ -21,31 +19,33 @@ use super::{
 };
 
 pub mod fuel;
-mod line_prefix;
-mod matched_pairs;
-mod start_sequence;
 mod syntax;
-mod syntax_set;
-mod terminal_sequence;
+
+/// The scopes whose content is a balanced bracket pair, which [`Context::matched_pairs`] skips
+/// over whole.
+pub const MATCHED_PAIR_SCOPES: ScopeSet = enum_set!(Scope::MaskedLinkText);
 
 /// The amount of fuel [`Options::default`] gives a parse.
 ///
 /// Sized so that content a user can plausibly send finishes with a wide margin, while a
 /// pathological input still terminates. Two measurements set it, taken against a release build:
 ///
-/// - Real messages are nowhere near it. The announcement posts in `test_content` need 12–66 fuel;
-///   ordinary prose costs about 1 fuel per line plus well under 1 per 100 bytes, because a run of
-///   plain text is a single inline parse no matter how long it is.
-/// - Adversarial input is what costs. The most expensive 4000-character inputs the timeout tests
-///   know about -- short lines that each open a delimiter, some before block syntax -- burn about
-///   2.6k, under 1 fuel per byte, in about 3ms. That is the realistic worst case for a Discord
-///   message, whose limit is 4000 characters, and this default is far above it.
+/// - Real messages are far below it. The announcement posts in `test_content` need 13–84 fuel.
+///   What costs is lines, at 1–2 fuel each, since a run of plain text is a single inline parse no
+///   matter how long it is and a link costs a unit or two more to scan. The most a plausible
+///   4000-character message needs is about 4k, for one that is nothing but one-character or blank
+///   lines: over 10x headroom.
+/// - Adversarial input costs no more. Short lines that each open a delimiter, some before block
+///   syntax, burn about 2.6k in about 1ms, and a run of `<` closed by one `>`, each trying an
+///   autolink, burns about 4k. The slowest 4000-character input known, a masked link begun at
+///   each of about 1000 `[`, each with a run of unclosed `(` as its URL, burns about 2k in about
+///   30ms.
 ///
-/// Modifiers no longer backtrack at all, so the default leaves room for rules that might. The
-/// effect is to cap a pathological parse rather than letting it run unbounded. A caller parsing
-/// only message-length content can safely tighten this a long way; see [`Options::fuel`] for what
-/// moving it in either direction costs.
-pub const DEFAULT_FUEL: u32 = 500_000;
+/// Message-length content is bounded by its length as much as by fuel, so the budget is what
+/// catches a parse of longer content, or a rule change that brings back backtracking, before it
+/// runs away. A parse that runs dry fails outright, so see [`Options::fuel`] for what moving this
+/// in either direction costs.
+pub const DEFAULT_FUEL: u32 = 50_000;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Options {
@@ -60,9 +60,10 @@ pub struct Options {
 	/// How much work the parse is allowed to do before it gives up with
 	/// [`fuel::OutOfFuel`].
 	///
-	/// One unit of fuel buys one invocation of the inline parser, or one line of block content.
-	/// Those are the parser's units of backtracking, so the count includes every attempt that a
-	/// rule later abandons — which is exactly where pathological input spends its time. Fuel is a
+	/// One unit of fuel buys one invocation of the inline parser, one line of block content, or
+	/// one scan for a URL. Those are the parser's units of backtracking, so the count includes
+	/// every attempt that a rule later abandons — which is exactly where pathological input spends
+	/// its time. Fuel is a
 	/// single tank shared by the whole parse, not a per-rule or per-nesting-level allowance, so it
 	/// bounds total work rather than depth.
 	///
@@ -165,8 +166,8 @@ const _: () = assert!(Options::ALL_FLAGS <= i32::MAX as u32);
 /// As context descends, each [`Scope::disabled_syntaxes`] is subtracted from the parent
 /// [`Context::syntaxes`]. This ensures that the allowed syntax only becomes more restrictive.
 ///
-/// Each scope is accumulated in a [`ScopeSet`] which parses the [`Scope::terminal_sequence`] and
-/// [`Scope::global_terminal_sequence`] in [`Context::guard_terminal_sequence`].
+/// Each scope is accumulated in a [`ScopeSet`], whose terminal sequences [`Context::at_terminal`]
+/// checks.
 #[derive(Debug, Clone)]
 pub struct Context {
 	/// The scope being parsed.
@@ -227,7 +228,8 @@ impl Context {
 	}
 
 	/// This parse's fuel tank, started at [`Options::fuel`]. The inline parser spends a unit per
-	/// invocation and the block parser a unit per line.
+	/// invocation, the block parser a unit per line, and the link parsers a unit per scan for a
+	/// URL.
 	///
 	/// This is how a caller measures what its own corpus costs, which is what picking a value for
 	/// [`Options::fuel`] rests on. [`crate::parse`] builds its context internally, so measuring
@@ -236,16 +238,14 @@ impl Context {
 	/// when it finishes:
 	///
 	/// ```
-	/// # use discord_markdown::{context::{Context, Options}, node::block};
-	/// # use nom::{combinator::all_consuming, Finish, Parser};
+	/// # use discord_markdown::{Input, context::{Context, Options}, node::block};
 	/// let options = Options::default();
 	/// let context = Context::new(options);
 	///
-	/// let result = all_consuming(block::block::<(), nom::error::Error<_>>(context.clone()))
-	///     .parse_complete("**hello** world".into())
-	///     .finish();
+	/// let mut input = Input::from("**hello** world");
+	/// let result = block::block::<()>(&mut input, &context);
 	///
-	/// assert!(result.is_ok());
+	/// assert!(result.is_ok() && input.is_empty());
 	/// println!("used {} fuel", options.fuel - context.remaining_fuel().get());
 	/// ```
 	#[must_use]
@@ -307,87 +307,121 @@ impl Context {
 	/// Parse any allowed inline syntax in the current context, with the syntax it was written with
 	/// outside its children. Modifiers are not among them: they are recorded as delimiters and
 	/// resolved afterwards; see [`crate::range`].
-	#[must_use]
-	pub fn allowed_inline_syntax<'data, 'ctx, S, E>(
-		&'ctx self,
-	) -> impl Parser<Input<'data>, Output = (Element<'data, S>, S::Syntax), Error = E> + 'ctx
-	where
-		S: Span,
-		E: ParseError<'data> + 'ctx,
-	{
-		ContextualSyntaxes::from_context(self, self.syntaxes & Syntax::INLINE)
+	///
+	/// # Errors
+	/// If no allowed inline syntax begins the input.
+	pub fn allowed_inline_syntax<'data, S: Span>(
+		&self,
+		input: &mut Input<'data>,
+	) -> PResult<(Element<'data, S>, S::Syntax)> {
+		self.first_syntax(input, self.syntaxes & Syntax::INLINE)
 	}
 
 	/// Parse any allowed block syntax in the current context, as [`Self::allowed_inline_syntax`].
-	#[must_use]
-	pub fn allowed_block_syntax<'data, 'ctx, S, E>(
-		&'ctx self,
-	) -> impl Parser<Input<'data>, Output = (Element<'data, S>, S::Syntax), Error = E> + 'ctx
-	where
-		S: Span,
-		E: ParseError<'data> + 'ctx,
-	{
-		ContextualSyntaxes::from_context(self, self.syntaxes & Syntax::BLOCK)
-	}
-
-	/// Get allowed start sequences for the current context. This is based on [`Self::syntaxes`]:
-	/// for example, if [`Syntax::Code`] is in this set, then this will match its start sequence
-	/// (`` ` ``).
-	#[must_use]
-	pub fn allowed_start_sequences<'ctx, 'data, E>(
-		&'ctx self,
-	) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-	where
-		E: ParseError<'data> + 'ctx,
-	{
-		StartSequence(self.syntaxes, PhantomData)
-	}
-
-	/// Check whether we are in a terminal sequence; if not, apply the `normal` parser. Fails if a
-	/// terminal sequence is encountered.
-	pub fn guard_terminal_sequence<'ctx, 'data, O, E, P>(
-		&'ctx self,
-		normal: impl Fn() -> P + 'ctx,
-	) -> impl Parser<Input<'data>, Output = O, Error = E> + 'ctx
-	where
-		E: ParseError<'data> + 'ctx,
-		P: Parser<Input<'data>, Output = O, Error = E> + 'ctx,
-		O: Debug,
-	{
-		TerminalSequence {
-			context: self,
-			normal,
-			error: PhantomData,
-		}
-	}
-
-	#[must_use]
-	pub fn matched_pairs<'data, E>(
+	///
+	/// # Errors
+	/// If no allowed block syntax begins the input.
+	pub fn allowed_block_syntax<'data, S: Span>(
 		&self,
-	) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-	where
-		E: ParseError<'data>,
-	{
-		MatchedPairsParser {
-			scopes: self.scopes(),
-			error: PhantomData,
-		}
+		input: &mut Input<'data>,
+	) -> PResult<(Element<'data, S>, S::Syntax)> {
+		self.first_syntax(input, self.syntaxes & Syntax::BLOCK)
 	}
 
-	/// The line prefix required at the start of each line in this context, e.g. `> ` inside a
-	/// quote. Matches the empty string when there is no enclosing container, so it can be applied
+	/// The first of `syntaxes`, in [`Syntax::PARSE_ORDER`], that parses here.
+	fn first_syntax<'data, S: Span>(
+		&self,
+		input: &mut Input<'data>,
+		syntaxes: SyntaxSet,
+	) -> PResult<(Element<'data, S>, S::Syntax)> {
+		let syntaxes = match input.as_bytes().first() {
+			Some(&first) => syntaxes & Syntax::may_parse_at(first),
+			None => syntaxes,
+		};
+		if syntaxes.is_empty() {
+			return Err(Fail::NoMatch);
+		}
+
+		for syntax in Syntax::PARSE_ORDER {
+			if !syntaxes.contains(syntax) || self.hints.rules_out(syntax) {
+				continue;
+			}
+			if let Some(parsed) = input.attempt(|input| syntax::parse(syntax, self, input))? {
+				return Ok(parsed);
+			}
+		}
+		Err(Fail::NoMatch)
+	}
+
+	/// Whether any allowed syntax could begin at `input`; see [`Syntax::starts_at`].
+	#[must_use]
+	pub fn starts_syntax(&self, input: &Input) -> bool {
+		let Some(&first) = input.as_bytes().first() else {
+			return false;
+		};
+		(self.syntaxes & Syntax::starting_with(first))
+			.iter()
+			.any(|syntax| syntax.starts_at(input))
+	}
+
+	/// Whether `input` ends this scope or one enclosing it, so that nothing in this scope may
+	/// consume it.
+	///
+	/// The opener of a matched pair counts: the parent has to see the pair to skip it, rather than
+	/// a child consuming its opening token.
+	#[must_use]
+	pub fn at_terminal(&self, input: &Input) -> bool {
+		// every terminal and pair opener begins with a boundary byte, but for the end of the input
+		if input
+			.as_bytes()
+			.first()
+			.is_some_and(|&byte| !Scope::is_boundary_byte(byte))
+		{
+			return false;
+		}
+
+		let opens_pair = (self.scopes() & MATCHED_PAIR_SCOPES)
+			.iter()
+			.filter_map(|scope| scope.bracket_delimiters())
+			.any(|(open, _)| input.as_bytes().first() == Some(&open));
+
+		opens_pair
+			|| self.scope.ends_at(input)
+			|| self
+				.parents
+				.iter()
+				.any(|scope| scope.ends_everything_at(input))
+	}
+
+	/// Consume a balanced bracket pair of an enclosing [`MATCHED_PAIR_SCOPES`] scope whole, as
+	/// text, so that the brackets inside it cannot end that scope.
+	///
+	/// # Errors
+	/// If no such pair begins the input.
+	pub fn matched_pairs<'data>(&self, input: &mut Input<'data>) -> PResult<&'data str> {
+		for scope in (self.scopes() & MATCHED_PAIR_SCOPES).iter() {
+			let Some((open, close)) = scope.bracket_delimiters() else {
+				continue;
+			};
+			if let Some(len) = balanced_span(input.as_bytes(), open, close) {
+				return Ok(input.advance(len));
+			}
+		}
+		Err(Fail::NoMatch)
+	}
+
+	/// Consume the line prefix required at the start of each line in this context, e.g. `> `
+	/// inside a quote. Consumes nothing when there is no enclosing container, so it can be applied
 	/// unconditionally at the start of every line.
-	#[must_use]
-	pub fn line_prefix<'data, E>(
-		&self,
-	) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E> + use<'data, E>
-	where
-		E: ParseError<'data>,
-	{
-		LinePrefix {
-			scopes: self.scopes(),
-			error: PhantomData,
-		}
+	///
+	/// # Errors
+	/// If the line does not begin with the prefix.
+	pub fn line_prefix<'data>(&self, input: &mut Input<'data>) -> PResult<&'data str> {
+		self.scopes()
+			.iter()
+			.find(|scope| scope.has_line_prefix())
+			.unwrap_or(Scope::None)
+			.line_prefix(input)
 	}
 
 	/// The current scope and every scope enclosing it.

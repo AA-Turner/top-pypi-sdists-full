@@ -21,7 +21,7 @@ import numpy
 import logging
 from pyscf import lib
 from pyscf.geomopt.addons import (as_pyscf_method, dump_mol_geometry,
-                                  symmetrize)  # noqa
+                                  symmetrize)
 from pyscf import __config__
 from pyscf.grad.rhf import GradientsBase
 
@@ -71,7 +71,7 @@ def to_berny_log(pyscf_log):
         def emit(self, record):
             pyscf_log.info(record.getMessage())
 
-    log = logging.getLogger('{}.{}'.format(__name__, id(pyscf_log)))
+    log = logging.getLogger(f'{__name__}.{id(pyscf_log)}')
     log.addHandler(PyscfHandler())
     log.setLevel('INFO')
     return log
@@ -205,42 +205,3 @@ class GeometryOptimizer(lib.StreamObject):
     optimize = kernel
 
 del (INCLUDE_GHOST, ASSERT_CONV)
-
-
-if __name__ == '__main__':
-    from pyscf import gto
-    from pyscf import scf, dft, cc, mp
-    mol = gto.M(atom='''
-C       1.1879  -0.3829 0.0000
-C       0.0000  0.5526  0.0000
-O       -1.1867 -0.2472 0.0000
-H       -1.9237 0.3850  0.0000
-H       2.0985  0.2306  0.0000
-H       1.1184  -1.0093 0.8869
-H       1.1184  -1.0093 -0.8869
-H       -0.0227 1.1812  0.8852
-H       -0.0227 1.1812  -0.8852
-                ''',
-                basis='3-21g')
-
-    mf = scf.RHF(mol)
-    conv_params = {
-        'gradientmax': 6e-3,  # Eh/Bohr
-        'gradientrms': 2e-3,  # Eh/Bohr
-        'stepmax': 2e-2,      # Bohr
-        'steprms': 1.5e-2,    # Bohr
-    }
-    mol1 = optimize(mf, **conv_params)
-    print(mf.kernel() - -153.219208484874)
-    print(scf.RHF(mol1).kernel() - -153.222680852335)
-
-    mf = dft.RKS(mol)
-    mf.xc = 'pbe,'
-    mf.conv_tol = 1e-7
-    mol1 = optimize(mf)
-
-    mymp2 = mp.MP2(scf.RHF(mol))
-    mol1 = optimize(mymp2)
-
-    mycc = cc.CCSD(scf.RHF(mol))
-    mol1 = optimize(mycc)

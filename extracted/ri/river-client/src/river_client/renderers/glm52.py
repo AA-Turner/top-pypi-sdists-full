@@ -2,12 +2,14 @@
 
 from river_client.renderers.base import ParsedResponse, SamplePrompt, ToolSpec
 from river_client.renderers.checkpoint_text import CheckpointTextRenderer
-from river_client.renderers.glm53 import parse_glm53_content_blocks
+from river_client.renderers.glm53 import GLM_VALUE_ENDS, parse_glm53_content_blocks
 
 
 class Glm52Renderer(CheckpointTextRenderer):
     model_label = "GLM-5.2"
     reasoning_efforts = ("high", "max")
+    empty_reasoning_field = True
+    value_ends = GLM_VALUE_ENDS
 
     def __init__(
         self,

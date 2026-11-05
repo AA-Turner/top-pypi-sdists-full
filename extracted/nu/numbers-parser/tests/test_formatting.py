@@ -1,9 +1,11 @@
+from collections.abc import Generator
 from datetime import datetime, timedelta
 
 import pytest
 import pytest_check as check
 
 from numbers_parser import (
+    Cell,
     ControlFormattingType,
     Document,
     DurationStyle,
@@ -376,7 +378,7 @@ def test_custom_formatting(pytestconfig):
                 raise AssertionError
 
 
-def test_formatting_stress(pytestconfig):
+def test_custom_formatting_stress(pytestconfig):
     if pytestconfig.getoption("max_check_fails") is not None:
         max_check_fails = pytestconfig.getoption("max_check_fails")
     else:
@@ -395,6 +397,31 @@ def test_formatting_stress(pytestconfig):
             fails += 1
         if max_check_fails > 0 and fails >= max_check_fails:
             raise AssertionError
+
+
+def test_standard_formatting_stress():
+    def chunks(cells: list[Cell]) -> Generator[tuple[int, Cell, str]]:
+        for ii in range(0, len(cells), 2):
+            yield (ii, cells[ii], cells[ii + 1].formatted_value)
+
+    doc = Document("tests/data/standard-format-stress.numbers")
+    for sheet in doc.sheets:
+        table = sheet.tables[0]
+        for cells in table.iter_rows(min_row=1):
+            test_name = f"{sheet.name}:{cells[0].value}"
+            if not test_name:
+                continue
+            raw_value = cells[1].value
+            for idx, cell, formatted_value in chunks(cells[2:]):
+                if isinstance(cell, EmptyCell):
+                    continue
+                subtest_name = table.cell(0, idx + 2).value
+                check.equal(cell.value, raw_value, f"{test_name}:{subtest_name}:raw")
+                check.equal(
+                    formatted_value,
+                    cell.formatted_value,
+                    (f"{test_name}:{subtest_name}:formatted"),
+                )
 
 
 def test_write_date_format(configurable_save_file):

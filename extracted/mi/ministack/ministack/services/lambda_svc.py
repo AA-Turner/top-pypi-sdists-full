@@ -292,6 +292,27 @@ except ImportError:
     docker_lib = None
     _docker_available = False
 
+# docker-py talks to the daemon through requests, so a slow or wedged daemon
+# surfaces as a requests timeout or connection error (or a raw socket one on
+# attach/archive streams). Those say nothing about the image's architecture.
+_DOCKER_TRANSPORT_ERRORS: tuple[type[BaseException], ...] = (TimeoutError, ConnectionError)
+try:
+    _requests_exc: Any = importlib.import_module("requests.exceptions")
+    _DOCKER_TRANSPORT_ERRORS += (_requests_exc.ConnectionError, _requests_exc.Timeout)
+except ImportError:
+    pass
+
+
+def _is_docker_transport_error(exc: BaseException) -> bool:
+    """True when ``exc`` (or anything it wraps) is a daemon transport failure."""
+    seen = set()
+    while exc is not None and id(exc) not in seen:
+        if isinstance(exc, _DOCKER_TRANSPORT_ERRORS):
+            return True
+        seen.add(id(exc))
+        exc = exc.__cause__ or exc.__context__
+    return False
+
 _cached_docker_client = None
 _is_in_container: bool | None = None
 
@@ -1281,7 +1302,7 @@ def s3_code_region_message(bucket: str, layer: bool = False) -> str | None:
     S3 part differently from functions. None when the bucket is local or absent."""
     from ministack.services import s3 as s3_svc
 
-    home = s3_svc.bucket_region(bucket)
+    home = s3_svc._bucket_region_for_caller(bucket)
     if home is None or home == get_region():
         return None
     s3_message = (f"The bucket is in this region: {home}. Please use this region to retry the request" if layer
@@ -1302,7 +1323,7 @@ def _fetch_code_from_s3(bucket: str, key: str, version_id: str | None = None) ->
     fetches that specific S3 object version instead of the latest."""
     try:
         from ministack.services import s3 as s3_svc
-        obj = s3_svc._get_object_data(bucket, key, version_id=version_id)
+        obj = s3_svc._get_object_data_for_caller(bucket, key, version_id=version_id)
         if obj is not None:
             return obj
     except Exception as e:
@@ -3459,12 +3480,22 @@ def _kill_pool_entry(entry: dict) -> None:
             pass
         try:
             container.remove(force=True, v=True)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Lambda container %s not removed (%s); the reaper reclaims it once it has stopped",
+                           getattr(container, "id", "?"), exc)
     tmpdir = entry.get("tmpdir")
     if tmpdir and os.path.exists(tmpdir):
         import shutil
         shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def _live_container_ids() -> set:
+    """Pooled containers: any other stopped container labelled lambda is garbage for the reaper."""
+    with _warm_pool_lock:
+        return {getattr(e.get("container"), "id", None) for entries in _warm_pool.values() for e in entries} - {None}
+
+
+container_reaper.register_live_ids("lambda", _live_container_ids)
 
 
 def _pool_acquire(key: str, max_concurrency: int | None):
@@ -3974,21 +4005,23 @@ def _docker_cp_dir(container, src_dir: str, dest_dir: str, arcname: str = "."):
     under that subdir.
     """
     import tarfile
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w") as tar:
-        tar.add(src_dir, arcname=arcname)
-    buf.seek(0)
-    container.put_archive(dest_dir, buf)
+    # Closed on return: tarfile's TarInfo -> TarFile reference cycle keeps the
+    # buffer object alive until a full garbage collection.
+    with io.BytesIO() as buf:
+        with tarfile.open(fileobj=buf, mode="w") as tar:
+            tar.add(src_dir, arcname=arcname)
+        buf.seek(0)
+        container.put_archive(dest_dir, buf)
 
 
 def _docker_cp_file(container, src_path: str, dest_path: str):
     """Copy one local file (symlinks followed) into a container at ``dest_path``."""
     import tarfile
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w", dereference=True) as tar:
-        tar.add(src_path, arcname=dest_path.lstrip("/"))
-    buf.seek(0)
-    container.put_archive("/", buf)
+    with io.BytesIO() as buf:
+        with tarfile.open(fileobj=buf, mode="w", dereference=True) as tar:
+            tar.add(src_path, arcname=dest_path.lstrip("/"))
+        buf.seek(0)
+        container.put_archive("/", buf)
 
 
 # Bare-text body the RIE answers with (HTTP 200) when a run hits the function
@@ -4212,6 +4245,7 @@ def _parse_docker_flags(flags: str) -> dict:
     parser.add_argument("--security-opt", action="append", default=[])
     parser.add_argument("--privileged", action="store_true")
     parser.add_argument("--read-only", action="store_true")
+    parser.add_argument("--platform")
     args, _ = parser.parse_known_args(shlex.split(flags))
 
     kwargs: dict = {}
@@ -4249,6 +4283,8 @@ def _parse_docker_flags(flags: str) -> dict:
         kwargs["privileged"] = True
     if args.read_only:
         kwargs["read_only"] = True
+    if args.platform:
+        kwargs["platform"] = args.platform
 
     if args.tmpfs:
         tmpfs = {}
@@ -4329,6 +4365,12 @@ def _host_docker_arch(client):
             arch = ""
         _host_docker_arch_cache.append({"x86_64": "amd64", "aarch64": "arm64"}.get(arch, arch) or None)
     return _host_docker_arch_cache[0]
+
+
+# Declared platforms this host failed to run (no qemu/Rosetta): later spawns use the host's at once.
+_unrunnable_docker_platforms: set = set()
+# What a container whose runtime image is the wrong architecture logs as it dies.
+_ENTRYPOINT_EXEC_FORMAT_ERROR = "exec /lambda-entrypoint.sh: exec format error"
 
 
 def _declared_docker_platform(config: dict):
@@ -4538,7 +4580,7 @@ def _write_context_arn_shim(code_dir: str, runtime: str, handler: str) -> str | 
     try:
         # Another container of the same code may already hold the dir as a
         # read-only mount; a rename lands the file whole rather than truncated.
-        tmp_path = f"{shim_path}.{os.getpid()}.tmp"
+        tmp_path = f"{shim_path}.{os.getpid()}.{threading.get_ident()}.tmp"  # concurrent cold starts of one function
         with open(tmp_path, "w") as f:
             f.write(source)
         os.replace(tmp_path, shim_path)
@@ -4759,16 +4801,28 @@ def _spawn_lambda_container_impl(config: dict, code_zip: bytes | None,
     # functions that never declared one would break arm64 hosts without a
     # binfmt handler that ran those functions natively before.
     docker_platform = _declared_docker_platform(config) if _pin_platform else None
+    if docker_platform in _unrunnable_docker_platforms:
+        logger.debug("Lambda %s declares %s, which this host cannot run; using the host architecture",
+                     config.get("FunctionName"), docker_platform)
+        docker_platform = None
+    # An explicit --platform in LAMBDA_DOCKER_FLAGS wins over the declaration and never falls back.
+    flag_platform = _parse_docker_flags(LAMBDA_DOCKER_FLAGS).get("platform") if LAMBDA_DOCKER_FLAGS else None
+    docker_platform = flag_platform or docker_platform
     docker_arch = docker_platform.rsplit("/", 1)[1] if docker_platform else None
     if docker_platform:
         run_kwargs["platform"] = docker_platform
 
     def _platform_fallback(reason):
-        """The declared platform cannot run here: log it, run on the host's."""
+        """The declared platform cannot run here: log it, run on the host's (only an exec format error is remembered)."""
+        if flag_platform:
+            raise RuntimeError(f"LAMBDA_DOCKER_FLAGS --platform {flag_platform} cannot run here: {reason}")
+        if _ENTRYPOINT_EXEC_FORMAT_ERROR in reason:
+            _unrunnable_docker_platforms.add(docker_platform)
         logger.warning(
             "Lambda %s declares %s but this host cannot run it (%s); "
-            "running on the host architecture instead. Install a binfmt/qemu "
-            "handler (or Rosetta) for real cross-architecture execution.",
+            "running on the host architecture instead until MiniStack is reset "
+            "or restarted. Install a binfmt/qemu handler (or Rosetta) for real "
+            "cross-architecture execution.",
             config.get("FunctionName"), docker_platform, reason)
         return _spawn_lambda_container(config, code_zip, _pin_platform=False)
 
@@ -4821,15 +4875,23 @@ def _spawn_lambda_container_impl(config: dict, code_zip: bytes | None,
         try:
             client.images.pull(image, platform=docker_platform)
         except Exception as exc:
-            if docker_platform:
+            if docker_platform and not _is_docker_transport_error(exc):
                 return _platform_fallback(f"pull failed: {exc}")
             raise RuntimeError(f"Failed to pull image {image}: {exc}")
 
+    # Always create then start, never containers.run(): run() creates the
+    # container before starting it and drops the handle when start raises, so
+    # a failed start (a daemon read timeout, say) would leave it behind.
+    create_kwargs = {k: v for k, v in run_kwargs.items()
+                     if k not in ("detach", "stdin_open")}
+    try:
+        container = client.containers.create(**create_kwargs)
+    except Exception as exc:
+        if docker_platform and not _is_docker_transport_error(exc):
+            return _platform_fallback(f"container create failed: {exc}")
+        raise
     try:
         if _use_docker_cp or _cp_layers or trust_copies:
-            create_kwargs = {k: v for k, v in run_kwargs.items()
-                             if k not in ("detach", "stdin_open")}
-            container = client.containers.create(**create_kwargs)
             # Code: cp'd only in DinD mode (otherwise it's bind-mounted above).
             if _use_docker_cp:
                 _docker_cp_dir(container, code_dir, "/var/task")
@@ -4845,12 +4907,15 @@ def _spawn_lambda_container_impl(config: dict, code_zip: bytes | None,
                 _docker_cp_dir(container, ld, "/opt", arcname=".")
             for target, source in trust_copies or ():
                 _docker_cp_file(container, source, target)
-            container.start()
-        else:
-            container = client.containers.run(**run_kwargs)
+        container.start()
     except Exception as exc:
-        if docker_platform:
-            return _platform_fallback(f"container create/start failed: {exc}")
+        try:
+            container.remove(force=True, v=True)
+        except Exception as rm_exc:
+            logger.warning("Lambda %s: could not remove container %s after a failed start: %s",
+                           config.get("FunctionName"), getattr(container, "id", "?"), rm_exc)
+        if docker_platform and not _is_docker_transport_error(exc):
+            return _platform_fallback(f"container start failed: {exc}")
         raise
 
     if docker_platform:
@@ -4871,7 +4936,7 @@ def _spawn_lambda_container_impl(config: dict, code_zip: bytes | None,
             except Exception:
                 tail = ""
             try:
-                container.remove(force=True)
+                container.remove(force=True, v=True)
             except Exception:
                 pass
             return _platform_fallback(
@@ -8556,6 +8621,8 @@ def reset():
     _dynamodb_stream_positions.clear()
     _esm_backoff_until.clear()
     _pool_clear_all()
+    # A binfmt/qemu handler installed since takes effect from here.
+    _unrunnable_docker_platforms.clear()
     lambda_runtime.reset()
     with _provided_code_lock:
         _provided_code_dirs.clear()

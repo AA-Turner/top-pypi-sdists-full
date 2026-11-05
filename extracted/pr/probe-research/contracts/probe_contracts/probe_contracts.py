@@ -1,5 +1,5 @@
 """Contracts: the registry of every shared record, the vocabularies their fields use, the
-product-analytics event catalog and the client-message vocabulary."""
+product-analytics event and surface catalogs and the client-message vocabulary."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from enum import Enum
 
 from pydantic import BaseModel
 
-from .analytics import EventCatalog
+from .analytics import EventCatalog, SurfaceCatalog
 from .client_messages import (
     Action,
     Audience,
@@ -51,6 +51,8 @@ class Contracts:
     enums: tuple[type[Enum], ...]
     #: Every product-analytics event; each runtime's `Event` enum is drawn from it.
     events: EventCatalog
+    #: Every `surface` an event may carry; each runtime's `ProductSurface` enum is drawn from it.
+    surfaces: SurfaceCatalog
     #: What the server tells a client (client_messages/), enums first: its own generated files,
     #: so the stdlib-only tap and hooks get a copy.
     messages: tuple[type, ...] = ()
@@ -73,6 +75,7 @@ CONTRACTS = Contracts(
         LineageRelation,
     ),
     events=EventCatalog.load(),
+    surfaces=SurfaceCatalog.load(),
     messages=(Severity, Action, Audience, MessageCode, ClientMessage, ClientRefusalBody, ClientMessageList),
     transcript_switch=(TranscriptState, SwitchedBy),
     settings=(SettingKey, SetBy),

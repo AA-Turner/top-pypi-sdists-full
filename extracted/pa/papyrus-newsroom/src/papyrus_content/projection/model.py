@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
 
@@ -21,6 +21,8 @@ class ItemSummary:
     front_matter: dict
     aliases: tuple[str, ...]
     published_at: str | None
+    #: The Story's lineage, which its private star rating is keyed by (``item_stars.py``). Never printed and not part of any fingerprint.
+    lineage_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -40,6 +42,8 @@ class SiteIndex:
 
     items: tuple[ItemSummary, ...]
     load_item: Callable[[str], ProjectedItem]
+    #: ``{lineage id: stars (1 to 5)}`` of the rated Stories, read when the index was. Private: listings order by it and nothing prints it.
+    story_stars: Mapping[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -55,6 +59,8 @@ class ProjectionReport:
     follow_up_item_pages: bool = False
     rounds: int = 1
     skipped: list[str] = field(default_factory=list)
+    #: Items whose content could not be rendered (a deploy-time render only): ``{itemId, slug, error}``. Their pages are left as they are.
+    unrenderable: list[dict] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -72,4 +78,5 @@ class ProjectionReport:
             "errors": list(self.errors),
             "followUpItemPages": self.follow_up_item_pages,
             "rounds": self.rounds,
+            "unrenderable": list(self.unrenderable),
         }

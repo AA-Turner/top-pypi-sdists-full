@@ -8,6 +8,7 @@ and never switches lanes by itself.
 from __future__ import annotations
 
 import dataclasses
+from dataclasses import dataclass, field
 import json
 import os
 import sys
@@ -18,6 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+
+import yaml
 
 from ..knowledge_wiki.kinds import public_kinds_of
 from ..env import graphql_endpoint
@@ -81,8 +84,9 @@ from .monitor_records import (
 )
 from .parallel import DEFAULT_WORKERS, map_with_clients, worker_count
 from .publish_run import STATUS_ACCEPTED, PublishPlan, is_extractor_mention, plan_publish_run
+from .entity_extraction import ExtractionError, JevClient, RegistryMatcher, build_output, criteria_of, decide, describe_publication, find_candidates
 from .registry import build_registry, read_vocabulary_kinds
-from .topic_config import read_extra_stop_words, render, topic_modeling_configuration
+from .topic_config import english_stop_words, read_extra_stop_words, render, topic_modeling_configuration
 from .relation_review import (
     RELATION_STATES,
     RelationReviewError,
@@ -93,8 +97,10 @@ from .relation_review import (
     review_state,
 )
 from .corpus_export import DEFAULT_TYPES, biblicus_item_id, export_items, render_record, write_export
+from .candidate_filter import CandidateFilter, load_stop_words, rejected_keys, vocabulary_kinds
 from .reference_documents import (
     S3TextStore,
+    load_accepted_reference_documents,
     biblicus_reference_id,
     export_reference_documents,
     load_reference_documents,
@@ -201,9 +207,12 @@ def plan_changes(client: Any, plan: PublishPlan, *, workers: int = 1, client_fac
     for record, existing in zip(plan.records, current):
         model, expected = record["modelName"], record["expected"]
         if record.get("createOnly") and existing is not None:
-            changes.append({"modelName": model, "expected": existing, "current": existing, "action": "noop"})
+            changes.append({"modelName": model, "expected": existing, "current": existing, "action": "noop", "createOnly": True})
         else:
-            changes.append(build_record_change_from_current(model, expected, existing))
+            change = build_record_change_from_current(model, expected, existing)
+            if record.get("createOnly"):
+                change["createOnly"] = True
+            changes.append(change)
     for patch in plan.patches:
         changes.append({"modelName": patch["modelName"], "expected": patch["expected"], "current": None, "action": "update"})
     return changes
@@ -246,6 +255,7 @@ def _print_plan(label: str, plan: PublishPlan, changes: list[dict], apply: bool,
                     "counts": plan.counts,
                     "changes": {f"{model}:{action}": count for (model, action), count in sorted(actions.items())},
                     "warnings": plan.warnings,
+                    "dropped": [dropped.to_dict() for dropped in plan.dropped],
                 },
                 indent=2,
                 sort_keys=True,
@@ -257,6 +267,8 @@ def _print_plan(label: str, plan: PublishPlan, changes: list[dict], apply: bool,
         print(f"knowledge\t{label}\tplan\t{name}\t{count}")
     for (model, action), count in sorted(actions.items()):
         print(f"knowledge\t{label}\tchanges\t{model}\t{action}\t{count}")
+    for dropped in plan.dropped:
+        print(f"knowledge\t{label}\tdropped\t{dropped.kind}\t{dropped.name}\t{dropped.reason}")
     for warning in plan.warnings[:20]:
         print(f"knowledge\t{label}\twarning\t{warning}")
     if len(plan.warnings) > 20:
@@ -268,6 +280,22 @@ def _print_plan(label: str, plan: PublishPlan, changes: list[dict], apply: bool,
 def _path_option(options: dict[str, Any], name: str) -> Path | None:
     value = normalize_string(options.get(name))
     return Path(value) if value else None
+
+
+def _candidate_filter(run: Any, options: dict[str, Any], node_rows: list[dict]) -> CandidateFilter | None:
+    """The filter of the extractor's candidates (``candidate_filter.py``). With ``--stop-words`` or ``--vocabulary`` it is built from the site's
+    files and learned from the run's own extraction; without them only the rejected names are filtered, as before."""
+    if run is None or not run.entities:
+        return None
+    stop_words_file, vocabulary_file = _path_option(options, "stop-words"), _path_option(options, "vocabulary")
+    if stop_words_file is None and vocabulary_file is None:
+        candidate_filter = CandidateFilter()
+    else:
+        stop_words = load_stop_words(stop_words_file if stop_words_file and stop_words_file.exists() else None)
+        kinds = vocabulary_kinds(vocabulary_file.read_text(encoding="utf-8")) if vocabulary_file else None
+        candidate_filter = CandidateFilter.learn(run.entities, stop_words=stop_words, kinds=kinds)
+    candidate_filter.rejected = rejected_keys(node_rows)
+    return candidate_filter
 
 
 def knowledge_publish_run(flags: list[str]) -> None:
@@ -317,6 +345,7 @@ def knowledge_publish_run(flags: list[str]) -> None:
         reference_documents=[document.as_item() for document in documents],
         record_rows_for=read_record_rows,
         ledger=ledger,
+        candidate_filter=_candidate_filter(run, options, node_rows),
     )
     changes = plan_changes(client, plan, workers=workers, client_factory=worker_clients(client), known_rows=[*mention_rows, *record_rows_read])
     _print_plan("publish-run", plan, changes, apply, bool(options.get("json")))
@@ -326,6 +355,40 @@ def knowledge_publish_run(flags: list[str]) -> None:
             (ledger or MonitorLedger()).after_import(records, plan.monitor_imported, plan.record_matches).write(ledger_path)
         if not options.get("json"):
             print(f"knowledge\tpublish-run\tapplied\t{sum(1 for change in changes if change['action'] != 'noop')}")
+
+
+@dataclass
+class AcceptedDocuments:
+    """The accepted-only selection of Reference documents (``--reference-documents-accepted``)."""
+
+    documents: list
+    store: Any
+    without_text: list[dict[str, str]]
+    accepted_ids: list[str]
+    skipped: list[str] = field(default_factory=list)
+
+
+def _accepted_reference_documents(client: Any, options: dict[str, Any]) -> AcceptedDocuments | None:
+    if not options.get("reference-documents-accepted"):
+        return None
+    if normalize_string(options.get("reference-documents-bucket")):
+        raise ValueError("Pass --reference-documents-accepted or --reference-documents-bucket, not both: they choose the documents in different ways.")
+    corpus_key = normalize_string(options.get("corpus-key"))
+    if not corpus_key:
+        raise ValueError("--reference-documents-accepted needs --corpus-key (the publication's knowledge corpus key).")
+    corpus_id = knowledge_corpus_id({"key": corpus_key})
+    documents, without_text, store = load_accepted_reference_documents(client, corpus_id=corpus_id)
+    accepted_ids = [str(row["id"]) for row in store.references]
+    return AcceptedDocuments(documents, store, without_text, accepted_ids)
+
+
+def _no_accepted_documents_message(accepted: AcceptedDocuments) -> str:
+    reasons = "; ".join(f"{entry['referenceId']}: {entry['reason']}" for entry in accepted.without_text[:10])
+    more = f" (and {len(accepted.without_text) - 10} more)" if len(accepted.without_text) > 10 else ""
+    return (
+        f"--reference-documents-accepted found no accepted Reference with a text to read ({len(accepted.accepted_ids)} accepted). Nothing was written "
+        f"and no earlier file or state was removed. {reasons}{more}"
+    ).strip()
 
 
 def knowledge_corpus_export(flags: list[str]) -> None:
@@ -338,6 +401,7 @@ def knowledge_corpus_export(flags: list[str]) -> None:
     client = authoring_client(options)
     projector = load_projector(_projection_environment(options))
     items = export_items(client.list_records("PublishedItem"), url_resolver(projector), types)
+    accepted = _accepted_reference_documents(client, options)
     records, warnings = [], []
     if sources:
         corpus_key = normalize_string(options.get("corpus-key"))
@@ -348,13 +412,32 @@ def knowledge_corpus_export(flags: list[str]) -> None:
         records, warnings = load_monitor_records(
             client, corpus_id=knowledge_corpus_id({"key": corpus_key}), sources=sources, as_of=as_of, weeks=weeks,
         )
+        if accepted is not None:  # an accepted Reference is a document in this mode; counted as a record too it would hide its entities' pages
+            documented = {document.reference_id for document in accepted.documents}
+            records = [record for record in records if record.reference_id not in documented]
         if normalize_string(options.get("monitor-records-out")):
             write_records(Path(options["monitor-records-out"]), records, as_of=as_of, sources=sources)
     in_topic_model = bool(options.get("records-in-topic-model"))
     reference_files = []
     reference_counts: dict[str, int] = {}
     bucket = normalize_string(options.get("reference-documents-bucket"))
-    if bucket:  # explicit and opt-in: the corpus's own References with extracted text are documents (records stay data)
+    keep: frozenset[str] = frozenset()
+    if accepted is not None:
+        reference_files, reference_counts = export_reference_documents(
+            accepted.documents, accepted.store, out, skipped=accepted.skipped,
+            on_progress=lambda done, total: print(f"knowledge\tcorpus-export\treference documents {done}/{total}", flush=True),
+        )
+        kept = {file.item_id for file in reference_files}
+        accepted.without_text.extend(
+            {"referenceId": reference_id, "reason": accepted.store.reason_not_a_document(reference_id)} for reference_id in accepted.skipped
+        )
+        if not reference_files:
+            raise ValueError(_no_accepted_documents_message(accepted))
+        keep = frozenset(f"ref-{reference_id}.md" for reference_id in accepted.accepted_ids)  # a Reference still accepted keeps its earlier file
+        reference_counts["leftStubs"] = len(accepted.without_text)
+        if normalize_string(options.get("reference-documents-out")):
+            write_documents_file(Path(options["reference-documents-out"]), [d for d in accepted.documents if d.reference_id in kept], accepted.without_text)
+    elif bucket:  # explicit and opt-in: the corpus's own References with extracted text are documents (records stay data)
         corpus_key = normalize_string(options.get("corpus-key"))
         if not corpus_key:
             raise ValueError("--reference-documents-bucket needs --corpus-key (the publication's knowledge corpus key).")
@@ -368,19 +451,22 @@ def knowledge_corpus_export(flags: list[str]) -> None:
         kept = {file.item_id for file in reference_files}
         if normalize_string(options.get("reference-documents-out")):
             write_documents_file(Path(options["reference-documents-out"]), [document for document in documents if document.reference_id in kept])
-    counts = write_export(items, out, [render_record(record) for record in records] if in_topic_model else [], reference_files)
+    counts = write_export(items, out, [render_record(record) for record in records] if in_topic_model else [], reference_files, keep)
     counts.update({f"reference{name[0].upper()}{name[1:]}": count for name, count in reference_counts.items()})
     if records and not in_topic_model:  # data for counts and relations only: the topic model reads the site's own items
         counts["recordsAsData"] = len(records)
     for warning in warnings[:20]:
         print(f"knowledge\tcorpus-export\twarning\t{warning}", file=sys.stderr)
+    without_text = accepted.without_text if accepted is not None else []
     if options.get("json"):
-        print(json.dumps({"out": str(out), "types": list(types), **counts}, indent=2, sort_keys=True))
+        print(json.dumps({"out": str(out), "types": list(types), **counts, **({"referenceWithoutText": without_text} if accepted is not None else {})}, indent=2, sort_keys=True))
         return
     monitor = f"{counts['records']} monitor records\t" if "records" in counts else (f"{counts['recordsAsData']} monitor records (data only, not in the corpus)\t" if "recordsAsData" in counts else "")
     if "referenceDocuments" in counts:
         monitor += f"{counts['referenceDocuments']} reference documents ({counts['referenceDownloaded']} downloaded, {counts['referenceReused']} unchanged, {counts['referenceLeftStubs']} without text)\t"
     print(f"knowledge\tcorpus-export\t{counts['items']} items\t{monitor}{counts['undated']} undated\t{counts['removed']} removed\t{out}")
+    for entry in without_text:
+        print(f"knowledge\tcorpus-export\treference-without-text\t{entry['referenceId']}\t{entry['reason']}")
 
 
 def _whole(value: Any, flag: str, default: int | None) -> int | None:
@@ -767,7 +853,7 @@ def knowledge_entities_registry(flags: list[str]) -> None:
     options = parse_options(flags)
     out = _path_option(options, "out")
     if out is None:
-        raise ValueError("Pass --out FILE: the registry JSON for `biblicus extract typed-entities --registry`.")
+        raise ValueError("Pass --out FILE: the registry JSON for `papyrus knowledge extract-entities --registry`.")
     vocabulary_file = _path_option(options, "vocabulary")
     vocabulary = read_vocabulary_kinds(vocabulary_file) if vocabulary_file else None
     client = authoring_client(options)
@@ -779,6 +865,44 @@ def knowledge_entities_registry(flags: list[str]) -> None:
     aliases = sum(len(entry["aliases"]) for entry in registry)
     outside = sum(1 for warning in warnings if "which the vocabulary does not have" in warning)
     print(f"knowledge\tentities\tregistry\t{len(registry)} entities\t{aliases} aliases\t{len(warnings) - outside} ambiguous\t{outside} outside the vocabulary\t{out}")
+
+
+def knowledge_extract_entities(flags: list[str]) -> None:
+    """Find the entities in the extracted texts of a corpus: a text pass for candidate names, three Jev questions per name (``entity_extraction.py``)."""
+    options = parse_options(flags)
+    corpus, out, vocabulary_file = _path_option(options, "corpus"), _path_option(options, "out"), _path_option(options, "vocabulary")
+    snapshot = normalize_string(options.get("extraction-snapshot"))
+    if corpus is None or out is None or vocabulary_file is None or not snapshot or ":" not in snapshot:
+        raise ValueError("Pass --corpus DIR --extraction-snapshot EXTRACTOR:SNAPSHOT --vocabulary FILE --out DIR [--registry FILE] [--cache FILE] [--usage-out FILE].")
+    extractor, _colon, snapshot_id = snapshot.partition(":")
+    texts = corpus / "extracted" / extractor / snapshot_id / "text"
+    if not texts.is_dir():
+        raise ValueError(f"No extracted texts at {texts}.")
+    registry_file = _path_option(options, "registry")
+    cache = _path_option(options, "cache") or corpus / "analysis" / "entity-decisions" / "cache.jsonl"
+    vocabulary = yaml.safe_load(vocabulary_file.read_text(encoding="utf-8")) or {}
+    try:
+        criteria = criteria_of(vocabulary)
+        client = JevClient(os.environ.get("TYPESAFE_API_KEY", "").strip())
+        documents = {path.stem: path.read_text(encoding="utf-8") for path in sorted(texts.glob("*.txt"))}
+        matcher = RegistryMatcher(json.loads(registry_file.read_text(encoding="utf-8")) if registry_file else [])
+        candidates = {key: found for key, found in find_candidates(documents, english_stop_words()).items() if not matcher.knows(found["name"])}
+        publication = describe_publication(vocabulary)
+        decisions, usage, undecided = decide(candidates, criteria, lambda name, passages: client.ask(name, passages, criteria, publication), publication=publication, model=client.model, cache_path=cache)
+    except ExtractionError as error:
+        raise ValueError(str(error)) from error
+    usage_out = _path_option(options, "usage-out")
+    if usage_out:  # written before anything can fail, so the stage's cost counts the calls that were paid for
+        usage_out.parent.mkdir(parents=True, exist_ok=True)
+        usage_out.write_text(json.dumps(usage), encoding="utf-8")
+    print(f"knowledge\textract-entities\t{len(documents)} documents\t{len(candidates)} names\t{len(usage)} asked\t{len(candidates) - len(usage) - undecided} cached\t{undecided} undecided", file=sys.stderr)
+    if undecided:
+        raise ValueError(f"Jev gave no answer for {undecided} names ({dict(client.failures)}); the answers it gave are cached, so run again.")
+    output = build_output(documents, candidates, decisions, matcher, vocabulary, model=client.model)
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "output.json").write_text(json.dumps(output, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    summary = output["summary"]
+    print(f"knowledge\textract-entities\t{summary['entities']} mentions\t{summary['resolved']} resolved\t{summary['items']} items\t{out / 'output.json'}")
 
 
 def knowledge_topic_config(flags: list[str]) -> None:
@@ -942,6 +1066,7 @@ KNOWLEDGE_COMMANDS = {
     "entities-alias": knowledge_entities_alias,
     "entities-retype": knowledge_entities_retype,
     "entities-registry": knowledge_entities_registry,
+    "extract-entities": knowledge_extract_entities,
     "topic-config": knowledge_topic_config,
     "clusters-list": knowledge_clusters_list,
     "clusters-accept": knowledge_clusters_accept,

@@ -1,26 +1,18 @@
 //! Command mention parsing.
 
-use std::marker::PhantomData;
-
 use icu_properties::{props::Script, script::ScriptWithExtensions};
-use nom::{
-	IResult, Parser,
-	bytes::tag,
-	character::{
-		char,
-		complete::{anychar, u64},
-	},
-	combinator::{opt, recognize, verify},
-	error::ParseError,
-	multi::fold_many_m_n,
-	sequence::{delimited, separated_pair},
-};
 
-use crate::{Input, unparse::Unparse};
+use crate::{
+	Input,
+	error::{Fail, PResult},
+};
 
 use super::CLOSE_DELIMITER;
 
 pub const OPEN_DELIMITER: &str = "</";
+
+/// The most characters a command name, or each of its subcommands, may have.
+const MAX_NAME_LEN: usize = 32;
 
 /// A command mention.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,73 +22,44 @@ pub struct Command {
 	pub id: u64,
 }
 
-impl Unparse for Command {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(
-			f,
-			"{}{}:{}{}",
-			OPEN_DELIMITER, self.name, self.id, CLOSE_DELIMITER
-		)
-	}
+/// Parse a command mention: a name with up to two subcommands, as in `</abcd efgh ijkl:1234>`.
+///
+/// # Errors
+/// If the content does not begin with a command mention.
+pub fn command(input: &mut Input) -> PResult<Command> {
+	input.tag(OPEN_DELIMITER)?;
+	let name = input.recognize(|input| {
+		parse_name(input)?;
+		for _ in 0..2 {
+			input.attempt(|input| {
+				input.char(' ')?;
+				parse_name(input)
+			})?;
+		}
+		Ok(())
+	})?;
+	input.char(':')?;
+	let id = input.u64()?;
+	input.tag(CLOSE_DELIMITER)?;
+
+	Ok(Command {
+		name: name.to_string(),
+		id,
+	})
 }
 
-/// Parse a command mention.
-#[must_use]
-pub fn command<'data, E>() -> impl Parser<Input<'data>, Output = Command, Error = E>
-where
-	E: ParseError<Input<'data>>,
-{
-	CommandParser(PhantomData)
-}
-
-struct CommandParser<E>(PhantomData<E>);
-
-impl<'data, E> Parser<Input<'data>> for CommandParser<E>
-where
-	E: ParseError<Input<'data>>,
-{
-	type Output = Command;
-	type Error = E;
-
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		delimited(
-			tag(OPEN_DELIMITER),
-			separated_pair(
-				recognize((
-					parse_name,
-					opt((char(' '), parse_name)),
-					opt((char(' '), parse_name)),
-				)),
-				char(':'),
-				u64,
-			),
-			tag(CLOSE_DELIMITER),
-		)
-		.map(|(name, id)| Command {
-			name: name.to_string(),
-			id,
+fn parse_name(input: &mut Input) -> PResult<()> {
+	let len = input
+		.char_indices()
+		.take(MAX_NAME_LEN)
+		.take_while(|&(_, ch)| {
+			ch == '-' || ch == '_' || ch.is_alphanumeric() || is_devanagari(ch) || is_thai(ch)
 		})
-		.process::<OM>(input)
-	}
-}
-
-fn parse_name<'data, E>(input: Input<'data>) -> IResult<Input<'data>, (), E>
-where
-	E: ParseError<Input<'data>>,
-{
-	fold_many_m_n(
-		1,
-		32,
-		verify(anychar::<Input, _>, |ch| {
-			*ch == '-' || *ch == '_' || ch.is_alphanumeric() || is_devanagari(*ch) || is_thai(*ch)
-		}),
-		|| (),
-		|(), _| (),
-	)
-	.parse_complete(input)
+		.last()
+		.map(|(index, ch)| index + ch.len_utf8())
+		.ok_or(Fail::NoMatch)?;
+	input.advance(len);
+	Ok(())
 }
 
 fn is_devanagari(ch: char) -> bool {
@@ -109,20 +72,14 @@ fn is_thai(ch: char) -> bool {
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
-	use crate::test_utils::handle_nom_err;
+	use crate::test_utils::run;
 
 	use super::{Command, command};
 
 	#[test]
 	fn basic_command() {
 		let s = r"</abcd:1234>";
-		let (rem, res) = command()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, command).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			res,
@@ -136,11 +93,7 @@ mod test {
 	#[test]
 	fn command_with_subcommands() {
 		let s = r"</abcd efgh ijkl:1234>";
-		let (rem, res) = command()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, command).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			res,

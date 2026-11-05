@@ -36,7 +36,15 @@ class NumbersUnpacker(IWorkHandler):
     def store_file(self, filename: str, blob: bytes) -> None:
         """Store a protobuf archive."""
         filename = re.sub(r".*\.numbers/", "", str(filename))
-        self.ensure_directory_exists(filename)
+
+        # Resolve absolute paths to prevent Zip Slip
+        out_abs = os.path.realpath(self.output_dir)
+        target_abs = os.path.realpath(os.path.join(out_abs, filename))
+        if os.path.commonpath([out_abs, target_abs]) != out_abs:
+            msg = f"Path traversal attempt detected in archive member: {filename}"
+            raise FileFormatError(msg)
+
+        self.ensure_directory_exists(target_abs)
         target_path = os.path.join(self.output_dir, filename)
         if isinstance(blob, IWAFile):
             target_path = target_path.replace(".iwa", "")
@@ -100,7 +108,7 @@ class NumbersUnpacker(IWorkHandler):
                 elif k in ["cell_storage_buffer", "cell_storage_buffer_pre_bnc"]:
                     obj[k] = str(hexlify(b64decode(obj[k]), sep=":"))
                     obj[k] = obj[k].replace("b'", "").replace("'", "")
-                elif k in ["cell_offsets", k == "cell_offsets_pre_bnc"]:
+                elif k in ["cell_offsets", "cell_offsets_pre_bnc"]:
                     offsets = array("h", b64decode(obj[k])).tolist()
                     obj[k] = ",".join([str(x) for x in offsets])
                     obj[k] = re.sub(r"(?:,-1)+$", ",[...]", obj[k])

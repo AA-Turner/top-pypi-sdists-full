@@ -7,6 +7,8 @@ from shutil import copy2
 from sys import modules
 from tarfile import DIRTYPE, TarInfo
 from tarfile import open as tar_open
+from time import gmtime, localtime, time
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Final, NamedTuple, Protocol, TypeAlias, cast
 from zipfile import ZipFile
 
@@ -14,6 +16,7 @@ import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
+    from unittest.mock import Mock
 
     from pytest_mock import MockerFixture
 
@@ -171,6 +174,42 @@ def test_vendor_into_sdist_content(sdist: Path, member: str, content: bytes) -> 
         read = tar.extractfile(f"tox_toml_fmt-0/{member}")
         assert read is not None
         assert read.read() == content
+
+
+def test_vendor_into_wheel_rebuild_is_byte_identical(
+    backend: Backend, tmp_path: Path, clock: Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1609459200")
+    first = tmp_path / "first"
+    first.mkdir()
+    first_wheel = first / backend.build_wheel(str(first), None, None)
+    clock.return_value = 1609545601
+    second = tmp_path / "second"
+    second.mkdir()
+    second_wheel = second / backend.build_wheel(str(second), None, None)
+    assert first_wheel.read_bytes() == second_wheel.read_bytes()
+
+
+@pytest.fixture
+def clock(mocker: MockerFixture) -> Mock:
+    clock: Mock = mocker.create_autospec(time, return_value=1609459201)
+    mocker.patch("zipfile.time", SimpleNamespace(gmtime=gmtime, localtime=localtime, time=clock))
+    mocker.patch("gzip.time", SimpleNamespace(time=clock))
+    return clock
+
+
+def test_vendor_into_sdist_rebuild_is_byte_identical(
+    backend: Backend, tmp_path: Path, clock: Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1609459200")
+    first = tmp_path / "first"
+    first.mkdir()
+    first_sdist = first / backend.build_sdist(str(first), None)
+    clock.return_value = 1609545601
+    second = tmp_path / "second"
+    second.mkdir()
+    second_sdist = second / backend.build_sdist(str(second), None)
+    assert first_sdist.read_bytes() == second_sdist.read_bytes()
 
 
 def _write_common(common: Path) -> None:

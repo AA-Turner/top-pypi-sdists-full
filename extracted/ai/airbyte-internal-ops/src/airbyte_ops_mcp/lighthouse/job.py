@@ -84,7 +84,7 @@ def default_fire_dates(today: date) -> list[date]:
 
 def load_trigger_sql() -> str:
     """Load the packaged BigQuery trigger query."""
-    return files(__package__).joinpath("triggers.sql").read_text(encoding="utf-8")
+    return files(__package__).joinpath("triggers.sql").read_text(encoding="utf-8")  # ty: ignore[invalid-argument-type]
 
 
 def query_fires(run_date: date) -> list[dict[str, Any]]:
@@ -394,7 +394,7 @@ def choose_action(
         ticket
         for ticket in indexed_tickets
         if _ticket_org_and_trigger(ticket)
-        and _ticket_org_and_trigger(ticket)[0] == org_id
+        and _ticket_org_and_trigger(ticket)[0] == org_id  # ty: ignore[not-subscriptable]
         and _is_open(ticket)
     ]
     if open_tickets:
@@ -414,7 +414,7 @@ def choose_action(
         )
         for ticket in indexed_tickets
         if _ticket_org_and_trigger(ticket)
-        and _ticket_org_and_trigger(ticket)[0] == org_id
+        and _ticket_org_and_trigger(ticket)[0] == org_id  # ty: ignore[not-subscriptable]
     ):
         return "skip_cooldown", None
     return "create", None
@@ -459,7 +459,7 @@ def select_requesters(
         )
         updated_at = _as_datetime(row.get("user_updated_at"))
         if updated_at and (
-            user["user_updated_at"] is None or updated_at > user["user_updated_at"]
+            user["user_updated_at"] is None or updated_at > user["user_updated_at"]  # ty: ignore[unsupported-operator]
         ):
             user["user_updated_at"] = updated_at
     contacts = [
@@ -486,7 +486,7 @@ def select_requesters(
     if not contacts:
         return None, []
     primary = contacts[0]
-    return primary, [user["email"] for user in contacts[1:]]
+    return primary, [user["email"] for user in contacts[1:]]  # ty: ignore[invalid-return-type]
 
 
 def _markdown_escape(value: Any) -> str:
@@ -990,13 +990,13 @@ def run_lighthouse(
                     elif selected_action == "note":
                         if not action_data.get("note_already_present"):
                             add_internal_note(
-                                ticket_id,
+                                ticket_id,  # ty: ignore[invalid-argument-type]
                                 action_data["internal_note_html"],
                                 credentials=zendesk_credentials,
                             )
                             note_added = True
                         add_ticket_tags(
-                            ticket_id,
+                            ticket_id,  # ty: ignore[invalid-argument-type]
                             [f"lighthouse_{fire['trigger_type']}", LAYER2_TAG],
                             credentials=zendesk_credentials,
                         )
@@ -1007,7 +1007,7 @@ def run_lighthouse(
                         selected_action == "create" or note_added
                     ):
                         slack_text = (
-                            f"<https://{zendesk_credentials.subdomain}.zendesk.com/"
+                            f"<https://{zendesk_credentials.subdomain}.zendesk.com/"  # ty: ignore[unresolved-attribute]
                             f"agent/tickets/{ticket_id}|#{ticket_id}> · {display_name} "
                             f"· {action_data['reason']}"
                         )

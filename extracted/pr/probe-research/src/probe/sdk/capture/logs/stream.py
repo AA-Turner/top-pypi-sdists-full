@@ -701,6 +701,7 @@ class LogStreamer:
         }
         if chunk.write_epoch is not None:
             body["write_epoch"] = chunk.write_epoch
+        from ...delivery.ops.ingest_queue import build_async_ack_kwargs
         from ...delivery.transport.deadlines import deadline_scope, without_patience, disable_retries
 
         # Sent once (I14): a failed chunk waits for a later tick (`ship`'s backoff). Retried
@@ -713,12 +714,15 @@ class LogStreamer:
             post_by = min(post_by, max(deadline, time.monotonic() + 0.5))
         try:
             with without_patience(), disable_retries(), deadline_scope(post_by):
+                # Asks for a 202 like a queued metrics POST: without it a queue server holds the POST
+                # until apply stores the chunk (~1.7 s at the C0 drill), one in-flight slot each.
                 response = self.client.transport.request(
                     "POST",
                     f"/v1/runs/{self.run_id}/log-chunks",
                     json_body=body,
                     idempotent=True,
                     timeout=POST_TIMEOUT_SECONDS,
+                    **build_async_ack_kwargs(self.client),
                 )
         except errors.TransportError:
             return _Outcome.RETRY

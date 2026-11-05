@@ -14,10 +14,12 @@
 
 #include "char_model.h"
 
-#include <string>
+#include <gtest/gtest.h>
 
-#include "testharness.h"
-#include "util.h"
+#include <string>
+#include <vector>
+
+#include "sentencepiece_model.pb.h"
 
 namespace sentencepiece {
 namespace character {
@@ -28,9 +30,9 @@ namespace {
 
 ModelProto MakeBaseModelProto() {
   ModelProto model_proto;
-  auto *sp1 = model_proto.add_pieces();
-  auto *sp2 = model_proto.add_pieces();
-  auto *sp3 = model_proto.add_pieces();
+  auto* sp1 = model_proto.add_pieces();
+  auto* sp2 = model_proto.add_pieces();
+  auto* sp3 = model_proto.add_pieces();
 
   sp1->set_type(ModelProto::SentencePiece::UNKNOWN);
   sp1->set_piece("<unk>");
@@ -42,9 +44,9 @@ ModelProto MakeBaseModelProto() {
   return model_proto;
 }
 
-void AddPiece(ModelProto *model_proto, const std::string &piece,
+void AddPiece(ModelProto* model_proto, const std::string& piece,
               float score = 0.0) {
-  auto *sp = model_proto->add_pieces();
+  auto* sp = model_proto->add_pieces();
   sp->set_piece(piece);
   sp->set_score(score);
 }
@@ -112,6 +114,29 @@ TEST(CharModelTest, NotSupportedTest) {
   const Model model(model_proto);
   EXPECT_EQ(NBestEncodeResult(), model.NBestEncode("test", 10));
   EXPECT_EQ(EncodeResult(), model.SampleEncode("test", 0.1));
+}
+
+TEST(CharModelTest, EncodeReservedAndUnusedTest) {
+  ModelProto model_proto = MakeBaseModelProto();
+  AddPiece(&model_proto, "a", 0.1);
+  // Single-character CONTROL piece (index 4)
+  auto* ctrl = model_proto.add_pieces();
+  ctrl->set_piece("x");
+  ctrl->set_type(ModelProto::SentencePiece::CONTROL);
+  // Single-character UNUSED piece (index 5)
+  auto* unused = model_proto.add_pieces();
+  unused->set_piece("y");
+  unused->set_type(ModelProto::SentencePiece::UNUSED);
+
+  const Model model(model_proto);
+  const EncodeResult result = model.Encode("axy");
+  ASSERT_EQ(3, result.size());
+  EXPECT_EQ("a", result[0].first);
+  EXPECT_EQ(3, result[0].second);
+  EXPECT_EQ("x", result[1].first);
+  EXPECT_EQ(0, result[1].second);  // <unk>
+  EXPECT_EQ("y", result[2].first);
+  EXPECT_EQ(0, result[2].second);  // <unk>
 }
 
 }  // namespace

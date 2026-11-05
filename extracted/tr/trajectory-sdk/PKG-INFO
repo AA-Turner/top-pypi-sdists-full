@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.10.1
+Version: 0.10.10
 Summary: Generated Trajectory API client and high-level workflows
 Project-URL: Documentation, https://docs.trajectory.ai
 Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
@@ -24,15 +24,16 @@ trajectories, telemetry, and runtime-backed specs (benchmarks).
 pip install trajectory-sdk
 ```
 
-The SDK installs a Trajectory skill for coding agents at
-`share/doc/trajectory-sdk/skills/trajectory/SKILL.md` in its Python environment. Print its path:
+The SDK installs Trajectory and agent-feedback skills for coding agents under
+`share/doc/trajectory-sdk/skills/` in its Python environment. Print their paths:
 
 ```bash
-python -c "import importlib.metadata as m; print(next(f.locate().resolve() for f in m.files('trajectory-sdk') if f.name == 'SKILL.md'))"
+python -c "import importlib.metadata as m; print('\n'.join(str(f.locate().resolve()) for f in m.files('trajectory-sdk') if f.name == 'SKILL.md'))"
 ```
 
-Copy that file into your spec repo at `.agents/skills/trajectory/SKILL.md` for Codex or
-`.claude/skills/trajectory/SKILL.md` for Claude Code.
+Copy each skill's folder into your spec repo under `.agents/skills/` for Codex or
+`.claude/skills/` for Claude Code. The `trajectory` skill guides integrations; the
+`agent-feedback` skill submits authorized reports about API, SDK, or documentation friction.
 
 ## Start here
 

@@ -31,7 +31,7 @@ from functools import reduce
 from pyscf import lib
 from pyscf.lib import logger
 from pyscf.scf import hf, hf_symm, uhf_symm
-from pyscf.scf import _response_functions  # noqa
+from pyscf.scf import _response_functions
 from pyscf.soscf import newton_ah
 from pyscf import __config__
 
@@ -657,42 +657,3 @@ def uhf_external(mf, with_symmetry=True, verbose=None, return_status=False,
         return mo, stable
     else:
         return mo
-
-
-if __name__ == '__main__':
-    from pyscf import gto, scf, dft
-    mol = gto.M(atom='O 0 0 0; O 0 0 1.2222', basis='631g*')
-    mf = scf.RHF(mol).run()
-    rhf_stability(mf, True, True, verbose=4)
-
-    mf = dft.RKS(mol).run(level_shift=.2)
-    rhf_stability(mf, True, True, verbose=4)
-
-    mf = scf.UHF(mol).run()
-    mo1 = uhf_stability(mf, True, True, verbose=4)[0]
-
-    mf = scf.newton(mf).run(mo1, mf.mo_occ)
-    uhf_stability(mf, True, False, verbose=4)
-    mf = scf.newton(scf.UHF(mol)).run()
-    uhf_stability(mf, True, False, verbose=4)
-
-    mol.spin = 2
-    mf = scf.UHF(mol).run()
-    uhf_stability(mf, True, True, verbose=4)
-
-    mf = dft.UKS(mol).run()
-    uhf_stability(mf, True, True, verbose=4)
-
-    mol = gto.M(atom='''
-O1
-O2  1  1.2227
-O3  1  1.2227  2  114.0451
-                ''', basis = '631g*')
-    mf = scf.RHF(mol).run()
-    rhf_stability(mf, True, True, verbose=4)
-
-    mf = scf.UHF(mol).run()
-    mo1 = uhf_stability(mf, True, True, verbose=4)[0]
-
-    mf = scf.newton(scf.UHF(mol)).run()
-    uhf_stability(mf, True, True, verbose=4)

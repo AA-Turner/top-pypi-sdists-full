@@ -3,12 +3,11 @@
 import asyncio
 import functools
 import weakref
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Mapping, Set
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass, field
-from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Protocol, cast
+from typing import Any, Never, Protocol, cast
 
 import structlog
 from pydantic import JsonValue, ValidationError
@@ -17,10 +16,8 @@ from pydantic_core import PydanticSerializationError
 from mistralai.vibe.harness.app_server.session import (
     CallbackResult,
     ClientToolCallback,
-    EmbeddedResourceContentBlock,
     EventId,
     ProtocolError,
-    ResourceLinkContentBlock,
     SessionCallback,
     SessionCallbackSettledError,
     SessionClient,
@@ -28,7 +25,6 @@ from mistralai.vibe.harness.app_server.session import (
     SessionState,
     SessionTransport,
 )
-from mistralai.vibe.harness.app_server.session.file_upload import FileUploader
 from mistralai.vibe.harness.app_server.session.models import AllowApproval, DenyApproval
 from mistralai.vibe.harness.app_server.session.procedures.session import CallbackResultResponse
 from mistralai.vibe.harness.runtime.capabilities import ProvidedToolInvocationFailed
@@ -39,7 +35,6 @@ from mistralai.vibe_agents.sdk.authoring import tool as tool_authoring
 from mistralai.vibe_agents.sdk.authoring.errors import (
     ClientToolAnswerError,
     SdkError,
-    public_errors,
     sdk_runtime_error,
 )
 from mistralai.vibe_agents.sdk.authoring.keep_open import KeepCallbackOpen
@@ -309,9 +304,8 @@ class ClientToolSessionClient(SessionClient):
         transport: SessionTransport,
         *,
         client_tools: ClientToolRegistry = NO_CLIENT_TOOLS,
-        uploader: FileUploader | None = None,
     ) -> None:
-        super().__init__(transport, uploader=uploader)
+        super().__init__(transport)
         self._client_tools = client_tools
         self._closing = asyncio.Event()
         self._answering: asyncio.Task[None] | None = None
@@ -328,7 +322,7 @@ class ClientToolSessionClient(SessionClient):
         self._send_failure: ClientToolAnswerError | None = None
         # Set once a caller got the error of the failed answers, so close does not raise it again.
         self._failure_raised = False
-        # The answers started and not sent yet, each done once its call is answered: a run waits for them.
+        # The answers started and not sent yet, each done once sent or once its call settled: a run waits for them.
         self._unsent: dict[tuple[SessionId, str], asyncio.Future[None]] = {}
         # The answers running their code, not sent yet: a run's timeout does not count them.
         self._in_code: set[asyncio.Task[Any]] = set()
@@ -340,16 +334,13 @@ class ClientToolSessionClient(SessionClient):
         self._raised: tuple[ToolCodeError, SessionId] | None = None
         self._raised_set = asyncio.Event()
 
-    @public_errors
-    async def upload_file(
-        self,
-        source: str | Path | bytes | AsyncIterator[bytes],
-        *,
-        name: str | None = None,
-        media_type: str | None = None,
-    ) -> EmbeddedResourceContentBlock | ResourceLinkContentBlock:
-        # The Harness refuses an upload before any request, so its error does not pass the transport's wrapping.
-        return await super().upload_file(source, name=name, media_type=media_type)
+    @property
+    def upload_file(self) -> Never:
+        # The Harness's inherited helper is not part of the SDK's non-experimental API.
+        raise AttributeError(
+            "upload_file is only available through mistralai.agents.experimental.session_protocol: "
+            "use session_protocol.attach(agent.session(client.session_id)).upload_file(...)"
+        )
 
     async def adopt_session_snapshot(self, state: SessionState, last_event_id: EventId) -> None:
         await super().adopt_session_snapshot(state, last_event_id)
@@ -464,7 +455,9 @@ class ClientToolSessionClient(SessionClient):
         while not self._closing.is_set():
             started = loop.time()
             try:
-                async with self.provide_callbacks(kinds={"client_tool"}, handler=self._answer):
+                async with self.provide_callbacks(
+                    kinds={"client_tool"}, handler=self._answer, on_pending=self._forget_settled
+                ):
                     await self._closing.wait()
             except Exception as error:  # noqa: BLE001 - logged, then the loop restarts unless a send failed
                 if self._send_failure is not None:
@@ -567,6 +560,17 @@ class ClientToolSessionClient(SessionClient):
             if not sending and release():
                 # The last client left while the function ran: wait for its cleanup, as closing does.
                 await asyncio.gather(shared.task, return_exceptions=True)
+
+    def _forget_settled(self, pending: Set[tuple[SessionId, str]]) -> None:
+        """Stop waiting for the answers whose call is no longer pending: nothing will send them.
+
+        Not on a handler's cancel: a failing loop cancels its handlers too, and the restarted loop
+        must still send their answers.
+        """
+
+        for key in tuple(self._unsent):
+            if key not in pending:
+                self._mark_sent(key)
 
     def _mark_sent(self, key: tuple[SessionId, str]) -> None:
         waiter = self._unsent.pop(key, None)
@@ -871,13 +875,12 @@ def given_answer(callback: ClientToolCallback, output: object, tool: object) -> 
 def _answer_context(callback: ClientToolCallback, session_id: SessionId) -> contracts.ToolCallbackContext:
     """The context an answer gets: the Session and turn that called the tool, and the call's ID.
 
-    A callback opened without a tool call behind it gives ``""`` for that ID. The sandbox is
-    unbound: the answer runs in the application, not where the agent runs.
+    The sandbox is unbound: the answer runs in the application, not where the agent runs.
     """
 
     return contracts.ToolCallbackContext(
         contracts.CallbackSession(id=session_id, turn_id=callback_turn_id(callback)),
-        tool_call_id=callback.tool_call_id or "",
+        tool_call_id=callback.tool_call_id,
     )
 
 

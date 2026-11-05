@@ -321,6 +321,7 @@ SourceEnvironmentType = Literal[
     "CISCO_ACI",
     "FORTIGATE_FIREWALL",
     "LOGICAL_MODEL",
+    "MIGRATION_PLANNING_ARTIFACTS",
     "MODELIZE_IT",
     "NSX",
     "PALO_ALTO_FIREWALL",

@@ -1,4 +1,4 @@
-/* global aaSrpSettings, _bootstrapTooltip, fetchGet, fetchPost, moment, numberFormatter, _removeSearchFromColumnControl, DataTable, ClipboardJS, bootstrap */
+/* global aaSrpSettings, _bootstrapTooltip, fetchGet, fetchPost, moment, numberFormatter, _filterDataTable, _removeSearchFromColumnControl, DataTable, ClipboardJS, bootstrap */
 
 $(document).ready(() => {
     'use strict';
@@ -8,6 +8,8 @@ $(document).ready(() => {
         bulkActions: $('div.card-srp-request-bulk-actions'),
         totalSrpCost: $('#srp-fleet-total-cost')
     };
+
+    const editablePayoutSelector = '.srp-request-payout-amount-editable .srp-payout-amount';
 
     // Set initial total SRP cost value
     const totalSrpCost = element.totalSrpCost.data('total-srp-cost') || 0;
@@ -85,16 +87,7 @@ $(document).ready(() => {
                             },
                             className: 'srp-request-character'
                         },
-                        // Column 3: Request Code
-                        {
-                            data: {
-                                display: (data) => data.request_code_html.display,
-                                filter: (data) => data.request_code_html.sort,
-                                sort: (data) => data.request_code_html.sort
-                            },
-                            className: 'srp-request-code'
-                        },
-                        // Column 4: Ship
+                        // Column 3: Ship
                         {
                             data: {
                                 display: (data) => data.ship_html.display,
@@ -103,8 +96,7 @@ $(document).ready(() => {
                             },
                             className: 'srp-request-ship'
                         },
-                        // {data: 'zkb_link'},
-                        // Column 5: Killboard Link
+                        // Column 4: ISK lost
                         {
                             data: {
                                 display: (data) => numberFormatter({
@@ -120,7 +112,7 @@ $(document).ready(() => {
                             },
                             className: 'srp-request-zbk-loss-amount text-end'
                         },
-                        // Column 6: Payout Amount
+                        // Column 5: Payout Amount
                         {
                             data: {
                                 display: (data) => data.payout_amount_html.display.replace(
@@ -139,9 +131,17 @@ $(document).ready(() => {
                             },
                             className: 'srp-request-payout text-end'
                         },
+                        // Column 6: Additional Information (first line)
+                        {
+                            data: {
+                                display: (data) => data.additional_info_html.display,
+                                filter: (data) => data.additional_info_html.sort,
+                                sort: (data) => data.additional_info_html.sort
+                            },
+                            className: 'srp-request-additional-info'
+                        },
                         // Column 7: Request Status Icon
                         {
-                            // data: 'request_status_icon',
                             data: {
                                 display: (data) => data.request_status_icon,
                                 sort: (data) => data.request_status
@@ -155,19 +155,31 @@ $(document).ready(() => {
                         },
                         // Column 9: Bulk Actions Checkbox
                         {
-                            // data: 'request_code',
                             data: {
                                 display: (data) => {
                                     return `<div class="checkbox"><label><input class="srp-requests-bulk-action" type="checkbox" name="${data.request_code}"><span class="cr"><i class="cr-icon fas fa-check"></i></span></label></div>`;
                                 }
                             },
                             className: 'srp-request-bulk-actions-checkbox text-end'
+                        },
+                        // Hidden columns
+                        // Column 10: Request Code
+                        {
+                            data: {
+                                display: (data) => data.request_code_html.display,
+                                filter: (data) => data.request_code_html.sort,
+                                sort: (data) => data.request_code_html.sort
+                            },
+                            className: 'srp-request-code'
                         }
                     ],
                     columnDefs: [
                         {
-                            targets: [0, 5, 6],
-                            columnControl: _removeSearchFromColumnControl(aaSrpSettings.dataTables.columnControl, 1)
+                            targets: [0, 4, 5],
+                            columnControl: _removeSearchFromColumnControl(
+                                aaSrpSettings.dataTables.columnControl,
+                                1
+                            )
                         },
                         {
                             targets: [7, 8, 9],
@@ -178,8 +190,12 @@ $(document).ready(() => {
                             ]
                         },
                         {
-                            targets: [8],
-                            width: 150
+                            target: 8,
+                            width: 120
+                        },
+                        {
+                            target: 10,
+                            visible: false
                         }
                     ],
                     order: [
@@ -244,41 +260,6 @@ $(document).ready(() => {
                     initComplete: () => {
                         const dt = element.srpRequestsTable.DataTable();
 
-                        /**
-                         * Helper function: Filter DataTable
-                         *
-                         * @param {string} selector The selector for the filter button.
-                         * @param {callback} predicate The predicate function to filter rows.
-                         * @private
-                         */
-                        const _filterDataTable = (selector, predicate) => {
-                            $(selector).click(() => {
-                                // Clear any existing custom filters before applying a new one
-                                $.fn.dataTable.ext.search = [];
-
-                                /**
-                                 * Custom filter function.
-                                 *
-                                 * @param {Object} settings DataTable settings object.
-                                 * @param {Array} searchData Search data for the row.
-                                 * @param {int} index Row index.
-                                 * @param {Object} rowData Row data object.
-                                 * @return {boolean} True if the row matches the filter, false otherwise.
-                                 */
-                                const filter = (settings, searchData, index, rowData) => {
-                                    if (!rowData) {
-                                        return true;
-                                    }
-
-                                    return predicate(rowData);
-                                };
-
-                                $.fn.dataTable.ext.search.push(filter);
-
-                                dt.draw();
-                            });
-                        };
-
                         const _filters = [
                             ['#aasrp-srp-request-filter-all', () => true],
                             ['#aasrp-srp-request-filter-pending', (rowData) => rowData.request_status === 'Pending'],
@@ -286,7 +267,7 @@ $(document).ready(() => {
                             ['#aasrp-srp-request-filter-rejected', (rowData) => rowData.request_status === 'Rejected']
                         ];
 
-                        _filters.forEach(([selector, predicate]) => _filterDataTable(selector, predicate));
+                        _filters.forEach(([selector, predicate]) => _filterDataTable(dt, selector, predicate));
 
                         // Show bootstrap tooltips
                         _bootstrapTooltip({selector: '#tab_aasrp_srp_requests'});
@@ -298,7 +279,7 @@ $(document).ready(() => {
                         // Make the SRP payout field editable for pending and rejected requests.
                         element.srpRequestsTable.editable({
                             container: 'body',
-                            selector: '.srp-request-payout-amount-editable .srp-payout-amount',
+                            selector: editablePayoutSelector,
                             title: aaSrpSettings.translation.changeSrpPayoutHeader,
                             type: 'number',
                             placement: 'top',
@@ -960,6 +941,33 @@ $(document).ready(() => {
         }).finally(() => {
             button.prop('disabled', false);
         });
+    });
+
+    /**
+     * Payout amount: Pressing Enter moves on to the next editable payout amount
+     *
+     * Only moves on once the form actually closes because of the submit, so it stays
+     * put on validation or server errors. Unchanged values are skipped the same way.
+     * The popover lives in `body`, and x-editable's `hidden` event doesn't bubble,
+     * so neither can be delegated through the table.
+     */
+    $(document).on('keydown', '.editable-container form', (event) => {
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        const current = element.srpRequestsTable.find(`${editablePayoutSelector}.editable-open`);
+
+        current
+            .off('hidden.aasrpNextPayout')
+            .one('hidden.aasrpNextPayout', (hiddenEvent, reason) => {
+                if (reason === 'save' || reason === 'nochange') {
+                    const editablePayouts = element.srpRequestsTable.find(editablePayoutSelector);
+
+                    // Click, since x-editable only initializes an element on its first click
+                    editablePayouts.eq(editablePayouts.index(current) + 1).trigger('click');
+                }
+            });
     });
 
     /**

@@ -12,7 +12,7 @@ from collections.abc import Callable, Container, Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from math import isfinite
-from typing import Final, Literal, TypeAlias, TypeVar, cast
+from typing import Final, Literal, TypeVar, cast
 from urllib.parse import quote, unquote_to_bytes
 
 from typing_extensions import Self, TypeAliasType, TypeIs
@@ -40,7 +40,6 @@ __all__ = (
     "JSONValue",
     "LexicalKind",
     "MediaKind",
-    "MediaOrder",
     "Unparsed",
     "ascii_digits",
     "bodyless",
@@ -82,7 +81,6 @@ JSONScalar = TypeAliasType("JSONScalar", "bool | int | float | str | None")
 JSONKind = Literal["object", "array", "string", "number", "boolean"]
 LexicalKind = Literal["string", "integer", "number", "boolean"]
 MediaKind = Literal["json", "text", "form", "multipart", "binary"]
-MediaOrder: TypeAlias = Literal["specific", "declared"]
 T = TypeVar("T")
 
 TCHARS: Final = r"[!#$%&'*+.^_`|~0-9A-Za-z-]+"
@@ -91,8 +89,7 @@ JSON_MEDIA_TYPE: Final = "application/json"
 QUOTED: Final = r'"(?:[\t !#-\[\]-~\x80-\xff]|\\[\t -~\x80-\xff])*"'
 LENIENT_QUOTED: Final = r'"(?:[^"\\]|\\.)*"'
 """A quoted string of a MIME header field as a multipart part's Content-Disposition is read: any character but a double
-quote or a backslash, and any escaped one but a line feed, between double quotes. Row `legacy-lenient-quoted-string`: a
-cache helper reads Cache-Control with it too."""
+quote or a backslash, and any escaped one but a line feed, between double quotes."""
 STATUSES: Final = range(100, 600)
 SUCCESS_STATUSES: Final = range(200, 300)
 REDIRECT_STATUSES: Final = range(300, 400)
@@ -139,19 +136,16 @@ def json_text(
     *,
     ascii_only: bool = False,
     sort_keys: bool = False,
-    errors: Literal["runtime", "legacy-python-json-errors"] = "runtime",
 ) -> str:
     """Serialize ordinary JSON builtins as compact JSON text, escaping non-ASCII text when asked.
 
     The errors are the runtime's own, with the same messages on every Python version: ValueError for a circular
     reference, a non-finite number, an integer over the interpreter's decimal conversion limit, or a value nested
-    beyond the recursion limit, and TypeError for a value or key that is not JSON. `errors="legacy-python-json-errors"`
-    lets the standard library's errors through with its messages, as a server writes a body without a model.
+    beyond the recursion limit, and TypeError for a value or key that is not JSON.
     """
-    caught = _JSON_ERRORS if errors == "runtime" else ()
     try:
         return json.dumps(value, sort_keys=sort_keys, separators=(",", ":"), ensure_ascii=ascii_only, allow_nan=False)
-    except caught as error:
+    except _JSON_ERRORS as error:
         if isinstance(error, TypeError):
             raise TypeError(_NOT_JSON) from None
         message = (
@@ -245,12 +239,9 @@ def range_key(status: int) -> str:
     return f"{status // 100}XX"
 
 
-def bodyless(status: int, *, head: bool = False, informational: bool = True) -> bool:
-    """Return whether a response never carries content: one to HEAD, a 204, 205 or 304, and a 1XX one.
-
-    `informational=False` reads a status below 200 as one that may carry content (the client plan's row).
-    """
-    return head or status in BODYLESS_STATUSES or (informational and status < SUCCESS_STATUSES.start)
+def bodyless(status: int, *, head: bool = False) -> bool:
+    """Return whether a response never carries content: one to HEAD, a 204, 205 or 304, and a 1XX one."""
+    return head or status in BODYLESS_STATUSES or status < SUCCESS_STATUSES.start
 
 
 def media_parts(value: str, errors: tuple[str, str] = _MEDIA_ERRORS) -> tuple[str, str, list[tuple[str, str]]]:
@@ -309,19 +300,16 @@ def media_range(media_type: str) -> bool:
     return "*" in essence(media_type)
 
 
-def most_specific(received: str, declared: Iterable[str], *, order: MediaOrder = "specific") -> str | None:
+def most_specific(received: str, declared: Iterable[str]) -> str | None:
     """Return the declared media type a received one falls under: itself, then its essence, type/*, and */*.
 
-    Among the declarations of one of these, the first without parameters wins (#4185); `order="declared"` instead takes
-    the first declaration of the most specific one in declared order (the client's row).
+    Among the declarations of one of these, the first without parameters wins (#4185).
     """
     declared = tuple(declared)
     if received in declared:
         return received
     bare = essence(received)
     candidates = (bare, f"{bare.partition('/')[0]}/*", "*/*")
-    if order == "declared":
-        return next((media for candidate in candidates for media in declared if essence(media) == candidate), None)
     return min((media for media in declared if essence(media) in candidates), key=_specificity, default=None)
 
 

@@ -71,6 +71,7 @@ __all__ = (
     "BrazilAdditionalInfoTypeDef",
     "CanadaAdditionalInfoTypeDef",
     "ChileAdditionalInfoTypeDef",
+    "ColombiaAdditionalInfoTypeDef",
     "DeleteSupplementalTaxRegistrationRequestTypeDef",
     "DeleteTaxRegistrationRequestTypeDef",
     "DestinationS3LocationTypeDef",
@@ -133,6 +134,7 @@ __all__ = (
     "TaxRegistrationDocFileTypeDef",
     "TaxRegistrationDocumentTypeDef",
     "TaxRegistrationEntryTypeDef",
+    "TaxRegistrationStatusReasonTypeDef",
     "TaxRegistrationTypeDef",
     "TaxRegistrationWithJurisdictionTypeDef",
     "TurkeyAdditionalInfoTypeDef",
@@ -267,6 +269,11 @@ class BrazilAdditionalInfoTypeDef(TypedDict):
     ccmCode: NotRequired[str]
     legalNatureCode: NotRequired[str]
 
+class ColombiaAdditionalInfoTypeDef(TypedDict):
+    responsibilityCodes: NotRequired[list[str]]
+    taxpayerTypeCode: NotRequired[str]
+    issueDate: NotRequired[str]
+
 class IndiaAdditionalInfoTypeDef(TypedDict):
     pan: NotRequired[str]
 
@@ -350,6 +357,10 @@ class SourceS3LocationTypeDef(TypedDict):
     bucket: str
     key: str
 
+class TaxRegistrationStatusReasonTypeDef(TypedDict):
+    code: NotRequired[str]
+    message: NotRequired[str]
+
 class SupplementalTaxRegistrationEntryTypeDef(TypedDict):
     registrationId: str
     registrationType: Literal["VAT"]
@@ -400,6 +411,7 @@ class AdditionalInfoResponseTypeDef(TypedDict):
     monacoAdditionalInfo: NotRequired[MonacoAdditionalInfoTypeDef]
     germanyAdditionalInfo: NotRequired[GermanyAdditionalInfoTypeDef]
     mexicoAdditionalInfo: NotRequired[MexicoAdditionalInfoTypeDef]
+    colombiaAdditionalInfo: NotRequired[ColombiaAdditionalInfoTypeDef]
 
 class TaxExemptionTypeTypeDef(TypedDict):
     displayName: NotRequired[str]
@@ -480,6 +492,7 @@ class TaxRegistrationTypeDef(TypedDict):
     taxDocumentMetadatas: NotRequired[list[TaxDocumentMetadataTypeDef]]
     certifiedEmailId: NotRequired[str]
     additionalTaxInformation: NotRequired[AdditionalInfoResponseTypeDef]
+    statusReason: NotRequired[TaxRegistrationStatusReasonTypeDef]
 
 class TaxRegistrationWithJurisdictionTypeDef(TypedDict):
     registrationId: str
@@ -491,6 +504,7 @@ class TaxRegistrationWithJurisdictionTypeDef(TypedDict):
     taxDocumentMetadatas: NotRequired[list[TaxDocumentMetadataTypeDef]]
     certifiedEmailId: NotRequired[str]
     additionalTaxInformation: NotRequired[AdditionalInfoResponseTypeDef]
+    statusReason: NotRequired[TaxRegistrationStatusReasonTypeDef]
 
 class GetTaxExemptionTypesResponseTypeDef(TypedDict):
     taxExemptionTypes: list[TaxExemptionTypeTypeDef]

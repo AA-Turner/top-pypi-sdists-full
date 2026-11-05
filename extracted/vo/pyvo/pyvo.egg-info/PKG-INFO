@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvo
-Version: 1.9.1
+Version: 1.10.0
 Summary: Astropy affiliated package for accessing Virtual Observatory data and services
 Author: the PyVO Developers
 License: BSD-3-Clause
@@ -21,6 +21,7 @@ Provides-Extra: all
 Requires-Dist: pillow; extra == "all"
 Requires-Dist: defusedxml; extra == "all"
 Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-doctestplus>=0.13; extra == "test"
 Requires-Dist: pytest-astropy>=0.6; extra == "test"
 Requires-Dist: requests-mock; extra == "test"

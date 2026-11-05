@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pivot
-Version: 0.9.3
+Version: 0.10.0
 Summary: High-performance Python pipeline tool with automatic code change detection
 Author: Sami Jawhar
 Author-email: Sami Jawhar <sami@metr.org>

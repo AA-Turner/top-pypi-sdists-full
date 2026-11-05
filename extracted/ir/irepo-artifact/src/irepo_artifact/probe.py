@@ -1,4 +1,4 @@
-"""One short TCP reachability check per public download invocation."""
+"""Short TCP reachability checks scoped to a public download invocation."""
 import socket
 import threading
 from urllib.parse import urlsplit
@@ -19,7 +19,7 @@ def _probe_endpoint(url: str, timeout: float) -> bool:
 
 
 class DownloadProbe:
-    """Share one result across workers/batches, assuming one OSS endpoint.
+    """Share one result per endpoint across workers and batches.
 
     The timeout bounds socket connections, not DNS or all address attempts.
     No result survives the owning download/download_many/download_group call.
@@ -28,6 +28,7 @@ class DownloadProbe:
     def __init__(self, timeout: float):
         self._timeout = min(0.5, timeout)
         self._result = None
+        self._results = {}
         self._lock = threading.Lock()
 
     @property
@@ -35,8 +36,11 @@ class DownloadProbe:
         return self._result
 
     def reachable(self, url: str) -> bool:
+        address = urlsplit(internal_download_url(url))
+        endpoint = (address.hostname, address.port or (443 if address.scheme == 'https' else 80))
         # Hold the lock through the probe so concurrent Jobs do not duplicate it.
         with self._lock:
-            if self._result is None:
-                self._result = _probe_endpoint(url, self._timeout)
+            if endpoint not in self._results:
+                self._results[endpoint] = _probe_endpoint(url, self._timeout)
+            self._result = self._results[endpoint]
             return self._result

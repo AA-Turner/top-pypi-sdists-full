@@ -1,18 +1,10 @@
 //! Timestamp parsing.
 
-use nom::{
-	Parser,
-	bytes::complete::tag,
-	character::complete::{char, i64, one_of},
-	combinator::{map, opt},
-	error::ParseError,
-	sequence::{delimited, pair, preceded},
-};
 use style::{STYLE_CHARS, Style};
 
 pub mod style;
 
-use crate::{Input, unparse::Unparse};
+use crate::{Input, error::PResult};
 
 pub const OPEN_DELIMITER: &str = "<t:";
 pub const CLOSE_DELIMITER: &str = ">";
@@ -25,59 +17,35 @@ pub struct Timestamp {
 	pub style: Option<Style>,
 }
 
-impl Unparse for Timestamp {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self.style {
-			Some(style) => write!(
-				f,
-				"{}{}:{}{}",
-				OPEN_DELIMITER, self.value, style, CLOSE_DELIMITER
-			),
-			None => write!(f, "{}{}{}", OPEN_DELIMITER, self.value, CLOSE_DELIMITER),
-		}
-	}
-}
-
 /// Parse a timestamp.
+///
+/// # Errors
+/// If the content does not begin with a timestamp.
 ///
 /// # Panics
 /// If [`STYLE_CHARS`] doesn't match [`Style`]
-pub fn timestamp<'data, E>() -> impl Parser<Input<'data>, Output = Timestamp, Error = E>
-where
-	E: ParseError<Input<'data>>,
-{
-	map(
-		delimited(
-			tag(OPEN_DELIMITER),
-			pair(
-				i64,
-				opt(preceded(
-					char(':'),
-					map(one_of(STYLE_CHARS), |ch| ch.try_into().unwrap()),
-				)),
-			),
-			tag(CLOSE_DELIMITER),
-		),
-		|(value, style)| Timestamp { value, style },
-	)
+pub fn timestamp(input: &mut Input) -> PResult<Timestamp> {
+	input.tag(OPEN_DELIMITER)?;
+	let value = input.i64()?;
+	let style = input.attempt(|input| {
+		input.char(':')?;
+		let style = input.satisfy(|ch| STYLE_CHARS.contains(ch))?;
+		Ok(style.try_into().unwrap())
+	})?;
+	input.tag(CLOSE_DELIMITER)?;
+	Ok(Timestamp { value, style })
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
-	use crate::{node::inline::timestamp::Style, test_utils::handle_nom_err};
+	use crate::{node::inline::timestamp::Style, test_utils::run};
 
 	use super::{Timestamp, timestamp};
 
 	#[test]
 	fn simple_timestamp() {
 		let s = r"<t:1234>";
-		let (rem, res) = timestamp()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, timestamp).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			res,
@@ -91,11 +59,7 @@ mod test {
 	#[test]
 	fn styled_timestamp() {
 		let s = r"<t:1234:d>";
-		let (rem, res) = timestamp()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, timestamp).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			res,
@@ -109,10 +73,6 @@ mod test {
 	#[test]
 	fn not_timestamp() {
 		let s = r"<a:12345>";
-		timestamp()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect_err("unable to parse");
+		run(s, timestamp).expect_err("unable to parse");
 	}
 }

@@ -319,6 +319,29 @@ def test_invalid_pyproject_configuration_is_a_clean_cli_error(
 
 
 @pytest.mark.parametrize(
+    ("setting", "message"),
+    [
+        pytest.param(
+            'http-headers = "Authorization: x"', "Invalid http_headers value: 'Authorization: x'", id="http-headers"
+        ),
+        pytest.param("http-query-parameters = 5", "Invalid http_query_parameters value: 5", id="http-query-parameters"),
+    ],
+)
+def test_pyproject_http_pairs_that_are_no_list_are_a_clean_cli_error(
+    setting: str,
+    message: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An HTTP header or query parameter setting of pyproject.toml that is no list is refused, naming its value."""
+    (tmp_path / "pyproject.toml").write_text(f"[tool.datamodel-codegen]\n{setting}\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    run_main_with_args([], expected_exit=Exit.ERROR, capsys=capsys, expected_stderr_contains=message)
+
+
+@pytest.mark.parametrize(
     ("suffix", "inside_output", "input_file_type", "header", "yaml_key"),
     [
         (".schema", False, "jsonschema", None, None),
@@ -588,6 +611,50 @@ def test_model_metadata_directory_is_a_clean_cli_error(
     )
 
 
+@pytest.mark.parametrize("scopes", [(), ("--openapi-scopes", "schemas", "api")], ids=["models", "api-scope"])
+@pytest.mark.parametrize(
+    ("documents", "location"),
+    [
+        pytest.param({"input.json": {"components": []}}, "input.json#/components", id="components-list"),
+        pytest.param({"input.json": {"components": None}}, "input.json#/components", id="components-null"),
+        pytest.param(
+            {"input.json": {"components": {"schemas": []}}}, "input.json#/components/schemas", id="schemas-list"
+        ),
+        pytest.param(
+            {
+                "input.json": {"components": {"schemas": {"S": {"$ref": "other.json#/definitions/X"}}}},
+                "other.json": {"components": [], "definitions": {"X": {"type": "string"}}},
+            },
+            "other.json#/components",
+            id="components-list-of-a-referenced-document",
+        ),
+    ],
+)
+def test_openapi_components_that_is_no_object_is_a_clean_cli_error(
+    documents: dict[str, dict[str, YamlValue]],
+    location: str,
+    scopes: tuple[str, ...],
+    tmp_path: Path,
+    output_file: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Report components or its schemas section that is no object as the api scope does, in every scope (#6104)."""
+    head = {"openapi": "3.0.3", "info": {"title": "t", "version": "1"}, "paths": {}}
+    for name, document in documents.items():
+        (tmp_path / name).write_text(json.dumps({**head, **document}), encoding="utf-8")
+
+    run_main_and_assert(
+        input_path=tmp_path / "input.json",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=scopes,
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains=f"Error at schema path '{location}': API_INVALID_OBJECT: expected an object",
+        output_should_not_exist=True,
+    )
+
+
 @pytest.mark.parametrize(
     ("input_path", "extra_args", "expected_stderr_contains"),
     [
@@ -618,6 +685,104 @@ def test_cli_input_errors_are_clean(
         output_path=output_file,
         input_file_type="jsonschema",
         extra_args=extra_args,
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr_contains=expected_stderr_contains,
+        output_should_not_exist=True,
+    )
+
+
+_OPENAPI_HEAD = 'openapi: "3.0.3"\ninfo: {title: T, version: "1"}\n'
+_PETS = "  /pets:\n    get:\n      responses: {'200': {description: ok}}\n"
+
+
+@pytest.mark.parametrize(
+    ("document", "scopes", "expected_stderr_contains"),
+    [
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths: {{}}\ncomponents: []\n",
+            ("schemas",),
+            "Error at schema path 'api.yaml#/components': API_INVALID_OBJECT: expected an object\n",
+            id="components-list",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths: {{}}\ncomponents:\n",
+            ("schemas",),
+            "Error at schema path 'api.yaml#/components': API_INVALID_OBJECT: expected an object\n",
+            id="components-null",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths: {{}}\ncomponents:\n  schemas: []\n",
+            ("schemas",),
+            "Error at schema path 'api.yaml#/components/schemas': API_INVALID_OBJECT: expected an object\n",
+            id="schemas-list",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths: {{}}\ncomponents:\n  schemas:\n    Pet:\n      allOf: 5\n",
+            ("schemas",),
+            "Error at schema path 'api.yaml#/components/schemas/Pet': ValidationError: 1 validation error for "
+            "JsonSchemaObject\nallOf\n  Input should be a valid list",
+            id="all-of-number",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths: []\n",
+            ("paths",),
+            "Error at schema path 'api.yaml/#/paths': API_INVALID_OBJECT: expected an object\n",
+            id="paths-list",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths:\n  parameters: 5\n{_PETS}",
+            ("paths",),
+            "Error at schema path 'api.yaml/#/paths/parameters': API_INVALID_OBJECT: expected parameter array\n",
+            id="paths-parameters-number",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths:\n  /pets: 5\n",
+            ("paths",),
+            "Error at schema path 'api.yaml/#/paths//pets': API_INVALID_OBJECT: expected an object\n",
+            id="path-item-number",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths:\n{_PETS}    parameters:\n",
+            ("paths",),
+            "Error at schema path 'api.yaml/#/paths//pets/parameters': API_INVALID_OBJECT: expected parameter array\n",
+            id="path-item-parameters-null",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths:\n  /pets:\n    get: 5\n",
+            ("paths",),
+            "Error at schema path 'api.yaml/#/paths//pets/get': API_INVALID_OBJECT: expected an object\n",
+            id="operation-number",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths: {{}}\nwebhooks: []\n",
+            ("webhooks",),
+            "Error at schema path 'api.yaml/#/webhooks': API_INVALID_OBJECT: expected an object\n",
+            id="webhooks-list",
+        ),
+        pytest.param(
+            f"{_OPENAPI_HEAD}paths: {{}}\ncomponents:\n  requestBodies:\n    Pet: 5\n",
+            ("requestbodies",),
+            "Error at schema path 'api.yaml/#/components/requestBodies/Pet': API_INVALID_OBJECT: expected an object\n",
+            id="request-body-number",
+        ),
+    ],
+)
+def test_openapi_section_of_the_wrong_type_names_its_location(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    document: str,
+    scopes: tuple[str, ...],
+    expected_stderr_contains: str,
+) -> None:
+    """A section that the schemas or paths walk reads, of the wrong type, is the API scope's located error."""
+    input_path = tmp_path / "api.yaml"
+    input_path.write_text(document, encoding="utf-8")
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=tmp_path / "model.py",
+        input_file_type="openapi",
+        extra_args=["--openapi-scopes", *scopes],
         expected_exit=Exit.ERROR,
         capsys=capsys,
         expected_stderr_contains=expected_stderr_contains,
@@ -1116,6 +1281,14 @@ def test_malformed_input_error_messages(
             id="integer-additional-operation-referenced-api",
         ),
         pytest.param(
+            "additional_operations_list.yaml",
+            "openapi",
+            ["--openapi-scopes", "api"],
+            "Error at schema path 'additional_operations_list.yaml/#/paths//pets/additionalOperations': "
+            "API_INVALID_OBJECT: expected an object",
+            id="additional-operations-list-api",
+        ),
+        pytest.param(
             "integer_header_name.yaml",
             "openapi",
             ["--openapi-scopes", "api"],
@@ -1187,6 +1360,13 @@ def test_malformed_input_error_messages(
             "AsyncAPI message schemaFormat must be a string at "
             "integer_asyncapi_schema_format.yaml/#/channels/1/messages/petAdded",
             id="integer-asyncapi-channel-name-beside-invalid-schema-format",
+        ),
+        pytest.param(
+            "schema_alias_cycle_property.yaml",
+            "openapi",
+            [],
+            "Schema nesting is too deep to generate: parsing the nested schemas exceeded the Python recursion limit",
+            id="schema-alias-cycle",
         ),
         pytest.param(
             "ref_sibling_cycle.yaml",

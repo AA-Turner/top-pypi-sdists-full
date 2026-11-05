@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openai
-Version: 3.45.0
+Version: 3.46.0
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -29,7 +29,9 @@ Requires-Dist: pydantic!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,<3,>=1.10.13
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
-Requires-Dist: aiohttp>=3.14.3; extra == 'aiohttp'
+Requires-Dist: aiohttp>=3.14.4; extra == 'aiohttp'
+Requires-Dist: multidict>=6.9.1; extra == 'aiohttp'
+Requires-Dist: yarl>=1.25.1; extra == 'aiohttp'
 Provides-Extra: bedrock
 Requires-Dist: botocore<2,>=1.40.0; extra == 'bedrock'
 Requires-Dist: urllib3<3,>=2.7.0; extra == 'bedrock'

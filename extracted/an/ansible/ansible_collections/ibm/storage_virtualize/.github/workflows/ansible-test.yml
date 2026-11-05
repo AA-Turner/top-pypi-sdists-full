@@ -59,6 +59,8 @@ jobs:
           - stable-2.17
           - stable-2.18
           - stable-2.19
+          - stable-2.20
+          - stable-2.21
             # - devel
         # - milestone
     # Ansible-test on various stable branches does not yet work well with cgroups v2.
@@ -119,22 +121,39 @@ jobs:
           - stable-2.17
           - stable-2.18
           - stable-2.19
+          - stable-2.20
+          - stable-2.21
         python:
           - '3.10'
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
         exclude:
-          # Python 3.10 will not be supported in ansible 2.18 and later. Python 3.13 support started with ansible 2.18.
           - ansible: stable-2.16
             python: '3.13'
+          - ansible: stable-2.16
+            python: '3.14'
           - ansible: stable-2.17
             python: '3.13'
+          - ansible: stable-2.17
+            python: '3.14'
           - ansible: stable-2.18
             python: '3.10'
+          - ansible: stable-2.18
+            python: '3.14'
           - ansible: stable-2.19
             python: '3.10'
-
+          - ansible: stable-2.19
+            python: '3.14'
+          - ansible: stable-2.20
+            python: '3.10'
+          - ansible: stable-2.20
+            python: '3.11'
+          - ansible: stable-2.21
+            python: '3.10'
+          - ansible: stable-2.21
+            python: '3.11'
 
     steps:
       - name: >-
@@ -193,23 +212,39 @@ jobs:
           - stable-2.17
           - stable-2.18
           - stable-2.19
-            # - devel
-        # - milestone
+          - stable-2.20
+          - stable-2.21
         python:
           - '3.10'
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
         exclude:
-          # Python 3.10 will not be supported in ansible 2.18 and later. Python 3.13 support started with ansible 2.18.
           - ansible: stable-2.16
             python: '3.13'
+          - ansible: stable-2.16
+            python: '3.14'
           - ansible: stable-2.17
             python: '3.13'
+          - ansible: stable-2.17
+            python: '3.14'
           - ansible: stable-2.18
             python: '3.10'
+          - ansible: stable-2.18
+            python: '3.14'
           - ansible: stable-2.19
             python: '3.10'
+          - ansible: stable-2.19
+            python: '3.14'
+          - ansible: stable-2.20
+            python: '3.10'
+          - ansible: stable-2.20
+            python: '3.11'
+          - ansible: stable-2.21
+            python: '3.10'
+          - ansible: stable-2.21
+            python: '3.11'
 
     steps:
       - name: >-

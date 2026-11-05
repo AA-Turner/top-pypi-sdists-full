@@ -14,16 +14,18 @@
 
 #include "normalizer.h"
 
+#include <gtest/gtest.h>
+
 #include <set>
 #include <string>
 #include <vector>
 
+#include "absl/log/log.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "builder.h"
 #include "sentencepiece_trainer.h"
-#include "testharness.h"
-#include "third_party/absl/status/status.h"
-#include "third_party/absl/strings/string_view.h"
-#include "third_party/darts_clone/darts.h"
+#include "darts.h"
 #include "util.h"
 
 namespace sentencepiece {
@@ -496,6 +498,10 @@ TEST(NormalizerTest, PrefixMatcherTest) {
   EXPECT_EQ(6, matcher.PrefixMatch("京都大学", &found));
   EXPECT_TRUE(found);
   EXPECT_EQ(3, matcher.PrefixMatch("東京大学", &found));
+  EXPECT_FALSE(found);
+  EXPECT_EQ(0, matcher.PrefixMatch(absl::string_view("abcd", 0), &found));
+  EXPECT_FALSE(found);
+  EXPECT_EQ(0, matcher.PrefixMatch(absl::string_view(), &found));
   EXPECT_FALSE(found);
 
   EXPECT_EQ("", matcher.GlobalReplace("", ""));

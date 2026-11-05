@@ -41,6 +41,7 @@ if typing.TYPE_CHECKING:
     from .deepgram_listen_provider_v1 import DeepgramListenProviderV1Params
     from .deepgram_listen_provider_v2 import DeepgramListenProviderV2Params
     from .deepgram_think_live_provider_v1 import DeepgramThinkLiveProviderV1Params
+    from .deepgram_think_provider import DeepgramThinkProviderParams
     from .delete_project_invite_v1response import DeleteProjectInviteV1ResponseParams
     from .delete_project_key_v1response import DeleteProjectKeyV1ResponseParams
     from .delete_project_member_v1response import DeleteProjectMemberV1ResponseParams
@@ -199,6 +200,7 @@ if typing.TYPE_CHECKING:
         ThinkSettingsV1ProviderParams,
         ThinkSettingsV1Provider_AnthropicParams,
         ThinkSettingsV1Provider_AwsBedrockParams,
+        ThinkSettingsV1Provider_DeepgramParams,
         ThinkSettingsV1Provider_GoogleParams,
         ThinkSettingsV1Provider_GroqParams,
         ThinkSettingsV1Provider_OpenAiParams,
@@ -245,6 +247,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DeepgramListenProviderV2Params": ".deepgram_listen_provider_v2",
     "DeepgramParams": ".deepgram",
     "DeepgramThinkLiveProviderV1Params": ".deepgram_think_live_provider_v1",
+    "DeepgramThinkProviderParams": ".deepgram_think_provider",
     "DeleteProjectInviteV1ResponseParams": ".delete_project_invite_v1response",
     "DeleteProjectKeyV1ResponseParams": ".delete_project_key_v1response",
     "DeleteProjectMemberV1ResponseParams": ".delete_project_member_v1response",
@@ -370,6 +373,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ThinkSettingsV1ProviderParams": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_AnthropicParams": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_AwsBedrockParams": ".think_settings_v1provider",
+    "ThinkSettingsV1Provider_DeepgramParams": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_GoogleParams": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_GroqParams": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_OpenAiParams": ".think_settings_v1provider",
@@ -400,6 +404,7 @@ _dynamic_imports.update(
         "DeepgramListenProviderV2LanguageHintParams": ".deepgram_listen_provider_v2language_hint",
     }
 )
+
 
 def __getattr__(attr_name: str) -> typing.Any:
     module_name = _dynamic_imports.get(attr_name)
@@ -454,6 +459,7 @@ __all__ = [
     "DeepgramListenProviderV2Params",
     "DeepgramParams",
     "DeepgramThinkLiveProviderV1Params",
+    "DeepgramThinkProviderParams",
     "DeleteProjectInviteV1ResponseParams",
     "DeleteProjectKeyV1ResponseParams",
     "DeleteProjectMemberV1ResponseParams",
@@ -579,6 +585,7 @@ __all__ = [
     "ThinkSettingsV1ProviderParams",
     "ThinkSettingsV1Provider_AnthropicParams",
     "ThinkSettingsV1Provider_AwsBedrockParams",
+    "ThinkSettingsV1Provider_DeepgramParams",
     "ThinkSettingsV1Provider_GoogleParams",
     "ThinkSettingsV1Provider_GroqParams",
     "ThinkSettingsV1Provider_OpenAiParams",

@@ -5,7 +5,7 @@
 python-version = "3.11"
 
 [src]
-include = ["src/airbyte_ops_mcp/mcp"]
+include = ["src"]
 exclude = [
     "tests/**",
     "docs/**",
@@ -13,3 +13,13 @@ exclude = [
 
 [rules]
 unused-ignore-comment = "error"
+
+# mitmproxy is only installed on Python >= 3.12 (see pyproject.toml), so these
+# diagnostics differ between 3.11 and 3.12 environments.
+[[overrides]]
+include = ["src/airbyte_ops_mcp/regression_tests/http_metrics.py"]
+
+[overrides.rules]
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"
+invalid-assignment = "ignore"

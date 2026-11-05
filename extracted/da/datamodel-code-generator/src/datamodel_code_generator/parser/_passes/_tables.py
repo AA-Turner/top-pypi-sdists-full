@@ -149,6 +149,9 @@ class PipelineHost(
         module_to_import: dict[ModulePath, Imports],
         forwarder_modules: Collection[ModulePath],
         with_import: bool,  # noqa: FBT001
+        config: Any,
+        internal_modules: set[ModulePath],
+        model_path_to_module_name: dict[str, str],
     ) -> None:
         """Finish the render preparation of every module and collect the imports of each module."""
 
@@ -234,6 +237,10 @@ MODULE_BODY: tuple[StepLike[PipelineHost, _ModuleState[Any]], ...] = (
         lambda self, s: modules.set_reference_default_value_to_field(self, s.model_list),
     ),
     PassSpec("reuse_model", lambda self, s: modules.reuse_model(self, s.model_list, s.require_update_action_models)),
+    PassSpec(
+        "replace_type_list_unique_list_to_set",
+        lambda self, s: modules.replace_type_list_unique_list_to_set(self, s.model_list),
+    ),
     PassSpec("collapse_root_models", late(modules.collapse_module_root_models)),
     PassSpec("set_default_enum_member", lambda self, s: modules.set_default_enum_member(self, s.model_list)),
     PassSpec(
@@ -392,6 +399,11 @@ FINALIZE_SEGMENTS: tuple[StepLike[PipelineHost, _FinalizeState[Any]], ...] = (
             ),
             PassSpec("bind_module_field_names", late(imports.bind_module_field_names)),
             PassSpec("change_imported_model_name", late(imports.change_imported_model_name)),
+            PassSpec(
+                "import_models_of_hidden_submodules",
+                late(imports.import_models_of_hidden_submodules),
+                when=lambda _, state: state.with_import,
+            ),
             PassSpec(
                 "name_final_classes_of_additional_properties",
                 lambda _, s: imports.name_final_classes_of_additional_properties(s),
@@ -643,6 +655,9 @@ PIPELINE: tuple[StepLike[PipelineHost, _PipelineRun[Any, Any, Any]], ...] = (
                     run.module_to_import,
                     run.forwarder_map,
                     bool(run.args.with_import),
+                    run.config,
+                    run.internal_modules,
+                    run.model_path_to_module_name,
                 ),
             ),
         ),

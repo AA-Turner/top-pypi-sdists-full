@@ -2,7 +2,7 @@
 
 import pytest
 
-from surrealdb import AsyncSurreal
+from surrealdb import AsyncSurreal, StringRecordId
 
 
 @pytest.mark.asyncio
@@ -107,7 +107,7 @@ async def test_merge_operation() -> None:
         await db.create("item", {"name": "Item1", "quantity": 5})
 
         # Merge
-        merged = await db.merge("item", {"quantity": 10})
+        merged = await db.update("item").merge({"quantity": 10})
         assert merged is not None
 
 
@@ -118,11 +118,11 @@ async def test_upsert_operation() -> None:
         await db.use("test", "test")
 
         # Upsert (insert)
-        upserted = await db.upsert("record:1", {"value": "first"})
+        upserted = await db.upsert(StringRecordId("record:1"), {"value": "first"})
         assert upserted is not None
 
         # Upsert (update)
-        upserted = await db.upsert("record:1", {"value": "second"})
+        upserted = await db.upsert(StringRecordId("record:1"), {"value": "second"})
         assert upserted is not None
 
 

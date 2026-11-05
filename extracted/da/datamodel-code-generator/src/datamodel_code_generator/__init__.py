@@ -13,7 +13,7 @@ import sys
 import threading
 import warnings
 from collections import defaultdict
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
 from functools import lru_cache as _lru_cache
 from pathlib import Path
 from typing import (
@@ -151,7 +151,7 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator.model import DataModelSet
     from datamodel_code_generator.model_metadata import ModelMetadata
-    from datamodel_code_generator.parser.base import Result
+    from datamodel_code_generator.parser.base import DocumentRoles, Result
     from datamodel_code_generator.remote_lock import RemoteReferenceLock
 
 T = TypeVar("T")
@@ -618,7 +618,9 @@ class InvalidClassNameError(Error):
     def __init__(self, class_name: str) -> None:
         """Initialize with class name."""
         self.class_name = class_name
-        message = f"title={class_name!r} is invalid class name."
+        from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
+        message = f"title={stable_repr(class_name)} is invalid class name."
         super().__init__(message=message)
 
 
@@ -669,10 +671,11 @@ def _apply_missing_sentinel_config(config: GenerateConfig) -> GenerateConfig:
             target_version_value = (
                 target_version.value if isinstance(target_version, TargetPydanticVersion) else target_version
             )
+            from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
             msg = (
-                "`--use-missing-sentinel` requires "
-                f"`--target-pydantic-version {minimum.value}` or later; "
-                f"got {target_version_value!r}"
+                f"`--use-missing-sentinel` requires `--target-pydantic-version {minimum.value}` or later; got "
+                f"{stable_repr(target_version_value)}"
             )
             raise Error(msg)
     raise AssertionError  # pragma: no cover
@@ -1562,7 +1565,9 @@ def _ensure_output_text_encodable(text: str, encoding: str) -> None:
     try:
         text.encode(encoding)
     except (UnicodeError, LookupError) as exc:
-        msg = f"Unable to encode output using encoding {encoding!r}: {exc}"
+        from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
+        msg = f"Unable to encode output using encoding {stable_repr(encoding)}: {exc}"
         raise Error(msg) from exc
 
 
@@ -1575,8 +1580,8 @@ def _write_results_to_output(  # noqa: PLR0913
     header_prefix: str,
     header_suffix: str | None,
     has_custom_file_header: bool,
-) -> None:
-    """Write one file or a sorted collection of generated modules to disk."""
+) -> list[Path]:
+    """Write one file or a sorted collection of generated modules to disk, and return the files written."""
     from datamodel_code_generator._paths import names_directory  # noqa: PLC0415
 
     if isinstance(results, str):
@@ -1595,13 +1600,15 @@ def _write_results_to_output(  # noqa: PLR0913
     )
     for module_text in module_texts.values():
         _ensure_output_text_encodable(module_text, config.encoding)
+    paths: list[Path] = []
     for name, module_text in module_texts.items():
-        path = output.joinpath(*name)
+        paths.append(path := output.joinpath(*name))
         if not path.parent.exists():
             path.parent.mkdir(parents=True)
         with path.open("wt", encoding=config.encoding) as file:
             file.write(module_text)
             file.write("\n")
+    return paths
 
 
 def _format_deferred_output(
@@ -1609,8 +1616,9 @@ def _format_deferred_output(
     config: GenerateConfig,
     data_model_types: DataModelSet,
     settings_path: Path,
+    files: Iterable[Path],
 ) -> None:
-    """Apply deferred Ruff formatting only when a Ruff formatter is configured."""
+    """Apply deferred Ruff formatting only when a Ruff formatter is configured, to the files written in the encoding."""
     if not config.formatters:
         return
 
@@ -1631,7 +1639,7 @@ def _format_deferred_output(
             is_multi_module_output=True,
         ),
     )
-    code_formatter.format_directory(output)
+    code_formatter.format_directory(output, files)
 
 
 def _default_input_filename(input_: _GenerationInput) -> str:
@@ -1696,7 +1704,7 @@ def _emit_results(  # noqa: PLR0913
         return texts[()] if isinstance(results, str) else texts
 
     try:
-        _write_results_to_output(
+        written = _write_results_to_output(
             results,
             output,
             config,
@@ -1710,7 +1718,7 @@ def _emit_results(  # noqa: PLR0913
             raise
         raise Error(_MODULAR_OUTPUT_FILE_ERROR) from e
     if defer_formatting:
-        _format_deferred_output(output, config, data_model_types, settings_path)
+        _format_deferred_output(output, config, data_model_types, settings_path, written)
 
     return None
 
@@ -1832,11 +1840,11 @@ def _prepare_atomic_generation_remote_lock(
     input_: _GenerationInput, config: GenerateConfig, caller_cwd: Path
 ) -> tuple[GenerateConfig, Path, RemoteReferenceLock]:
     """Prepare the existing atomic update policy without resolving the original config."""
-    from datamodel_code_generator._lock_plan import remote_lock_plan  # noqa: PLC0415
+    from datamodel_code_generator._lock_plan import default_lock_parent, remote_lock_plan  # noqa: PLC0415
     from datamodel_code_generator.remote_lock import RemoteReferenceLock  # noqa: PLC0415
 
     config = _absolute_config_paths(config, ("output", "emit_model_metadata"), caller_cwd)
-    canonical_lockfile = remote_lock_plan(config, caller_cwd, "resolved").canonical_path
+    canonical_lockfile = remote_lock_plan(config, default_lock_parent(None, caller_cwd), "resolved").canonical_path
     _validate_generation_path_conflicts(input_, config.output, config.emit_model_metadata, canonical_lockfile)
     remote_lock = RemoteReferenceLock.open(canonical_lockfile, update=True, locked=False)
     return config, canonical_lockfile, remote_lock
@@ -1850,9 +1858,9 @@ def _generate_with_atomic_remote_update(
     use_output_cwd: bool,
 ) -> str | GeneratedModules | None:
     """Generate into private staging and publish output, metadata, and update lock together."""
-    from datamodel_code_generator._paths import concrete_parent, resolved  # noqa: PLC0415
     from datamodel_code_generator._publication import (  # noqa: PLC0415
         StagingDirectory,
+        artifact_roots,
         publish_staged_files,
         release_all,
         stage_outputs,
@@ -1867,16 +1875,7 @@ def _generate_with_atomic_remote_update(
     try:
         output, metadata = config.output, config.emit_model_metadata
         staging = stage_outputs(
-            output,
-            metadata,
-            (
-                None if output is None else resolved(output),
-                None if output is None else concrete_parent(output),
-                None if metadata is None else concrete_parent(metadata),
-            ),
-            contexts,
-            anchors,
-            make_directory=True,
+            output, metadata, artifact_roots(output, metadata), contexts, anchors, existing_directory="empty-directory"
         )
         lock_anchor, lock_staging = _open_lock_staging(canonical_lockfile.parent)
         staged_config = config.model_copy(update=staging.updates)
@@ -1941,6 +1940,7 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
     suppress_parse_warnings: bool = False,
     untyped_nullable_maps: bool = False,
     yielding_names: tuple[tuple[str, tuple[str, str | None]], ...] = (),
+    document_roles: DocumentRoles = (),
     reference_cache: Any | None = None,
     python_type_expressions: _PythonTypeExpressions | None = None,
     openapi_parser_factory: OpenAPIParserFactory | None = None,
@@ -1976,6 +1976,7 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
         suppress_parse_warnings=suppress_parse_warnings,
         untyped_nullable_maps=untyped_nullable_maps,
         yielding_names=yielding_names,
+        document_roles=document_roles,
     )
     return parser
 
@@ -1997,11 +1998,7 @@ def _prepare_directory_input(input_: _GenerationInput, config: GenerateConfig) -
     for target, is_directory in ((output, output is not None and names_directory(output)), (metadata, False)):
         if target is None:
             continue
-        paths = (
-            (target.resolve(),)
-            if is_directory
-            else (concrete(target, tilde="legacy-metadata-tilde-as-written"), target.resolve())
-        )
+        paths = (target.resolve(),) if is_directory else (concrete(target), target.resolve())
         for resolved in paths:
             if not resolved.is_relative_to(input_root):
                 continue
@@ -2052,9 +2049,9 @@ def _resolve_generation_remote_lock(
             getattr(remote_lock, "path", None),
         )
     else:
-        from datamodel_code_generator._lock_plan import remote_lock_plan  # noqa: PLC0415
+        from datamodel_code_generator._lock_plan import default_lock_parent, remote_lock_plan  # noqa: PLC0415
 
-        plan = remote_lock_plan(config, caller_cwd, "legacy-api-lockfile-as-written")
+        plan = remote_lock_plan(config, default_lock_parent(None, caller_cwd), "legacy-api-lockfile-as-written")
         _validate_generation_path_conflicts(
             input_,
             config.output,
@@ -2293,6 +2290,7 @@ def _parse_again(  # noqa: PLR0913, PLR0917
     openapi_parser_factory: OpenAPIParserFactory | None,
     untyped_nullable_maps: bool = True,
     yielding_names: tuple[tuple[str, tuple[str, str | None]], ...] = (),
+    document_roles: DocumentRoles = (),
     ignored_warnings: type[Warning] | None = Warning,
     collapse_retry: bool = False,
 ) -> tuple[Any, _ParserResults, DataModelSet, bool, defaultdict[str, dict[str, Any]] | None]:
@@ -2307,52 +2305,98 @@ def _parse_again(  # noqa: PLR0913, PLR0917
     models a collapse keeps; the decision covers the whole run, so every input of a directory run is then untyped.
     The first parse already reported its warnings, so this one reports none, and it ignores ``ignored_warnings`` (none
     are filtered when it is None). The caller disposes the parser it does not keep only after binding the kept one,
-    as both share loaded documents. A ``collapse_retry`` parses through the root-model collapse retry.
+    as both share loaded documents. A ``collapse_retry`` parses through the root-model collapse retry. The roles of
+    documents that an earlier attempt recorded after preparing them start the parse (``document_roles``); an attempt
+    with such roles that fails after recording more of them parses once more with every role, until none is new.
     """
     remote_text_cache, reference_cache, base_path = caches
     with contextlib.nullcontext() if ignored_warnings is None else quiet(ignored_warnings):
-        data_model_types, parser_source, defer_formatting, parser_options, python_type_expressions = (
-            _prepare_parser_common_options(
-                input_,
-                input_text,
-                input_file_type,
-                source_override,
-                config,
-                extra_template_data,
-                dataclass_arguments,
-                skip_root_model=skip_root_model,
-                remote_text_cache=remote_text_cache,
+        while True:
+            data_model_types, parser_source, defer_formatting, parser_options, python_type_expressions = (
+                _prepare_parser_common_options(
+                    input_,
+                    input_text,
+                    input_file_type,
+                    source_override,
+                    config,
+                    extra_template_data,
+                    dataclass_arguments,
+                    skip_root_model=skip_root_model,
+                    remote_text_cache=remote_text_cache,
+                )
             )
-        )
-        parser_options["base_path"] = base_path
-        parser = _build_generation_parser(
-            input_,
-            input_file_type,
-            parser_source,
-            config,
-            parser_options,
-            data_model_types,
-            schema_versions,
-            diagnostic_source_path,
-            prefetched_source=prefetched_source,
-            formatter_cwd=formatter_cwd,
-            preserve_circular_root_models=preserve_circular_root_models,
-            suppress_parse_warnings=True,
-            untyped_nullable_maps=untyped_nullable_maps,
-            yielding_names=yielding_names,
-            reference_cache=reference_cache,
-            python_type_expressions=python_type_expressions,
-            openapi_parser_factory=openapi_parser_factory,
-        )
-        results = (_parse_collapse_root_models_retry if collapse_retry else _parse_with_disposal)(
-            input_,
-            parser,
-            config,
-            parser_settings_path=parser_settings_path,
-            collect_model_metadata=collect_model_metadata,
-            capture=capture,
-        )
+            parser_options["base_path"] = base_path
+            parser = _build_generation_parser(
+                input_,
+                input_file_type,
+                parser_source,
+                config,
+                parser_options,
+                data_model_types,
+                schema_versions,
+                diagnostic_source_path,
+                prefetched_source=prefetched_source,
+                formatter_cwd=formatter_cwd,
+                preserve_circular_root_models=preserve_circular_root_models,
+                suppress_parse_warnings=True,
+                untyped_nullable_maps=untyped_nullable_maps,
+                yielding_names=yielding_names,
+                document_roles=document_roles,
+                reference_cache=reference_cache,
+                python_type_expressions=python_type_expressions,
+                openapi_parser_factory=openapi_parser_factory,
+            )
+            try:
+                results = (_parse_collapse_root_models_retry if collapse_retry else _parse_with_disposal)(
+                    input_,
+                    parser,
+                    config,
+                    parser_settings_path=parser_settings_path,
+                    collect_model_metadata=collect_model_metadata,
+                    capture=capture,
+                )
+                break
+            except Error:
+                if not document_roles or not (recorded := parser.document_roles_to_seed):
+                    raise
+                document_roles = recorded
     return parser, results, data_model_types, defer_formatting, extra_template_data
+
+
+def _parse_with_document_roles(
+    parse_again: Callable[..., tuple[Any, _ParserResults, DataModelSet, bool, defaultdict[str, dict[str, Any]] | None]],
+    config: GenerateConfig,
+    caches: tuple[DefaultPutDict[str, str], Any | None, Path],
+    document_roles: DocumentRoles,
+) -> tuple[Any, _ParserResults, DataModelSet, bool, defaultdict[str, dict[str, Any]] | None]:
+    """Parse again a run that failed after references held documents it had prepared as objects of other roles.
+
+    Such a document was prepared without the schemas its new role holds, so a reference to one failed; the parse starts
+    with every role the failed attempt recorded (``hold_document_root``). Its warnings are shown once: the parse
+    reports none of the parse warnings the failed attempt reported, and every later one. A collapse of root models
+    that needs its circular-reference fallback parses through that retry with the same roles.
+    """
+    try:
+        return parse_again(
+            config,
+            _prepare_generation_extra_template_data(config),
+            caches,
+            preserve_circular_root_models=False,
+            untyped_nullable_maps=False,
+            document_roles=document_roles,
+            ignored_warnings=None,
+        )
+    except _CollapseRootModelsRecursionError:
+        return parse_again(
+            config,
+            _prepare_generation_extra_template_data(config),
+            caches,
+            preserve_circular_root_models=True,
+            untyped_nullable_maps=False,
+            document_roles=document_roles,
+            ignored_warnings=None,
+            collapse_retry=True,
+        )
 
 
 def _reparse_caches(parser: Any) -> tuple[DefaultPutDict[str, str], Any | None, Path]:
@@ -2479,9 +2523,18 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
                 ignored_warnings=None,
                 collapse_retry=True,
             )
+        except Error:
+            if not (document_roles := parser.document_roles_to_seed):
+                raise
+            caches = _reparse_caches(parser)
+            del parser
+            parser, results, data_model_types, defer_formatting, extra_template_data = _parse_with_document_roles(
+                parse_again, config, caches, document_roles
+            )
         if yielding_names := parser.yielding_names_to_assign:
             caches = _reparse_caches(parser)
             preserve_circular_root_models = parser.run_context.preserve_circular_root_models
+            document_roles = parser.run_context.document_roles
             _dispose_capture_parser(parser, capture, discard=True)
             del parser
             parser, results, data_model_types, defer_formatting, extra_template_data = parse_again(
@@ -2491,6 +2544,7 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
                 preserve_circular_root_models=preserve_circular_root_models,
                 untyped_nullable_maps=False,
                 yielding_names=yielding_names,
+                document_roles=document_roles,
             )
         discarded_parser = None
         if parser.typed_nullable_maps and parser.typed_map_values_may_move_models:
@@ -2500,6 +2554,7 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
                     _prepare_generation_extra_template_data(config),
                     _reparse_caches(parser),
                     preserve_circular_root_models=parser.run_context.preserve_circular_root_models,
+                    document_roles=parser.run_context.document_roles,
                 )
             except BaseException:
                 with contextlib.suppress(BaseException):
@@ -2521,6 +2576,7 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
             retry_caches = _reparse_caches(parser)
             preserve_circular_root_models = parser.run_context.preserve_circular_root_models
             untyped_nullable_maps = parser.run_context.untyped_nullable_maps or parser.typed_nullable_maps
+            document_roles = parser.run_context.document_roles
         if capture is None:
             parser.dispose()
         else:
@@ -2547,6 +2603,7 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
                     retry_caches,
                     preserve_circular_root_models=preserve_circular_root_models,
                     untyped_nullable_maps=untyped_nullable_maps,
+                    document_roles=document_roles,
                     ignored_warnings=DanglingRefWarning,
                 )
                 retry_completed = True

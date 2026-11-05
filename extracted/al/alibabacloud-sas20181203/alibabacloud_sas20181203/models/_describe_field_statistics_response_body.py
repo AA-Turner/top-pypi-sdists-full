@@ -95,7 +95,7 @@ class DescribeFieldStatisticsResponseBodyGroupedFields(DaraModel):
         self.azure_instance_count = azure_instance_count
         # The number of third-party cloud servers.
         self.baidu_instance_count = baidu_instance_count
-        # The number of CPU cores of exposed assets.
+        # The number of compute cores for exposed assets.
         self.exposed_instance_core_count = exposed_instance_core_count
         # The number of exposed assets.
         self.exposed_instance_count = exposed_instance_count
@@ -111,25 +111,25 @@ class DescribeFieldStatisticsResponseBodyGroupedFields(DaraModel):
         self.idc_instance_count = idc_instance_count
         # The number of important assets.
         self.important_asset_count = important_asset_count
-        # The total number of CPU cores of all assets of the specified type. If no asset type is specified, this value is the sum of the CPU cores of all servers and cloud services in your assets.
+        # The total number of compute cores for all assets under the specified asset type. If you do not specify an asset type, this value is the sum of compute cores for all servers and cloud services in your assets.
         self.instance_core_count = instance_core_count
-        # The total number of assets of the specified type. If no asset type is specified, this value is the sum of all servers and cloud services in your assets.
+        # The total number of assets under the specified asset type. If you do not specify an asset type, this value is the sum of all servers and cloud services in your assets.
         self.instance_count = instance_count
-        # The number of tasks for the specified asset type. If no asset type is specified, this value is the sum of tasks for all servers and cloud services in your assets.
+        # The number of tasks under the specified asset type. If you do not specify an asset type, this value is the sum of all servers and cloud services in your assets.
         self.instance_sync_task_count = instance_sync_task_count
         # The number of third-party cloud servers.
         self.kingsoft_instance_count = kingsoft_instance_count
-        # The number of CPU cores of newly added servers.
+        # The number of compute cores for new servers.
         self.new_instance_core_count = new_instance_core_count
-        # The number of newly added servers.
+        # The number of new servers.
         self.new_instance_count = new_instance_count
         # The number of assets that are not a risky asset.
         self.no_risk_instance_count = no_risk_instance_count
-        # The number of Asset Types that do not attach or have no authorization under the specified asset type.
+        # The number of unauthorized assets under the specified asset type.
         self.not_bind_machine_instance_count = not_bind_machine_instance_count
-        # The number of CPU cores of stopped servers.
+        # The number of compute cores for servers that are not running or powered on.
         self.not_running_status_core_count = not_running_status_core_count
-        # The number of stopped servers.
+        # The number of servers that are not running or powered on.
         self.not_running_status_count = not_running_status_count
         # The number of offline servers.
         self.offline_instance_count = offline_instance_count
@@ -141,7 +141,7 @@ class DescribeFieldStatisticsResponseBodyGroupedFields(DaraModel):
         self.pause_instance_count = pause_instance_count
         # The number of regions to which the servers belong.
         self.region_count = region_count
-        # The number of CPU cores of assets with risks.
+        # The number of compute cores for assets with risks.
         self.risk_instance_core_count = risk_instance_core_count
         # The number of assets with risks.
         self.risk_instance_count = risk_instance_count
@@ -157,7 +157,7 @@ class DescribeFieldStatisticsResponseBodyGroupedFields(DaraModel):
         self.ucloud_instance_count = ucloud_instance_count
         # The number of assets with an unknown enabling status.
         self.un_know_status_instance_count = un_know_status_instance_count
-        # The number of CPU cores of unprotected assets.
+        # The number of compute cores for unprotected assets.
         self.unprotected_instance_core_count = unprotected_instance_core_count
         # The number of unprotected assets.
         self.unprotected_instance_count = unprotected_instance_count

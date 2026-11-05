@@ -11,7 +11,7 @@ class DescribeImageBaselineDetailResponseBody(DaraModel):
         baseline_detail: main_models.DescribeImageBaselineDetailResponseBodyBaselineDetail = None,
         request_id: str = None,
     ):
-        # The image baseline details.
+        # The list of image baseline details.
         self.baseline_detail = baseline_detail
         # The ID of the request.
         self.request_id = request_id
@@ -57,29 +57,29 @@ class DescribeImageBaselineDetailResponseBodyBaselineDetail(DaraModel):
         prompt: str = None,
         result_id: str = None,
     ):
-        # The remediation suggestion for the baseline check risk item.
+        # The hardening suggestions for the baseline check risk items.
         self.advice = advice
-        # The alias of the baseline classification.
+        # The alias of the baseline main item category.
         self.baseline_class_alias = baseline_class_alias
         # The alias of the baseline sub-item.
         self.baseline_item_alias = baseline_item_alias
         # The key of the baseline sub-item.
         self.baseline_item_key = baseline_item_key
-        # The alias of the baseline name.
+        # The alias of the baseline main item name.
         self.baseline_name_alias = baseline_name_alias
         # The description of the baseline risk item.
         self.description = description
         # The risk level of the check item. Valid values:
         # 
-        # - **high**: High risk level.
+        # - **high**: High. Indicates a high risk level.
         # 
-        # - **medium**: Medium risk level.
+        # - **medium**: Medium. Indicates a medium risk level.
         # 
-        # - **low**: Low risk level.
+        # - **low**: Low. Indicates a low risk level.
         self.level = level
-        # The baseline issue prompt.
+        # The prompt for the baseline issue.
         self.prompt = prompt
-        # The asynchronous request ID.
+        # The ID of the asynchronous request.
         self.result_id = result_id
 
     def validate(self):

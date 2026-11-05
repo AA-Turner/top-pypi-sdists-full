@@ -2055,6 +2055,7 @@ class CreateNetworkMigrationDefinitionRequestTypeDef(TypedDict):
     name: str
     targetS3Configuration: TargetS3ConfigurationTypeDef
     targetNetwork: TargetNetworkTypeDef
+    clientToken: NotRequired[str]
     description: NotRequired[str]
     sourceConfigurations: NotRequired[Sequence[SourceConfigurationTypeDef]]
     targetDeployment: NotRequired[TargetDeploymentType]

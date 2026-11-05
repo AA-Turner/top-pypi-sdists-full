@@ -13,6 +13,8 @@ class RequestMethod(Enum):
     UNSET = "unset"
     SELECT = "select"
     QUERY = "query"
+    QUERY_STREAM = "query_stream"
+    QUERY_CANCEL = "query_cancel"
     CREATE = "create"
     INSERT = "insert"
     INSERT_RELATION = "insert_relation"
@@ -29,6 +31,13 @@ class RequestMethod(Enum):
     BEGIN = "begin"
     COMMIT = "commit"
     CANCEL = "cancel"
+    RUN = "run"
+    REFRESH = "refresh"
+    REVOKE = "revoke"
+    RESET = "reset"
+    SESSIONS = "sessions"
+    GQL = "gql"
+    GRAPHQL = "graphql"
 
     @staticmethod
     def from_string(method: str) -> "RequestMethod":

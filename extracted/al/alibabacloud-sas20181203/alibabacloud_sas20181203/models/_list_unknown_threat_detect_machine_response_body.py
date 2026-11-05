@@ -72,11 +72,11 @@ class ListUnknownThreatDetectMachineResponseBodyPageInfo(DaraModel):
         page_size: int = None,
         total_count: int = None,
     ):
-        # The number of entries displayed on the current page in a paged query.
+        # The number of entries returned on the current page in a paging query.
         self.count = count
-        # The page number of the current page in a paged query.
+        # The page number of the current page in a paging query.
         self.current_page = current_page
-        # The maximum number of entries to display per page in a paged query.
+        # The maximum number of entries to return on each page in a paging query.
         self.page_size = page_size
         # The total number of entries.
         self.total_count = total_count
@@ -137,9 +137,9 @@ class ListUnknownThreatDetectMachineResponseBodyData(DaraModel):
         study_start_time: int = None,
         uuid: str = None,
     ):
-        # The number of days the policy has been in effect.
+        # The duration for which the policy has been in effect, in days.
         self.effect_days = effect_days
-        # The instance name.
+        # The name of the instance.
         self.instance_name = instance_name
         # The public IP address.
         self.internet_ip = internet_ip
@@ -149,26 +149,26 @@ class ListUnknownThreatDetectMachineResponseBodyData(DaraModel):
         self.malicious_process_count = malicious_process_count
         # The number of normal events.
         self.normal_event_count = normal_event_count
-        # The plug-in status.
+        # The running status of the intelligent behavior analytics plugin.
         self.plugin_status = plugin_status
         # The number of processes.
         self.process_count = process_count
-        # The number of recent deviation behaviors.
+        # The number of recent behavioral deviations.
         self.recent_deviation_behavior_count = recent_deviation_behavior_count
-        # The machine running status. Valid values:
+        # The running status of the server. Valid values:
         # 
-        # - **monitoring**: warning in progress
-        # - **blocking**: under control
-        # - **studying**: learning in progress
+        # - **monitoring**: alerting
+        # - **blocking**: blocking
+        # - **studying**: learning
         self.status = status
         # The whitelist mode. Valid values:
         # 
-        # - **hash**: process hash
-        # - **path**: process path
+        # - **hash**: the hash of the process
+        # - **path**: the path of the process
         self.study_mode = study_mode
-        # The number of remaining learning days.
+        # The remaining learning time, in days.
         self.study_remain_days = study_remain_days
-        # The timestamp when learning started.
+        # The timestamp when the learning started.
         self.study_start_time = study_start_time
         # The UUID of the asset instance.
         self.uuid = uuid

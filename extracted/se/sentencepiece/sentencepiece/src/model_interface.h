@@ -15,21 +15,20 @@
 #ifndef MODEL_INTERFACE_H_
 #define MODEL_INTERFACE_H_
 
+#include <cstdint>
 #include <memory>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "common.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/log/check.h"
+#include "absl/log/log.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "normalizer.h"
 #include "sentencepiece_model.pb.h"
 #include "sentencepiece_processor.h"
-#include "third_party/absl/container/flat_hash_map.h"
-#include "third_party/absl/status/status.h"
-#include "third_party/absl/strings/string_view.h"
-#include "third_party/darts_clone/darts.h"
-#include "util.h"
 
 namespace sentencepiece {
 
@@ -98,51 +97,19 @@ class ModelInterface {
     return {};
   }
 
-  // Sample `samples` many tokenisations from the segmentation lattice
-  // If `wor` is true, the samples are taken without replacement, and the scores
-  // are the inclusion probabilities of the elements in the sample; otherwise
-  // the samples are taken with replacement and the scores are the log-probs of
-  // sample elements
-  // If `include_best` is true, the best tokenisation is always included in the
-  // sample, and the remaining elements are sampled excluding the best.
-  [[nodiscard]] virtual NBestEncodeResult SampleEncodeAndScore(
-      absl::string_view normalized, float alpha, int samples, bool wor,
-      bool include_best) const {
-    LOG(ERROR) << "Not implemented.";
-    return {{EncodeResult(), 0.0}};
-  }
-
-  // Calculates the entropy of the segmentation lattice with inverse temperature
-  // `alpha`. Uses a novel dynamic program to calculate the entropy.
-  [[nodiscard]] virtual float CalculateEntropy(absl::string_view normalized,
-                                               float alpha) const {
-    LOG(ERROR) << "Not implemented.";
-    return 0.0;
-  }
-
   // Return true if SampleEncode returns a valid result.
   [[nodiscard]] virtual bool IsSampleEncodeAvailable() const { return false; }
 
   // Return true if NBestEncode returns a valid result.
   [[nodiscard]] virtual bool IsNBestEncodeAvailable() const { return false; }
 
-  // Return true if SampleEncodeAndScore returns a valid result.
-  [[nodiscard]] virtual bool IsSampleEncodeAndScoreAvailable() const {
-    return false;
-  }
-
-  // Return true if CalculateEntropy returns a valid result.
-  [[nodiscard]] virtual bool IsCalculateEntropyAvailable() const {
-    return false;
-  }
-
   // Returns the vocab id of `piece`.
   // both `pieces_` and `reserved_id_map_` are checked.
-  // Returns UNK(0) if `piece` is unknown
+  // Returns `unk_id()` if `piece` is unknown.
   [[nodiscard]] virtual int PieceToId(absl::string_view piece) const;
 
   // Returns the vocab id of `piece`.
-  // Returns UNK(0) if `piece` is unknown
+  // Returns `unk_id()` if `piece` is unknown.
   // It does not use reserved_id_map_ for the optimization sake,
   // e.g., BPE merges only with normal pieces.
   [[nodiscard]] int PieceToIdNoReserved(absl::string_view piece) const;
@@ -168,9 +135,7 @@ class ModelInterface {
   // Score represents a log probability of the piece.
   // We can roughly estimate the unigram frequency of the piece.
   [[nodiscard]] virtual float GetScore(int id) const {
-    DCHECK_GE(id, 0);
-    DCHECK_LT(id, model_proto_->pieces_size());
-    return model_proto_->pieces(id).score();
+    return GetScoreInlined(id);
   }
 
   // Returns true if `id` is unknown symbol.
@@ -191,18 +156,12 @@ class ModelInterface {
 
   // Returns true if `id` is unused symbol.
   [[nodiscard]] virtual bool IsUnused(int id) const {
-    DCHECK_GE(id, 0);
-    DCHECK_LT(id, model_proto_->pieces_size());
-    return (model_proto_->pieces(id).type() ==
-            ModelProto::SentencePiece::UNUSED);
+    return IsUnusedInlined(id);
   }
 
   // Returns true if `id` is user defined symbol.
   [[nodiscard]] virtual bool IsUserDefined(int id) const {
-    DCHECK_GE(id, 0);
-    DCHECK_LT(id, model_proto_->pieces_size());
-    return (model_proto_->pieces(id).type() ==
-            ModelProto::SentencePiece::USER_DEFINED);
+    return IsUserDefinedInlined(id);
   }
 
   // Returns true if `id` is byte symbol.
@@ -217,14 +176,8 @@ class ModelInterface {
            model_proto_->trainer_spec().byte_fallback();
   }
 
-  // Verifies if the `expected` and `actual` outputs are equivalent. `expected`
-  // and `actual` are sentence pieces joined by space (` `). Normally it means
-  // that the two strings are identical. In some model, due to float rounding
-  // errors, the strings may not be identical, but they may be still equivalent
-  // provided their scores are close enough (by some espilon).
-  [[nodiscard]] virtual bool VerifyOutputsEquivalent(
-      absl::string_view expected, absl::string_view actual) const {
-    return expected == actual;
+  [[nodiscard]] bool has_internal_space_symbol() const {
+    return has_internal_space_symbol_;
   }
 
  protected:
@@ -242,20 +195,6 @@ class ModelInterface {
     return model_proto_->pieces(id).score();
   }
 
-  [[nodiscard]] bool IsUnknownInlined(int id) const {
-    DCHECK_GE(id, 0);
-    DCHECK_LT(id, model_proto_->pieces_size());
-    return (model_proto_->pieces(id).type() ==
-            ModelProto::SentencePiece::UNKNOWN);
-  }
-
-  [[nodiscard]] bool IsControlInlined(int id) const {
-    DCHECK_GE(id, 0);
-    DCHECK_LT(id, model_proto_->pieces_size());
-    return (model_proto_->pieces(id).type() ==
-            ModelProto::SentencePiece::CONTROL);
-  }
-
   [[nodiscard]] bool IsUnusedInlined(int id) const {
     DCHECK_GE(id, 0);
     DCHECK_LT(id, model_proto_->pieces_size());
@@ -268,12 +207,6 @@ class ModelInterface {
     DCHECK_LT(id, model_proto_->pieces_size());
     return (model_proto_->pieces(id).type() ==
             ModelProto::SentencePiece::USER_DEFINED);
-  }
-
-  [[nodiscard]] bool IsByteInlined(int id) const {
-    DCHECK_GE(id, 0);
-    DCHECK_LT(id, model_proto_->pieces_size());
-    return (model_proto_->pieces(id).type() == ModelProto::SentencePiece::BYTE);
   }
 
   [[nodiscard]] bool IsReservedId(int id) const {
@@ -298,6 +231,11 @@ class ModelInterface {
 
   // unknown id.
   int unk_id_ = 0;
+
+  // True if any vocabulary piece contains an internal space symbol ("▁" after
+  // any leading "▁"). Defaults to true for mock models that do not call
+  // InitializePieces().
+  bool has_internal_space_symbol_ = true;
 
   // status.
   absl::Status status_;

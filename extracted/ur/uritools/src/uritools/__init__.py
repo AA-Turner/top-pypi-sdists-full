@@ -33,7 +33,7 @@ __all__ = (
     "uriunsplit",
 )
 
-__version__ = "6.1.3"
+__version__ = "6.1.4"
 
 
 # RFC 3986 2.2.  Reserved Characters
@@ -74,7 +74,7 @@ def uriencode(uristring, safe="", encoding="utf-8", errors="strict"):
     """Encode a URI string or string component."""
     if not isinstance(uristring, bytes):
         uristring = uristring.encode(encoding, errors)
-    if not isinstance(safe, bytes):
+    if isinstance(safe, str):
         safe = safe.encode("ascii")
     # FIXME: though unlikely, _encoded may grow without bounds if arbitrary
     # safe values are passed by a caller - consider using @functools.lru_cache
@@ -84,7 +84,7 @@ def uriencode(uristring, safe="", encoding="utf-8", errors="strict"):
     except KeyError:
         encoded = _encoded[b""][:]
         for i in safe:
-            encoded[i] = bytes([i])  # type: ignore
+            encoded[i] = bytes([i])
         _encoded[safe] = encoded
     return b"".join(map(encoded.__getitem__, uristring))
 
@@ -140,6 +140,21 @@ class SplitResult(
     """Base class to hold :func:`urisplit` results."""
 
     __slots__ = ()  # prevent creation of instance dictionary
+
+    # regex and delimiter constants, defined by SplitResultBytes and SplitResultString
+    _RE: re.Pattern
+    _COLON: str | bytes
+    _SLASH: str | bytes
+    _QUEST: str | bytes
+    _HASH: str | bytes
+    _LBRACKET: str | bytes
+    _RBRACKET: str | bytes
+    _AT: str | bytes
+    _DOT: str | bytes
+    _DOTDOT: str | bytes
+    _EMPTY: str | bytes
+    _EQ: str | bytes
+    _DIGITS: str | bytes
 
     @property
     def userinfo(self):
@@ -260,6 +275,10 @@ class SplitResult(
             else:
                 return ipaddress.IPv4Address(host)
         except ValueError:
+            # RFC 3986 3.2.2. Host: Non-ASCII characters must first be
+            # encoded according to UTF-8 [STD63], and then each octet
+            # of the corresponding UTF-8 sequence must be
+            # percent-encoded to be represented as URI characters.
             return uridecode(host, "utf-8", errors).lower()
 
     def getport(self, default=None):
@@ -381,8 +400,11 @@ class SplitResult(
         """
         scheme, authority, path, query, fragment = self._match(ref).groups()
 
-        # RFC 3986 5.2.2. Transform References
-        if scheme is not None and (strict or scheme != self.scheme):
+        # RFC 3986 5.2.2. Transform References; scheme names are
+        # case-insensitive (RFC 3986 3.1)
+        if scheme is not None and (
+            strict or self.scheme is None or scheme.lower() != self.scheme.lower()
+        ):
             path = self.__remove_dot_segments(path)
         elif authority is not None:
             scheme = self.scheme
@@ -401,6 +423,10 @@ class SplitResult(
             authority = self.authority
             path = self.__remove_dot_segments(self.__merge(path))
         return type(self)(scheme, authority, path, query, fragment)
+
+    @classmethod
+    def _match(cls, ref):
+        return cls._RE.match(ref)
 
     def __merge(self, path):
         # RFC 3986 5.2.3. Merge Paths
@@ -451,8 +477,8 @@ class SplitResult(
         # not supported".
         if isinstance(address, bytes):
             address = address.decode("ascii")
-        if address.startswith("v"):
-            raise ValueError("address mechanism not supported")
+        if address.startswith(("v", "V")):
+            raise ValueError("Address mechanism not supported")
         return ipaddress.IPv6Address(address)
 
 
@@ -469,12 +495,8 @@ class SplitResultBytes(SplitResult):
     (?:\?([^#]*))?                   # query
     (?:\#(.*))?                      # fragment
     """,
-        flags=re.VERBOSE,
+        flags=re.VERBOSE | re.DOTALL,
     )
-
-    @classmethod
-    def _match(cls, ref):
-        return cls._RE.match(ref)
 
     # RFC 3986 2.2 gen-delims
     _COLON, _SLASH, _QUEST, _HASH, _LBRACKET, _RBRACKET, _AT = (
@@ -508,12 +530,8 @@ class SplitResultString(SplitResult):
     (?:\?([^#]*))?                   # query
     (?:\#(.*))?                      # fragment
     """,
-        flags=re.VERBOSE,
+        flags=re.VERBOSE | re.DOTALL,
     )
-
-    @classmethod
-    def _match(cls, ref):
-        return cls._RE.match(ref)
 
     # RFC 3986 2.2 gen-delims
     _COLON, _SLASH, _QUEST, _HASH, _LBRACKET, _RBRACKET, _AT = (
@@ -614,11 +632,11 @@ def issamedoc(uristring):
 
 
 # RFC 3986 3.1: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
-_SCHEME_RE = re.compile(b"^[A-Za-z][A-Za-z0-9+.-]*$")
+_SCHEME_RE = re.compile(b"[A-Za-z][A-Za-z0-9+.-]*")
 
 # RFC 3986 3.2: authority = [ userinfo "@" ] host [ ":" port ]
-_AUTHORITY_RE_BYTES = re.compile(b"^(?:(.*)@)?(.*?)(?::([0-9]*))?$")
-_AUTHORITY_RE_STR = re.compile("^(?:(.*)@)?(.*?)(?::([0-9]*))?$")
+_AUTHORITY_RE_BYTES = re.compile(b"(?:(.*)@)?(.*?)(?::([0-9]*))?", re.DOTALL)
+_AUTHORITY_RE_STR = re.compile("(?:(.*)@)?(.*?)(?::([0-9]*))?", re.DOTALL)
 
 # safe component characters
 _SAFE_USERINFO = SUB_DELIMS + ":"
@@ -629,7 +647,7 @@ _SAFE_FRAGMENT = SUB_DELIMS + ":@/?"
 
 
 def _scheme(scheme):
-    if _SCHEME_RE.match(scheme):
+    if _SCHEME_RE.fullmatch(scheme):
         return scheme.lower()
     else:
         raise ValueError("Invalid scheme component")
@@ -664,7 +682,7 @@ def _authority(userinfo, host, port, encoding):
 
 
 def _ip_literal(address):
-    if address.startswith("v"):
+    if address.startswith(("v", "V")):
         raise ValueError("Address mechanism not supported")
     else:
         return b"[" + ipaddress.IPv6Address(address).compressed.encode() + b"]"
@@ -755,9 +773,9 @@ def uricompose(
     if authority is None:
         authority = (None, None, None)
     elif isinstance(authority, bytes):
-        authority = _AUTHORITY_RE_BYTES.match(authority).groups()
+        authority = _AUTHORITY_RE_BYTES.fullmatch(authority).groups()  # type: ignore
     elif isinstance(authority, str):
-        authority = _AUTHORITY_RE_STR.match(authority).groups()
+        authority = _AUTHORITY_RE_STR.fullmatch(authority).groups()  # type: ignore
     elif not isinstance(authority, collections.abc.Sequence):
         raise TypeError("Invalid authority type")
     elif len(authority) != 3:
@@ -817,4 +835,5 @@ def uricompose(
         fragment = uriencode(fragment, _SAFE_FRAGMENT, encoding)
 
     # return URI reference as `str`
-    return uriunsplit((scheme, authority, path, query, fragment)).decode()
+    parts = (scheme, authority, path, query, fragment)
+    return uriunsplit(parts).decode()  # type: ignore

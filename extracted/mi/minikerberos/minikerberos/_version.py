@@ -1,4 +1,4 @@
-__version__ = "0.4.9"
+__version__ = "0.4.11"
 __banner__ = \
 """
 # minikerberos %s 

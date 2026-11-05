@@ -254,7 +254,6 @@ class _ChemistsERIs(uagf2._ChemistsERIs):
     MO tensors are stored in tril from, we only need QMO tensors
     in low-symmetry
     '''
-    pass
 
 def _make_mo_eris_incore(agf2, mo_coeff=None):
     ''' Returns _ChemistsERIs
@@ -358,32 +357,3 @@ def _make_qmo_eris_incore(agf2, eri, coeffs_a, coeffs_b):
     log.timer('QMO integral transformation', *cput0)
 
     return ((qxi_a, qja_a), (qxi_b, qja_b))
-
-
-
-if __name__ == '__main__':
-    from pyscf import gto, scf, mp
-    import pyscf.scf.stability
-
-    mol = gto.M(atom='O 0 0 0; H 0 0 1; H 0 1 0', basis='cc-pvdz', charge=-1, spin=1, verbose=3)
-    uhf = scf.UHF(mol).density_fit()
-    uhf.conv_tol = 1e-11
-    uhf.run()
-
-    for niter in range(1, 11):
-        stability = scf.stability.uhf_stability(uhf)
-        if isinstance(stability, tuple):
-            sint, sext = stability
-        else:
-            sint = stability
-        if np.allclose(sint, uhf.mo_coeff):
-            break
-        else:
-            rdm1 = uhf.make_rdm1(sint, uhf.mo_occ)
-        uhf.scf(dm0=rdm1)
-
-    uagf2 = DFUAGF2(uhf)
-
-    uagf2.run()
-    uagf2.ipagf2(nroots=5)
-    uagf2.eaagf2(nroots=5)

@@ -257,7 +257,7 @@ class OutputCapture(
         self.journal = journal if journal is not None else client.journal
         self.run_id = run_id
         self.root = root
-        #: The run's `.probeignore` rules (`probe.sdk.recording_rules.ignore.IgnoreRules`), or None.
+        #: The run's `.probeignore` rules (`probe.sdk.recording_rules.recording_rules.IgnoreRules`), or None.
         self.ignore = ignore
         self.launcher = launcher
         self.recovery = recovery

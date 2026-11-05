@@ -60,6 +60,7 @@ fn full_response() -> AnnotatedLlmResponse {
             total_tokens: Some(30),
             cache_read_tokens: Some(5),
             cache_write_tokens: Some(3),
+            cache_write_1h_tokens: None,
             uncached_input_tokens: None,
             cost: None,
         }),
@@ -201,6 +202,7 @@ fn test_usage_all_populated_round_trip() {
         total_tokens: Some(150),
         cache_read_tokens: Some(20),
         cache_write_tokens: Some(10),
+        cache_write_1h_tokens: None,
         uncached_input_tokens: None,
         cost: None,
     };
@@ -219,6 +221,7 @@ fn test_default_pricing_resolver_has_no_model_prices() {
         total_tokens: Some(1_500),
         cache_read_tokens: Some(200),
         cache_write_tokens: None,
+        cache_write_1h_tokens: None,
         uncached_input_tokens: None,
         cost: None,
     };
@@ -250,6 +253,7 @@ fn test_configured_model_pricing_estimates_total_cost() {
         total_tokens: Some(1_500),
         cache_read_tokens: Some(200),
         cache_write_tokens: None,
+        cache_write_1h_tokens: None,
         uncached_input_tokens: None,
         cost: None,
     };
@@ -548,7 +552,8 @@ fn test_custom_pricing_catalog_supports_future_models_without_code_changes() {
                 "input_per_million": 1.0,
                 "output_per_million": 2.0,
                 "cache_read_per_million": 0.25,
-                "cache_write_per_million": 1.5
+                "cache_write_per_million": 1.5,
+                "cache_write_1h_per_million": 2.4
             },
             "prompt_cache": {
                 "read_accounting": "separate"
@@ -560,17 +565,18 @@ fn test_custom_pricing_catalog_supports_future_models_without_code_changes() {
         completion_tokens: Some(2_000),
         cache_read_tokens: Some(3_000),
         cache_write_tokens: Some(4_000),
+        cache_write_1h_tokens: Some(1_000),
         uncached_input_tokens: None,
         ..Usage::default()
     };
 
     let cost = estimate_cost_with_catalog(&catalog, "future-model-latest", &usage).unwrap();
 
-    assert_eq!(cost.total, Some(0.011_75));
+    assert_eq!(cost.total, Some(0.012_65));
     assert_eq!(cost.input, Some(0.001));
     assert_eq!(cost.output, Some(0.004));
     assert_eq!(cost.cache_read, Some(0.000_75));
-    assert_eq!(cost.cache_write, Some(0.006));
+    assert_eq!(cost.cache_write, Some(0.0069));
     assert_eq!(cost.pricing_provider.as_deref(), Some("future-ai"));
     assert_eq!(cost.pricing_model.as_deref(), Some("future-model"));
 }
@@ -598,6 +604,7 @@ fn test_model_pricing_omits_total_when_nonzero_usage_lacks_a_rate() {
         completion_tokens: Some(2_000),
         cache_read_tokens: Some(3_000),
         cache_write_tokens: Some(4_000),
+        cache_write_1h_tokens: None,
         uncached_input_tokens: None,
         ..Usage::default()
     };
@@ -610,6 +617,62 @@ fn test_model_pricing_omits_total_when_nonzero_usage_lacks_a_rate() {
     assert_eq!(cost.cache_read, Some(0.000_75));
     assert_eq!(cost.cache_write, None);
     assert_eq!(cost.source, CostSource::ModelPricing);
+}
+
+#[test]
+fn test_model_pricing_rejects_one_hour_writes_above_combined_writes() {
+    let catalog = pricing_catalog(json!([{
+        "provider": "future-ai",
+        "model_id": "future-model",
+        "pricing_as_of": "2026-06-04",
+        "pricing_source": "https://example.test/pricing",
+        "rates": {
+            "input_per_million": 1.0,
+            "output_per_million": 2.0,
+            "cache_write_per_million": 1.5,
+            "cache_write_1h_per_million": 2.4
+        },
+        "prompt_cache": {"read_accounting": "separate"}
+    }]));
+    let usage = Usage {
+        prompt_tokens: Some(1_000),
+        completion_tokens: Some(2_000),
+        cache_write_tokens: Some(1_000),
+        cache_write_1h_tokens: Some(1_001),
+        ..Usage::default()
+    };
+
+    assert!(estimate_cost_with_catalog(&catalog, "future-model", &usage).is_none());
+}
+
+#[test]
+fn test_model_pricing_omits_cache_write_component_when_one_hour_rate_is_missing() {
+    let catalog = pricing_catalog(json!([{
+        "provider": "future-ai",
+        "model_id": "future-model",
+        "pricing_as_of": "2026-06-04",
+        "pricing_source": "https://example.test/pricing",
+        "rates": {
+            "input_per_million": 1.0,
+            "output_per_million": 2.0,
+            "cache_write_per_million": 1.5
+        },
+        "prompt_cache": {"read_accounting": "separate"}
+    }]));
+    let usage = Usage {
+        prompt_tokens: Some(1_000),
+        completion_tokens: Some(2_000),
+        cache_write_tokens: Some(4_000),
+        cache_write_1h_tokens: Some(1_000),
+        ..Usage::default()
+    };
+
+    let cost = estimate_cost_with_catalog(&catalog, "future-model", &usage).unwrap();
+
+    assert_eq!(cost.total, None);
+    assert_eq!(cost.input, Some(0.001));
+    assert_eq!(cost.output, Some(0.004));
+    assert_eq!(cost.cache_write, None);
 }
 
 #[test]
@@ -635,6 +698,7 @@ fn test_model_pricing_omits_total_when_nonzero_cache_read_usage_lacks_a_rate() {
         completion_tokens: Some(2_000),
         cache_read_tokens: Some(3_000),
         cache_write_tokens: Some(4_000),
+        cache_write_1h_tokens: None,
         uncached_input_tokens: None,
         ..Usage::default()
     };
@@ -710,6 +774,7 @@ fn test_split_usage_prices_the_same_under_either_read_accounting() {
         completion_tokens: Some(20),
         cache_read_tokens: Some(40),
         cache_write_tokens: Some(10),
+        cache_write_1h_tokens: None,
         uncached_input_tokens: Some(50),
         ..Usage::default()
     };
@@ -755,6 +820,7 @@ fn test_usage_with_inconsistent_input_counts_is_not_priced() {
             completion_tokens: Some(20),
             cache_read_tokens: Some(40),
             cache_write_tokens: Some(10),
+            cache_write_1h_tokens: None,
             uncached_input_tokens: Some(60),
             ..Usage::default()
         },
@@ -794,6 +860,7 @@ fn test_rate_tier_of_split_usage_counts_cache_reads_and_writes() {
         completion_tokens: Some(1_000),
         cache_read_tokens: Some(40_000),
         cache_write_tokens: Some(20_000),
+        cache_write_1h_tokens: None,
         uncached_input_tokens: Some(150_000),
         ..Usage::default()
     };
@@ -1196,6 +1263,10 @@ fn test_pricing_catalog_rejects_empty_required_fields_and_invalid_rates() {
         ("output_per_million", "rates.output_per_million"),
         ("cache_read_per_million", "rates.cache_read_per_million"),
         ("cache_write_per_million", "rates.cache_write_per_million"),
+        (
+            "cache_write_1h_per_million",
+            "rates.cache_write_1h_per_million",
+        ),
     ] {
         let mut entry = flat_pricing_entry("configured", "configured-model", 1.0, 2.0);
         entry["rates"][field] = json!(-0.1);
@@ -1501,6 +1572,7 @@ fn test_pricing_public_helpers_and_provider_inference_cover_edge_branches() {
         completion_tokens: Some(500),
         cache_read_tokens: Some(100),
         cache_write_tokens: Some(10),
+        cache_write_1h_tokens: None,
         uncached_input_tokens: None,
         ..Usage::default()
     };
@@ -1973,17 +2045,133 @@ fn test_missing_token_pricing_returns_none_without_fabricating_zero_cost() {
     assert_eq!(estimate_cost("gpt-4o-mini", &Usage::default()), None);
 }
 
+// Exercise the provider wire shapes through each decoder, including annotation retention.
+fn provider_cost_codecs() -> Vec<(Box<dyn LlmResponseCodec>, Json)> {
+    use super::super::{
+        anthropic::AnthropicMessagesCodec, openai_chat::OpenAIChatCodec,
+        openai_responses::OpenAIResponsesCodec,
+    };
+
+    vec![
+        (
+            Box::new(OpenAIChatCodec),
+            json!({
+                "choices": [{"message": {"content": "Hello"}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 11, "completion_tokens": 5, "total_tokens": 16}
+            }),
+        ),
+        (
+            Box::new(OpenAIResponsesCodec),
+            json!({
+                "status": "completed",
+                "output": [{"type": "message", "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello"}]}],
+                "usage": {"input_tokens": 11, "output_tokens": 5, "total_tokens": 16}
+            }),
+        ),
+        (
+            Box::new(AnthropicMessagesCodec),
+            json!({
+                "stop_reason": "end_turn",
+                "content": [{"type": "text", "text": "Hello"}],
+                "usage": {"input_tokens": 11, "output_tokens": 5}
+            }),
+        ),
+    ]
+}
+
+#[test]
+fn test_provider_cost_wire_shapes_preserve_annotations() {
+    for (codec, response) in provider_cost_codecs() {
+        for (wire_cost, expected_total, expected_currency) in [
+            (json!(0), 0.0, "USD"),
+            (json!(0.000058), 0.000058, "USD"),
+            (
+                json!({"total": 0.12, "input": 0.10, "output": 0.02, "currency": "EUR"}),
+                0.12,
+                "EUR",
+            ),
+        ] {
+            let mut response = response.clone();
+            response["usage"]["cost"] = wire_cost;
+            let decoded = codec.decode_response(&response).unwrap();
+            assert_eq!(decoded.message, Some(MessageContent::Text("Hello".into())));
+            assert_eq!(decoded.finish_reason, Some(FinishReason::Complete));
+            let usage = decoded.usage.unwrap();
+            assert_eq!(usage.prompt_tokens, Some(11));
+            assert_eq!(usage.completion_tokens, Some(5));
+            assert_eq!(usage.total_tokens, Some(16));
+            let cost = usage.cost.unwrap();
+            assert_eq!(cost.total, Some(expected_total));
+            assert_eq!(cost.currency, expected_currency);
+            assert_eq!(cost.source, CostSource::ProviderReported);
+            if expected_currency == "EUR" {
+                assert_eq!(cost.input, Some(0.10));
+                assert_eq!(cost.output, Some(0.02));
+            }
+
+            response["usage"]["cost_usd"] = json!(0.42);
+            let cost = codec
+                .decode_response(&response)
+                .unwrap()
+                .usage
+                .unwrap()
+                .cost
+                .unwrap();
+            assert_eq!(cost.total, Some(0.42));
+            assert_eq!(cost.currency, "USD");
+        }
+    }
+}
+
+#[test]
+fn test_unrecognized_provider_cost_preserves_annotations() {
+    for (codec, response) in provider_cost_codecs() {
+        for wire_cost in [
+            json!(null),
+            json!("unknown"),
+            json!(true),
+            json!([]),
+            json!({"total": "unknown"}),
+            json!({"future_cost": 1}),
+        ] {
+            let mut response = response.clone();
+            response["usage"]["cost"] = wire_cost;
+            let decoded = codec.decode_response(&response).unwrap();
+            assert_eq!(decoded.message, Some(MessageContent::Text("Hello".into())));
+            assert_eq!(decoded.finish_reason, Some(FinishReason::Complete));
+            let usage = decoded.usage.unwrap();
+            assert_eq!(usage.prompt_tokens, Some(11));
+            assert_eq!(usage.completion_tokens, Some(5));
+            assert_eq!(usage.total_tokens, Some(16));
+            assert!(usage.cost.is_none());
+
+            response["usage"]["cost_usd"] = json!(0.42);
+            let cost = codec
+                .decode_response(&response)
+                .unwrap()
+                .usage
+                .unwrap()
+                .cost
+                .unwrap();
+            assert_eq!(cost.total, Some(0.42));
+            assert_eq!(cost.currency, "USD");
+            assert_eq!(cost.source, CostSource::ProviderReported);
+        }
+    }
+}
+
 #[test]
 fn test_provider_reported_cost_sums_components_and_defaults_currency() {
     let cost = provider_reported_cost(
         None,
-        Some(RawUsageCost {
+        Some(RawProviderUsageCost::Detailed(RawUsageCost {
             input: Some(0.12),
             output: Some(0.30),
             cache_read: Some(0.01),
             cache_write: Some(0.02),
             ..RawUsageCost::default()
-        }),
+        })),
     )
     .expect("component-only provider cost should be retained");
 
@@ -1996,14 +2184,14 @@ fn test_provider_reported_cost_sums_components_and_defaults_currency() {
 fn test_provider_reported_cost_keeps_top_level_provider_usd_currency() {
     let cost = provider_reported_cost(
         Some(0.42),
-        Some(RawUsageCost {
+        Some(RawProviderUsageCost::Detailed(RawUsageCost {
             currency: Some("EUR".to_string()),
             input: Some(0.10),
             output: Some(0.20),
             cache_read: Some(0.01),
             cache_write: Some(0.02),
             ..RawUsageCost::default()
-        }),
+        })),
     )
     .expect("top-level provider USD cost should be retained");
 
@@ -2020,14 +2208,14 @@ fn test_provider_reported_cost_keeps_top_level_provider_usd_currency() {
 fn test_provider_reported_cost_keeps_usd_components_with_top_level_usd_cost() {
     let cost = provider_reported_cost(
         Some(0.42),
-        Some(RawUsageCost {
+        Some(RawProviderUsageCost::Detailed(RawUsageCost {
             currency: Some("usd".to_string()),
             input: Some(0.10),
             output: Some(0.20),
             cache_read: Some(0.01),
             cache_write: Some(0.02),
             ..RawUsageCost::default()
-        }),
+        })),
     )
     .expect("top-level and nested USD cost fields should be retained");
 
@@ -2125,6 +2313,7 @@ fn test_usage_cost_round_trip_preserves_model_pricing_codec_compatibility() {
         total_tokens: Some(1_500),
         cache_read_tokens: Some(200),
         cache_write_tokens: None,
+        cache_write_1h_tokens: None,
         uncached_input_tokens: None,
         cost: estimate_cost_with_catalog(
             &catalog,
@@ -2135,6 +2324,7 @@ fn test_usage_cost_round_trip_preserves_model_pricing_codec_compatibility() {
                 total_tokens: Some(1_500),
                 cache_read_tokens: Some(200),
                 cache_write_tokens: None,
+                cache_write_1h_tokens: None,
                 uncached_input_tokens: None,
                 cost: None,
             },
@@ -2158,6 +2348,7 @@ fn test_usage_cost_round_trip_preserves_provider_reported_codec_compatibility() 
         total_tokens: Some(1_500),
         cache_read_tokens: Some(200),
         cache_write_tokens: None,
+        cache_write_1h_tokens: None,
         uncached_input_tokens: None,
         cost: Some(CostEstimate {
             total: Some(0.42),

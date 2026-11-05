@@ -31,7 +31,9 @@ class Event(StrEnum):
     BACKFILL_APPROVED = "backfill.approved"
     #: Also carries the import's coding-agent props per lane
     #: (`probe.cli.imports.agent_settings.Meter.properties`), as does `import_job.finished`: listed
-    #: in agent DESIGN.md (events.py).
+    #: in agent DESIGN.md (events.py). `outcome` is `handed_off`, with the background job's
+    #: `job_id`, when the import goes on in a job: that job's `import_job.*` events, under the same
+    #: `job_id`, say how it ends.
     BACKFILL_SUMMARY = "backfill.summary"
 
     # --- Guided install, removal and sign-out ---
@@ -72,8 +74,7 @@ class Event(StrEnum):
     #: than an edge, so it is rate-limited at the call site.
     IMPORT_JOB_STALLED = "import_job.stalled"
     #: The terminal state, from the worker itself. THIS is "did the import finish":
-    #: `backfill.summary` fires at hand-off, reporting `partial` with 0% coverage for everything
-    #: queued.
+    #: `backfill.summary` fires at hand-off as `handed_off` with this event's `job_id`.
     IMPORT_JOB_FINISHED = "import_job.finished"
     #: Approved imports thrown away without finishing -- by Uninstall, or by the wizard's explicit
     #: Exit. Work someone asked for and will not get.
@@ -81,7 +82,9 @@ class Event(StrEnum):
 
     # --- Outbox ---
     #: One drain episode ended. The happy path too: without that baseline a silent fleet and one
-    #: whose workers all died look the same.
+    #: whose workers all died look the same. `surface` is who started the drainer (`service`, else
+    #: `sdk`; `PROBE_TELEMETRY_SURFACE`). The drainer runs the starting script's own Probe, so one
+    #: from an older release sends no `surface`, and one an older service started says `sdk`.
     OUTBOX_DRAINED = "outbox.drained"
     #: A stuck (not busy) queue, from the FOREGROUND banner: `maybe_spawn` forks no drainer while
     #: one is auth-blocked or paused, so the next `probe` command is the only process that sees it.
@@ -143,17 +146,20 @@ class Event(StrEnum):
 
     # --- Hosted MCP ---
     #: The hosted MCP's per-tool accounting event (`probe.mcp.delivery.accounting`, its own sender).
+    #: `surface` is `mcp`; `client_kind` is the caller's client.
     MCP_TOOL_SERVED = "mcp.tool_served"
 
     # --- Install refusals ---
     # Every front door that refuses to install says so once, so a person stuck on an unsupported
     # platform reaches us (a PostHog destination posts it to #probe-usage).
     #: Someone tried to install Probe where it does not run (Windows). Carries `surface`
-    #: (`dashboard`, `cli`, `launcher`) and `os`; the dashboard's carries the signed-in person, once
-    #: per Install step it showed. A demand signal, not breakage.
+    #: (`dashboard`, `cli`, `launcher`; `desktop` when the app ran the CLI) and `os`; the
+    #: dashboard's carries the signed-in person, once per Install step it showed. A demand signal,
+    #: not breakage.
     INSTALL_UNSUPPORTED_PLATFORM = "install.unsupported_platform"
 
     # --- Errors ---
     #: One crash or swallowed exception, in PostHog's Error Tracking shape: the client's
-    #: `report_crash`, the server's `capture_exception`.
+    #: `report_crash`, the server's `capture_exception`. A client's `surface` is the program that
+    #: crashed (`cli`, `sdk`, `daemon`, `mcp_stdio`).
     EXCEPTION = "$exception"

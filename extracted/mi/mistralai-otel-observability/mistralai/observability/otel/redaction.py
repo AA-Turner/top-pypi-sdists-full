@@ -1,5 +1,6 @@
 """Built-in policies for redacting structured operation data."""
 
+import copy
 import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Final
@@ -253,7 +254,8 @@ class CallbackRedactionPolicy:
             return value
         if self._recursive:
             return _map_leaves(value, lambda leaf: self._mask_function(context.field, leaf))
-        return self._mask_function(context.field, value)
+        # The value may be the caller's own object: a callback that edits it in place must not change it.
+        return self._mask_function(context.field, copy.deepcopy(value))
 
 
 def _redact_value(

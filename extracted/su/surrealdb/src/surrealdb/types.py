@@ -8,12 +8,15 @@ responses (access and refresh tokens).
 """
 
 from dataclasses import dataclass
+from datetime import date, time
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+from surrealdb.data.types.big_decimal import BigDecimal
 from surrealdb.data.types.datetime import Datetime
 from surrealdb.data.types.duration import Duration
+from surrealdb.data.types.file import File
 from surrealdb.data.types.geometry import (
     GeometryCollection,
     GeometryLine,
@@ -23,9 +26,13 @@ from surrealdb.data.types.geometry import (
     GeometryPoint,
     GeometryPolygon,
 )
+from surrealdb.data.types.null import NullType
 from surrealdb.data.types.range import Range
-from surrealdb.data.types.record_id import RecordID
+from surrealdb.data.types.record_id import RecordID, StringRecordId
+from surrealdb.data.types.regex import Regex
+from surrealdb.data.types.set import SurrealSet
 from surrealdb.data.types.table import Table
+from surrealdb.data.types.temporal import Interval, PlainDate, PlainTime, Timestamp
 
 # Define recursive Value type that represents all possible SurrealDB values
 Value = (
@@ -34,14 +41,35 @@ Value = (
     | float
     | bool
     | None
+    # SurrealDB's NULL, which is a different value from NONE (`None`) -
+    # see `surrealdb.data.types.null`.
+    | NullType
     | bytes
     | UUID
     | Decimal
     | Table
     | Range
     | RecordID
+    | StringRecordId
+    # A reference to a file in a storage bucket. Encodable since file support
+    # landed, and returned by the decoder, so leaving it out made storing one
+    # in a record - the main thing it is for - fail a type check on code that
+    # works. Exactly the omission the `set` note below records having already
+    # shipped once.
+    | File
     | Duration
     | Datetime
+    # SurrealDB 4.0's kinds, which only `cbor.2` carries. `BigDecimal` is a
+    # `Decimal` and so already covered, but named like `SurrealSet` below. A
+    # `date` or `time` is sent as a SurrealDB date or time.
+    | BigDecimal
+    | PlainDate
+    | PlainTime
+    | Timestamp
+    | Interval
+    | Regex
+    | date
+    | time
     | GeometryPoint
     | GeometryLine
     | GeometryPolygon
@@ -49,6 +77,16 @@ Value = (
     | GeometryMultiLine
     | GeometryMultiPolygon
     | GeometryCollection
+    # A SurrealDB set. A `list` subclass, so `list["Value"]` below already
+    # covers it structurally - named explicitly so the distinct type is
+    # visible in the public union rather than hidden inside it.
+    | SurrealSet
+    # A Python set is accepted on the way *in* and encoded under the set tag;
+    # it has been since sets were supported, but the union never said so, so
+    # passing one failed a type check on perfectly valid code. `Any` members
+    # rather than "Value" because a set can only hold the hashable ones.
+    | set[Any]
+    | frozenset[Any]
     | dict[str, "Value"]
     | list["Value"]
 )
@@ -67,6 +105,17 @@ class Tokens:
 
     access: str | None = None
     refresh: str | None = None
+
+    def __repr__(self) -> str:
+        # Credentials, so kept out of logs, tracebacks and debugger output.
+        return (
+            f"Tokens(access={_redacted(self.access)}, "
+            f"refresh={_redacted(self.refresh)})"
+        )
+
+
+def _redacted(token: str | None) -> str:
+    return "None" if token is None else "'<redacted>'"
 
 
 def parse_auth_result(result: Any) -> Tokens:

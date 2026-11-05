@@ -10,6 +10,7 @@ from ... import errors
 
 from ...models.error import Error
 from ...models.filter_state import FilterState
+from ...models.set_filter_state_response_200 import SetFilterStateResponse200
 from typing import cast
 
 
@@ -40,7 +41,14 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | Error | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | Error | SetFilterStateResponse200 | None:
+    if response.status_code == 200:
+        response_200 = SetFilterStateResponse200.from_dict(response.json())
+
+
+
+        return response_200
+
     if response.status_code == 204:
         response_204 = cast(Any, None)
         return response_204
@@ -72,7 +80,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | Error]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | Error | SetFilterStateResponse200]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -86,7 +94,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     body: FilterState,
 
-) -> Response[Any | Error]:
+) -> Response[Any | Error | SetFilterStateResponse200]:
     """ Save the signed-in user's own dashboard/Insights filter state
 
      A dedicated, lightweight save separate from the main
@@ -103,8 +111,9 @@ def sync_detailed(
     sees. Each save is logged with the user agent.
 
     A save whose top-level `rev` is lower than the saved copy's is
-    ignored and still answers 204. A page that is closing sends its last
-    save beside one already in flight, so the older one can arrive
+    ignored and answers 200 with the saved copy's `rev`, so the page can
+    catch up and send the save again. A page that is closing sends its
+    last save beside one already in flight, so the older one can arrive
     last, and it must not replace the newer copy. A body with no `rev`,
     or a saved copy with none, is always stored.
 
@@ -135,7 +144,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | Error]
+        Response[Any | Error | SetFilterStateResponse200]
      """
 
 
@@ -155,7 +164,7 @@ def sync(
     client: AuthenticatedClient,
     body: FilterState,
 
-) -> Any | Error | None:
+) -> Any | Error | SetFilterStateResponse200 | None:
     """ Save the signed-in user's own dashboard/Insights filter state
 
      A dedicated, lightweight save separate from the main
@@ -172,8 +181,9 @@ def sync(
     sees. Each save is logged with the user agent.
 
     A save whose top-level `rev` is lower than the saved copy's is
-    ignored and still answers 204. A page that is closing sends its last
-    save beside one already in flight, so the older one can arrive
+    ignored and answers 200 with the saved copy's `rev`, so the page can
+    catch up and send the save again. A page that is closing sends its
+    last save beside one already in flight, so the older one can arrive
     last, and it must not replace the newer copy. A body with no `rev`,
     or a saved copy with none, is always stored.
 
@@ -204,7 +214,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | Error
+        Any | Error | SetFilterStateResponse200
      """
 
 
@@ -219,7 +229,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     body: FilterState,
 
-) -> Response[Any | Error]:
+) -> Response[Any | Error | SetFilterStateResponse200]:
     """ Save the signed-in user's own dashboard/Insights filter state
 
      A dedicated, lightweight save separate from the main
@@ -236,8 +246,9 @@ async def asyncio_detailed(
     sees. Each save is logged with the user agent.
 
     A save whose top-level `rev` is lower than the saved copy's is
-    ignored and still answers 204. A page that is closing sends its last
-    save beside one already in flight, so the older one can arrive
+    ignored and answers 200 with the saved copy's `rev`, so the page can
+    catch up and send the save again. A page that is closing sends its
+    last save beside one already in flight, so the older one can arrive
     last, and it must not replace the newer copy. A body with no `rev`,
     or a saved copy with none, is always stored.
 
@@ -268,7 +279,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | Error]
+        Response[Any | Error | SetFilterStateResponse200]
      """
 
 
@@ -288,7 +299,7 @@ async def asyncio(
     client: AuthenticatedClient,
     body: FilterState,
 
-) -> Any | Error | None:
+) -> Any | Error | SetFilterStateResponse200 | None:
     """ Save the signed-in user's own dashboard/Insights filter state
 
      A dedicated, lightweight save separate from the main
@@ -305,8 +316,9 @@ async def asyncio(
     sees. Each save is logged with the user agent.
 
     A save whose top-level `rev` is lower than the saved copy's is
-    ignored and still answers 204. A page that is closing sends its last
-    save beside one already in flight, so the older one can arrive
+    ignored and answers 200 with the saved copy's `rev`, so the page can
+    catch up and send the save again. A page that is closing sends its
+    last save beside one already in flight, so the older one can arrive
     last, and it must not replace the newer copy. A body with no `rev`,
     or a saved copy with none, is always stored.
 
@@ -337,7 +349,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | Error
+        Any | Error | SetFilterStateResponse200
      """
 
 

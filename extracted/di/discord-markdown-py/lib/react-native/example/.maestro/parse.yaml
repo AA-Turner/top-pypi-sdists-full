@@ -19,15 +19,15 @@ appId: ${APP_ID}
 - assertTrue: "${maestro.copiedText.indexOf('\"type\": \"heading\"') !== -1}"
 - assertTrue: "${maestro.copiedText.indexOf('\"873227248453443624n\"') !== -1}"
 
-# The same content unparses back to exactly what was typed. This is the only check that the
-# native unparse path works on a device, BigInt re-wrapping included.
+# The lossless tree's tokens write back exactly what was typed, so the text survived the trip
+# across JSI.
 - copyTextFrom:
-    id: "unparsed"
+    id: "lossless"
 - assertTrue: "${maestro.copiedText === '# Hello **world** <@873227248453443624>'}"
 
-# MainActivity.kt / AppDelegate.swift parsed and unparsed content through the Kotlin or Swift
-# wrapper at launch, outside JS; the app reports whether it round-tripped, emoji included, with
-# the snowflake as a plain number rather than JS's $bigint wrapper.
+# MainActivity.kt / AppDelegate.swift parsed content through the Kotlin or Swift wrapper at
+# launch, outside JS; the app reports whether the lossless tree wrote it back, emoji included,
+# and whether the AST had the snowflake as a plain number rather than JS's $bigint wrapper.
 - copyTextFrom:
     id: "native"
 - assertTrue: "${maestro.copiedText === 'native: ok'}"
@@ -44,5 +44,5 @@ appId: ${APP_ID}
     id: "ast"
 - assertTrue: "${maestro.copiedText.indexOf('\"type\": \"quote\"') !== -1}"
 - copyTextFrom:
-    id: "unparsed"
+    id: "lossless"
 - assertTrue: "${maestro.copiedText === '> quote me'}"

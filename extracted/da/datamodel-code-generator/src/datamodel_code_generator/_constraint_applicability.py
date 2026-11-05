@@ -15,7 +15,7 @@ Legacy rows, each named by the function that decides it:
   the keywords of the kinds its format names, silently, before the field split decides the declared ones by the
   emitted type.
 * ``legacy-exact-ints-as-floats`` (``exact_float``): the schema models read an int constraint as a float where one
-  equals it, and keep the int only where a float would differ.
+  equals it and is written as it, and keep the int only where a float would differ.
 * ``legacy-undeclared-keywords-off-literal`` (``undeclared_keywords_taken``): the ``Literal`` of a ``const`` or an
   ``enum`` takes no keyword of a kind its schema does not declare, though it takes those of its values' type for a
   declared one. The literal check (``literal_check``) decides such a keyword on the values where it can, so the row
@@ -80,6 +80,7 @@ __all__ = [
     "TAG_LITERAL_UNTAKEN_KEYWORD",
     "TYPE_DEPENDENT_CONSTRAINTS_KEY",
     "TYPE_DEPENDENT_KEYWORDS",
+    "UNION_SIBLING_CONSTRAINTS_KEY",
     "ConstraintOptions",
     "DeclaredKinds",
     "OutputKeywords",
@@ -91,6 +92,7 @@ __all__ = [
     "declared_keywords",
     "declared_string_keywords_taken",
     "enforced_keywords",
+    "engine_pattern_types",
     "exact_float",
     "field_form_zero_bound",
     "holds_number_format",
@@ -161,6 +163,8 @@ VALUES_AS_WRITTEN_KEY: Final = "_values_as_written"
 """The key under which a type, model or schema holding only the values a literal check admits keeps them as written."""
 TYPE_DEPENDENT_CONSTRAINTS_KEY: Final = "_type_dependent_constraints"
 """The key under which a field keeps the declared constraints whose keywords depend on the type it emits."""
+UNION_SIBLING_CONSTRAINTS_KEY: Final = "_union_sibling_constraints"
+"""The key under which a field keeps the constraints it writes from the keywords a schema declares beside a union."""
 DROPPED_MULTIPLE_OF_KEY: Final = "_dropped_multiple_of"
 """The key under which a constrained type keeps the ``multipleOf`` it is written without, not being finite in it."""
 
@@ -211,6 +215,10 @@ _STRING_KEYWORDS_KEPT_TYPE: Final = "pydantic.AnyUrl"
 _BASE64_DECODED_KEYWORDS: Final[frozenset[str]] = STRING_KEYWORDS
 """The keywords a type that decodes base64 text takes, as written beside it in every release: Pydantic checks them on
 the decoded value, not on the text the schema constrains."""
+_BASE64_BYTES_KEYWORDS: Final[frozenset[str]] = LENGTH_KEYWORDS
+"""The keywords bytes decoded from base64 text take: the lengths, but no ``pattern``, which Pydantic cannot check on
+the text: it refuses one in ``Field()`` beside ``Base64Bytes`` at import and checks one beside ``EncodedBytes`` on the
+decoded value."""
 _BASE64_BYTES_LENGTH_ARGUMENTS: Final[Mapping[str, str]] = MappingProxyType({
     "min_length": "minLength",
     "max_length": "maxLength",
@@ -284,9 +292,8 @@ _PYDANTIC_TYPE_KEYWORDS: Final[Mapping[str, frozenset[str]]] = MappingProxyType(
     **dict.fromkeys(
         (f"pydantic.{name}" for name in ("constr", "StrictStr", "StrictBytes", "EmailStr")), STRING_KEYWORDS
     ),
-    **dict.fromkeys(
-        (f"pydantic.{name}" for name in ("Base64Str", "Base64Bytes", "EncodedBytes")), _BASE64_DECODED_KEYWORDS
-    ),
+    "pydantic.Base64Str": _BASE64_DECODED_KEYWORDS,
+    **dict.fromkeys(("pydantic.Base64Bytes", "pydantic.EncodedBytes"), _BASE64_BYTES_KEYWORDS),
     **dict.fromkeys((f"pydantic.{name}" for name in ("conbytes", "SecretStr")), LENGTH_KEYWORDS),
 })
 _MSGSPEC_TYPE_KEYWORDS: Final[Mapping[str, frozenset[str]]] = MappingProxyType({
@@ -730,6 +737,17 @@ def unlisted_type_keywords(*, known: bool) -> frozenset[str]:
     return NO_KEYWORDS if known else TYPE_DEPENDENT_KEYWORDS
 
 
+def engine_pattern_types(output: OutputKeywords) -> frozenset[str]:
+    """Return the names of the types whose ``pattern`` the regex engine choice reads, as a data type holds them.
+
+    They are the types that take ``pattern`` in ``output``, whose pattern the output model compiles, by the last part
+    of their path (``constr``).
+    """
+    return frozenset(
+        path.rpartition(".")[2] for path, keywords in output.type_keywords.items() if "pattern" in keywords
+    )
+
+
 def shape_meta_keywords(*, mapping: bool, unconstrained: bool) -> frozenset[str] | None:
     """Return the ``msgspec.Meta`` arguments a mapping or an unconstrained shape takes, or None when its type decides.
 
@@ -899,16 +917,18 @@ def saturating_float(number: float) -> float:
 
 
 def exact_float(number: int) -> float | None:
-    """Return an int as the float that equals it, or None when the float range or its precision cannot hold it.
+    """Return an int as the float that equals it and is written as it, or None when a float would differ.
 
     Row ``legacy-exact-ints-as-floats``: the schema models read an int constraint as a float where one equals it
-    (``-2**63``, ``2**64``) and keep the int only where a float would differ.
+    (``-2**63``, ``2**53``) and keep the int where the float range or its precision cannot hold it, or where the
+    decimal the float is written as is another number (``2**64`` is written ``18446744073709552000``), since the
+    constraints of an integer are read as the decimal written (``integer_bound`` ``exact``).
     """
     try:
         float_value = float(number)
     except OverflowError:
         return None
-    return float_value if float_value == number else None
+    return float_value if float_value == number == Fraction(str(float_value)) else None
 
 
 _INTEGER_BOUNDS: Final[Mapping[str, tuple[Literal["ge", "le"], Callable[[Any], int], int]]] = MappingProxyType({

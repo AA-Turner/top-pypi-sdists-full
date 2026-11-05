@@ -316,7 +316,7 @@ pub struct StageInfo {
     pub tls_config: TlsConfig,
     /// Driver-owned CRL manager for storage TLS clients. Always set by
     /// `StageTransport` alongside `tls_config`.
-    pub crl_manager: crate::crl::CrlManager,
+    pub crl_manager: crate::crl::ConnectionCrl,
     /// Driver-owned system root certificates for storage TLS clients. Always
     /// set by `StageTransport` alongside `tls_config`.
     pub root_store_provider: RootStoreProvider,
@@ -360,7 +360,7 @@ impl StageInfo {
 pub struct StageTransport {
     pub tls_config: TlsConfig,
     pub proxy_config: crate::tls::config::ProxyConfig,
-    pub crl_manager: crate::crl::CrlManager,
+    pub crl_manager: crate::crl::ConnectionCrl,
     pub root_store_provider: RootStoreProvider,
 }
 
@@ -374,7 +374,7 @@ impl StageTransport {
         Self {
             tls_config: TlsConfig::default(),
             proxy_config: crate::tls::config::ProxyConfig::default(),
-            crl_manager: crate::crl::CrlManager::new(),
+            crl_manager: crate::crl::CrlManager::new().connection_crl(),
             root_store_provider: RootStoreProvider::new(),
         }
     }
@@ -537,8 +537,16 @@ pub struct MaterialDescription {
     pub query_id: String,
     #[serde(rename = "smkId")]
     pub smk_id: String,
-    #[serde(rename = "keySize")]
+    #[serde(rename = "keySize", default = "default_key_size")]
     pub key_size: String,
+}
+
+/// The server omits `keySize` from the matdesc when it equals its default of 256
+/// (XP `MaterialDescription::toJSONString()`, `DEFAULT_KEY_SIZE`), and GS
+/// `MaterialDescriptor` reads an absent `keySize` as 256. Files unloaded with
+/// `CLIENT_ENCRYPTION_KEY_SIZE = 256` carry no `keySize` today.
+fn default_key_size() -> String {
+    "256".to_string()
 }
 
 /// Encryption metadata envelope returned by cloud storage providers.
@@ -835,7 +843,7 @@ pub struct TransferCtx<'a> {
     pub(crate) scheduler: Option<&'a TransferScheduler>,
     /// The batch HTTP client when this transfer joined a `BatchTransport`.
     /// `None` means a single-file caller or test; the callee builds its own.
-    pub(crate) http_client: Option<&'a reqwest::Client>,
+    pub(crate) http: Option<&'a super::cloud_http::StorageHttp>,
     /// Shared `S3Client` for the command when this transfer joined a
     /// `BatchTransport` on an S3 stage. `None` for single-file callers, tests,
     /// and non-S3 clouds.
@@ -853,7 +861,7 @@ impl<'a> TransferCtx<'a> {
     }
 
     /// Refresh + cleanup, from the optional handles the callers hold. Leaves
-    /// `scheduler`/`http_client` unset; chain [`Self::with_scheduler`] to join a
+    /// `scheduler`/`http` unset; chain [`Self::with_scheduler`] to join a
     /// batch budget.
     pub fn new(
         refresher: Option<&'a dyn StageInfoRefresher>,
@@ -863,7 +871,7 @@ impl<'a> TransferCtx<'a> {
             refresher,
             cleanup,
             scheduler: None,
-            http_client: None,
+            http: None,
             s3_client_cache: None,
         }
     }
@@ -876,13 +884,6 @@ impl<'a> TransferCtx<'a> {
     pub(crate) fn with_scheduler(self, scheduler: &'a TransferScheduler) -> Self {
         Self {
             scheduler: Some(scheduler),
-            ..self
-        }
-    }
-
-    pub(crate) fn with_http_client(self, client: &'a reqwest::Client) -> Self {
-        Self {
-            http_client: Some(client),
             ..self
         }
     }
@@ -963,6 +964,16 @@ pub enum StageInfoRefreshError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn material_description_without_key_size_defaults_to_256() {
+        let desc: MaterialDescription =
+            serde_json::from_str(r#"{"queryId":"q","smkId":"22975407904029150"}"#)
+                .expect("parse matdesc");
+        assert_eq!(desc.query_id, "q");
+        assert_eq!(desc.smk_id, "22975407904029150");
+        assert_eq!(desc.key_size, "256");
+    }
 
     fn dummy_snapshot() -> StageInfoSnapshot {
         StageInfoSnapshot::creds_only(CloudCredentials::Azure {

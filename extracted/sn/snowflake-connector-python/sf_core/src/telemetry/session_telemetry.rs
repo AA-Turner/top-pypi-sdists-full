@@ -204,6 +204,19 @@ impl SessionTelemetry {
     pub(crate) fn buffer_len(&self, telemetry_id: u64) -> usize {
         self.buffer.len(telemetry_id)
     }
+
+    #[cfg(test)]
+    pub(crate) fn raw_log_messages(&self, telemetry_id: u64) -> Vec<String> {
+        self.buffer.with_entries(telemetry_id, |entries| {
+            entries
+                .iter()
+                .filter_map(|record| match record {
+                    TelemetryRecord::RawLog(entry) => Some(entry.message_json.clone()),
+                    TelemetryRecord::Span(_) => None,
+                })
+                .collect()
+        })
+    }
 }
 
 #[cfg(test)]
@@ -245,6 +258,7 @@ mod tests {
                 log_query_parameters: false,
                 include_retry_reason: false,
                 external_session_id: None,
+                service_name: None,
             },
             session_token: Arc::new(AsyncRwLock::new(Some(tokens))),
         })

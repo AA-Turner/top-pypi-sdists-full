@@ -107,6 +107,7 @@ from .review_state import ReviewState
 from .review_state_decision import ReviewStateDecision
 from .run_event import RunEvent
 from .session_user import SessionUser
+from .set_filter_state_response_200 import SetFilterStateResponse200
 from .settings_request import SettingsRequest
 from .settings_response import SettingsResponse
 from .settings_response_theme import SettingsResponseTheme
@@ -235,6 +236,7 @@ __all__ = (
     "ReviewStateDecision",
     "RunEvent",
     "SessionUser",
+    "SetFilterStateResponse200",
     "SettingsRequest",
     "SettingsResponse",
     "SettingsResponseTheme",

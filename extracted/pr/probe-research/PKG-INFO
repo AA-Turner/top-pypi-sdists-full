@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.390.0
+Version: 0.408.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -32,14 +32,14 @@ Provides-Extra: all
 Requires-Dist: anyio>=4.5; extra == 'all'
 Requires-Dist: cryptography>=3.4; extra == 'all'
 Requires-Dist: mcp<2,>=1.24; extra == 'all'
-Requires-Dist: probe-research-cli==0.390.0; extra == 'all'
+Requires-Dist: probe-research-cli==0.408.0; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
 Requires-Dist: tomlkit>=0.12; extra == 'all'
 Requires-Dist: typer<1.0,>=0.12; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: cryptography>=3.4; extra == 'cli'
-Requires-Dist: probe-research-cli==0.390.0; extra == 'cli'
+Requires-Dist: probe-research-cli==0.408.0; extra == 'cli'
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
 Requires-Dist: tomlkit>=0.12; extra == 'cli'
 Requires-Dist: typer<1.0,>=0.12; extra == 'cli'
@@ -47,6 +47,7 @@ Provides-Extra: daemon
 Requires-Dist: pydantic-ai-harness[skills]==0.36.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-skills==2.0.0; extra == 'daemon'
 Requires-Dist: pydantic-ai-slim[mcp,openai]==2.51.0; extra == 'daemon'
+Requires-Dist: watchdog==6.0.0; (sys_platform == 'win32' or (sys_platform == 'darwin' and python_version < '3.14')) and extra == 'daemon'
 Provides-Extra: dev
 Requires-Dist: datamodel-code-generator>=0.25; extra == 'dev'
 Requires-Dist: h5py>=3.10; extra == 'dev'
@@ -246,7 +247,7 @@ import probe
 probe.init(
     project="folding",
     experiment="dockq-sweep",
-    question="does temperature 0.7 beat 1.0 on DockQ?",
+    question="does a lower sampling temperature improve DockQ?",
 )
 probe.log({"loss": 0.42, "dockq": 0.71}, step=42)    # from anywhere, any thread
 probe.finish()
@@ -271,9 +272,9 @@ client = probe.Client()  # resolves creds from env / the stored login
 
 # run() resolves by default. `question=` is the one opt-in to creation, so the
 # FIRST run in a new experiment says what you expect to see:
-run = client.run(experiment="dockq-sweep", question="does temperature 0.7 beat 1.0 on DockQ?",
+run = client.run(experiment="dockq-sweep", question="does a lower sampling temperature improve DockQ?",
                  name="run-1", project="folding",
-                 description="DockQ baseline at temperature 0.7",
+                 description="DockQ baseline at the default sampling temperature",
                  source="runpod", external_id="rp-9931")
 
 # …and every run after that is bare — the experiment already exists, and its
@@ -489,10 +490,10 @@ transport does not need the split, so this is a shaping layer on `Client`.
 
 ```bash
 probe project create folding
-probe experiment create dockq --question "does temperature 0.7 beat 1.0 on DockQ?" --project folding
+probe experiment create dockq --question "does a lower sampling temperature improve DockQ?" --project folding
 RUN=$(probe run start --experiment dockq --name run-1 \
         --project folding --source runpod --external-id rp-9931 \
-        --description "DockQ baseline at temperature 0.7")
+        --description "DockQ baseline at the default sampling temperature")
 probe project set folding --name "Protein folding" --description "DockQ studies"
 probe project get folding | jq -r '.summary_markdown // ""' > PROJECT.md
 # Edit the whole visible project document, retaining useful existing sections.

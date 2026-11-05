@@ -1,7 +1,6 @@
-use nom_language::error::{VerboseError, convert_error};
-
 use crate::{
 	Input, Options,
+	error::PResult,
 	node::{Block, Blocks, Element, Elements, Ids, Inline, Inlines},
 	parse,
 	range::{Unmatched, resolve, resolve_inline},
@@ -9,19 +8,19 @@ use crate::{
 	syntax::SyntaxSet,
 };
 
-pub fn handle_nom_err<'data>(input: &'data str) -> impl Fn(VerboseError<Input<'data>>) -> String {
-	move |error| {
-		let error = convert_error(input.into(), error);
-		eprintln!("{error}");
-		error
-	}
+/// Run `parser` over `s`, with what it left unconsumed.
+pub fn run<'data, T>(
+	s: &'data str,
+	parser: impl FnOnce(&mut Input<'data>) -> PResult<T>,
+) -> PResult<(Input<'data>, T)> {
+	let mut input = Input::from(s);
+	let output = parser(&mut input)?;
+	Ok((input, output))
 }
 
 /// Parse `s` with the default options.
 pub fn parsed(s: &str) -> Blocks<'_, ()> {
-	parse::<(), _>(s, Options::default())
-		.map_err(handle_nom_err(s))
-		.expect("unable to parse")
+	parse::<()>(s, Options::default()).expect("unable to parse")
 }
 
 /// The inline content of `s`, which must parse to a single paragraph.

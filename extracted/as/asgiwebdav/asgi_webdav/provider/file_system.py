@@ -10,13 +10,12 @@ from dataclasses import dataclass
 from logging import getLogger
 from pathlib import Path
 from stat import S_ISDIR
-from typing import Any, cast
+from typing import Any, BinaryIO, cast
 from uuid import uuid4
 
 import aiofiles
 import aiofiles.os
 import aiofiles.ospath
-from aiofiles.threadpool.binary import AsyncBufferedIOBase
 from asgiref.typing import HTTPDisconnectEvent, HTTPRequestEvent
 
 from asgi_webdav.constants import (
@@ -129,36 +128,6 @@ def _open_tmp_exclusive(fs_path: Path) -> tuple[int, Path]:
     raise OSError(f"temp file name collision for {fs_path}")
 
 
-async def _open_tmp_stream(fs_path: Path) -> tuple[AsyncBufferedIOBase, Path]:
-    # streaming twin of _open_tmp_exclusive: O_EXCL create via mode "xb",
-    # bounded uuid retry on EEXIST. A cancellation during the executor open
-    # is drained — the descriptor closes and the partial temp is removed
-    # before the CancelledError propagates
-    for _ in range(_PUT_TMP_OPEN_ATTEMPTS):
-        tmp_path = _tmp_path_for(fs_path)
-        inner_task = asyncio.ensure_future(aiofiles.open(tmp_path, "xb"))
-        try:
-            f = await asyncio.shield(inner_task)
-        except asyncio.CancelledError:
-            # the executor open still runs to completion — drain the task
-            # so the descriptor closes and the partial temp is removed
-            try:
-                f_drained = await asyncio.shield(inner_task)
-                await asyncio.shield(f_drained.close())
-            except (FileExistsError, OSError):
-                pass  # the open may still have failed or lost a uuid race
-            except asyncio.CancelledError:
-                pass  # a second cancellation delivery must not skip the removal
-            _remove_tmp_quiet(tmp_path)
-            raise
-        except FileExistsError:
-            continue  # uuid collision — try a fresh name
-
-        return f, tmp_path
-
-    raise OSError(f"temp file name collision for {fs_path}")
-
-
 def _write_all(fd: int, content: bytes) -> None:
     # os.write may accept fewer bytes than handed
     view = memoryview(content)
@@ -172,44 +141,274 @@ def _remove_tmp_quiet(path: Path) -> None:
         os.remove(path)
 
 
-def _write_file_atomic(fs_path: Path, chunks: list[bytes]) -> int:
-    """Small-body PUT in ONE worker-thread hop: precheck, write a fresh
-    .davtmp sibling, rename over the target. Returns the HTTP status."""
+@dataclass(frozen=True)
+class _PutStream:
+    """single-hop PUT start result.
+
+    status None -> the write is in progress (fd/tmp_path valid);
+    status set -> the request is finished or failed (fd == -1, no temp
+    left behind)."""
+
+    status: int | None
+    fd: int
+    tmp_path: Path | None
+    target_exists: bool
+
+
+def _put_start_write(fs_path: Path, first_chunk: bytes, is_last: bool) -> _PutStream:
+    """precheck + O_EXCL temp + write the first chunk (+ close and
+    replace when the body is a single chunk) in ONE worker-thread hop —
+    the whole PUT for single-chunk bodies.  Every failure path cleans up
+    after itself and returns the mapped HTTP status."""
     precheck = _put_precheck(fs_path)
     if precheck.status is not None:
-        return precheck.status
+        return _PutStream(precheck.status, -1, None, precheck.target_exists)
 
     try:
         fd, tmp_path = _open_tmp_exclusive(fs_path)
     except OSError as e:
-        return _put_error_status(e, fs_path)  # nothing to clean up yet
+        return _PutStream(
+            _put_error_status(e, fs_path), -1, None, precheck.target_exists
+        )
 
     try:
-        try:
-            # chunk by chunk: a join here would copy the whole body again
-            # while the caller still holds the list
-            for chunk in chunks:
-                _write_all(fd, chunk)
-        finally:
+        _write_all(fd, first_chunk)
+        if is_last:
             os.close(fd)
+            os.replace(tmp_path, fs_path)
+            return _PutStream(
+                204 if precheck.target_exists else 201,
+                -1,
+                None,
+                precheck.target_exists,
+            )
+        return _PutStream(None, fd, tmp_path, precheck.target_exists)
     except OSError as e:
+        with suppress(OSError):
+            os.close(fd)
+        _remove_tmp_quiet(tmp_path)
+        return _PutStream(
+            _put_error_status(e, fs_path), -1, None, precheck.target_exists
+        )
+    except BaseException:
+        with suppress(OSError):
+            os.close(fd)
+        _remove_tmp_quiet(tmp_path)
+        raise
+
+
+def _put_stream_chunk(
+    fs_path: Path,
+    fd: int,
+    tmp_path: Path,
+    chunk: bytes,
+    is_last: bool,
+    target_exists: bool,
+) -> int | None:
+    """write one body chunk; the final chunk closes the temp and
+    replaces the target in the same hop (returns the response status),
+    otherwise returns None (write still in progress).  Failures clean up
+    and return the mapped status."""
+    try:
+        _write_all(fd, chunk)
+        if is_last:
+            os.close(fd)
+            os.replace(tmp_path, fs_path)
+            return 204 if target_exists else 201
+        return None
+    except OSError as e:
+        with suppress(OSError):
+            os.close(fd)
         _remove_tmp_quiet(tmp_path)
         return _put_error_status(e, fs_path)
+
+
+def _put_discard_tmp(fd: int, tmp_path: Path) -> None:
+    # best effort: idempotent for an already-closed descriptor
+    with suppress(OSError):
+        os.close(fd)
+    _remove_tmp_quiet(tmp_path)
+
+
+# aiofiles.os.wrap is aiofiles' public run_in_executor wrapper (same
+# mechanism and default executor as every other aiofiles call)
+_put_start_write_async = aiofiles.os.wrap(_put_start_write)
+_put_stream_chunk_async = aiofiles.os.wrap(_put_stream_chunk)
+_put_discard_tmp_async = aiofiles.os.wrap(_put_discard_tmp)
+
+
+async def _run_put_start(
+    fs_path: Path, first_chunk: bytes, is_last: bool
+) -> _PutStream:
+    """run the PUT start hop with cancellation drainage: the executor
+    item completes even after the await is cancelled, and the reaper
+    discards whatever stream it produced however many cancellations land
+    on the drain (precedent: _run_probe).  A single-chunk body
+    (is_last=True) is self-contained — the write already happened and
+    the completed rename stands, mirroring the atomic buffered write it
+    replaces."""
+    inner_task = asyncio.ensure_future(
+        _put_start_write_async(fs_path, first_chunk, is_last)
+    )
+    try:
+        return await asyncio.shield(inner_task)
+    except asyncio.CancelledError:
+
+        def _reap_discard(task: asyncio.Future[_PutStream]) -> None:
+            if task.cancelled() or task.exception() is not None:
+                return
+            stream = task.result()
+            if stream.fd >= 0 and stream.tmp_path is not None:
+                asyncio.get_running_loop().run_in_executor(
+                    None, _put_discard_tmp, stream.fd, stream.tmp_path
+                )
+
+        inner_task.add_done_callback(_reap_discard)
+        with suppress(BaseException):
+            drained = await asyncio.shield(inner_task)
+            if drained.fd >= 0:
+                await asyncio.shield(
+                    _put_discard_tmp_async(drained.fd, drained.tmp_path)
+                )
+        raise
+
+
+async def _discard_stream(stream: _PutStream) -> None:
+    # ensure_future is synchronous: once created the discard work item
+    # can not be cancelled out of the executor queue
+    if stream.tmp_path is None:
+        return
+    discard_task = asyncio.ensure_future(
+        _put_discard_tmp_async(stream.fd, stream.tmp_path)
+    )
+    with suppress(BaseException):
+        await asyncio.shield(discard_task)
+
+
+@dataclass(frozen=True)
+class _FileProbe:
+    """single-hop GET probe result.
+
+    stat_result None -> the path is missing or unusable (caller answers
+    404); fp None -> the target is a directory, or the whole file was
+    already read and the fp closed in the worker; otherwise fp is still
+    open at the offset past first_data."""
+
+    stat_result: os.stat_result | None
+    fp: BinaryIO | None
+    first_data: bytes
+
+
+def _stat_open_read_block(fs_path: Path, block_size: int) -> _FileProbe:
+    """stat + open + first block read (+ close when the short read proves
+    EOF) in ONE worker-thread hop — the whole probe for plain GET."""
+    try:
+        stat_result = os.stat(fs_path)
+    except OSError:
+        return _FileProbe(None, None, b"")
+
+    if S_ISDIR(stat_result.st_mode):
+        return _FileProbe(stat_result, None, b"")
 
     try:
-        os.replace(tmp_path, fs_path)
-    except OSError as e:
-        _remove_tmp_quiet(tmp_path)
-        return _put_error_status(e, fs_path)
+        fp = open(fs_path, "rb")
+    except OSError:
+        # vanished or inaccessible between stat and open — the caller's
+        # 404 mapping matches the former exists() semantics
+        return _FileProbe(None, None, b"")
 
-    return 204 if precheck.target_exists else 201
+    try:
+        data = fp.read(block_size)
+    except BaseException:
+        fp.close()
+        raise
+    if len(data) < block_size:
+        # short read proves EOF: the caller never owns the fp
+        fp.close()
+        return _FileProbe(stat_result, None, data)
+    return _FileProbe(stat_result, fp, data)
 
 
-# single worker-thread round trip for the whole sequence; aiofiles.os.wrap
-# is aiofiles' public run_in_executor wrapper (same mechanism and default
-# executor as every other aiofiles call)
-_put_write_atomic = aiofiles.os.wrap(_write_file_atomic)
-_put_precheck_async = aiofiles.os.wrap(_put_precheck)
+def _stat_open_tmp(fs_path: Path, block_size: int) -> _FileProbe:
+    """stat + open in ONE worker-thread hop — the probe for ranged GET
+    (the seek offset depends on the stat, so the first ranged read runs
+    inside the generator)."""
+    try:
+        stat_result = os.stat(fs_path)
+    except OSError:
+        return _FileProbe(None, None, b"")
+
+    if S_ISDIR(stat_result.st_mode):
+        return _FileProbe(stat_result, None, b"")
+
+    try:
+        return _FileProbe(stat_result, open(fs_path, "rb"), b"")
+    except OSError:
+        return _FileProbe(None, None, b"")
+
+
+def _read_block(
+    fp: BinaryIO, size: int, is_last: bool, seek_to: int | None = None
+) -> bytes:
+    """(seek +) read one block in a worker-thread hop; the final read
+    closes the fp in the same hop, so the caller never needs a separate
+    close round trip."""
+    try:
+        if seek_to is not None:
+            fp.seek(seek_to)
+        data = fp.read(size)
+    except BaseException:
+        fp.close()
+        raise
+    if is_last:
+        fp.close()
+    return data
+
+
+# aiofiles.os.wrap is aiofiles' public run_in_executor wrapper (same
+# mechanism and default executor as every other aiofiles call)
+_stat_open_read_block_async = aiofiles.os.wrap(_stat_open_read_block)
+_stat_open_tmp_async = aiofiles.os.wrap(_stat_open_tmp)
+_read_block_async = aiofiles.os.wrap(_read_block)
+
+
+async def _run_probe(fs_path: Path, ranged: bool, block_size: int) -> _FileProbe:
+    """run the single-hop probe with cancellation drainage: the executor
+    hop completes even after the await is cancelled, and the reaper
+    closes whatever fp it produced however many cancellations land on
+    the drain (precedent: _open_tmp_stream)."""
+    if ranged:
+        inner_task = asyncio.ensure_future(_stat_open_tmp_async(fs_path, block_size))
+    else:
+        inner_task = asyncio.ensure_future(
+            _stat_open_read_block_async(fs_path, block_size)
+        )
+    try:
+        return await asyncio.shield(inner_task)
+    except asyncio.CancelledError:
+
+        def _reap_close(task: asyncio.Future[_FileProbe]) -> None:
+            if task.cancelled() or task.exception() is not None:
+                return
+            fp_done = task.result().fp
+            if fp_done is not None and not fp_done.closed:
+                # queued run_in_executor items always run
+                asyncio.get_running_loop().run_in_executor(None, fp_done.close)
+
+        inner_task.add_done_callback(_reap_close)
+        with suppress(BaseException):
+            await asyncio.shield(inner_task)
+        raise
+
+
+async def _close_fp(fp: BinaryIO) -> None:
+    # ensure_future is synchronous: once created the close work item can
+    # not be cancelled out of the executor queue
+    close_task = asyncio.ensure_future(aiofiles.os.wrap(fp.close)())
+    try:
+        await asyncio.shield(close_task)
+    except OSError:
+        pass
 
 
 def _parser_property_from_json(data: dict[str, Any]) -> dict[DAVPropertyIdentity, str]:
@@ -279,41 +478,59 @@ async def _update_extra_property(
 
 
 async def _dav_response_body_generator(
-    resource_abs_path: Path,
+    probe: _FileProbe,
+    file_size: int,
     content_range: DAVResponseContentRange | None = None,
     block_size: int = RESPONSE_DATA_BLOCK_SIZE,
 ) -> DAVResponseBodyGenerator:
-    async with aiofiles.open(resource_abs_path, mode="rb") as f:
+    """consume the probe: stream first_data plus the remaining blocks of
+    the already-open fp (None -> nothing more to stream).  Reads are
+    ledgered by file_size (or the range span) so the final read closes
+    the fp in its own hop; a short read inside the ledger (file
+    truncated under us) ends the stream with more_body=False."""
+    fp = probe.fp
+    try:
         if content_range is None:
-            more_body = True
-            while more_body:
-                data = await f.read(block_size)
-                more_body = len(data) == block_size
+            served = len(probe.first_data)
+            more_body = fp is not None and served < file_size
+            yield probe.first_data, more_body
 
+            if fp is None:
+                return
+            while more_body:
+                requested = min(block_size, file_size - served)
+                data = await _read_block_async(
+                    fp, requested, served + requested >= file_size
+                )
+                served += len(data)
+                more_body = served < file_size and len(data) == requested
                 yield data, more_body
+                if len(data) < requested:
+                    # EOF proven inside the ledger (truncation race) —
+                    # the read already closed the fp
+                    break
 
         else:
-            start = content_range.content_start
-            end = content_range.content_end
+            if fp is None:
+                return
+            remain = content_range.content_length
+            served = 0
+            seek_to: int | None = content_range.content_start
+            while served < remain:
+                requested = min(block_size, remain - served)
+                data = await _read_block_async(
+                    fp, requested, served + requested >= remain, seek_to=seek_to
+                )
+                seek_to = None
+                served += len(data)
+                more_body = served < remain and len(data) == requested
+                yield data, more_body
+                if len(data) < requested:
+                    break
 
-            await f.seek(start)
-
-            more_body = True
-            while more_body:
-                remain = end - start + 1
-
-                if remain < block_size:
-                    body = await f.read(remain)
-
-                    more_body = False
-
-                else:
-                    body = await f.read(block_size)
-
-                    more_body = True
-                    start += block_size
-
-                yield body, more_body
+    finally:
+        if fp is not None and not fp.closed:
+            await _close_fp(fp)
 
 
 class FileSystemProvider(DAVProvider):
@@ -383,6 +600,8 @@ class FileSystemProvider(DAVProvider):
         href_path: DAVPath,
         fs_path: Path,
         stat_result: os.stat_result,
+        *,
+        fetch_extra: bool = True,
     ) -> DAVProperty:
         is_collection = S_ISDIR(stat_result.st_mode)
 
@@ -420,7 +639,13 @@ class FileSystemProvider(DAVProvider):
         )
 
         # extra
-        if self.ignore_property_extra or request.propfind_only_fetch_basic:
+        # GET/HEAD pass fetch_extra=False: their responses carry basic data
+        # only, so the sidecar probe would be discarded work
+        if (
+            not fetch_extra
+            or self.ignore_property_extra
+            or request.propfind_only_fetch_basic
+        ):
             return dav_property
 
         # extra properties live in a sidecar file; a request for named
@@ -567,33 +792,44 @@ class FileSystemProvider(DAVProvider):
             return 404, None, None, None
 
         fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
-        if not await aiofiles.ospath.exists(fs_path):
+        ranged = len(request.ranges) > 0
+
+        # stat + open + first block read fused in ONE worker-thread hop
+        probe = await _run_probe(fs_path, ranged, RESPONSE_DATA_BLOCK_SIZE)
+        if probe.stat_result is None:
+            # parity with the former exists() precheck: every OSError
+            # (missing path, EACCES, EIO, ...) maps to 404
             return 404, None, None, None
 
-        dav_property = await self._get_dav_property_d0(
-            request, request.src_path, fs_path
+        dav_property = await self._create_dav_property_obj(
+            request, request.src_path, fs_path, probe.stat_result, fetch_extra=False
         )
 
         # target is dir ---
-        if fs_path.is_dir():
+        if dav_property.is_collection:
             return 200, dav_property.basic_data, None, None
 
         # target is file ---
-        if len(request.ranges) == 0:
-            # --- without range,response the entire file
+        file_size = dav_property.basic_data.content_length
+        if not ranged:
+            # plain GET: the probe already read the first block; a short
+            # read proved EOF and the worker closed the fp
             return (
                 200,
                 dav_property.basic_data,
-                _dav_response_body_generator(fs_path),
+                _dav_response_body_generator(probe, file_size),
                 None,
             )
 
         response_content_range = get_response_content_range(
             request_ranges=request.ranges,
-            file_size=dav_property.basic_data.content_length,
+            file_size=file_size,
         )
         if response_content_range is None:
-            # Range is not satisfiable
+            # Range is not satisfiable — the ranged probe opened the fp
+            # already
+            if probe.fp is not None:
+                await _close_fp(probe.fp)
             # https://datatracker.ietf.org/doc/html/rfc7233#section-4.4
             return (416, dav_property.basic_data, None, None)
 
@@ -602,12 +838,16 @@ class FileSystemProvider(DAVProvider):
             last_modified=dav_property.basic_data.last_modified.http_date,
         ):
             # If-Range validator does not match: ignore Range,
-            # response the entire file
+            # response the entire file — the ranged probe left the fp
+            # unread at offset 0, close it and re-probe as a plain GET
             # https://datatracker.ietf.org/doc/html/rfc7233#section-3.2
+            if probe.fp is not None:
+                await _close_fp(probe.fp)
+            probe = await _run_probe(fs_path, False, RESPONSE_DATA_BLOCK_SIZE)
             return (
                 200,
                 dav_property.basic_data,
-                _dav_response_body_generator(fs_path),
+                _dav_response_body_generator(probe, file_size),
                 None,
             )
 
@@ -615,7 +855,7 @@ class FileSystemProvider(DAVProvider):
         return (
             206,
             dav_property.basic_data,
-            _dav_response_body_generator(fs_path, content_range=response_content_range),
+            _dav_response_body_generator(probe, file_size, response_content_range),
             response_content_range,
         )
 
@@ -626,11 +866,14 @@ class FileSystemProvider(DAVProvider):
             return 404, None
 
         fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
-        if not await aiofiles.ospath.exists(fs_path):  # TODO macOS 不区分大小写
+        try:
+            # TODO macOS 不区分大小写
+            stat_result = await aiofiles.os.stat(fs_path)
+        except OSError:
             return 404, None
 
-        dav_property = await self._get_dav_property_d0(
-            request, request.src_path, fs_path
+        dav_property = await self._create_dav_property_obj(
+            request, request.src_path, fs_path, stat_result, fetch_extra=False
         )
         return 200, dav_property.basic_data
 
@@ -673,100 +916,58 @@ class FileSystemProvider(DAVProvider):
 
         fs_path = self._get_fs_path(request.dist_src_path, request.user.username)
 
-        if self.put_buffer_max_size <= 0:
-            # buffering disabled via config — stream everything
-            return await self._do_put_streaming(request, fs_path, [])
+        # receive the first chunk before any filesystem work: an aborted
+        # upload costs zero syscalls and no temp file ever exists
+        request_data = cast(
+            "HTTPRequestEvent | HTTPDisconnectEvent", await request.receive()
+        )
+        if request_data["type"] == "http.disconnect":
+            return 400
 
-        # phase 1 — buffer up to the configured threshold: zero filesystem
-        # work while receiving, so an aborted small upload costs zero
-        # syscalls and the temp file never exists
-        chunks: list[bytes] = []
-        buffered_size = 0
-        more_body = True
-        while more_body:
-            # the http scope only ever yields these two event types
-            request_data = cast(
-                "HTTPRequestEvent | HTTPDisconnectEvent", await request.receive()
-            )
-            if request_data["type"] == "http.disconnect":
-                # client went away mid-upload — persist nothing; nothing to clean
-                return 400
+        # precheck + O_EXCL temp + first chunk write fused in ONE
+        # worker-thread hop; a single-chunk body finishes the whole PUT
+        # in that hop (a short body never hits the per-chunk loop)
+        first = request_data["body"]
+        stream = await _run_put_start(fs_path, first, not request_data["more_body"])
+        if stream.status is not None:
+            return stream.status
 
-            body = request_data["body"]
-            if body:
-                # empty events contribute nothing to the content — skipping
-                # them keeps the list growth bounded by the real bytes
-                chunks.append(body)
-                buffered_size += len(body)
-            more_body = request_data["more_body"]
-            if more_body and buffered_size > self.put_buffer_max_size:
-                # large body — spill to the streaming path; memory stays
-                # bounded by the threshold plus a single event. the
-                # more_body guard is load-bearing: a completed body must
-                # never be re-received
-                return await self._do_put_streaming(request, fs_path, chunks)
-
-        # phase 2 — whole body in memory: precheck + temp write + rename in
-        # ONE worker-thread round trip
-        return await _put_write_atomic(fs_path, chunks)
-
-    async def _do_put_streaming(
-        self, request: DAVRequest, fs_path: Path, prefix_chunks: list[bytes]
-    ) -> int:
-        """Large-body PUT: temp-file streaming + rename, semantics unchanged."""
-        precheck = await _put_precheck_async(fs_path)
-        if precheck.status is not None:
-            return precheck.status
-
-        # write to a sibling temp file and rename on completion: an aborted
-        # upload must not destroy an existing file, and a partial upload must
-        # not be visible to other requests
         try:
-            f, tmp_path = await _open_tmp_stream(fs_path)
-        except OSError as e:
-            return _put_error_status(e, fs_path)  # nothing to clean up yet
-
-        client_disconnected = False
-        renamed = False
-        try:
-            for chunk in prefix_chunks:
-                # write the already-received chunks one by one: a join here
-                # would memcpy the whole prefix on the event loop
-                await f.write(chunk)
-            more_body = True
-            while more_body:
+            while True:
                 # the http scope only ever yields these two event types
                 request_data = cast(
-                    "HTTPRequestEvent | HTTPDisconnectEvent",
-                    await request.receive(),
+                    "HTTPRequestEvent | HTTPDisconnectEvent", await request.receive()
                 )
                 if request_data["type"] == "http.disconnect":
                     # client went away mid-upload — persist nothing
-                    client_disconnected = True
-                    break
+                    await _discard_stream(stream)
+                    return 400
 
-                more_body = request_data["more_body"]
-                await f.write(request_data["body"])
+                is_last = not request_data["more_body"]
+                chunk = request_data["body"]
+                if not chunk and not is_last:
+                    # empty mid-stream event: nothing to write
+                    continue
 
-            await f.close()  # flush the buffer before the rename
-
-            if client_disconnected:
-                return 400
-
-            await aiofiles.os.replace(tmp_path, fs_path)
-            renamed = True
-            return 204 if precheck.target_exists else 201
-
-        except OSError as e:
-            return _put_error_status(e, fs_path)
+                status = await _put_stream_chunk_async(
+                    fs_path,
+                    stream.fd,
+                    stream.tmp_path,
+                    chunk,
+                    is_last,
+                    stream.target_exists,
+                )
+                if status is not None:
+                    stream = _PutStream(status, -1, None, stream.target_exists)
+                    return status
 
         finally:
-            if not renamed:
-                # failure, disconnect, or task cancellation (a BaseException
-                # that skips the OSError arm) — the partial temp must not
-                # survive any of them; after a successful rename the name no
-                # longer exists
-                _remove_tmp_quiet(tmp_path)
+            # task cancellation (or any unexpected exit): close the
+            # descriptor and remove the partial temp — the disconnect
+            # path above already discarded, the fd guard makes this a
+            # no-op there
+            if stream.fd >= 0:
+                await _discard_stream(stream)
 
     @staticmethod
     def _copy_dir_depth0(

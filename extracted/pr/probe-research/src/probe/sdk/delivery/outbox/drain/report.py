@@ -57,6 +57,8 @@ class LaneStall:
     #: stall rule runs while this repeats with no progress (R12). Not a hold, not an upload
     #: waiting on the server, not an unknown kind.
     failing: bool = False
+    #: Held for a drain that reads a newer journal version or op kind (plan 1.11, D8, M4).
+    needs_newer: bool = False
     #: That write's file, which the worker sets aside once the run stalls (`outbox/held`).
     path: "Path | None" = None
 

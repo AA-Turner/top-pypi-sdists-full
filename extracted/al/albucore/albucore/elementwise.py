@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 
     from numpy.typing import NDArray
 
-    from albucore._types import ImageType
 
 __all__ = ["exp", "log", "sqrt"]
 
@@ -77,8 +76,7 @@ def _float16_unary(
 ) -> NDArray[np.float16]:
     if array.flags.c_contiguous and array.size >= _OPENCV_CONTIGUOUS_MIN_ELEMENTS and operation != "sqrt":
         if operation == "log":
-            working = _cast_float_numpy(array, np.float32)
-            result = _log_opencv(working)
+            result = _log_opencv(_cast_float_numpy(array, np.float32))
         else:
             result = _opencv_unary(_cast_float_numpy(array, np.float32), cv2.exp)
         return _cast_float_numpy(result, np.float16, out=out)
@@ -127,7 +125,7 @@ def exp(array: torch.Tensor, *, out: torch.Tensor | None = None) -> torch.Tensor
 
 
 def exp(
-    array: ImageType | torch.Tensor,
+    array: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     *,
     out: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
 ) -> NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
@@ -185,7 +183,7 @@ def log(array: torch.Tensor, *, out: torch.Tensor | None = None) -> torch.Tensor
 
 
 def log(
-    array: ImageType | torch.Tensor,
+    array: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     *,
     out: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
 ) -> NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
@@ -256,7 +254,7 @@ def sqrt(array: torch.Tensor, *, out: torch.Tensor | None = None) -> torch.Tenso
 
 
 def sqrt(
-    array: ImageType | torch.Tensor,
+    array: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     *,
     out: NDArray[np.float16] | NDArray[np.float32] | torch.Tensor | None = None,
 ) -> NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:

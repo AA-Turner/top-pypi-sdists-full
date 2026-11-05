@@ -43,6 +43,7 @@ PythonConstruct: TypeAlias = Literal[
     "python.typed_dict_not_required",
     "python.builtin_generic_strings",
     "python.strenum",
+    "python.subclass_any",
     "python.type_statement",
     "python.typed_dict_read_only",
     "python.deprecated_decorator",
@@ -85,6 +86,7 @@ PydanticConstruct: TypeAlias = Literal[
     "pydantic.config_ser_json_inf_nan",
     "pydantic.config_validation_error_cause",
     "pydantic.config_cache_strings",
+    "pydantic.config_experimental_defer_build_mode",
     "pydantic.config_field_title_generator",
     "pydantic.config_model_title_generator",
     "pydantic.config_val_json_bytes",
@@ -160,6 +162,7 @@ _ROWS: Final[tuple[Requirement, ...]] = (
     ),
     Requirement("python.builtin_generic_strings", "python", "3.11"),
     Requirement("python.strenum", "python", "3.11"),
+    Requirement("python.subclass_any", "python", "3.11"),
     Requirement("python.type_statement", "python", "3.12", backport="typing_extensions.TypeAliasType"),
     Requirement(
         "python.typed_dict_read_only", "python", "3.13", form="typing.ReadOnly", backport="typing_extensions.ReadOnly"

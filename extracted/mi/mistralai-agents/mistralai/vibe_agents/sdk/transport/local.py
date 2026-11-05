@@ -48,7 +48,11 @@ from mistralai.vibe.harness.app_server.session.local_manager import (
     LocalSessionManager,
     LocalSessionWorkspace,
 )
-from mistralai.vibe.harness.app_server.session.local_record import LocalSessionRecord
+from mistralai.vibe.harness.app_server.session.local_record import (
+    LocalSessionEventCursorError,
+    LocalSessionProcedureError,
+    LocalSessionRecord,
+)
 from mistralai.vibe.harness.app_server.session.models.state import ListPageRequest
 from mistralai.vibe.harness.app_server.session.procedures.session import SubagentSession, SubagentsListParams
 from mistralai.vibe.harness.core import protocol as core_protocol
@@ -93,6 +97,7 @@ from mistralai.vibe_agents.sdk.authoring.errors import (
     SessionConfigMismatchError,
     SessionInUseError,
     SessionNotFoundError,
+    invalid_cursor,
     public_errors,
     public_iter_errors,
 )
@@ -374,6 +379,11 @@ class _TreeAttachment(LocalManagerAttachment):
             if (public := _not_found(error, params.session_id)) is error:
                 raise
             raise public from error
+        except LocalSessionEventCursorError as error:
+            # As on a deployment; still the LocalSessionProcedureError it was, for an except on that class.
+            raise invalid_cursor(
+                error.cursor, error.session_id, owner=error.owner, host_class=LocalSessionProcedureError
+            ) from error
         finally:
             if isinstance(events, AsyncGenerator):
                 await events.aclose()
@@ -538,7 +548,6 @@ class _AgentsSdkLocalRuntime:
             client = ClientToolSessionClient(
                 AllowlistedSessionTransport(attachment, backend="local", procedures=LOCAL_PROCEDURES),
                 client_tools=client_tools,
-                uploader=self._uploader_for(session_id),
             )
             await client.adopt_session_snapshot(response.state, response.last_event_id)
         except BaseException as error:
@@ -809,7 +818,6 @@ class _AgentsSdkLocalRuntime:
             client = ClientToolSessionClient(
                 AllowlistedSessionTransport(attachment, backend="local", procedures=LOCAL_PROCEDURES),
                 client_tools=client_tools,
-                uploader=self._uploader_for(session_id),
             )
             await client.adopt_session_snapshot(snapshot.state, snapshot.last_event_id)
         except BaseException:

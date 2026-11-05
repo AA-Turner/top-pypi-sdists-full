@@ -10,9 +10,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from ansible_collections.graphiant.naas.plugins.module_utils.libs.gcsdk_client import (
+    APIError,
     ApiException,
     GraphiantPortalClient,
     ValidationError,
+    _api_error_title,
 )
 
 
@@ -1186,3 +1188,360 @@ def test_get_local_extranet_nat_usage_raises_on_error_response() -> None:
 
     with pytest.raises(ApiException):
         client.get_local_extranet_nat_usage(42)
+
+
+# ---- put_devices_bringup / device lifecycle upgrade scheduling ----
+
+
+@patch("ansible_collections.graphiant.naas.plugins.module_utils.libs.gcsdk_client.time.sleep")
+def test_put_devices_bringup_maps_friendly_status_names(_mock_sleep: MagicMock) -> None:
+    client = _make_client()
+
+    assert client.put_devices_bringup([1], "activated") is True
+    assert client.api.v1_devices_bringup_put.call_args.kwargs["v1_devices_bringup_put_request"]["status"] == "Allowed"
+
+    assert client.put_devices_bringup([1], "deactivated") is True
+    assert client.api.v1_devices_bringup_put.call_args.kwargs["v1_devices_bringup_put_request"]["status"] == "Denied"
+
+    assert client.put_devices_bringup([1], "decommissioned") is True
+    assert client.api.v1_devices_bringup_put.call_args.kwargs["v1_devices_bringup_put_request"]["status"] == "Removed"
+
+    assert client.put_devices_bringup([1], "staging") is True
+    assert client.api.v1_devices_bringup_put.call_args.kwargs["v1_devices_bringup_put_request"]["status"] == "Pending"
+
+    assert client.put_devices_bringup([1], "maintenance") is True
+    assert (
+        client.api.v1_devices_bringup_put.call_args.kwargs["v1_devices_bringup_put_request"]["status"]
+        == "Maintenance"
+    )
+
+
+def test_api_error_title_extracts_status_reason_and_display_error() -> None:
+    exc = ApiException(status=504, reason="Gateway Timeout")
+    exc.body = '{"errorCode":4,"displayError":"context deadline exceeded"}'
+
+    assert _api_error_title(exc) == "504 Gateway Timeout: context deadline exceeded"
+
+
+def test_api_error_title_falls_back_without_a_parseable_body() -> None:
+    exc = ApiException(status=500, reason="Internal Server Error")
+
+    assert _api_error_title(exc) == "500 Internal Server Error"
+
+
+@patch("ansible_collections.graphiant.naas.plugins.module_utils.libs.gcsdk_client.time.sleep")
+def test_put_devices_bringup_raises_api_error_with_reason(_mock_sleep: MagicMock) -> None:
+    client = _make_client()
+    exc = ApiException(status=500, reason="failed")
+    exc.headers = {"Set-Cookie": "connect.sid=super-secret-session-token; Path=/; HttpOnly"}
+    client.api.v1_devices_bringup_put.side_effect = exc
+
+    with pytest.raises(APIError, match="500") as exc_info:
+        client.put_devices_bringup([1], "activated")
+
+    assert "super-secret-session-token" not in str(exc_info.value)
+
+
+def test_put_devices_bringup_check_mode_skips_api_call() -> None:
+    client = _make_client()
+    client.check_mode = True
+
+    assert client.put_devices_bringup([1], "activated") is True
+    client.api.v1_devices_bringup_put.assert_not_called()
+
+
+def test_get_edges_summary_returns_list() -> None:
+    client = _make_client()
+    edge_1 = MagicMock(device_id=100)
+    edge_2 = MagicMock(device_id=200)
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=[edge_1, edge_2])
+
+    assert client.get_edges_summary() == [edge_1, edge_2]
+
+
+def test_get_edges_summary_filters_by_device_id() -> None:
+    client = _make_client()
+    edge_1 = MagicMock(device_id=100)
+    edge_2 = MagicMock(device_id=200)
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=[edge_1, edge_2])
+
+    assert client.get_edges_summary(device_id=200) is edge_2
+
+
+def test_get_edges_summary_returns_empty_list_when_api_omits_edges_summary() -> None:
+    """
+    ``GET /v1/edges-summary`` returns a bare ``{}`` (no ``edgesSummary`` key at all, not even an
+    empty array) when zero devices match — e.g. every device in the enterprise has just been
+    decommissioned. The SDK model then has ``edges_summary=None``, not ``[]``; this must still come
+    back as ``[]``, not ``None``, since every caller (``_fetch_edges_by_hostname`` et al.) iterates
+    the result directly and a bare ``None`` crashes with ``TypeError: 'NoneType' object is not
+    iterable`` — exactly what a live run hit once every device in a test enterprise was
+    decommissioned in the same run.
+    """
+    client = _make_client()
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=None)
+
+    assert client.get_edges_summary() == []
+    assert client.get_edges_summary(device_id=100) == []
+
+
+def test_get_edges_summary_with_upgrade_passes_upgrade_summary_flag() -> None:
+    client = _make_client()
+    edge_cpe = MagicMock(role="cpe")
+    edge_gateway = MagicMock(role="gateway")
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=[edge_cpe, edge_gateway])
+
+    result = client.get_edges_summary_with_upgrade()
+
+    client.api.v1_edges_summary_get.assert_called_once_with(authorization="test-token", upgrade_summary=True)
+    assert result == [edge_cpe, edge_gateway]
+
+
+def test_get_edges_summary_with_upgrade_filters_by_role() -> None:
+    client = _make_client()
+    edge_cpe = MagicMock(role="cpe")
+    edge_gateway = MagicMock(role="gateway")
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=[edge_cpe, edge_gateway])
+
+    result = client.get_edges_summary_with_upgrade(role="cpe")
+
+    assert result == [edge_cpe]
+
+
+def test_get_edges_summary_with_upgrade_filters_by_device_id() -> None:
+    client = _make_client()
+    edge_1 = MagicMock(role="cpe", device_id=100)
+    edge_2 = MagicMock(role="cpe", device_id=200)
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=[edge_1, edge_2])
+
+    assert client.get_edges_summary_with_upgrade(device_id=200) is edge_2
+    assert client.get_edges_summary_with_upgrade(device_id=999) is None
+
+
+# ---- poll_upgrade_schedule_completion_batch: terminal-state detection, shared per-round fetch ----
+
+
+def test_poll_upgrade_schedule_completion_batch_returns_success_on_first_attempt() -> None:
+    client = _make_client()
+    edge = MagicMock(device_id=100)
+    edge.upgrade_summary.schedule.state = "Success"
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=[edge])
+
+    outcomes = client.poll_upgrade_schedule_completion_batch([100], timeout=60, wait=10)
+
+    assert outcomes == {100: ("Success", None)}
+
+
+def test_poll_upgrade_schedule_completion_batch_returns_failed_with_reason() -> None:
+    client = _make_client()
+    edge = MagicMock(device_id=100)
+    edge.upgrade_summary.schedule.state = "Failed"
+    edge.upgrade_summary.schedule.failure_reason = "Internal error"
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=[edge])
+
+    outcomes = client.poll_upgrade_schedule_completion_batch([100], timeout=60, wait=10)
+
+    assert outcomes == {100: ("Failed", "Internal error")}
+
+
+def test_poll_upgrade_schedule_completion_batch_treats_intermediate_states_as_in_progress() -> None:
+    """
+    Any non-terminal state (the real portal was observed cycling through Idle ->
+    ScheduledDownload -> Downloading -> Installing -> ScheduledActivation -> InMaintenance ->
+    Activating) keeps polling instead of being misread as done; a short timeout here proves the
+    loop doesn't stop early on these.
+    """
+    client = _make_client()
+    edge = MagicMock(device_id=100)
+    edge.upgrade_summary.schedule.state = "Downloading"
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=[edge])
+
+    outcomes = client.poll_upgrade_schedule_completion_batch([100], timeout=0.05, wait=0.01)
+
+    assert outcomes == {100: (None, None)}
+    assert client.api.v1_edges_summary_get.call_count >= 1
+
+
+def test_poll_upgrade_schedule_completion_batch_device_not_found_is_in_progress() -> None:
+    """A device that disappears from edges-summary mid-poll must not raise — treated the same as
+    any other non-terminal state (still in progress) until the timeout."""
+    client = _make_client()
+    client.api.v1_edges_summary_get.return_value = MagicMock(edges_summary=[])
+
+    outcomes = client.poll_upgrade_schedule_completion_batch([100], timeout=0.05, wait=0.01)
+
+    assert outcomes == {100: (None, None)}
+
+
+def test_poll_upgrade_schedule_completion_batch_uses_one_shared_fetch_per_round_for_multiple_devices() -> None:
+    """
+    The whole point of the batch poller: N devices must not multiply the number of
+    GET /v1/edges-summary calls — one shared fetch per round covers all of them, and a device
+    stops being checked (removed from the next round) as soon as it reaches a terminal state.
+    """
+    client = _make_client()
+    edge_1_round_1 = MagicMock(device_id=100)
+    edge_1_round_1.upgrade_summary.schedule.state = "Success"
+    edge_2_round_1 = MagicMock(device_id=200)
+    edge_2_round_1.upgrade_summary.schedule.state = "Downloading"
+    edge_2_round_2 = MagicMock(device_id=200)
+    edge_2_round_2.upgrade_summary.schedule.state = "Success"
+    client.api.v1_edges_summary_get.side_effect = [
+        MagicMock(edges_summary=[edge_1_round_1, edge_2_round_1]),  # round 1: 100 done, 200 still going
+        MagicMock(edges_summary=[edge_2_round_2]),  # round 2: only 200 still needs checking
+    ]
+
+    outcomes = client.poll_upgrade_schedule_completion_batch([100, 200], timeout=60, wait=0.01)
+
+    assert outcomes == {100: ("Success", None), 200: ("Success", None)}
+    # Exactly one GET per round (2 rounds), regardless of there being 2 devices to watch.
+    assert client.api.v1_edges_summary_get.call_count == 2
+
+
+def test_get_software_releases_summary_returns_summaries() -> None:
+    client = _make_client()
+    summary = MagicMock()
+    client.api.v1_software_releases_summary_get.return_value = MagicMock(summaries=[summary])
+
+    result = client.get_software_releases_summary()
+
+    client.api.v1_software_releases_summary_get.assert_called_once_with(authorization="test-token")
+    assert result == [summary]
+
+
+def test_get_software_releases_summary_returns_empty_list_when_none() -> None:
+    client = _make_client()
+    client.api.v1_software_releases_summary_get.return_value = MagicMock(summaries=None)
+
+    assert client.get_software_releases_summary() == []
+
+
+def test_put_devices_upgrade_schedule_builds_payload() -> None:
+    client = _make_client()
+    device_versions = [{"deviceId": 100, "version": {"release": "Latest"}}]
+
+    assert client.put_devices_upgrade_schedule(device_versions=device_versions, action="InstallActivate") is True
+
+    kwargs = client.api.v1_devices_upgrade_schedule_put.call_args.kwargs
+    payload = kwargs["v1_devices_upgrade_schedule_put_request"]
+    assert payload["action"] == "InstallActivate"
+    assert payload["deviceVersions"] == device_versions
+    assert "seconds" in payload["ts"]
+
+
+def test_put_devices_upgrade_schedule_uses_explicit_ts() -> None:
+    client = _make_client()
+    ts = {"seconds": 123, "nanos": 456}
+
+    client.put_devices_upgrade_schedule(device_versions=[], action="Install", ts=ts)
+
+    payload = client.api.v1_devices_upgrade_schedule_put.call_args.kwargs["v1_devices_upgrade_schedule_put_request"]
+    assert payload["ts"] == ts
+
+
+def test_put_devices_upgrade_schedule_raises_api_error_with_reason() -> None:
+    client = _make_client()
+    exc = ApiException(status=500, reason="failed")
+    exc.headers = {"Set-Cookie": "connect.sid=super-secret-session-token; Path=/; HttpOnly"}
+    client.api.v1_devices_upgrade_schedule_put.side_effect = exc
+
+    with pytest.raises(APIError, match="500") as exc_info:
+        client.put_devices_upgrade_schedule(device_versions=[], action="InstallActivate")
+
+    assert "super-secret-session-token" not in str(exc_info.value)
+
+
+def test_put_devices_upgrade_schedule_check_mode_skips_api_call() -> None:
+    client = _make_client()
+    client.check_mode = True
+
+    assert client.put_devices_upgrade_schedule(device_versions=[], action="InstallActivate") is True
+    client.api.v1_devices_upgrade_schedule_put.assert_not_called()
+
+
+# ---- verify_device_portal_status: tt_conn_count threshold ----
+# Only the immediate-success path is exercised here (no retries triggered): the decorated method
+# is wrapped in `@poller(timeout=180, wait=15)`, so a case that's meant to fail would busy-loop
+# for real wall-clock seconds in a test run — not worth it for this fix.
+
+
+def test_verify_device_portal_status_ready_with_tt_conn_count_exactly_two_succeeds() -> None:
+    client = _make_client()
+    edge_summary = MagicMock(portal_status="Ready", tt_conn_count=2)
+    client.get_edges_summary = MagicMock(return_value=edge_summary)
+
+    client.verify_device_portal_status(100)  # must not raise
+
+    client.get_edges_summary.assert_called_once_with(device_id=100)
+
+
+def test_verify_device_portal_status_ready_with_tt_conn_count_above_two_succeeds() -> None:
+    """
+    More than 2 tunnel-terminator connections is fine — only fewer than 2 is a real problem.
+    Previously this required an exact match (tt_conn_count == 2), which incorrectly treated a
+    device with extra connections as never reaching Ready.
+    """
+    client = _make_client()
+    edge_summary = MagicMock(portal_status="Ready", tt_conn_count=3)
+    client.get_edges_summary = MagicMock(return_value=edge_summary)
+
+    client.verify_device_portal_status(100)  # must not raise
+
+
+def _fake_time_for_single_poller_attempt():
+    """
+    Side_effect for ``poller.time.time`` that lets the ``@poller`` while-loop run its body
+    exactly once (so the decorated function is called exactly once) before its own timeout check
+    sees the limit exceeded — without looping for real wall-clock seconds. Returns small values
+    for the first two calls (poller's own ``start_time`` and its first condition check, so the
+    loop is entered) and a value past any real timeout for every call after that, regardless of
+    how many extra ``time.time()`` calls happen in between (each ``LOG.info``/``LOG.warning``
+    call inside the loop also consumes one, via the logging module's own record-timestamping —
+    an exact call count isn't something this test can predict or should depend on).
+    """
+    calls = {"n": 0}
+
+    def _fake_time():
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return 0
+        if calls["n"] == 2:
+            return 1
+        return 99999
+
+    return _fake_time
+
+
+def test_verify_device_portal_status_includes_device_name_in_raised_message() -> None:
+    """
+    When given, device_name is folded into the raised message — @poller's own retry log echoes
+    this message verbatim on every attempt, so a caller that knows the hostname (e.g.
+    DeviceLifecycleManager._poll_device_ready) gets it named in every 15s retry line, not just
+    the bare numeric device_id.
+    """
+    client = _make_client()
+    edge_summary = MagicMock(portal_status="Configuring", tt_conn_count=2)
+    client.get_edges_summary = MagicMock(return_value=edge_summary)
+
+    with patch(
+        "ansible_collections.graphiant.naas.plugins.module_utils.libs.poller.time.time",
+        side_effect=_fake_time_for_single_poller_attempt(),
+    ), patch("ansible_collections.graphiant.naas.plugins.module_utils.libs.poller.time.sleep"):
+        with pytest.raises(APIError, match=r"100 \(edge-1\) Portal Status: Configuring"):
+            client.verify_device_portal_status(100, device_name="edge-1")
+
+
+def test_verify_device_portal_status_omits_device_name_when_not_given() -> None:
+    """The method's other internal callers never pass device_name — must still get the original
+    ID-only message, not e.g. "100 (None)"."""
+    client = _make_client()
+    edge_summary = MagicMock(portal_status="Configuring", tt_conn_count=2)
+    client.get_edges_summary = MagicMock(return_value=edge_summary)
+
+    with patch(
+        "ansible_collections.graphiant.naas.plugins.module_utils.libs.poller.time.time",
+        side_effect=_fake_time_for_single_poller_attempt(),
+    ), patch("ansible_collections.graphiant.naas.plugins.module_utils.libs.poller.time.sleep"):
+        with pytest.raises(APIError, match=r"^verify_device_portal_status: 100 Portal Status: Configuring") as exc_info:
+            client.verify_device_portal_status(100)
+    assert "(" not in str(exc_info.value)

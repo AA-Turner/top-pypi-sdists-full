@@ -46,8 +46,8 @@ Proxy / TLS (obstore reads none of these itself, so we plumb them explicitly):
 * ``HTTPS_PROXY`` / ``HTTP_PROXY`` — obstore's ``proxy_url``.
 * ``NO_PROXY`` — obstore's ``proxy_excludes`` (only when a proxy is set).
 * ``SSL_CERT_DIR`` — custom CA certs for private-CA stores (e.g. self-hosted
-  MinIO), loaded into obstore's ``root_certificate``. Same env var httpx/aiohttp
-  and Temporal honor via ``clients/ssl_utils.py``.
+  MinIO), loaded into obstore's ``root_certificate``. Same env var the SDK's httpx
+  clients and Temporal honor via ``clients/ssl_utils.py``.
 
 Retry config (passed via ``S3Store(retry_config=…)``):
 
@@ -101,7 +101,7 @@ def _default_user_agent() -> str:
     module into circular-import paths during package init.
     """
     try:
-        from application_sdk.version import (  # noqa: PLC0415; type: ignore[import]
+        from application_sdk.version import (  # type: ignore[import]  # noqa: PLC0415
             __version__,
         )
 

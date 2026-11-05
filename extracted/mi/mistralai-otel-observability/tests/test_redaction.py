@@ -389,6 +389,23 @@ def test_callback_policy_receives_whole_structured_values_by_default() -> None:
     assert seen == [messages]
 
 
+def test_callback_policy_edits_in_place_do_not_reach_the_caller() -> None:
+    """A callback that edits a structured value in place changes the recorded value, not the caller's."""
+
+    def drop_secrets(_key: str, value: OperationDataValue) -> OperationDataValue:
+        if isinstance(value, dict):
+            value.pop("secret", None)
+            if isinstance(account := value.get("account"), dict):
+                account.pop("secret", None)
+        return value
+
+    policy = CallbackRedactionPolicy(drop_secrets)
+    result = {"secret": "s3cr3t", "account": {"id": "acct-42", "secret": "s3cr3t"}}
+
+    assert _transform(policy, result, field=c.ATTR_GEN_AI_TOOL_CALL_RESULT) == {"account": {"id": "acct-42"}}
+    assert result == {"secret": "s3cr3t", "account": {"id": "acct-42", "secret": "s3cr3t"}}
+
+
 def test_recursive_callback_policy_masks_and_drops_nested_leaves() -> None:
     """A recursive callback rewrites or drops each leaf, decoded from bytes, and keeps existing ``None`` values."""
     keys: set[str] = set()

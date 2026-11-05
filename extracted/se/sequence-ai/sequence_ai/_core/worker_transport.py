@@ -267,6 +267,7 @@ class _WorkerTransport(StreamLink):
     def __init__(self, worker_url: str, direct_secret: str, fingerprint: Optional[str],
                  timeout_s: float, session: Optional[str] = None, teleop: Optional[Any] = None) -> None:
         self._base = worker_url.rstrip("/")
+        self._session = session
 
 
         self.teleop = teleop
@@ -571,6 +572,7 @@ class _WorkerTransport(StreamLink):
 
             metrics.rtt_ms = (time.monotonic() - t0) * 1000.0
             metrics.cc = self.congestion
+            metrics.session = self._session
             metrics.rid_echo = r.headers.get(_RID_HEADER)
             metrics.first_after_connect = first
 

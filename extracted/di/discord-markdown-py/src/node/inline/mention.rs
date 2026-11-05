@@ -2,16 +2,10 @@
 
 use std::fmt::Display;
 
-use nom::{
-	Parser,
-	branch::alt,
-	bytes::complete::tag,
-	character::complete::{char, u64},
-	combinator::{map, opt, value},
-	sequence::delimited,
+use crate::{
+	Input,
+	error::{Fail, PResult},
 };
-
-use crate::{Input, error::ParseError, unparse::Unparse};
 
 use command::Command;
 
@@ -36,20 +30,22 @@ pub const GAME_MENTION_OPEN_DELIMITER: &str = "<@$";
 pub const CLOSE_DELIMITER: &str = ">";
 
 /// Parse any mention open sequence, including [`EVERYONE`] and [`HERE`].
-#[must_use]
-pub fn open_delimiter<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<'data>,
-{
-	alt((
-		tag(EVERYONE),
-		tag(HERE),
-		tag(USER_MENTION_OPEN_DELIMITER),
-		tag(CHANNEL_MENTION_OPEN_DELIMITER),
-		tag(ROLE_MENTION_OPEN_DELIMITER),
-		tag(command::OPEN_DELIMITER),
-		tag(GAME_MENTION_OPEN_DELIMITER),
-	))
+///
+/// # Errors
+/// If the input does not begin with one.
+pub fn open_delimiter<'data>(input: &mut Input<'data>) -> PResult<&'data str> {
+	[
+		EVERYONE,
+		HERE,
+		USER_MENTION_OPEN_DELIMITER,
+		CHANNEL_MENTION_OPEN_DELIMITER,
+		ROLE_MENTION_OPEN_DELIMITER,
+		command::OPEN_DELIMITER,
+		GAME_MENTION_OPEN_DELIMITER,
+	]
+	.into_iter()
+	.find_map(|delimiter| input.tag(delimiter).ok())
+	.ok_or(Fail::NoMatch)
 }
 
 /// A mention.
@@ -84,132 +80,98 @@ impl Display for Mention {
 	}
 }
 
-impl Unparse for Mention {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			Self::User(id) => write!(f, "{USER_MENTION_OPEN_DELIMITER}{id}{CLOSE_DELIMITER}"),
-			Self::Channel(id) => write!(f, "{CHANNEL_MENTION_OPEN_DELIMITER}{id}{CLOSE_DELIMITER}"),
-			Self::Role(id) => write!(f, "{ROLE_MENTION_OPEN_DELIMITER}{id}{CLOSE_DELIMITER}"),
-			Self::Game(id) => write!(f, "{GAME_MENTION_OPEN_DELIMITER}{id}{CLOSE_DELIMITER}"),
-			Self::Command(command) => command.fmt(f),
-			Self::Everyone => f.write_str(EVERYONE),
-			Self::Here => f.write_str(HERE),
-			Self::Static(st) => Unparse::fmt(st, f),
-		}
-	}
-}
-
 /// Parse a mention.
 ///
 /// # Errors
 /// If the content does not begin with a mention.
-pub fn mention<'data, E>() -> impl Parser<Input<'data>, Output = Mention, Error = E>
-where
-	E: ParseError<'data>,
-{
-	alt((
-		map(user(), Mention::User),
-		map(channel(), Mention::Channel),
-		map(role(), Mention::Role),
-		map(game(), Mention::Game),
-		map(command::command(), Mention::Command),
-		value(Mention::Everyone, everyone()),
-		value(Mention::Here, here()),
-		map(r#static::parser(), Mention::Static),
-	))
+pub fn mention(input: &mut Input) -> PResult<Mention> {
+	let parsers: [fn(&mut Input) -> PResult<Mention>; 8] = [
+		|input| user(input).map(Mention::User),
+		|input| channel(input).map(Mention::Channel),
+		|input| role(input).map(Mention::Role),
+		|input| game(input).map(Mention::Game),
+		|input| command::command(input).map(Mention::Command),
+		|input| everyone(input).map(|()| Mention::Everyone),
+		|input| here(input).map(|()| Mention::Here),
+		|input| r#static::parse(input).map(Mention::Static),
+	];
+	for parser in parsers {
+		if let Some(mention) = input.attempt(parser)? {
+			return Ok(mention);
+		}
+	}
+	Err(Fail::NoMatch)
 }
 
 /// Parse an @everyone mention.
 ///
 /// # Errors
 /// If the content does not begin with "@everyone".
-#[must_use]
-pub fn everyone<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<'data>,
-{
-	tag(EVERYONE)
+pub fn everyone(input: &mut Input) -> PResult<()> {
+	input.tag(EVERYONE).map(|_| ())
 }
 
 /// Parse a @here mention.
 ///
 /// # Errors
 /// If the content does not begin with "@here".
-#[must_use]
-pub fn here<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<'data>,
-{
-	tag(HERE)
+pub fn here(input: &mut Input) -> PResult<()> {
+	input.tag(HERE).map(|_| ())
+}
+
+/// The id and close that end every mention of an id.
+fn id_and_close(input: &mut Input) -> PResult<u64> {
+	let id = input.u64()?;
+	input.tag(CLOSE_DELIMITER)?;
+	Ok(id)
 }
 
 /// Parse a user mention.
 ///
 /// # Errors
 /// If the content does not begin with a user mention.
-pub fn user<'data, E>() -> impl Parser<Input<'data>, Output = u64, Error = E>
-where
-	E: ParseError<'data>,
-{
-	delimited(
-		(tag(USER_MENTION_OPEN_DELIMITER), opt(char('!'))),
-		u64,
-		tag(CLOSE_DELIMITER),
-	)
+pub fn user(input: &mut Input) -> PResult<u64> {
+	input.tag(USER_MENTION_OPEN_DELIMITER)?;
+	input.eat("!");
+	id_and_close(input)
 }
 
 /// Parse a channel mention.
 ///
 /// # Errors
 /// If the content does not begin with a channel mention.
-pub fn channel<'data, E>() -> impl Parser<Input<'data>, Output = u64, Error = E>
-where
-	E: ParseError<'data>,
-{
-	delimited(
-		tag(CHANNEL_MENTION_OPEN_DELIMITER),
-		u64,
-		tag(CLOSE_DELIMITER),
-	)
+pub fn channel(input: &mut Input) -> PResult<u64> {
+	input.tag(CHANNEL_MENTION_OPEN_DELIMITER)?;
+	id_and_close(input)
 }
 
 /// Parse a role mention.
 ///
 /// # Errors
 /// If the content does not begin with a role mention.
-pub fn role<'data, E>() -> impl Parser<Input<'data>, Output = u64, Error = E>
-where
-	E: ParseError<'data>,
-{
-	delimited(tag(ROLE_MENTION_OPEN_DELIMITER), u64, tag(CLOSE_DELIMITER))
+pub fn role(input: &mut Input) -> PResult<u64> {
+	input.tag(ROLE_MENTION_OPEN_DELIMITER)?;
+	id_and_close(input)
 }
 
 /// Parse a game mention.
 ///
 /// # Errors
 /// If the content does not begin with a game mention.
-pub fn game<'data, E>() -> impl Parser<Input<'data>, Output = u64, Error = E>
-where
-	E: ParseError<'data>,
-{
-	delimited(tag(GAME_MENTION_OPEN_DELIMITER), u64, tag(CLOSE_DELIMITER))
+pub fn game(input: &mut Input) -> PResult<u64> {
+	input.tag(GAME_MENTION_OPEN_DELIMITER)?;
+	id_and_close(input)
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
 	use super::{Mention, channel, game, mention, role, user};
-	use crate::test_utils::handle_nom_err;
+	use crate::test_utils::run;
 
 	#[test]
 	fn basic_user() {
 		let s = r"<@1234>";
-		let (rem, res) = user()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, user).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, 1234);
 	}
@@ -217,11 +179,7 @@ mod test {
 	#[test]
 	fn user_deprecated() {
 		let s = r"<@!1234>";
-		let (rem, res) = user()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, user).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, 1234);
 	}
@@ -229,11 +187,7 @@ mod test {
 	#[test]
 	fn basic_channel() {
 		let s = r"<#1234>";
-		let (rem, res) = channel()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, channel).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, 1234);
 	}
@@ -241,11 +195,7 @@ mod test {
 	#[test]
 	fn basic_role() {
 		let s = r"<@&1234>";
-		let (rem, res) = role()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, role).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, 1234);
 	}
@@ -253,11 +203,7 @@ mod test {
 	#[test]
 	fn basic_game() {
 		let s = r"<@$1234>";
-		let (rem, res) = game()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, game).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, 1234);
 	}
@@ -265,11 +211,7 @@ mod test {
 	#[test]
 	fn everyone() {
 		let s = r"@everyone";
-		let (rem, res) = mention()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, mention).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, Mention::Everyone);
 	}
@@ -277,11 +219,7 @@ mod test {
 	#[test]
 	fn here() {
 		let s = r"@here";
-		let (rem, res) = mention()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) = run(s, mention).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, Mention::Here);
 	}

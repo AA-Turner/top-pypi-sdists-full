@@ -54,7 +54,7 @@ from datamodel_code_generator.model.base import (
     linearize_data_models,
 )
 from datamodel_code_generator.model.enum import Enum, get_raw_enum_member_value
-from datamodel_code_generator.model.type_alias import TypeAliasBase
+from datamodel_code_generator.model.type_alias import TypeAliasBase, TypeStatement
 from datamodel_code_generator.parser._field_rows import uses_default_with_required
 from datamodel_code_generator.parser._graph_ids import keyed_models
 from datamodel_code_generator.parser._intersection import inherits_keyword
@@ -68,7 +68,7 @@ from datamodel_code_generator.parser._passes._keys import (
     raw_schema_default,
 )
 from datamodel_code_generator.parser._passes._state import RecursionFacts, _ModuleNames
-from datamodel_code_generator.python_literal import _text_constructor_expression
+from datamodel_code_generator.python_literal import _text_constructor_expression, stable_repr
 from datamodel_code_generator.reference import _SPECIAL_PATH_FORMAT, ModelType, _source_path, _special_path
 from datamodel_code_generator.types import DataType, DefaultValueRecipe, union_members
 
@@ -237,7 +237,15 @@ class GenerationStoreHost(GraphBuilderHost, Protocol):
         """The generation store of the parse."""
 
 
-class CollapsedReuseHost(GraphBuilderHost, Protocol):
+class MergedDuplicatesHost(Protocol):
+    """The duplicates deduplication and reuse merged into each model."""
+
+    @property
+    def _merged_duplicates(self) -> dict[int, list[DataModel]]:
+        """The duplicates merged into a model, removed or made empty subclasses of it, by the id of that model."""
+
+
+class CollapsedReuseHost(GraphBuilderHost, MergedDuplicatesHost, Protocol):
     """The duplicates collapsed reuse removed and the users it redirected, with the builder that redirects them."""
 
     @property
@@ -457,9 +465,10 @@ def merge_duplicate(
     union that named the duplicate keeps mapping it to the tags of its own schema, which are compared with the tags of
     the canonical model. The children of the duplicate take their bases once each, told apart as the user of ``row``
     tells them (``ShapeRow.base_dedup``; None keeps them as redirected). The caller drops the duplicate from its
-    module's models. Return the redirected users.
+    module's models. The canonical model records the duplicate (``merged_models``). Return the redirected users.
     """
     builder = host._graph_builder  # noqa: SLF001
+    host._merged_duplicates.setdefault(id(canonical), []).append(duplicate)  # noqa: SLF001
     users = builder.redirect_reference_users(duplicate.reference, canonical.reference, merged=True)
     if keeps_duplicate_tags:
         collapsed_users = host._collapsed_reuse_users  # noqa: SLF001
@@ -472,20 +481,14 @@ def merge_duplicate(
     return users
 
 
-def merge_duplicate_in_module(
-    host: GraphBuilderHost, duplicate: DataModel, canonical: DataModel, models: list[DataModel]
-) -> None:
-    """Hand the users that ``models`` own of a duplicate that leaves the output to the canonical model, and retire it.
-
-    Row ``legacy-module-owned-users``: module-scope reuse removes the model of a typed map value this way, unlike
-    every other duplicate that leaves the output (``merge_duplicate``). A user that no model of ``models`` owns keeps
-    naming the duplicate: a type of a schema validator rule, a type of a model replaced before, a type nothing holds.
-    Each user it hands over records the null of the schema it named, as those of ``merge_duplicate`` do. The caller
-    drops the duplicate from ``models``.
-    """
-    builder = host._graph_builder  # noqa: SLF001
-    builder.redirect_model_reference_users(duplicate, models, canonical.reference)
-    builder.retire_model(duplicate)
+def merged_models(host: MergedDuplicatesHost, model: DataModel) -> list[DataModel]:
+    """Return the duplicates merged into ``model``, with those merged into each of them before."""
+    merged: list[DataModel] = []
+    pending = [model]
+    while pending:
+        merged.extend(found := host._merged_duplicates.get(id(pending.pop()), []))  # noqa: SLF001
+        pending.extend(found)
+    return merged
 
 
 def normalize_default_value_constraints(
@@ -767,6 +770,57 @@ def _is_pydantic_v2_root_model(model: DataModel, root_model_type: type[DataModel
     )
 
 
+DefinitionReadsRow: TypeAlias = Literal[
+    "definition",
+    "legacy-class-body-without-alias-values",
+    "legacy-keep-order-type-statement",
+    "legacy-evaluated-without-root-model",
+]
+"""Which fields of a model ``definition_reads`` reads, for each pass that orders or checks what a module evaluates.
+
+``definition`` reads those that the statement defining the model evaluates, for the forward references the module
+quotes (``render_prep.py:update_type_aliases``). The legacy rows keep what their passes read before:
+
+- ``legacy-class-body-without-alias-values``: only a root model's fields, for the order of the models whose class body
+  evaluates others (``_sort_models_by_class_body_references``, ``settle.py:sort_data_models``); a type alias's value,
+  the functional TypedDict and evaluated annotations are left out.
+- ``legacy-keep-order-type-statement``: ``--keep-model-order`` (``modules.py:_keep_model_order_deps``) also reads the
+  value of a ``type`` statement, and the functional TypedDict as a class.
+- ``legacy-evaluated-without-root-model``: the check of the root models that name themselves
+  (``imports.py:reject_alias_cycles_without_schema``) reads a root model as a class, and the own fields of the
+  functional TypedDict when the module evaluates annotations.
+"""
+
+
+def definition_reads(
+    model: DataModel,
+    *,
+    row: DefinitionReadsRow = "definition",
+    root_model_type: type[DataModel] | None = None,
+    evaluates_annotations: bool = False,
+) -> Sequence[DataModelFieldBase] | None:
+    """Return the fields whose types the statement that defines ``model`` evaluates as the module runs, or None.
+
+    A ``type`` statement defers its value. The functional TypedDict evaluates the fields of its dict literal, the
+    inherited ones included (``fields_evaluated_at_definition``); any other type alias evaluates its value, a root
+    model of ``root_model_type`` its root type (``_is_pydantic_v2_root_model``), and a class its annotations when
+    ``evaluates_annotations`` tells that the module does not defer them. A read of the model's own fields returns its
+    ``fields`` list itself. ``row`` keeps what a pass read before (``DefinitionReadsRow``).
+    """
+    if row == "legacy-class-body-without-alias-values":
+        return model.fields if _is_pydantic_v2_root_model(model, root_model_type) else None
+    reads_own_fields = evaluates_annotations or isinstance(model, TypeAliasBase)
+    if row == "legacy-keep-order-type-statement":
+        return model.fields if reads_own_fields or _is_pydantic_v2_root_model(model, root_model_type) else None
+    if isinstance(model, TypeStatement):
+        return None
+    if row == "legacy-evaluated-without-root-model":
+        return model.fields if reads_own_fields else model.fields_evaluated_at_definition() or None
+    if evaluated := model.fields_evaluated_at_definition():
+        return evaluated
+    return model.fields if reads_own_fields or _is_pydantic_v2_root_model(model, root_model_type) else None
+
+
 @record
 class _ReuseOptimizationContext:
     """Parser-owned semantic constraints for model reuse optimizations."""
@@ -819,6 +873,7 @@ def _sort_models_by_class_body_references(
 ) -> list[DataModel]:
     """Define first the models a class body evaluates: base classes, root types and runtime rule types.
 
+    The root types are those of a root model (``definition_reads``, row ``legacy-class-body-without-alias-values``).
     The rule types are by default those the rules name in any module (``_runtime_validation_reference_keys``).
     """
     if runtime_validation_references is None:
@@ -831,13 +886,15 @@ def _sort_models_by_class_body_references(
             keyed.key_of(base_class.reference) for base_class in model.base_classes if base_class.reference
         }
         model_targets.update(runtime_validation_references.get(model_key, ()))
-        if _is_pydantic_v2_root_model(model, pydantic_v2_root_model_type):
-            model_targets.update(
-                keyed.key_of(data_type.reference)
-                for field in model.fields
-                for data_type in field.data_type.all_data_types
-                if data_type.reference
+        model_targets.update(
+            keyed.key_of(data_type.reference)
+            for field in definition_reads(
+                model, row="legacy-class-body-without-alias-values", root_model_type=pydantic_v2_root_model_type
             )
+            or ()
+            for data_type in field.data_type.all_data_types
+            if data_type.reference
+        )
         model_targets.discard(model_key)
     graph = reference_graph(GraphSnapshot.CLASS_BODY_ORDER, keyed.models, {EdgeKind.CLASS_BODY: targets})
     sorted_keys = graph.dependency_order((EdgeKind.CLASS_BODY,), list(order_index), order_index.__getitem__)
@@ -959,7 +1016,7 @@ def require_update_action(
     )
 
 
-class ReuseSubclassHost(GraphBuilderHost, RecursionFactsHost, Protocol):
+class ReuseSubclassHost(GraphBuilderHost, MergedDuplicatesHost, RecursionFactsHost, Protocol):
     """The builder that replaces a reuse duplicate by a subclass, and the recursion facts the subclass may join."""
 
 
@@ -977,10 +1034,12 @@ def subclass_duplicate(
 ) -> DataModel | None:
     """Replace a duplicate in ``models`` and in the store by an empty subclass of the equal canonical model.
 
-    The subclass keeps the duplicate's name; the users that ``users`` own name it. Return the subclass when the
-    canonical model needs a reference update action, which the caller adds once with ``require_update_action``.
+    The subclass keeps the duplicate's name; the users that ``users`` own name it, and the canonical model records the
+    duplicate (``merged_models``). Return the subclass when the canonical model needs a reference update action, which
+    the caller adds once with ``require_update_action``.
     """
     builder = host._graph_builder  # noqa: SLF001
+    host._merged_duplicates.setdefault(id(canonical), []).append(duplicate)  # noqa: SLF001
     inherited = duplicate.create_reuse_model(canonical.reference)
     builder.redirect_model_reference_users(duplicate, users, inherited.reference)
     replace_model_in_list(models, duplicate, inherited)
@@ -1137,10 +1196,14 @@ def _declares_unique_items(field: DataModelFieldBase) -> bool:
 
 
 def _unique_items_tuple(data_type: DataType) -> DataType | None:
-    """Return the tuple a unique array is written as, where --use-unique-items-as-set writes a list as a set."""
+    """Return the tuple a unique array is written as, where --use-unique-items-as-set writes a list as a set.
+
+    The tuple is the type itself or a member of a union; the tuples an item container holds are its items, which a set
+    keeps whole.
+    """
     if data_type.is_tuple:
         return data_type
-    if data_type in ITEM_CONTAINERS.without("legacy-unique-tuple-inside-sequence"):
+    if data_type in ITEM_CONTAINERS:
         return None
     return next((found for nested in data_type.data_types if (found := _unique_items_tuple(nested)) is not None), None)
 
@@ -1409,7 +1472,7 @@ def _keeps_instance_field(field: DataModelFieldBase, source_name: str) -> bool:
 
 def _format_tags(tags: list[DiscriminatorValue]) -> str:
     """Spell discriminator tags as the document writes them."""
-    return ", ".join(map(repr, tags))
+    return ", ".join(map(stable_repr, tags))
 
 
 def enum_discriminator_literal(enum_source: Enum, value: DiscriminatorValue) -> DiscriminatorValue:
@@ -1435,19 +1498,38 @@ def _get_discriminator_field_value(discriminator_field: DataModelFieldBase) -> D
 def _get_enum_from_base(
     discriminator_model: DataModel, field_name: str, *, use_field_name: bool = False
 ) -> Enum | None:
-    for base_class in discriminator_model.base_classes:
-        if not base_class.reference or not base_class.reference.source:  # pragma: no cover
+    """Return the Enum typing the tag field a variant inherits, from the nearest ancestor whose field it types.
+
+    The direct bases come first, in their order, then the ancestors above them in method resolution order, so a
+    variant two levels below the schema whose Enum types the tag property takes that Enum, as a direct subclass does.
+    """
+    match_mode: TagFieldMatch = "python-name" if use_field_name else "python-or-original-name"
+    direct = [
+        base_class.reference.source
+        for base_class in discriminator_model.base_classes
+        if base_class.reference and base_class.reference.source
+    ]
+    return _declared_tag_enum(direct, field_name, match_mode) or _declared_tag_enum(
+        [
+            ancestor
+            for ancestor in linearize_data_models([discriminator_model])[1:]
+            if all(ancestor is not base for base in direct)
+        ],
+        field_name,
+        match_mode,
+    )
+
+
+def _declared_tag_enum(models: Iterable[object], field_name: str, match_mode: TagFieldMatch) -> Enum | None:
+    """Return the Enum typing the first field of ``models`` that holds the tag property, by models that inherit one."""
+    for model in models:
+        if not isinstance(model, DataModel) or not model.SUPPORTS_INHERITED_DISCRIMINATOR_ENUM:
             continue
-        base_model = base_class.reference.source
-        if not isinstance(base_model, DataModel) or not base_model.SUPPORTS_INHERITED_DISCRIMINATOR_ENUM:
-            continue
-        for base_field in base_model.fields:  # pragma: no branch
-            if not _tag_field_matches(
-                base_field, "python-name" if use_field_name else "python-or-original-name", field_name
+        for field_ in model.fields:
+            if _tag_field_matches(field_, match_mode, field_name) and (
+                enum_source := field_.data_type.find_source(Enum)
             ):
-                continue
-            if enum_from_base := base_field.data_type.find_source(Enum):  # pragma: no branch
-                return enum_from_base
+                return enum_source
     return None
 
 

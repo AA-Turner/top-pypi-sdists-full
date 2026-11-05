@@ -8,6 +8,12 @@ from typing import Optional
 
 from ...domain.messaging.template_sync_state import TemplateSyncState
 
+READ_ORDER = "_mongo_read_order"
+STORED_ID = "_mongo_stored_id"
+# The stored names the model names; any other key goes to `others`, as stored.
+KNOWN = ("_id", "company_id", "waba_id", "last_synced_at", "last_sync_error", "message_template_limit",
+         "updated_at")
+
 
 def _key(company_id: str, waba_id: str) -> dict:
     return {"waba_id": waba_id, "company_id": company_id}
@@ -23,10 +29,16 @@ class MongoTemplateSyncStateRepository:
         doc = await self.collection.find_one(_key(company_id, waba_id))
         if doc is None:
             return None
-        return TemplateSyncState(
+        state = TemplateSyncState(
             id=str(doc["_id"]), company_id=doc.get("company_id"), waba_id=doc.get("waba_id"),
             last_synced_at=doc.get("last_synced_at"), last_sync_error=doc.get("last_sync_error"),
-            message_template_limit=doc.get("message_template_limit"), updated_at=doc.get("updated_at"))
+            message_template_limit=doc.get("message_template_limit"), updated_at=doc.get("updated_at"),
+            others={key: value for key, value in doc.items() if key not in KNOWN})
+        # The keys of the document, in the order Mongo gave them, and the `_id` as stored: storage details, so they are
+        # not fields of the model (what the legacy store hands its callers is the document as `main` did).
+        object.__setattr__(state, READ_ORDER, tuple(doc))
+        object.__setattr__(state, STORED_ID, doc["_id"])
+        return state
 
     async def mark_synced(self, company_id: str, waba_id: str, *, at: datetime,
                           message_template_limit: Optional[int]) -> None:

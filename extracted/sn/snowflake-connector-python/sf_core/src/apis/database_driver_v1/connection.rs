@@ -2,7 +2,7 @@ use snafu::{OptionExt, ResultExt};
 use std::future::Future;
 use std::path::PathBuf;
 use std::sync::RwLock;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU8, Ordering};
 
 use super::async_query_registry::AsyncQueryRegistry;
 use super::error::*;
@@ -372,10 +372,6 @@ impl DatabaseDriverV1 {
                     browser_opener,
                 );
 
-                let prebuilt_credentials =
-                    snowflake::prebuild_keypair_credentials(&login_parameters)
-                        .context(LoginSnafu)?;
-
                 // ---- Diagnostics: pre-connect -----------------------------------
                 // Run diagnostics when explicitly enabled OR when troubleshooting
                 // is active (SNOWFLAKE_TROUBLESHOOTING_ENABLED=true implies diagnostics).
@@ -384,24 +380,24 @@ impl DatabaseDriverV1 {
                     DiagnosticConfig::Enabled {
                         ref log_path,
                         ref allowlist_path,
+                        preserve_underscores_in_hostname,
                     } => Some(DiagnosticConfig::Enabled {
                         log_path: log_path.clone().or_else(|| ts_path.clone()),
                         allowlist_path: allowlist_path.clone(),
+                        preserve_underscores_in_hostname,
                     }),
-                    DiagnosticConfig::Disabled if ts_path.is_some() => {
-                        Some(DiagnosticConfig::Enabled {
-                            log_path: ts_path,
-                            allowlist_path: None,
-                        })
-                    }
+                    DiagnosticConfig::Disabled if ts_path.is_some() => Some(
+                        DiagnosticConfig::enabled_from_settings(&resolved_snapshot, ts_path, None),
+                    ),
                     _ => None,
                 };
 
+                let connection_crl = self.crl_manager.connection_crl();
                 let (http_client, diag_rustls) =
                     crate::tls::client::build_tls_client_and_rustls_config(
                         &config.tls,
                         Some(&config.proxy),
-                        self.crl_manager.clone(),
+                        connection_crl.clone(),
                         self.root_store_provider.clone(),
                         timeout_config.connect_timeout,
                         effective_diag.is_some(),
@@ -472,21 +468,30 @@ impl DatabaseDriverV1 {
                     conn.xp_backend_arc().context(LoginSnafu)?
                 };
 
-                let login_fut = crate::rest::snowflake::snowflake_login_with_client(
-                    &http_client,
-                    &login_parameters,
-                    init_params.as_ref(),
-                    token_cache,
-                    Some(&self.prompt_locks),
-                    &retry_policy,
-                    prebuilt_credentials,
-                    xp_backend.as_deref(),
-                    self.crl_manager.clone(),
-                    self.root_store_provider.clone(),
-                    timeout_config
-                        .login_timeout
-                        .map(|budget| std::time::Instant::now() + budget),
-                );
+                let login_fut = async {
+                    let aws_sdk_http = crate::rest::snowflake::aws_wif_sdk_http_client(
+                        &login_parameters,
+                        connection_crl.clone(),
+                        self.root_store_provider.clone(),
+                    )
+                    .await?;
+                    crate::rest::snowflake::snowflake_login_with_client(
+                        &crate::rest::snowflake::LoginClients::with_aws_sdk_http(
+                            &http_client,
+                            aws_sdk_http.as_ref(),
+                        ),
+                        &login_parameters,
+                        init_params.as_ref(),
+                        token_cache,
+                        Some(&self.prompt_locks),
+                        &retry_policy,
+                        xp_backend.as_deref(),
+                        timeout_config
+                            .login_timeout
+                            .map(|budget| std::time::Instant::now() + budget),
+                    )
+                    .await
+                };
 
                 let login_result = if let Some(budget) = timeout_config.login_timeout {
                     match tokio::time::timeout(budget, login_fut).await {
@@ -519,6 +524,13 @@ impl DatabaseDriverV1 {
                 }
 
                 let login_result = login_result.context(LoginSnafu)?;
+
+                let start_heartbeat_from_query_response = matches!(
+                    login_parameters.login_method,
+                    LoginMethod::SessionToken { .. }
+                ) && !init_params.as_ref().is_some_and(
+                    |params| params.contains_key(param_names::CLIENT_SESSION_KEEP_ALIVE.as_str()),
+                );
 
                 // Initialize connection with session parameters from login response.
                 // The server returns system-level parameters but may not echo back
@@ -587,6 +599,7 @@ impl DatabaseDriverV1 {
                     // take to do their work.
                     let telemetry_id = conn_handle.id;
                     conn.telemetry_id = Some(telemetry_id);
+                    conn.connection_crl = Some(connection_crl.clone());
 
                     // Telemetry setup: check if the server has opted this session
                     // into in-band telemetry and a session registry is configured,
@@ -608,11 +621,12 @@ impl DatabaseDriverV1 {
                             tracing::warn!(
                                 "Skipping telemetry: http_client not set after connection init"
                             );
+                            connection_crl.discard_crl_stats();
                             drop(conn);
                             return Ok(());
                         };
 
-                        let query_parameters = conn.query_transport_parameters()?;
+                        let query_parameters = conn.query_transport_parameters().await?;
                         let exporter_session = Arc::new(ExporterSession {
                             client: http_client,
                             query_parameters,
@@ -635,6 +649,10 @@ impl DatabaseDriverV1 {
                             );
                         }
 
+                        if let Some(telemetry) = self.session_telemetry() {
+                            connection_crl.flush_crl_stats(telemetry, telemetry_id);
+                        }
+
                         let env_info = conn
                             .wrapper_identity
                             .as_ref()
@@ -653,37 +671,14 @@ impl DatabaseDriverV1 {
                             crate::snowflake_op_span!("session_init", Some(telemetry_id));
                         let _guard = init_span.enter();
                         crate::telemetry::record_session_init(&env_info);
+                    } else {
+                        connection_crl.discard_crl_stats();
                     }
 
-                    if keep_alive
-                        && conn.xp_backend_arc().context(LoginSnafu)?.is_none()
-                        && conn.external_session_id.is_none()
-                    {
-                        let interval = compute_heartbeat_interval(
-                            conn.tokens
-                                .read()
-                                .await
-                                .as_ref()
-                                .and_then(|t| t.master_validity),
-                            heartbeat_frequency_secs,
-                        );
-                        let handle = spawn_heartbeat_task(
-                            conn.tokens.clone(),
-                            conn.http_client
-                                .clone()
-                                .context(ConnectionNotInitializedSnafu)?,
-                            conn.server_url
-                                .clone()
-                                .context(ConnectionNotInitializedSnafu)?,
-                            conn.client_info
-                                .clone()
-                                .context(ConnectionNotInitializedSnafu)?,
-                            interval,
-                            conn.is_master_token_expired.clone(),
-                            conn.session_terminated.clone(),
-                        );
-                        conn.heartbeat_handle = Some(handle);
+                    if keep_alive {
+                        conn.start_heartbeat(heartbeat_frequency_secs).await?;
                     }
+                    conn.start_heartbeat_from_query_response = start_heartbeat_from_query_response;
                 }
                 Ok(())
             }
@@ -829,7 +824,14 @@ impl DatabaseDriverV1 {
         match self.connections.get_obj(handle) {
             Some(conn_ptr) => {
                 let mut conn = conn_ptr.lock().await;
-                conn.init_session_parameters = Some(parameters);
+                if conn.is_post_connect() {
+                    let mut cache = conn.session_parameters.write().await;
+                    for (k, v) in parameters {
+                        cache.insert(k.to_uppercase(), Setting::String(v));
+                    }
+                } else {
+                    conn.init_session_parameters = Some(parameters);
+                }
                 Ok(())
             }
             None => InvalidArgumentSnafu {
@@ -1079,6 +1081,20 @@ pub struct WrapperIdentity {
     pub application_path: Option<String>,
 }
 
+#[derive(Default)]
+pub struct SessionRenewal {
+    pub(crate) is_master_token_expired: AtomicBool,
+    pub(crate) session_terminated: AtomicBool,
+    /// `0` when no refusal is recorded.
+    terminal_renewal_code: AtomicI32,
+}
+
+impl SessionRenewal {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 pub struct Connection {
     /// Options inherited from the database used to initialize this connection.
     /// Connection options override this base layer.
@@ -1129,23 +1145,7 @@ pub struct Connection {
     /// learns the outcome instead of being told the connection is closed while the
     /// logout is still in flight.
     pub close_done: Arc<Notify>,
-    /// Flag indicating the master token has expired.
-    ///
-    /// Set to `true` when the server returns GS code 390114 (master token expired),
-    /// or when a time-based check (`SessionTokens::is_master_expired`) confirms
-    /// expiry just before a refresh attempt.  Once set, the session can never be
-    /// renewed — full re-authentication is required.
-    ///
-    /// Mirrors `SnowflakeConnection.expired` in the legacy Python connector and is
-    /// intended as a read-only signal for external pool / application code.
-    pub is_master_token_expired: Arc<AtomicBool>,
-
-    /// Set when the server answers that this session cannot be recovered.
-    /// Other RENEW refusals leave the flag unset: the session can still be open.
-    /// Unlike [`Self::is_master_token_expired`], the token pair itself may still
-    /// be valid: a renewal presents the master token against a session that no
-    /// longer exists.
-    pub(crate) session_terminated: Arc<AtomicBool>,
+    pub(crate) renewal: Arc<SessionRenewal>,
 
     /// Logout configuration (set via ConnectionSetOption* before init, parsed at init time)
     pub logout_config: LogoutConfig,
@@ -1168,6 +1168,9 @@ pub struct Connection {
     pub(crate) telemetry_id: Option<u64>,
     /// Handle to the per-connection heartbeat background task (if keep-alive is enabled).
     pub(crate) heartbeat_handle: Option<HeartbeatHandle>,
+    /// Set for a session adopted without a client `CLIENT_SESSION_KEEP_ALIVE`: the
+    /// heartbeat then starts on the first query response that reports keep-alive on.
+    start_heartbeat_from_query_response: bool,
     /// Set for `PAT_WITH_EXTERNAL_SESSION`. Query headers and
     /// `connection_heartbeat` send Bearer plus this id. Session refresh,
     /// background keep-alive, and HTTP logout are skipped.
@@ -1193,6 +1196,9 @@ pub struct Connection {
     /// Acquire this before [`Mutex<Connection>`].
     session_mutex: Arc<Mutex<()>>,
     pub(crate) browser_opener: Option<BrowserOpenFn>,
+    /// Shared CRL caches plus this connection's `client_crl_stats` buffer.
+    /// Set at the start of login, before the TLS client is built.
+    pub(crate) connection_crl: Option<crate::crl::ConnectionCrl>,
 }
 
 impl Default for Connection {
@@ -1223,8 +1229,7 @@ impl Connection {
             async_query_registry: AsyncQueryRegistry::new(),
             close_state: Arc::new(AtomicCloseState::new(CloseState::Open)),
             close_done: Arc::new(Notify::new()),
-            is_master_token_expired: Arc::new(AtomicBool::new(false)),
-            session_terminated: Arc::new(AtomicBool::new(false)),
+            renewal: Arc::new(SessionRenewal::new()),
             logout_config: LogoutConfig::default(),
             timeout_config: crate::config::retry::TimeoutConfig::default(),
             final_session_names: RwLock::new(FinalSessionNames::default()),
@@ -1232,12 +1237,14 @@ impl Connection {
             wrapper_identity: None,
             telemetry_id: None,
             heartbeat_handle: None,
+            start_heartbeat_from_query_response: false,
             external_session_id: None,
             stage_state: Arc::new(AtomicStageState::new(StageState::Unknown)),
             xp_slot: Arc::new(XpSlot::new(false, None)),
             optimistic_alter_session_param_cache: false,
             session_mutex: Arc::new(Mutex::new(())),
             browser_opener: None,
+            connection_crl: None,
         }
     }
 
@@ -1248,6 +1255,17 @@ impl Connection {
     /// `true` after a successful [`Connection::initialize`] (post-login transport is ready).
     pub(crate) fn is_post_connect(&self) -> bool {
         self.http_client.is_some()
+    }
+
+    /// This connection's CRL handle. When login has not stored one, the handle
+    /// comes from `manager` and nothing flushes it.
+    pub(crate) fn connection_crl_or(
+        &self,
+        manager: &crate::crl::CrlManager,
+    ) -> crate::crl::ConnectionCrl {
+        self.connection_crl
+            .clone()
+            .unwrap_or_else(|| manager.connection_crl())
     }
 
     /// Resolves the `ENABLE_STAGE_S3_PRIVATELINK_FOR_US_EAST_1` session
@@ -1401,8 +1419,13 @@ impl Connection {
             .unwrap_or_default()
     }
 
+    async fn resolve_service_name(&self) -> Option<String> {
+        let params = self.session_parameters.read().await;
+        snowflake::query_response::read_service_name(&params)
+    }
+
     /// Server URL + client fingerprint for query and refresh calls (transport snapshot).
-    pub(crate) fn query_transport_parameters(&self) -> Result<QueryParameters, ApiError> {
+    pub(crate) async fn query_transport_parameters(&self) -> Result<QueryParameters, ApiError> {
         let empty = ParamStore::new();
         let settings = self.resolved_connect.as_ref().unwrap_or(&empty);
 
@@ -1420,6 +1443,7 @@ impl Connection {
             log_query_parameters: resolve_log_query_parameters(settings),
             include_retry_reason: resolve_include_retry_reason(settings),
             external_session_id: self.external_session_id.clone(),
+            service_name: self.resolve_service_name().await,
         })
     }
 
@@ -1580,6 +1604,55 @@ impl Connection {
             }
         }
     }
+
+    pub(crate) async fn start_heartbeat_if_session_keeps_alive(&mut self) {
+        if !self.start_heartbeat_from_query_response || self.heartbeat_handle.is_some() {
+            return;
+        }
+        let frequency_secs = {
+            let params = self.session_parameters.read().await;
+            if !params.get_bool_or(param_names::CLIENT_SESSION_KEEP_ALIVE.as_str(), false) {
+                return;
+            }
+            params.get_u64(param_names::CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY.as_str())
+        };
+        if let Err(error) = self.start_heartbeat(frequency_secs).await {
+            tracing::warn!(%error, "Failed to start the session keep-alive heartbeat");
+        }
+    }
+
+    async fn start_heartbeat(&mut self, frequency_secs: Option<u64>) -> Result<(), ApiError> {
+        if self.heartbeat_handle.is_some()
+            || self.external_session_id.is_some()
+            || self.xp_backend_arc().context(LoginSnafu)?.is_some()
+        {
+            return Ok(());
+        }
+        let interval = compute_heartbeat_interval(
+            self.tokens
+                .read()
+                .await
+                .as_ref()
+                .and_then(|t| t.master_validity),
+            frequency_secs,
+        );
+        let handle = spawn_heartbeat_task(
+            self.tokens.clone(),
+            self.http_client
+                .clone()
+                .context(ConnectionNotInitializedSnafu)?,
+            self.server_url
+                .clone()
+                .context(ConnectionNotInitializedSnafu)?,
+            self.client_info
+                .clone()
+                .context(ConnectionNotInitializedSnafu)?,
+            interval,
+            self.renewal.clone(),
+        );
+        self.heartbeat_handle = Some(handle);
+        Ok(())
+    }
 }
 
 /// This function:
@@ -1663,11 +1736,7 @@ pub struct RefreshContext {
     server_url: String,
     client_info: ClientInfo,
     state: RefreshState,
-    /// Shared expired flag; set to `true` when master token expiry is detected
-    /// during a refresh attempt so the owning `Connection` exposes it publicly.
-    is_master_token_expired: Arc<AtomicBool>,
-    /// The owning connection's [`Connection::session_terminated`] flag.
-    session_terminated: Arc<AtomicBool>,
+    renewal: Arc<SessionRenewal>,
     xp_backend: Option<Arc<dyn SnowflakeBackend>>,
     skip_session_refresh: bool,
     external_session_id: Option<SensitiveString>,
@@ -1693,16 +1762,15 @@ impl RefreshContext {
 
     /// Create a `RefreshContext` from individual components (no `Connection` needed).
     ///
-    /// `is_master_token_expired` should be the owning connection's shared flag so
-    /// that a master-token expiry detected here (e.g. on the background heartbeat
-    /// path) is observable via `Connection::is_expired`.
+    /// `renewal` is the owning connection's shared state, so a master-token expiry
+    /// detected here (for example on the background heartbeat path) is observable
+    /// via `Connection::is_expired`.
     pub fn from_parts(
         tokens_lock: Arc<AsyncRwLock<Option<SessionTokens>>>,
         http_client: reqwest::Client,
         server_url: String,
         client_info: ClientInfo,
-        is_master_token_expired: Arc<AtomicBool>,
-        session_terminated: Arc<AtomicBool>,
+        renewal: Arc<SessionRenewal>,
         xp_backend: Option<Arc<dyn SnowflakeBackend>>,
     ) -> Self {
         Self {
@@ -1711,8 +1779,7 @@ impl RefreshContext {
             server_url,
             client_info,
             state: RefreshState::Initial,
-            is_master_token_expired,
-            session_terminated,
+            renewal,
             xp_backend,
             skip_session_refresh: false,
             external_session_id: None,
@@ -1740,8 +1807,7 @@ impl RefreshContext {
                 .clone()
                 .context(ConnectionNotInitializedSnafu)?,
             state: RefreshState::Initial,
-            is_master_token_expired: conn.is_master_token_expired.clone(),
-            session_terminated: conn.session_terminated.clone(),
+            renewal: conn.renewal.clone(),
             xp_backend: conn.xp_backend_arc().context(QuerySnafu)?,
             skip_session_refresh: conn.external_session_id.is_some(),
             external_session_id: conn.external_session_id.clone(),
@@ -1775,7 +1841,10 @@ impl RefreshContext {
             return false;
         }
         tracing::error!("Server reported the session no longer exists");
-        self.session_terminated.store(true, Ordering::SeqCst);
+        self.note_terminal_renewal(err);
+        self.renewal
+            .session_terminated
+            .store(true, Ordering::SeqCst);
         true
     }
 
@@ -1785,16 +1854,65 @@ impl RefreshContext {
                 tracing::error!(
                     "Server reported master token can never be renewed during refresh, full re-authentication required"
                 );
-                self.is_master_token_expired.store(true, Ordering::SeqCst);
+                self.note_terminal_renewal(err);
+                self.renewal
+                    .is_master_token_expired
+                    .store(true, Ordering::SeqCst);
             }
             RestError::SessionRefreshFailed { code, .. }
                 if snowflake::is_unrecoverable_session(*code) =>
             {
                 tracing::error!(code, "Server refused the session renewal");
-                self.session_terminated.store(true, Ordering::SeqCst);
+                self.note_terminal_renewal(err);
+                self.renewal
+                    .session_terminated
+                    .store(true, Ordering::SeqCst);
             }
             _ => {}
         }
+    }
+
+    fn note_terminal_renewal(&self, err: &RestError) {
+        let code = match err {
+            RestError::MasterTokenTerminal { code, .. }
+            | RestError::SessionRefreshFailed { code, .. }
+            | RestError::Heartbeat { code, .. } => Some(*code),
+            RestError::QueryFailed { code, .. } => *code,
+            _ => None,
+        };
+        if let Some(code) = code {
+            let _ = self.renewal.terminal_renewal_code.compare_exchange(
+                0,
+                code,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            );
+        }
+    }
+
+    fn refused_renewal(&self) -> Result<(), ApiError> {
+        if self.renewal.is_master_token_expired.load(Ordering::SeqCst) {
+            let code = self.renewal.terminal_renewal_code.load(Ordering::SeqCst);
+            return MasterTokenTerminalSnafu {
+                master_token_gs_code: (code != 0).then_some(code),
+            }
+            .fail();
+        }
+        if self.renewal.session_terminated.load(Ordering::SeqCst) {
+            let stored = self.renewal.terminal_renewal_code.load(Ordering::SeqCst);
+            let code = if stored != 0 {
+                stored
+            } else {
+                snowflake::SESSION_GONE
+            };
+            return Err(RestError::SessionRefreshFailed {
+                message: "Session renewal was already refused.".to_string(),
+                code,
+                location: snafu::Location::default(),
+            })
+            .context(SessionRefreshSnafu);
+        }
+        Ok(())
     }
 
     /// Get a valid session token, optionally refreshing if the previous call failed.
@@ -1830,12 +1948,15 @@ impl RefreshContext {
                 // never be renewed; mark expired immediately so the connection's
                 // `is_master_token_expired` flag is visible to external observers
                 // before the error propagates.
-                Some(RestError::MasterTokenTerminal { code, .. }) => {
+                Some(err @ RestError::MasterTokenTerminal { code, .. }) => {
                     tracing::error!(
                         code,
                         "Server reported master token can never be renewed, full re-authentication required"
                     );
-                    self.is_master_token_expired.store(true, Ordering::SeqCst);
+                    self.note_terminal_renewal(&err);
+                    self.renewal
+                        .is_master_token_expired
+                        .store(true, Ordering::SeqCst);
                     MasterTokenTerminalSnafu {
                         master_token_gs_code: Some(code),
                     }
@@ -1868,12 +1989,16 @@ impl RefreshContext {
                     // there is no real GS code to carry; never fabricate one.
                     if tokens.is_master_expired() {
                         tracing::error!("Master token expired, full re-authentication required");
-                        self.is_master_token_expired.store(true, Ordering::SeqCst);
+                        self.renewal
+                            .is_master_token_expired
+                            .store(true, Ordering::SeqCst);
                         return MasterTokenTerminalSnafu {
                             master_token_gs_code: None,
                         }
                         .fail();
                     }
+
+                    self.refused_renewal()?;
 
                     // Refresh session (still holding write lock to prevent concurrent refreshes)
                     let new_tokens = match self.renew_session_tokens(&tokens).await {
@@ -1966,7 +2091,10 @@ impl crate::refresh::Refresher<SensitiveString, ApiError> for RefreshContext {
             tracing::error!(
                 "Server reported master token can never be renewed, full re-authentication required"
             );
-            self.is_master_token_expired.store(true, Ordering::SeqCst);
+            self.note_terminal_renewal(source.as_ref());
+            self.renewal
+                .is_master_token_expired
+                .store(true, Ordering::SeqCst);
             return false;
         }
         if self.record_session_gone(source.as_ref()) {
@@ -2019,12 +2147,16 @@ impl crate::refresh::Refresher<SensitiveString, ApiError> for RefreshContext {
                 // happened, so there is no real GS code to carry; never
                 // fabricate one (see the matching comment in refresh_token above).
                 tracing::error!("Master token expired, full re-authentication required");
-                self.is_master_token_expired.store(true, Ordering::SeqCst);
+                self.renewal
+                    .is_master_token_expired
+                    .store(true, Ordering::SeqCst);
                 return MasterTokenTerminalSnafu {
                     master_token_gs_code: None,
                 }
                 .fail();
             }
+
+            self.refused_renewal()?;
 
             tracing::info!("Session expired, attempting refresh");
             let new_tokens = match self.renew_session_tokens(&tokens).await {
@@ -2323,7 +2455,7 @@ impl DatabaseDriverV1 {
                     conn.http_client
                         .clone()
                         .context(ConnectionNotInitializedSnafu)?,
-                    conn.query_transport_parameters()?,
+                    conn.query_transport_parameters().await?,
                     conn.retry_policy.clone(),
                     conn.xp_backend_arc().context(QuerySnafu)?,
                 )
@@ -2884,7 +3016,7 @@ impl DatabaseDriverV1 {
             })?;
 
         let conn = conn_ptr.lock().await;
-        Ok(conn.is_master_token_expired.load(Ordering::SeqCst))
+        Ok(conn.renewal.is_master_token_expired.load(Ordering::SeqCst))
     }
 
     /// Answers under one lock what [`Self::connection_is_closed`],
@@ -2909,8 +3041,8 @@ impl DatabaseDriverV1 {
 
         let conn = conn_ptr.lock().await;
         if conn.close_state.load(Ordering::SeqCst) == CloseState::Closed
-            || conn.is_master_token_expired.load(Ordering::SeqCst)
-            || conn.session_terminated.load(Ordering::SeqCst)
+            || conn.renewal.is_master_token_expired.load(Ordering::SeqCst)
+            || conn.renewal.session_terminated.load(Ordering::SeqCst)
         {
             return Ok(ConnectionUsability::Terminated);
         }
@@ -3541,7 +3673,9 @@ mod tests {
         if let Some(c) = driver.connections.get_obj(handle) {
             let mut conn = c.lock().await;
             conn.http_client = Some(reqwest::Client::new());
-            conn.is_master_token_expired.store(true, Ordering::SeqCst);
+            conn.renewal
+                .is_master_token_expired
+                .store(true, Ordering::SeqCst);
         }
 
         assert_eq!(
@@ -5050,8 +5184,7 @@ mod tests {
             reqwest::Client::new(),
             "http://127.0.0.1:1".into(),
             crate::config::rest_parameters::test_fixtures::test_client_info(),
-            Arc::new(AtomicBool::new(false)),
-            Arc::new(AtomicBool::new(false)),
+            Arc::new(SessionRenewal::new()),
             Some(backend),
         );
         let renewed = ctx
@@ -5063,10 +5196,7 @@ mod tests {
         assert_eq!(renewed.session_id, Some(7));
     }
 
-    fn session_gone_context(
-        session_terminated: &Arc<AtomicBool>,
-        server_url: &str,
-    ) -> RefreshContext {
+    fn session_gone_context(server_url: &str) -> RefreshContext {
         RefreshContext::from_parts(
             Arc::new(AsyncRwLock::new(Some(SessionTokens {
                 session_token: "session".into(),
@@ -5079,8 +5209,7 @@ mod tests {
             reqwest::Client::new(),
             server_url.to_string(),
             crate::config::rest_parameters::test_fixtures::test_client_info(),
-            Arc::new(AtomicBool::new(false)),
-            session_terminated.clone(),
+            Arc::new(SessionRenewal::new()),
             None,
         )
     }
@@ -5106,8 +5235,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_record_a_session_the_server_reports_gone() {
-        let session_terminated = Arc::new(AtomicBool::new(false));
-        let mut ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+        let mut ctx = session_gone_context("http://127.0.0.1:1");
         ctx.refresh_token(None).await.unwrap();
 
         let err = ctx
@@ -5119,7 +5247,7 @@ mod tests {
             matches!(&err, ApiError::Query { source, .. } if snowflake::reports_session_gone(source)),
             "the server's own error must propagate, got {err:?}"
         );
-        assert!(session_terminated.load(Ordering::SeqCst));
+        assert!(ctx.renewal.session_terminated.load(Ordering::SeqCst));
     }
 
     #[tokio::test]
@@ -5140,8 +5268,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let session_terminated = Arc::new(AtomicBool::new(false));
-        let mut ctx = session_gone_context(&session_terminated, &server.uri());
+        let mut ctx = session_gone_context(&server.uri());
         ctx.refresh_token(None).await.unwrap();
         ctx.refresh_token(Some(RestError::SessionExpired {
             location: snafu::Location::default(),
@@ -5154,7 +5281,7 @@ mod tests {
             .expect_err("a gone session leaves nothing to refresh");
 
         assert!(
-            session_terminated.load(Ordering::SeqCst),
+            ctx.renewal.session_terminated.load(Ordering::SeqCst),
             "a session reported gone after the refresh must still be recorded"
         );
     }
@@ -5163,8 +5290,7 @@ mod tests {
     async fn should_record_a_session_reported_gone_on_the_retrying_path() {
         use crate::refresh::Refresher;
 
-        let session_terminated = Arc::new(AtomicBool::new(false));
-        let ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+        let ctx = session_gone_context("http://127.0.0.1:1");
 
         let refresh = Refresher::<SensitiveString, ApiError>::should_refresh(
             &ctx,
@@ -5175,16 +5301,16 @@ mod tests {
         );
 
         assert!(!refresh, "a gone session must not be refreshed");
-        assert!(session_terminated.load(Ordering::SeqCst));
+        assert!(ctx.renewal.session_terminated.load(Ordering::SeqCst));
     }
 
     fn reads_terminated(ctx: &RefreshContext) -> bool {
-        ctx.session_terminated.load(Ordering::SeqCst)
-            || ctx.is_master_token_expired.load(Ordering::SeqCst)
+        ctx.renewal.session_terminated.load(Ordering::SeqCst)
+            || ctx.renewal.is_master_token_expired.load(Ordering::SeqCst)
     }
 
     fn terminated_after(record: impl FnOnce(&RefreshContext)) -> bool {
-        let ctx = session_gone_context(&Arc::new(AtomicBool::new(false)), "http://127.0.0.1:1");
+        let ctx = session_gone_context("http://127.0.0.1:1");
         record(&ctx);
         reads_terminated(&ctx)
     }
@@ -5232,8 +5358,7 @@ mod tests {
             .into_iter()
             .filter(|answer| !matches!(answer, RestError::SessionExpired { .. }));
         for answer in answers {
-            let mut ctx =
-                session_gone_context(&Arc::new(AtomicBool::new(false)), "http://127.0.0.1:1");
+            let mut ctx = session_gone_context("http://127.0.0.1:1");
             ctx.refresh_token(None).await.unwrap();
 
             let err = ctx
@@ -5280,8 +5405,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let session_terminated = Arc::new(AtomicBool::new(false));
-        let mut ctx = session_gone_context(&session_terminated, &server.uri());
+        let mut ctx = session_gone_context(&server.uri());
         ctx.refresh_token(None).await.unwrap();
 
         ctx.refresh_token(Some(RestError::SessionExpired {
@@ -5291,7 +5415,7 @@ mod tests {
         .expect_err("a refused renewal must not yield a token");
 
         assert!(
-            session_terminated.load(Ordering::SeqCst),
+            ctx.renewal.session_terminated.load(Ordering::SeqCst),
             "a renewal the server answers and refuses must mark the session terminated"
         );
     }
@@ -5313,8 +5437,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let session_terminated = Arc::new(AtomicBool::new(false));
-        let mut ctx = session_gone_context(&session_terminated, &server.uri());
+        let mut ctx = session_gone_context(&server.uri());
         Refresher::<SensitiveString, ApiError>::current(&mut ctx)
             .await
             .unwrap();
@@ -5324,15 +5447,139 @@ mod tests {
             .expect_err("a refused renewal must not report a rotation");
 
         assert!(
-            session_terminated.load(Ordering::SeqCst),
+            ctx.renewal.session_terminated.load(Ordering::SeqCst),
             "the retrying path must record the refusal the same way"
         );
     }
 
+    fn two_contexts(server_url: &str) -> (RefreshContext, RefreshContext) {
+        let tokens = Arc::new(AsyncRwLock::new(Some(SessionTokens {
+            session_token: "session".into(),
+            master_token: "master".into(),
+            session_id: Some(1),
+            session_expires_at: None,
+            master_expires_at: None,
+            master_validity: None,
+        })));
+        let renewal = Arc::new(SessionRenewal::new());
+        let context = |tokens, renewal| {
+            RefreshContext::from_parts(
+                tokens,
+                reqwest::Client::new(),
+                server_url.to_string(),
+                crate::config::rest_parameters::test_fixtures::test_client_info(),
+                renewal,
+                None,
+            )
+        };
+        (
+            context(tokens.clone(), renewal.clone()),
+            context(tokens, renewal),
+        )
+    }
+
+    fn session_expired() -> RestError {
+        RestError::SessionExpired {
+            location: snafu::Location::default(),
+        }
+    }
+
+    async fn mount_refused_renewal(server: &wiremock::MockServer, code: &str, message: &str) {
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/session/token-request"))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "success": false,
+                    "code": code,
+                    "message": message
+                })),
+            )
+            .mount(server)
+            .await;
+    }
+
+    fn token_request_count(requests: &[wiremock::Request]) -> usize {
+        requests
+            .iter()
+            .filter(|request| request.url.path() == "/session/token-request")
+            .count()
+    }
+
+    #[tokio::test]
+    async fn should_not_renew_again_after_the_master_token_is_refused() {
+        let server = wiremock::MockServer::start().await;
+        mount_refused_renewal(
+            &server,
+            "390114",
+            "Authentication token has expired. The user must authenticate again.",
+        )
+        .await;
+
+        let (mut first, mut second) = two_contexts(&server.uri());
+        first.refresh_token(None).await.unwrap();
+        second.refresh_token(None).await.unwrap();
+
+        let first_err = first
+            .refresh_token(Some(session_expired()))
+            .await
+            .expect_err("the server refusal must not yield a token");
+        let second_err = second
+            .refresh_token(Some(session_expired()))
+            .await
+            .expect_err("a later expiry must not start another renewal");
+
+        assert_eq!(
+            first_err.snowflake_context().vendor_code,
+            Some(snowflake::MASTER_TOKEN_EXPIRED),
+            "{first_err:?}"
+        );
+        assert_eq!(
+            second_err.snowflake_context().vendor_code,
+            Some(snowflake::MASTER_TOKEN_EXPIRED),
+            "{second_err:?}"
+        );
+        assert!(second_err.terminates_session(), "{second_err:?}");
+        assert!(first.renewal.is_master_token_expired.load(Ordering::SeqCst));
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(token_request_count(&requests), 1);
+    }
+
+    #[tokio::test]
+    async fn should_not_renew_again_after_the_server_refuses_the_session() {
+        use crate::refresh::Refresher;
+
+        let server = wiremock::MockServer::start().await;
+        mount_refused_renewal(&server, "390111", "Session no longer exists.").await;
+
+        let (mut first, mut second) = two_contexts(&server.uri());
+        Refresher::<SensitiveString, ApiError>::current(&mut first)
+            .await
+            .unwrap();
+        Refresher::<SensitiveString, ApiError>::current(&mut second)
+            .await
+            .unwrap();
+
+        Refresher::<SensitiveString, ApiError>::refresh(&mut first)
+            .await
+            .expect_err("the server refusal must not report a rotation");
+        let second_err = Refresher::<SensitiveString, ApiError>::refresh(&mut second)
+            .await
+            .expect_err("a later expiry must not start another renewal");
+
+        assert_eq!(
+            second_err.snowflake_context().vendor_code,
+            Some(snowflake::SESSION_GONE),
+            "{second_err:?}"
+        );
+        assert!(second_err.terminates_session(), "{second_err:?}");
+        assert!(first.renewal.session_terminated.load(Ordering::SeqCst));
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(token_request_count(&requests), 1);
+    }
+
     #[tokio::test]
     async fn should_leave_the_session_alone_when_a_renewal_cannot_reach_the_server() {
-        let session_terminated = Arc::new(AtomicBool::new(false));
-        let mut ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+        let mut ctx = session_gone_context("http://127.0.0.1:1");
         ctx.refresh_token(None).await.unwrap();
 
         ctx.refresh_token(Some(RestError::SessionExpired {
@@ -5342,7 +5589,7 @@ mod tests {
         .expect_err("an unreachable server must not yield a token");
 
         assert!(
-            !session_terminated.load(Ordering::SeqCst),
+            !ctx.renewal.session_terminated.load(Ordering::SeqCst),
             "a transport failure says nothing about the session"
         );
     }
@@ -5350,21 +5597,19 @@ mod tests {
     #[test]
     fn should_mark_terminated_only_when_renew_cannot_recover_the_session() {
         for code in [snowflake::SESSION_GONE, snowflake::SESSION_CLOSED] {
-            let session_terminated = Arc::new(AtomicBool::new(false));
-            let ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+            let ctx = session_gone_context("http://127.0.0.1:1");
             ctx.record_failed_renewal(&refresh_failed_with(code));
             assert!(
-                session_terminated.load(Ordering::SeqCst),
+                ctx.renewal.session_terminated.load(Ordering::SeqCst),
                 "GS {code} on RENEW must mark the session terminated"
             );
         }
 
         for code in [390104, 390110, 390142, 390204, 390261, 390400] {
-            let session_terminated = Arc::new(AtomicBool::new(false));
-            let ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+            let ctx = session_gone_context("http://127.0.0.1:1");
             ctx.record_failed_renewal(&refresh_failed_with(code));
             assert!(
-                !session_terminated.load(Ordering::SeqCst),
+                !ctx.renewal.session_terminated.load(Ordering::SeqCst),
                 "GS {code} on RENEW must not mark the session terminated"
             );
         }
@@ -5372,8 +5617,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_record_a_closed_session_the_same_way_as_a_gone_one() {
-        let session_terminated = Arc::new(AtomicBool::new(false));
-        let mut ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+        let mut ctx = session_gone_context("http://127.0.0.1:1");
         ctx.refresh_token(None).await.unwrap();
 
         let err = ctx
@@ -5385,7 +5629,7 @@ mod tests {
             matches!(&err, ApiError::Query { source, .. } if snowflake::reports_session_gone(source)),
             "the server's own error must propagate, got {err:?}"
         );
-        assert!(session_terminated.load(Ordering::SeqCst));
+        assert!(ctx.renewal.session_terminated.load(Ordering::SeqCst));
     }
 
     #[tokio::test]
@@ -5525,5 +5769,85 @@ mod tests {
             Setting::Bool(false),
         )])));
         assert!(ds.lock_session_if_needed(&conn).await.is_none());
+    }
+
+    #[tokio::test]
+    async fn set_session_parameters_pre_connect_stages_in_init() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        let mut params = HashMap::new();
+        params.insert("AUTOCOMMIT".into(), "true".into());
+        ds.connection_set_session_parameters(handle, params)
+            .await
+            .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert!(!conn.is_post_connect());
+        assert_eq!(
+            conn.init_session_parameters
+                .as_ref()
+                .unwrap()
+                .get("AUTOCOMMIT"),
+            Some(&"true".to_string())
+        );
+        assert!(
+            conn.session_parameters
+                .read()
+                .await
+                .get("AUTOCOMMIT")
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn set_session_parameters_post_connect_writes_live_cache() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        if let Some(c) = ds.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+        }
+
+        let mut params = HashMap::new();
+        params.insert("SERVICE_NAME".into(), "cluster-x".into());
+        ds.connection_set_session_parameters(handle, params)
+            .await
+            .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert!(conn.is_post_connect());
+        assert!(conn.init_session_parameters.is_none());
+        assert_eq!(
+            conn.session_parameters.read().await.get("SERVICE_NAME"),
+            Some(&Setting::String("cluster-x".into()))
+        );
+    }
+
+    #[tokio::test]
+    async fn set_session_parameters_post_connect_uppercases_keys() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        if let Some(c) = ds.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+        }
+
+        let mut params = HashMap::new();
+        params.insert("service_name".into(), "cluster-y".into());
+        ds.connection_set_session_parameters(handle, params)
+            .await
+            .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert_eq!(
+            conn.session_parameters.read().await.get("SERVICE_NAME"),
+            Some(&Setting::String("cluster-y".into()))
+        );
     }
 }

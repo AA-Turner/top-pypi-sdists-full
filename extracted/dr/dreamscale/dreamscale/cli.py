@@ -100,10 +100,11 @@ def _keep_warm(model: str, keep_warm: int | None, checkpoint: str | None = None)
 
 
 def _model_name(value: str | None) -> str | None:
-    """--model takes a public name (pi0.5-bimanualyam) or the internal id."""
-    from dreamscale.model_names import internal_model
+    """--model takes a public name (pi0.5-bimanualyam) or the internal id; a name only the
+    control plane lists resolves through it."""
+    from dreamscale.model_names import resolve_model
 
-    return internal_model(value) if value else value
+    return resolve_model(value) if value else value
 
 
 # Options every `dreamscale run <robot>` command shares: each call builds a fresh
@@ -855,8 +856,8 @@ def deployments_create(
     ),
     base: str | None = typer.Option(
         None, "--base",
-        help="Base model: pi0.5 (default), flux-3-action-base, lingbot-vla, hy-vla or "
-        "xiaomi-robotics-1. "
+        help="Base model: pi0.5 (default), flux-3-action-base, lingbot-vla, hy-vla, "
+        "xiaomi-robotics-1 or gr00t-n1.7. "
         "A folder `dreamscale train download` made needs none: its base is read from it."
     ),
     preset: str | None = typer.Option(
@@ -1376,7 +1377,7 @@ def train_create(
     base: str | None = typer.Option(
         None, "--base", callback=_check_base,
         help="Start from pi0.5 (π0.5 base), flux-3-action-base (FLUX 3 Action), "
-        "xiaomi-robotics-1 (Xiaomi-Robotics-1) or "
+        "xiaomi-robotics-1 (Xiaomi-Robotics-1), gr00t-n1.7 (GR00T N1.7) or "
         "pi0.5-rtc-yam (π0.5 RTC YAM, our checkpoint trained on bimanual YAM; any robot) where "
         "your organization has them, one of your runs (tr_…: its latest checkpoint, or "
         "--base-step), or one of your deployments: one made from a run, or a π0.5 or FLUX 3 "

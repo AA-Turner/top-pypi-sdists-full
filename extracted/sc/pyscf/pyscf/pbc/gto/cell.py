@@ -32,7 +32,7 @@ from pyscf.dft import radi
 from pyscf.lib import logger
 from pyscf.gto import mole
 from pyscf.gto import moleintor
-from pyscf.gto.mole import conc_env, is_au # noqa
+from pyscf.gto.mole import conc_env, is_au
 from pyscf.pbc.gto import _pbcintor
 from pyscf.pbc.gto.eval_gto import eval_gto as pbc_eval_gto
 from pyscf.pbc.tools import pbc as pbctools
@@ -132,7 +132,7 @@ def dumps(cell):
 def loads(cellstr):
     '''Deserialize a str containing a JSON document to a Cell object.
     '''
-    from numpy import array  # noqa
+    from numpy import array
     celldic = json.loads(cellstr)
     cell = Cell()
     cell.__dict__.update(celldic)
@@ -1145,10 +1145,14 @@ def _parse_poscar(string):
     a = lines[2:5]
     lattice_vectors = np.array([np.fromstring(ax, sep=' ') for ax in a])
     lattice_vectors *= scale
-    atom_position_type = lines[7].strip().lower()
-    if atom_position_type == 'cartesian':
+    atom_position_line = 7
+    atom_position_type = lines[atom_position_line].strip().lower()
+    if atom_position_type.startswith('s'):
+        atom_position_line += 1
+        atom_position_type = lines[atom_position_line].strip().lower()
+    if atom_position_type.startswith(('c', 'k')):
         fractional = False
-    elif atom_position_type == 'direct':
+    elif atom_position_type.startswith('d'):
         fractional = True
     else:
         raise RuntimeError('Error reading VASP geometry due to '
@@ -1159,15 +1163,15 @@ def _parse_poscar(string):
     for atom, count in zip(lines[5].split(), lines[6].split()):
         unique_atoms[atom] = int(count)
         natm += int(count)
-    start = end = 8
+    start = end = atom_position_line + 1
     elements = []
     coords = []
     for atom_type in unique_atoms:
         count = unique_atoms[atom_type]
         start, end = end, end + count
         elements.extend([atom_type] * count)
-        r = np.fromstring(' '.join(lines[start:end]), sep=' ')
-        coords.append(r.reshape(count, 3))
+        r = np.loadtxt(lines[start:end], usecols=(0, 1, 2), ndmin=2)
+        coords.append(r)
     coords = np.vstack(coords)
     assert len(coords) == len(elements)
     return lattice_vectors, elements, coords, fractional
@@ -1417,7 +1421,7 @@ class Cell(mole.MoleBase):
 
         # Import all available modules. Some methods are registered to other
         # classes/modules when importing modules in __all__.
-        from pyscf.pbc import __all__  # noqa
+        from pyscf.pbc import __all__
         from pyscf.pbc import scf, dft
         from pyscf.dft import XC
 
@@ -1589,7 +1593,7 @@ class Cell(mole.MoleBase):
         c = np.array([a[1] for a in _atoms]).dot(_a)
         return [(a[0], r) for a, r in zip(_atoms, c.tolist())]
 
-#Note: Exculde dump_input, parse_arg, basis from kwargs to avoid parsing twice
+# Note: Exclude dump_input, parse_arg, basis from kwargs to avoid parsing twice
     def build(self, dump_input=True, parse_arg=mole.ARGPARSE,
               a=None, mesh=None, ke_cutoff=None, precision=None, nimgs=None,
               h=None, dimension=None, rcut= None, low_dim_ft_type=None,
@@ -1605,7 +1609,7 @@ class Cell(mole.MoleBase):
                 The real-space cell lattice vectors. Each row represents
                 a lattice vector.
             fractional : bool
-                Whether the atom postions are specified in fractional coordinates.
+                Whether the atom positions are specified in fractional coordinates.
                 The default value is False, which means the coordinates are
                 interpreted as Cartesian coordinate.
             mesh : (3,) ndarray of ints
@@ -1737,6 +1741,10 @@ class Cell(mole.MoleBase):
                         '%d contracted functions', nprim_drop, nctr_drop)
             #logger.debug1(self, 'Old shells %s', steep_shls)
 
+            if self.symmetry:
+                # MoleBase.build initialized symmetry with the unpruned basis.
+                self._build_symmetry()
+
         if self.rcut is None or self._rcut_from_build:
             self._rcut = estimate_rcut(self, self.precision)
             self._rcut_from_build = True
@@ -1770,6 +1778,8 @@ class Cell(mole.MoleBase):
         if self.space_group_symmetry:
             _check_mesh_symm = not self._mesh_from_build
             self.build_lattice_symmetry(check_mesh_symmetry=_check_mesh_symm)
+        else:
+            self.lattice_symmetry = None
 
         if dump_input and not _built and self.verbose > logger.NOTE:
             self.dump_input()
@@ -1903,7 +1913,7 @@ class Cell(mole.MoleBase):
             \mathbf{b_3} &= 2\pi \frac{\mathbf{a_1} \times \mathbf{a_2}}{\mathbf{a_3} \cdot (\mathbf{a_1} \times \mathbf{a_2})}
             \end{align}
 
-        '''  # noqa: E501
+        '''
         a = self.lattice_vectors()
         if self.dimension == 1:
             assert (abs(np.dot(a[0], a[1])) < 1e-9 and

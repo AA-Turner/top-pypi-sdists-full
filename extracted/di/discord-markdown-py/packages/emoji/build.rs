@@ -90,7 +90,10 @@ fn main() {
 
 		// For base emojis that have skin tone variants, also generate ::skin-tone-N entries
 		// This is in addition to the existing _toneN entries that are already in the JSON
-		for (i, child_key) in emoji.diversity_children.iter().enumerate() {
+		for (i, child_key) in by_skin_tone(&emoji.diversity_children)
+			.into_iter()
+			.enumerate()
+		{
 			let child_code_point = code_point_by_key
 				.get(child_key.as_str())
 				.cloned()
@@ -122,6 +125,17 @@ pub static EMOJI_BY_SHORTNAME: phf::Map<&'static str, &'static str> = {};"#,
 	)
 	.unwrap();
 
+	let ascii_shortname_chars = emoji_shortname_chars
+		.iter()
+		.filter(|ch| ch.is_ascii())
+		.fold(0u128, |mask, &ch| mask | 1 << u32::from(ch));
+	writeln!(
+		&mut file,
+		r#"/// The ASCII members of [`EMOJI_SHORTNAME_CHARS`], each at the bit of its code point.
+pub const ASCII_SHORTNAME_CHARS: u128 = {ascii_shortname_chars:#x};"#
+	)
+	.unwrap();
+
 	// Rebuild the set because phf doesn't dedup
 	let emoji_shortname_chars =
 		emoji_shortname_chars
@@ -136,6 +150,14 @@ pub static EMOJI_BY_SHORTNAME: phf::Map<&'static str, &'static str> = {};"#,
 		r#"/// Chars that are included in at least one emoji shortname.
 pub static EMOJI_SHORTNAME_CHARS: phf::Set<char> = {};"#,
 		emoji_shortname_chars.build()
+	)
+	.unwrap();
+
+	let max_code_point_len = code_points.iter().map(String::len).max().unwrap_or(0);
+	writeln!(
+		&mut file,
+		r#"/// The length in bytes of the longest entry in [`CODE_POINTS`].
+pub const MAX_CODE_POINT_LEN: usize = {max_code_point_len};"#
 	)
 	.unwrap();
 
@@ -177,6 +199,32 @@ fn fully_qualified(emoji: &EmojiData, needs_variation_selector: &HashSet<&str>) 
 	}
 
 	emoji
+}
+
+/// Lightest first, by each person's tone in turn. JoyPixels lists some dark first and scrambles
+/// pairs. A child with one tone and fewer than its siblings applies it to every person.
+fn by_skin_tone(children: &[String]) -> Vec<&String> {
+	let tones = |key: &str| -> Vec<u32> {
+		key.split('-')
+			.filter_map(|hex| u32::from_str_radix(hex, 16).ok())
+			.filter(|code_point| (0x1F3FB..=0x1F3FF).contains(code_point))
+			.collect()
+	};
+	let people = children
+		.iter()
+		.map(|key| tones(key).len())
+		.max()
+		.unwrap_or(0);
+
+	let mut children: Vec<&String> = children.iter().collect();
+	children.sort_by_cached_key(|key| {
+		let mut tones = tones(key);
+		if let [tone] = tones[..] {
+			tones.resize(people, tone);
+		}
+		tones
+	});
+	children
 }
 
 fn decode_hex_emoji(hex_string: &str) -> String {

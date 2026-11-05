@@ -5,6 +5,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from schemathesis.core.failures import Severity
+from schemathesis.core.transport import StatusClass
 from schemathesis.engine import Status, StopReason
 from schemathesis.engine.run import INTERNAL_PHASES, PhaseName
 
@@ -83,6 +84,7 @@ class FailingCase:
     status_code: int | None
     # Shown in place of the status code and reason when the transport provides one.
     status_line: str | None
+    status_class: StatusClass | None
     # The body as the terminal shows it, `<EMPTY>` and `<BINARY>` included.
     body: str | None
     # One per request the failure needs, oldest first.
@@ -166,6 +168,9 @@ class ExtractionNote:
     # Requests that led to the response, oldest first.
     commands: list[Command]
     status_code: int
+    # Shown in place of the status code and reason when the transport provides one.
+    status_line: str | None
+    status_class: StatusClass
     body: str
 
 

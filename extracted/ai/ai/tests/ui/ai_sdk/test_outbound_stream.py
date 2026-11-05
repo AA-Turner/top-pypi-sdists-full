@@ -206,7 +206,7 @@ async def test_finish_metadata_tracks_tool_and_internal_messages() -> None:
                 message=tool,
                 results=tool.tool_results,
             ),
-            agent_events_.HookEvent(message=internal, hook=hook),
+            agent_events_.HookEvent.for_hook(message=internal, hook=hook),
         ]
     )
 
@@ -435,7 +435,7 @@ async def test_approval_request_hook_emits_approval_event() -> None:
                 ),
             ),
             # Hook requesting approval
-            agent_events_.HookEvent(
+            agent_events_.HookEvent.for_hook(
                 message=messages_.Message(
                     role="internal",
                     parts=[
@@ -638,7 +638,7 @@ async def test_resolved_approval_hook_emits_response_event() -> None:
 
     out = await _collect(
         [
-            agent_events_.HookEvent(
+            agent_events_.HookEvent.for_hook(
                 message=messages_.Message(
                     id="turn-1:internal:0",
                     turn_id="turn-1",
@@ -744,6 +744,77 @@ async def test_retry_resets_step_and_reemits_retried_parts() -> None:
         "UIFinishStepEvent",
         "UIFinishEvent",
     ]
+
+
+async def test_retry_drops_late_results_for_discarded_tool_calls() -> None:
+    """The client has no part for a discarded tool call, so a late result
+    for it would make the AI SDK error out."""
+
+    def call(id: str) -> list[agent_events_.AgentEvent]:
+        part = messages_.ToolCallPart(
+            tool_call_id=id, tool_name="search", tool_args="{}"
+        )
+        return [
+            events_.ToolStart(tool_call_id=id, tool_name="search"),
+            events_.ToolEnd(tool_call_id=id, tool_call=part),
+        ]
+
+    def result(id: str) -> events_.ToolCallResult:
+        msg = ai.tool_message(
+            ai.tool_result_part(id, tool_name="search", result=id)
+        )
+        return events_.ToolCallResult(message=msg, results=msg.tool_results)
+
+    out = await _collect(
+        [
+            events_.StreamStart(),
+            *call("tc1"),
+            events_.Retry(),
+            events_.StreamStart(),
+            *call("tc2"),
+            events_.StreamEnd(),
+            events_.PartialToolCallResult(
+                tool_call_id="tc1",
+                tool_name="search",
+                value="partial",
+                aggregator_factory=ai.agents.ConcatAggregator,
+            ),
+            result("tc1"),
+            result("tc2"),
+        ]
+    )
+
+    outputs = [
+        e.tool_call_id
+        for e in out
+        if isinstance(e, ui_events.UIToolOutputAvailableEvent)
+    ]
+    assert outputs == ["tc2"]
+
+
+async def test_retry_drops_late_approval_for_discarded_tool_call() -> None:
+    hook: messages_.HookPart[Any] = messages_.HookPart(
+        hook_id="h1",
+        hook_type="ToolApproval",
+        status="pending",
+        tool_call_id="tc1",
+    )
+    out = await _collect(
+        [
+            events_.StreamStart(),
+            events_.ToolStart(tool_call_id="tc1", tool_name="bash"),
+            events_.Retry(),
+            events_.StreamStart(),
+            events_.HookEvent.for_hook(
+                messages_.Message(role="internal", parts=[hook]), hook
+            ),
+            events_.StreamEnd(),
+        ]
+    )
+
+    assert not any(
+        isinstance(e, ui_events.UIToolApprovalRequestEvent) for e in out
+    )
 
 
 async def test_retry_before_any_output_is_dropped() -> None:

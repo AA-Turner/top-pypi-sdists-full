@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 dynamic = ["version"]
 dependencies = [
     "prettytable<4",
-    "sqlglot>=30.0.0,<30.28",
+    "sqlglot>=30.0.0,<30.30",
     "typing_extensions",
     "more-itertools",
 ]
@@ -46,7 +46,7 @@ dev = [
     "duckdb>=1.2,<2.1",
     "findspark>=2,<3",
     # 3.0.0 dropped support for Python 3.9 and this is needed by pytest-postgresql
-    "mirakuru<3.0.5",
+    "mirakuru<3.1.1",
     "ty>=0.0.18",
     "openai>=1.30,<4",
     "pandas>=2,<4",
@@ -56,7 +56,7 @@ dev = [
     "pyspark>=4,<4.4",
     "pytest>=8.2.0,<9.3",
     "pytest-forked",
-    "pytest-postgresql>=6,<10",
+    "pytest-postgresql>=6,<11",
     "pytest-rerunfailures",
     "pytest-xdist>=3.6,<3.9",
     "pre-commit>=3.7,<5",

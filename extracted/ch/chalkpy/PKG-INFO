@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.167.4
+Version: 2.167.5
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -79,8 +79,8 @@ Requires-Dist: opentelemetry-api>=1.29.0; extra == "training"
 Requires-Dist: opentelemetry-sdk>=1.29.0; extra == "training"
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.29.0; extra == "training"
 Provides-Extra: openai
-Requires-Dist: openai<1.53,>=1.3.2; extra == "openai"
-Requires-Dist: httpx<0.28.0; extra == "openai"
+Requires-Dist: openai<2,>=1.55.3; extra == "openai"
+Requires-Dist: httpx<0.29; extra == "openai"
 Requires-Dist: tiktoken<0.13,>=0.12.0; python_version < "3.15" and extra == "openai"
 Requires-Dist: tiktoken<0.15,>=0.14; python_version >= "3.15" and extra == "openai"
 Provides-Extra: cohere
@@ -336,9 +336,9 @@ Requires-Dist: google-cloud-aiplatform<2; extra == "all"
 Requires-Dist: google-cloud-bigquery-storage<3,>=2.22.0; extra == "all"
 Requires-Dist: google-cloud-bigquery<4,>=3.25.0; extra == "all"
 Requires-Dist: google-cloud-storage; extra == "all"
-Requires-Dist: httpx<0.28.0; extra == "all"
+Requires-Dist: httpx<0.29; extra == "all"
 Requires-Dist: lxml>=6.1; python_version >= "3.14" and extra == "all"
-Requires-Dist: openai<1.53,>=1.3.2; extra == "all"
+Requires-Dist: openai<2,>=1.55.3; extra == "all"
 Requires-Dist: opentelemetry-api>=1.29.0; extra == "all"
 Requires-Dist: opentelemetry-sdk>=1.29.0; extra == "all"
 Requires-Dist: packaging; extra == "all"
@@ -396,6 +396,19 @@ Python 3.11 through 3.14.
 
 The Databricks integration uses connector 4.3 and its standalone SQLAlchemy
 1.4 dialect on Python 3.15; earlier Python versions retain connector 2.x/3.x.
+
+## Cancelling deferred model calls
+
+A handle returned by `DeployedModelVersion.defer()` supports `handle.cancel()`
+(or `await handle.cancel()` inside an event loop). Cancellation succeeds only
+before a consumer acquires the input. Successful repeats are idempotent, and
+`get()` then raises `chalkcompute.CallCancelledError`.
+
+Acquired inputs include buffered/coalesced deliveries and deliveries whose
+acquisition response was lost. Cancellation after acquisition fails with gRPC
+`FAILED_PRECONDITION` and leaves execution and its results unchanged.
+Cancellation requires a Stream-backed queue and a cancellation-capable consumer;
+legacy Redis List queues do not support it. A `get()` timeout does not cancel work.
 
 ---
 

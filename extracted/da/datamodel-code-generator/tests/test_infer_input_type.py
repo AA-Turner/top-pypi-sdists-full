@@ -137,6 +137,8 @@ def test_infer_input_type() -> None:  # noqa: PLR0912
             continue
         if "paths_external_ref" in file.parts and file.name != "openapi.yaml":
             continue
+        if "discriminator_mapping_other_document" in file.parts and file.name != "openapi.yaml":
+            continue
         if "read_only_write_only_external_directory" in file.parts and "ext" in file.parts:
             continue
         if "paths_ref_with_external_schema" in file.parts and file.name != "openapi.yaml":
@@ -148,6 +150,10 @@ def test_infer_input_type() -> None:  # noqa: PLR0912
         if "self_of_json_schema_document" in file.parts and file.name != "openapi.yaml":
             continue
         if "component_embedded_ids" in file.parts and file.suffix == ".json":
+            continue
+        if "anchor_object_documents" in file.parts and file.name != "api.yaml":
+            continue
+        if "reference_object_siblings" in file.parts and file.name != "api.yaml":
             continue
         if file.name.endswith((
             "aliases.json",

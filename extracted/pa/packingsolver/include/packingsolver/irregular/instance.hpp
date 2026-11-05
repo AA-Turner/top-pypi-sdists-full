@@ -5,6 +5,7 @@
 #include "shape/shape.hpp"
 
 #include <functional>
+#include <memory>
 
 namespace packingsolver
 {
@@ -331,7 +332,7 @@ struct ItemType
      * are stored in Instance::periodic_packings().
      *
      * Copied along with the item type by
-     * InstanceBuilder::add_item_type(instance, id), together with its
+     * InstanceBuilder::add_item_type_from_original_instance, together with its
      * periodic packings, instead of recomputing them for every sub-instance
      * built from this item type (e.g. successive sequential_feasibility
      * iterations).
@@ -420,6 +421,12 @@ class Solution;
  * checks; see 'FeasibilityCallbackResult' for what it may return.
  */
 using FeasibilityCallback = std::function<FeasibilityCallbackResult(const Solution&)>;
+
+/** Simplified shapes of an instance; see 'irregular/shape_simplification.hpp'. */
+struct SimplifiedInstance;
+
+/** Cache of the simplified shapes; see 'irregular/instance_cache.hpp'. */
+struct SimplifiedInstancesCache;
 
 /**
  * Instance class for a problem of type "irregular".
@@ -528,6 +535,24 @@ public:
      * of its items.
      */
     inline const std::vector<PeriodicItemPacking>& periodic_packings() const { return periodic_packings_; }
+
+    /**
+     * Get the simplified shapes of the instance for a maximum approximation
+     * ratio (see 'irregular/shape_simplification.hpp').
+     *
+     * They are computed at the first call for this ratio and stored, so that
+     * the next calls, and the sub-instances built from this instance (see
+     * 'InstanceBuilder::set_original_instance'), get them without computing
+     * them again. This method may be called from several threads: a call
+     * waits until the simplified shapes are computed by another one.
+     *
+     * Return 'nullptr' if 'end' is true before the simplified shapes are
+     * computed. In particular, if 'end' is already true, the simplified
+     * shapes are only returned if they have already been computed.
+     */
+    const SimplifiedInstance* get_simplified_instance(
+            double maximum_approximation_ratio,
+            const bool& end) const;
 
     /**
      * Return the scaled shape of item type 'item_type_id', shape 'item_shape_pos',
@@ -667,6 +692,12 @@ private:
 
     /** Periodic packings. */
     std::vector<PeriodicItemPacking> periodic_packings_;
+
+    /**
+     * Cache of the simplified shapes; see 'get_simplified_instance'. Shared
+     * by the copies of the instance.
+     */
+    std::shared_ptr<SimplifiedInstancesCache> simplified_instances_cache_;
 
     /*
      * Private attributes computed by the 'build' method

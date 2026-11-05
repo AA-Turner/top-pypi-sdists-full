@@ -13,7 +13,7 @@ from typing import ClassVar
 from airbyte_ops_mcp.connector_ops.utils import (
     Connector,
     ConnectorLanguage,
-)  # type: ignore
+)
 from airbyte_ops_mcp.connector_qa import consts
 
 ALL_LANGUAGES = [
@@ -358,7 +358,7 @@ class Report:
             )
         return json.dumps(
             {
-                "generation_timestamp": datetime.utcnow().isoformat(),
+                "generation_timestamp": datetime.utcnow().isoformat(),  # ty: ignore[deprecated]
                 "connectors": connectors_report,
             }
         )

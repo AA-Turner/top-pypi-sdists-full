@@ -3,29 +3,308 @@ A basic async connection to a SurrealDB instance.
 """
 
 import asyncio
+import inspect
+import logging
+import time
 import uuid
+import warnings
+import weakref
 from asyncio import AbstractEventLoop, Future, Queue, Task
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping, Sequence
+from contextlib import AbstractContextManager
 from types import TracebackType
-from typing import Any
+from typing import Any, cast, overload
 from uuid import UUID
 
 import websockets
 from websockets.exceptions import ConnectionClosed, WebSocketException
 
+from surrealdb.connections.api import (
+    ApiResponse,
+    build_api_query,
+    graphql_params,
+    statement_results,
+)
 from surrealdb.connections.async_template import AsyncTemplate
+from surrealdb.connections.auth_provider import (
+    RENEW_RETRY,
+    RENEW_RETRY_MAX,
+    AuthCredentials,
+    AuthProvider,
+    check_auth_provider,
+    check_credentials,
+    renew_at,
+    signs_in_afresh,
+)
+from surrealdb.connections.batch import AsyncBatch
+from surrealdb.connections.builders import (
+    _UNSET,
+    AsyncCrudBuilder,
+    AsyncInsertBuilder,
+    AsyncQueryBuilder,
+    M,
+    RelateEdge,
+    RelateEnd,
+    _Executor,
+    relate_builder,
+)
+from surrealdb.connections.files import AsyncFiles
+from surrealdb.connections.health import acheck_health
+from surrealdb.connections.import_export import (
+    ExportOptions,
+    ExportTarget,
+    ImportData,
+    aexport_sql,
+    aexport_sql_to,
+    aimport_sql,
+)
+from surrealdb.connections.live import AsyncLiveSubscription, SubscriptionTracker
+from surrealdb.connections.reconnect import (
+    LiveQuery,
+    ReconnectOptions,
+    SessionRegistry,
+    SessionState,
+    SessionTrackingMixin,
+    not_restarted,
+)
+from surrealdb.connections.server_version import ServerVersionMixin, asks_for_refresh
+from surrealdb.connections.timeouts import (
+    DEFAULT_TIMEOUT,
+    check_timeout,
+    describe,
+    effective_timeout,
+    scoped_timeout,
+)
 from surrealdb.connections.url import Url
-from surrealdb.connections.utils_mixin import UtilsMixin
+from surrealdb.connections.utils_mixin import (
+    AUTH_FALLBACK_QUERY,
+    CBOR,
+    CBOR2,
+    UtilsMixin,
+    check_keepalive,
+)
 from surrealdb.data.cbor import decode
-from surrealdb.data.types.record_id import RecordID, RecordIdType
+from surrealdb.data.types.null import NullType
+from surrealdb.data.types.record_id import RecordID, RecordIdType, StringRecordId
 from surrealdb.data.types.table import Table
-from surrealdb.errors import SurrealError, UnexpectedResponseError
+from surrealdb.errors import (
+    ConnectionUnavailableError,
+    NotAllowedError,
+    ServerError,
+    SurrealError,
+    TransportTimeoutError,
+    UnexpectedResponseError,
+    parse_query_error,
+    parse_rpc_error,
+)
+from surrealdb.features import Features
 from surrealdb.request_message.message import RequestMessage
 from surrealdb.request_message.methods import RequestMethod
+from surrealdb.streaming import (
+    UNSUPPORTED_BY_SERVER,
+    AsyncQueryStream,
+    AsyncStreamOps,
+    buffered_statements,
+    stream_broken,
+)
 from surrealdb.types import Tokens, Value, parse_auth_result
 
+logger = logging.getLogger(__name__)
 
-class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
+# Sentinel pushed into a live-query queue to tell a ``subscribe_live`` consumer
+# to stop iterating. Emitted by ``kill`` (the query was killed) and ``close``
+# (the connection is going away) so waiting consumers do not leak.
+_LIVE_QUEUE_CLOSED = object()
+
+# Sentinel pushed when the reader stops for any other reason - the peer went
+# away, the socket errored, the server restarted. Distinct from
+# ``_LIVE_QUEUE_CLOSED`` because it is not a clean end of stream: the consumer
+# has to hear that notifications stopped arriving because the connection broke,
+# not just that iteration finished. A silent ``return`` here is indistinguishable
+# from a ``kill()``, so a consumer would go on believing it had seen every
+# change to the table.
+_LIVE_QUEUE_BROKEN = object()
+
+# The `action` SurrealDB puts on the notification it sends when a live query
+# ends. It reports the end of the subscription rather than a change to the
+# table - it carries no record and its `result` is None - so it terminates the
+# generator instead of being handed to the consumer.
+_LIVE_KILLED = "KILLED"
+
+
+def _current_task() -> "Task[Any] | None":
+    """The running task, or ``None`` outside one."""
+    try:
+        return asyncio.current_task()
+    except RuntimeError:
+        return None
+
+
+def _release_live_queue(
+    live_queues: dict[str, list["Queue[Any]"]],
+    suid: str,
+    result_queue: "Queue[Any]",
+) -> None:
+    """Deregister one subscriber's queue. Safe to call twice."""
+    queues = live_queues.get(suid)
+    if queues is None:
+        return
+    if result_queue in queues:
+        queues.remove(result_queue)
+    if not queues:
+        live_queues.pop(suid, None)
+
+
+async def _read_frames(
+    ref: "weakref.ReferenceType[AsyncWsSurrealConnection]", socket: Any
+) -> None:
+    """Read frames off *socket* and route them to the connection behind *ref*.
+
+    A module-level function taking a weak reference, rather than a bound method
+    on the connection, so that the reader task does not keep the connection
+    alive. ``asyncio.create_task(self._recv_task())`` produced exactly that: the
+    running loop holds the task, the task holds its coroutine, and the coroutine
+    held ``self``. A connection whose last user reference was dropped was
+    therefore never collected - so no finaliser ran, and its socket, its file
+    descriptor and both worker tasks stayed for the life of the process. Fifty
+    connections built in a loop meant fifty live sockets.
+
+    The strong reference is taken per frame and dropped again immediately, so
+    between frames - which is where a suspended reader spends essentially all
+    of its time - nothing here refers to the connection.
+    """
+    cancelled = False
+    try:
+        async for data in socket:
+            connection = ref()
+            if connection is None:
+                # Nobody is left to route to; stop reading rather than
+                # resurrect the connection for the length of a frame.
+                return
+            try:
+                connection._route_frame(data)  # pyright: ignore[reportPrivateUsage]
+                gate = connection._reader_gate  # pyright: ignore[reportPrivateUsage]
+            finally:
+                del connection
+            # Held deliberately as the gate alone: an `asyncio.Event` refers to
+            # nothing, so waiting here keeps no connection alive.
+            if not gate.is_set():
+                await gate.wait()
+    except asyncio.CancelledError:
+        # Cancelled by `close()`, or by the loop shutting down: either way the
+        # connection is going away on purpose, so nothing reconnects.
+        cancelled = True
+    except (ConnectionClosed, WebSocketException):
+        pass
+    except Exception as e:
+        logger.debug(f"Unexpected error in _read_frames: {e}")
+    finally:
+        connection = ref()
+        if connection is not None:
+            connection._reader_stopped(  # pyright: ignore[reportPrivateUsage]
+                unexpected=not cancelled
+            )
+
+
+# A stream's frames are held in memory between arriving and being read, so a
+# consumer slower than the server grows that held set without limit. These are
+# the marks at which the connection's reader stops taking frames off the socket
+# and starts again: high enough that an ordinary consumer never reaches them,
+# low enough that the pause is short.
+_STREAM_HIGH_WATER = 32
+_STREAM_LOW_WATER = 8
+
+
+class _StreamQueue(Queue[Any]):
+    """A stream's frame queue which can pause and resume the socket reader.
+
+    Pausing the reader is the only backpressure the WebSocket protocol allows -
+    there is no way to ask the server for fewer frames - and it is safe only
+    while nothing else on the connection is waiting to be read, which is what
+    the reader checks before it pauses. Resuming is this queue's job, because
+    it is the only thing that sees a consumer catch up.
+    """
+
+    def __init__(self, gate: "asyncio.Event") -> None:
+        super().__init__()
+        self._gate = gate
+
+    async def get(self) -> Any:
+        frame = await super().get()
+        if self.qsize() <= _STREAM_LOW_WATER:
+            self._gate.set()
+        return frame
+
+
+def _abandon_connection(
+    socket: Any, recv_task: "Task[None] | None", loop: AbstractEventLoop | None
+) -> None:
+    """Release a websocket nobody closed, without awaiting anything.
+
+    Deliberately not the graceful :meth:`AsyncWsSurrealConnection.close`, for
+    the same reason the blocking transport's ``__del__`` is not: a destructor
+    cannot await, and the loop that would run the closing handshake is often
+    already gone by the time the last reference is dropped (``asyncio.run``
+    closes its loop on the way out).
+
+    Two cases, because they need opposite treatment:
+
+    * the loop is still alive - schedule the cancel and the transport abort on
+      it, so the socket is torn down by the thread that owns it;
+    * the loop is closed - nothing can be scheduled, so close the underlying
+      socket object directly. That is what actually releases the file
+      descriptor, which is the resource that otherwise accumulates.
+    """
+    alive = loop if loop is not None and not loop.is_closed() else None
+
+    if recv_task is not None and not recv_task.done():
+        try:
+            if alive is not None:
+                alive.call_soon_threadsafe(recv_task.cancel)
+            else:
+                recv_task.cancel()
+        except RuntimeError:
+            pass
+
+    transport = getattr(socket, "transport", None)
+    if transport is None:
+        return
+    if alive is not None:
+        try:
+            alive.call_soon_threadsafe(transport.abort)
+            return
+        except RuntimeError:
+            pass
+    # The real socket, not the ``TransportSocket`` wrapper that
+    # `get_extra_info("socket")` returns: closing the wrapper works but is
+    # deprecated, and a destructor is the last place that should depend on a
+    # deprecated path still being there. Falls back to the wrapper if the
+    # private attribute ever goes, since a deprecated close beats a leaked
+    # descriptor.
+    raw = getattr(transport, "_sock", None)
+    if raw is None:
+        try:
+            raw = transport.get_extra_info("socket")
+        except Exception:
+            raw = None
+    if raw is not None:
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                raw.close()
+        except Exception:
+            # Interpreter shutdown can pull what this needs out from under us,
+            # and an exception raised here is unraisable anyway.
+            pass
+
+
+def _scope(session_id: UUID | None) -> dict[str, Any]:
+    return {} if session_id is None else {"session": session_id}
+
+
+class AsyncWsSurrealConnection(
+    AsyncTemplate, UtilsMixin, ServerVersionMixin, SessionTrackingMixin
+):
     """
     A single async connection to a SurrealDB instance. To be used once and discarded.
 
@@ -36,74 +315,819 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
     def __init__(
         self,
         url: str,
+        *,
+        streaming: bool = True,
+        ping_interval: float | None = 30.0,
+        ping_timeout: float | None = 10.0,
+        timeout: float | None = DEFAULT_TIMEOUT,
+        version_check: bool = True,
+        reconnect: bool | ReconnectOptions = True,
+        auth: AuthProvider | None = None,
+        renew_access: bool = True,
     ) -> None:
         """
         The constructor for the AsyncSurrealConnection class.
 
         :param url: The URL of the database to process queries for.
+        :param streaming: Whether queries may be answered as a stream of frames
+            rather than one response. On by default and invisible: the answer is
+            the same either way, so this only decides how it arrives. Pass
+            ``False`` to put every query back on the buffered path - worth doing
+            if a slow consumer of a very large result would rather the server
+            waited than the client buffered.
+        :param ping_interval: Seconds between keepalive pings sent on an idle
+            socket, or ``None`` to send none. Defaults to 30.
+        :param ping_timeout: Seconds to wait for the matching pong before the
+            connection is considered dead and closed, or ``None`` to wait
+            indefinitely. Defaults to 10, so a gone peer is noticed within
+            roughly ``ping_interval + ping_timeout``.
+        :param timeout: Seconds to wait for each reply, or ``None`` to wait
+            indefinitely. Defaults to 30. Override it for a block of requests
+            with :meth:`timeout`.
+        :param version_check: Refuse to talk to a server outside the versions
+            this SDK supports - see :mod:`surrealdb.features`. On by default.
+        :param reconnect: Reconnect when the socket drops, replaying the
+            session state and live queries - see
+            :mod:`surrealdb.connections.reconnect`. ``True`` (the default) uses
+            the default backoff, ``False`` leaves the connection disconnected,
+            and :class:`ReconnectOptions` tunes it.
+        :param auth: How the connection signs itself in when the socket opens
+            and after every reconnect: signin credentials, an access token,
+            :class:`Tokens`, or a function or coroutine function returning one
+            of those - see :mod:`surrealdb.connections.auth_provider`.
+        :param renew_access: Renew the connection's access token shortly
+            before it expires, with its refresh token or else with *auth*. On
+            by default.
         """
+        check_auth_provider(auth)
         self.url: Url = Url(url)
+        self._version_check = version_check
+        self._reconnect: ReconnectOptions = ReconnectOptions.coerce(reconnect)
+        self._auth_provider: AuthProvider | None = auth
+        self._renew_access = renew_access
+        self._renewal: asyncio.TimerHandle | None = None
+        self._renewing = False
+        self._renew_retry = RENEW_RETRY
+        self._renewal_task: Task[None] | None = None
+        self._registry = SessionRegistry()
+        self._init_events()
+        # Set by `close()` so that the reader stopping is not mistaken for the
+        # socket dropping; cleared when a new socket opens.
+        self._closing = False
+        # True while the reconnect loop is re-opening and replaying, so that a
+        # socket dying mid-replay fails that attempt rather than starting a
+        # second loop.
+        self._reconnecting = False
+        self._reconnect_task: Task[None] | None = None
         self.raw_url: str = f"{self.url.raw_url}/rpc"
         self.host: str | None = self.url.hostname
         self.port: int | None = self.url.port
-        self.token: str | None = None
         self.socket: Any = None  # WebSocket connection
+        self._timeout: float | None = check_timeout("timeout", timeout)
+        self._ping_interval: float | None = check_keepalive(
+            "ping_interval", ping_interval
+        )
+        self._ping_timeout: float | None = check_keepalive("ping_timeout", ping_timeout)
         self.loop: AbstractEventLoop | None = None
         self.qry: dict[str, Future[dict[str, Any]]] = {}
         self.recv_task: Task[None] | None = None
-        self.live_queues: dict[str, list[Queue[dict[str, Any]]]] = {}
+        # Queues hold live-notification dicts plus the ``_LIVE_QUEUE_CLOSED``
+        # sentinel, so the value type is ``Any``.
+        self.live_queues: dict[str, list[Queue[Any]]] = {}
+        self._live_tracker = SubscriptionTracker()
+        # Guards socket creation - see `_connect_guard`. Built on first use
+        # rather than here: an `asyncio.Lock` binds to the loop that first
+        # awaits it, and these connections are routinely constructed outside
+        # the loop that ends up running them.
+        self._connect_lock: asyncio.Lock | None = None
+        self._connect_lock_loop: AbstractEventLoop | None = None
+        # A protocol error the server could not correlate to a request, held
+        # until the request it belongs to hits its deadline - see
+        # `_deliver_uncorrelated`. `_uncorrelated_for` is the set of request ids
+        # that were in flight when it arrived: the rejected frame belongs to one
+        # of those and to nothing else.
+        self._uncorrelated_error: SurrealError | None = None
+        self._uncorrelated_for: set[str] = set()
+        # Streaming queries, keyed by the request id whose frames they carry.
+        # Separate from ``self.qry`` because a ``query_stream`` request is
+        # answered by a *sequence* of responses sharing one id, and a future
+        # can only be resolved once: routed through ``self.qry`` the first
+        # frame would resolve the call and every frame after it would be
+        # dropped. Queues hold decoded frames plus a ``_ChannelBroken``
+        # sentinel, so the value type is ``Any``.
+        self._streams: dict[str, Queue[Any]] = {}
+        # Set means "keep reading". Cleared only while a stream is over its
+        # high-water mark and nothing else on this connection is waiting for
+        # the reader - see `_route_frame`.
+        self._reader_gate: asyncio.Event = asyncio.Event()
+        self._reader_gate.set()
+        # Whether this server knows ``query_stream``: ``None`` until one
+        # request settles it. Cached per connection because the answer is a
+        # property of the server build, and re-learning it would cost a
+        # rejected request on every call.
+        self._streaming_supported: bool | None = None
+        # Why it refused, when it did - a server older than v3.3.0 and one whose
+        # capabilities deny `query_stream` need different advice.
+        self._streaming_refusal: str | None = None
+        # Whether this connection may stream at all - the driver-level switch,
+        # distinct from what the server turned out to support.
+        self._streaming_enabled: bool = streaming
 
-    async def _recv_task(self) -> None:
-        assert self.socket
+    def timeout(self, seconds: float | None) -> AbstractContextManager[None]:
+        """Wait *seconds* for each reply to a request made inside the block.
+
+        Overrides the connection's ``timeout`` for the code inside the ``with``
+        block only - including tasks it starts - so a slow import or a long
+        report can wait longer without changing the default for everything
+        else on the connection. ``None`` waits indefinitely::
+
+            with db.timeout(300):
+                await db.query("SELECT * FROM big_table")
+        """
+        return scoped_timeout(self, seconds)
+
+    def _request_timeout(self) -> float | None:
+        """The reply deadline for a request made from the current context."""
+        return effective_timeout(self, self._timeout)
+
+    def _connect_guard(self) -> asyncio.Lock:
+        """The lock serialising ``connect()``, bound to the running loop.
+
+        Without it, concurrent first requests each saw ``socket is None`` and
+        each opened one: N sockets and N reader tasks for one connection, of
+        which the object kept only the last. The rest leaked, and every reader
+        but one raced to resolve futures on a socket nobody would ever read
+        the replies from - so most callers got a spurious
+        ``ConnectionUnavailableError`` from a connection that was in fact fine.
+
+        Re-made when the loop changes so a connection reused across
+        ``asyncio.run`` calls - each of which builds and discards a loop - does
+        not fail on a lock bound to a loop that is gone.
+        """
+        loop = asyncio.get_running_loop()
+        if self._connect_lock is None or self._connect_lock_loop is not loop:
+            self._connect_lock = asyncio.Lock()
+            self._connect_lock_loop = loop
+        return self._connect_lock
+
+    def _fail_pending(self, error: BaseException) -> None:
+        """Hand *error* to every caller currently awaiting a reply."""
+        for fut in self.qry.values():
+            if not fut.done():
+                fut.set_exception(error)
+        self.qry.clear()
+        self._break_streams(error)
+
+    def _break_streams(self, error: BaseException) -> None:
+        """Tell every open stream that no more frames are coming.
+
+        Streams wait on a queue rather than on ``self.qry``, so failing the
+        pending futures leaves them untouched - the same trap live subscribers
+        fell into, where nothing was ever put in the queue again and the
+        consumer waited forever with no timeout on the path. A stream's frames
+        are unbounded by design once it has opened, which makes this the only
+        thing that ends one when the socket goes away.
+        """
+        for frames in self._streams.values():
+            frames.put_nowait(stream_broken(error))
+
+    def _deliver_uncorrelated(self, error: SurrealError) -> None:
+        """Deliver an error the server could not tie to any request.
+
+        A protocol-level error arrives with no ``id`` because the server could
+        not parse the frame far enough to read one. Exactly *one* request is
+        affected - the one whose frame was rejected - and it is the one that
+        will never be answered. Every other request in flight is untouched and
+        gets its own reply as normal.
+
+        Failing every pending future, which is what this used to do, turned one
+        bad request into N failures: three unrelated queries on the same
+        connection all came back ``Parse error`` because a fourth, concurrent
+        one was malformed. The same three run alone succeeded.
+
+        With a single request in flight there is no ambiguity, so it is failed
+        straight away. With several, the error is held instead: the doomed
+        request is the one that never gets a reply, so it is the one that hits
+        its deadline, and :meth:`_send` reports this error there rather than a
+        bare timeout. That costs the doomed caller its timeout - which is
+        unavoidable, since nothing on the wire says which one it is - while
+        letting the others finish normally.
+        """
+        pending = [
+            (query_id, fut) for query_id, fut in self.qry.items() if not fut.done()
+        ]
+        # A streaming query in flight is a candidate exactly as a pending call
+        # is: it too sent a frame the server may have rejected, and now that
+        # `query()` streams, most requests are of that kind. Leaving streams out
+        # meant the error was held for `self.qry` ids alone, so a streamed
+        # request that was the doomed one waited out its opening deadline and
+        # reported a bare timeout instead of the parse error the server sent.
+        candidates = {query_id for query_id, _ in pending} | set(self._streams)
+        if len(candidates) == 1 and pending:
+            query_id, fut = pending[0]
+            fut.set_exception(error)
+            self.qry.pop(query_id, None)
+            return
+        # A streaming query in flight is a candidate too, and when it is the
+        # only one the error belongs to it. Without this the frame the server
+        # rejected went unreported: the error was held for a `self.qry` entry
+        # that did not exist, and the stream waited out its opening deadline
+        # and blamed a timeout for what was really a parse error. It is handed
+        # over as the end-of-frames sentinel, which carries the parsed error
+        # itself - re-encoding it as a response would flatten a typed error
+        # back into its message.
+        if len(candidates) == 1:
+            for frames in self._streams.values():
+                frames.put_nowait(stream_broken(error))
+            return
+        self._uncorrelated_error = error
+        self._uncorrelated_for = candidates
+
+    def _take_uncorrelated(self, query_id: str) -> SurrealError | None:
+        """Consume a held protocol error if it can belong to *query_id*.
+
+        Only a request that was already in flight when the error arrived can be
+        the one whose frame the server rejected; anything started afterwards has
+        its own reply coming. Handing the error to whichever request happened to
+        time out next told a caller its own perfectly valid query had a parse
+        error - a request that was not even sent when the failure happened.
+        """
+        if self._uncorrelated_error is None or query_id not in self._uncorrelated_for:
+            return None
+        error = self._uncorrelated_error
+        self._forget_uncorrelated()
+        return error
+
+    def _forget_uncorrelated(self) -> None:
+        """Drop a held error once it can no longer belong to anyone."""
+        self._uncorrelated_error = None
+        self._uncorrelated_for = set()
+
+    def _prune_uncorrelated(self) -> None:
+        """Forget a held error whose candidates have all gone away.
+
+        A caller that abandons its request - an application-level timeout, a
+        cancelled task - never reaches the deadline that would have collected
+        the error, so without this it would sit there waiting to ambush an
+        unrelated request much later.
+        """
+        if self._uncorrelated_error is None:
+            return
+        self._uncorrelated_for &= self.qry.keys() | self._streams.keys()
+        if not self._uncorrelated_for:
+            self._forget_uncorrelated()
+
+    def _route_frame(self, data: Any) -> None:
+        """Hand one received frame to whoever is waiting for it."""
+        # A single frame this loop cannot handle must not end it. When it did,
+        # the socket stayed open - so `connect()` saw a live socket and
+        # no-opped, and every later request registered a future that nothing
+        # would ever resolve. The caller then waited forever, with no timeout
+        # anywhere on this path.
         try:
-            async for data in self.socket:
-                response = decode(data)
-                if response_id := response.get("id"):
-                    if fut := self.qry.get(response_id):
-                        fut.set_result(response)
-                elif response_result := response.get("result"):
-                    live_id = str(response_result["id"])
-                    for queue in self.live_queues.get(live_id, []):
-                        queue.put_nowait(response_result)
-                else:
-                    self.check_response_for_error(response, "_recv_task")
-        except (ConnectionClosed, WebSocketException, asyncio.CancelledError):
-            # Connection was closed or cancelled, this is expected
-            pass
-        except Exception as e:
-            # Log unexpected errors but don't let them propagate
-            import logging
+            response = decode(data, v2=self._v2)
+        except Exception as exc:
+            self._fail_pending(
+                UnexpectedResponseError(f"could not decode a websocket frame: {exc}")
+            )
+            return
 
-            logger = logging.getLogger(__name__)
-            logger.debug(f"Unexpected error in _recv_task: {e}")
+        try:
+            if response_id := response.get("id"):
+                # Streams first: a streaming query's id stays registered for
+                # the whole sequence of frames, while ``self.qry`` holds ids
+                # that are answered once.
+                if (frames := self._streams.get(response_id)) is not None:
+                    frames.put_nowait(response)
+                    self._pause_reader_if_saturated(frames)
+                elif (fut := self.qry.get(response_id)) and not fut.done():
+                    fut.set_result(response)
+            elif response_result := response.get("result"):
+                live_id = self._registry.logical_of(str(response_result["id"]))
+                if live_id != str(response_result["id"]):
+                    response_result["id"] = UUID(live_id)
+                if response_result.get("action") == _LIVE_KILLED:
+                    self._registry.drop_live(live_id)
+                    self._live_tracker.ended(live_id)
+                for queue in self.live_queues.get(live_id, []):
+                    queue.put_nowait(response_result)
+            else:
+                # An id-less frame carrying no result is a protocol-level error
+                # the server could not correlate to a request, so everyone in
+                # flight has to hear it.
+                try:
+                    self.check_response_for_error(response, "_recv_task")
+                except SurrealError as exc:
+                    self._deliver_uncorrelated(exc)
+        except Exception as exc:
+            self._fail_pending(
+                UnexpectedResponseError(f"could not route a websocket frame: {exc}")
+            )
+
+    def _pause_reader_if_saturated(self, frames: Queue[Any]) -> None:
+        """Stop taking frames off the socket while this stream is far ahead.
+
+        Only while nothing else needs the reader. One task drains one socket
+        carrying every kind of traffic, so pausing it to slow a stream would
+        also withhold the reply to a request the consumer is waiting for -
+        which is the deadlock that made this queue unbounded to begin with, and
+        is why `_send` and the live subscriptions open the gate again.
+        """
+        if frames.qsize() < _STREAM_HIGH_WATER:
+            return
+        if self.qry or self.live_queues:
+            return
+        for other in self._streams.values():
+            if other is not frames and other.qsize() < _STREAM_HIGH_WATER:
+                # Another stream is still waiting for frames. Pausing now would
+                # starve it - and since every ordinary query is itself a stream
+                # now, that includes the `query()` a consumer runs from inside
+                # its own loop, which is the deadlock this whole mechanism has
+                # to avoid. Measured: without this, that pattern hangs.
+                return
+        self._reader_gate.clear()
+
+    def _resume_reader(self) -> None:
+        """Let the reader go, because something other than a stream needs it."""
+        self._reader_gate.set()
+
+    def _reader_stopped(self, unexpected: bool = True) -> None:
+        """Tell everyone still waiting that no more frames are coming.
+
+        When the socket dropped on its own (*unexpected*) and reconnecting is
+        on, this also starts the reconnect loop. Live subscriptions it can
+        replay are left waiting rather than broken; their notifications resume
+        under the same id once the loop has replayed them.
+        """
+        # Fail any pending futures with a typed error so awaiting callers
+        # surface ``ConnectionUnavailableError`` instead of a raw
+        # ``CancelledError`` when the socket closes mid-request.
+        self._fail_pending(
+            ConnectionUnavailableError(
+                "WebSocket connection closed before a response was received."
+            )
+        )
+        if self._closing or self._reconnecting:
+            # `close()` ends the subscriptions itself, and a socket lost while
+            # the reconnect loop is replaying just fails that attempt.
+            return
+        replaying = unexpected and self._reconnect.enabled
+        # Live subscribers wait on a queue, not on `self.qry`, so failing the
+        # pending futures left them untouched: nothing would ever be put in
+        # their queue again and `async for` waited forever, with no timeout on
+        # the path. The blocking transport has always raised
+        # `ConnectionUnavailableError` here. A subscription the reconnect loop
+        # will replay is the exception: it is still live, just quiet.
+        for logical, queues in self.live_queues.items():
+            if replaying and logical in self._registry.live:
+                continue
+            for queue in queues:
+                queue.put_nowait(_LIVE_QUEUE_BROKEN)
+        self._live_tracker.ended(
+            keep=self._registry.live.keys() if replaying else (), broken=True
+        )
+        if not unexpected:
+            return
+        if not replaying:
+            # The server forgot everything along with the socket, and nothing
+            # will replay it, so the next request starts afresh.
+            self._registry.clear()
+            self._set_status("disconnected")
+            return
+        self._set_status("reconnecting")
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        self._reconnect_task = loop.create_task(self._run_reconnect())
+
+    async def _run_reconnect(self) -> None:
+        """Re-open the socket with backoff, then replay what the server forgot."""
+        attempt = 0
+        while True:
+            attempt += 1
+            if not self._reconnect.allows(attempt):
+                break
+            await asyncio.sleep(self._reconnect.delay(attempt))
+            if self._closing:
+                return
+            try:
+                async with self._connect_guard():
+                    if self._closing:
+                        return
+                    await self._reopen()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.debug("reconnect attempt %d failed: %s", attempt, exc)
+                self._emit("error", exc)
+                continue
+            self._set_status("connected", self._server_version)
+            return
+        self._give_up(
+            ConnectionUnavailableError(
+                f"the connection to {self.raw_url} dropped and could not be "
+                f"re-established after {attempt - 1} attempt(s)"
+            )
+        )
+
+    async def _reopen(self) -> None:
+        """One reconnect attempt: a new socket, the handshake, then the replay."""
+        self._reconnecting = True
+        try:
+            await self._teardown()
+            await self._open_socket()
+            await self._handshake()
+            await self._restore()
+        except BaseException:
+            await self._teardown()
+            raise
         finally:
-            # Clean up any pending futures
-            for fut in self.qry.values():
-                if not fut.done():
-                    fut.cancel()
-            self.qry.clear()
+            self._reconnecting = False
+
+    def _give_up(self, error: SurrealError) -> None:
+        """Stop reconnecting: end every subscription and forget the state."""
+        for queues in self.live_queues.values():
+            for queue in queues:
+                queue.put_nowait(_LIVE_QUEUE_BROKEN)
+        self._live_tracker.ended(broken=True)
+        self._registry.clear()
+        self._set_status("disconnected")
+        self._emit("error", error)
+
+    async def _await_reconnect(self) -> None:
+        """Hold a request back until a reconnect in progress has finished."""
+        task = self._reconnect_task
+        if task is None or task.done() or task is asyncio.current_task():
+            return
+        budget = self._request_timeout()
+        # `wait` rather than awaiting the task: `close()` cancels it, and that
+        # cancellation must not reach a caller nobody cancelled.
+        done, _ = await asyncio.wait({task}, timeout=budget)
+        if not done:
+            raise TransportTimeoutError(
+                f"timed out waiting for the connection to {self.raw_url} to be "
+                f"re-established: not back {describe(budget)}"
+            )
+        if self._closing:
+            raise ConnectionUnavailableError(
+                f"the connection to {self.raw_url} was closed while it was reconnecting"
+            )
+        if self._status != "connected":
+            raise ConnectionUnavailableError(
+                f"the connection to {self.raw_url} dropped and could not be "
+                "re-established"
+            )
+
+    async def _provided_credentials(self) -> AuthCredentials:
+        provider = self._auth_provider
+        if callable(provider):
+            provided = provider()
+            if inspect.isawaitable(provided):
+                provided = await provided
+            return check_credentials(provided)
+        assert provider is not None
+        return provider
+
+    async def _apply_auth_provider(self) -> None:
+        """Sign the connection's own session in with ``auth=``.
+
+        Sends on the socket directly, so it can run while the connect guard
+        is held - from :meth:`connect` and from the reconnect replay.
+        """
+        provided = await self._provided_credentials()
+        if isinstance(provided, dict):
+            response = await self._request(
+                RequestMessage(RequestMethod.SIGN_IN, params=provided), "signing in"
+            )
+            self.check_response_for_result(response, "signing in")
+            self._note_tokens(None, parse_auth_result(response["result"]))
+            return
+        token = provided if isinstance(provided, str) else provided.access
+        if token is None:
+            raise ValueError("auth gave Tokens with no access token to sign in with")
+        try:
+            await self._request(
+                RequestMessage(RequestMethod.AUTHENTICATE, token=token),
+                "authenticating",
+            )
+        except ServerError:
+            # Tokens saved past the access token's expiry, say, whose refresh
+            # token is still good.
+            if isinstance(provided, Tokens) and await self._refreshed(None, provided):
+                return
+            raise
+        if isinstance(provided, Tokens):
+            self._note_tokens(None, provided)
+        else:
+            self._note_authenticated(None, token)
+
+    async def _refreshed(self, session_id: UUID | None, tokens: Tokens) -> bool:
+        """Renew *tokens* with their refresh token, sent on the socket directly.
+
+        Whether the server took it; it then holds the session signed in with
+        the new access token.
+        """
+        if tokens.refresh is None or not self.is_feature_supported(
+            Features.REFRESH_TOKENS
+        ):
+            return False
+        pair = self._token_pair(tokens, session_id, "refreshing")
+        try:
+            response = await self._request(
+                RequestMessage(
+                    RequestMethod.REFRESH, params=[pair], **_scope(session_id)
+                ),
+                "refreshing the tokens",
+            )
+            self.check_response_for_result(response, "refreshing the tokens")
+        except ServerError as exc:
+            logger.debug("refreshing the tokens failed: %s", exc)
+            return False
+        self._note_tokens(session_id, parse_auth_result(response["result"]))
+        return True
+
+    def _root_auth_changed(self) -> None:
+        """Re-arm the renewal timer for the root session's new access token.
+
+        A token that is already due when a renewal hands it over is not
+        renewed again straight away: renewing produced nothing newer, so
+        another attempt at once would only repeat it, without end.
+        """
+        self._cancel_renewal()
+        root = self._registry.root
+        if not self._renew_access or (
+            root.refresh is None and (self._auth_provider is None or root.auth_chosen)
+        ):
+            return
+        when = renew_at(root.access)
+        if when is None:
+            return
+        delay = when - time.time()
+        if delay <= 0 and self._renewing:
+            return
+        self._arm_renewal(max(0.0, delay))
+
+    def _cancel_renewal(self) -> None:
+        if self._renewal is not None:
+            self._renewal.cancel()
+            self._renewal = None
+
+    def _arm_renewal(self, delay: float) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        ref = weakref.ref(self)
+
+        def fire() -> None:
+            connection = ref()
+            if connection is not None:
+                connection._start_renewal()
+
+        self._renewal = loop.call_later(delay, fire)
+
+    def _start_renewal(self) -> None:
+        self._renewal = None
+        if self._closing or self.socket is None:
+            return
+        self._renewal_task = asyncio.get_running_loop().create_task(self._renew())
+
+    async def _renew(self) -> None:
+        """Replace the access token before it expires.
+
+        A failed attempt is tried again after a delay that doubles each time,
+        up to a bound, so one transient failure does not let the token lapse.
+        """
+        self._renewing = True
+        try:
+            if (
+                not await self._renew_with_refresh_token()
+                and signs_in_afresh(self._auth_provider)
+                and not self._registry.root.auth_chosen
+            ):
+                await self.connect()
+                async with self._connect_guard():
+                    await self._apply_auth_provider()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.debug("renewing the access token failed: %s", exc)
+            self._emit("error", exc)
+            if self._renewal is None and not self._closing:
+                self._arm_renewal(self._renew_retry)
+                self._renew_retry = min(self._renew_retry * 2, RENEW_RETRY_MAX)
+            return
+        finally:
+            self._renewing = False
+        self._renew_retry = RENEW_RETRY
+
+    async def _renew_with_refresh_token(self) -> bool:
+        """Renew with the refresh token, if there is one the server can take.
+
+        One the server refuses - expired, revoked or already spent - is
+        dropped and reported, so the renewal falls back to ``auth=`` rather
+        than trying it again on every attempt.
+        """
+        refresh = self._registry.root.refresh
+        if refresh is None or not self.is_feature_supported(Features.REFRESH_TOKENS):
+            return False
+        try:
+            await self.refresh()
+        except ServerError as exc:
+            logger.debug("renewing with the refresh token failed: %s", exc)
+            self._emit("error", exc)
+            self._note_revoked(None, refresh)
+            return False
+        return True
+
+    async def _restore(self) -> None:
+        """Replay every session, then every live query, on the new socket."""
+        registry = self._registry
+        if signs_in_afresh(self._auth_provider) and not registry.root.auth_chosen:
+            # A fresh sign-in rather than a token that may have expired while
+            # the socket was down.
+            await self._restore_session(None, registry.root, authenticate=False)
+            await self._apply_auth_provider()
+        else:
+            # The tokens held now: the caller's own, or ones renewing may have
+            # replaced since a static `auth=` gave them.
+            await self._restore_session(None, registry.root, renew=True)
+        for session_id, state in list(registry.sessions.items()):
+            await self._request(
+                RequestMessage(RequestMethod.ATTACH, session=session_id),
+                "re-attaching a session",
+            )
+            await self._restore_session(session_id, state, renew=True)
+        for live in list(registry.live.values()):
+            await self._restore_live(live)
+        self._root_auth_changed()
+
+    async def _restore_session(
+        self,
+        session_id: UUID | None,
+        state: SessionState,
+        authenticate: bool = True,
+        renew: bool = False,
+    ) -> bool:
+        """Replay *state* onto *session_id*: whether it ended up signed in.
+
+        With *renew*, an access token the server refuses - most often one
+        that expired while the socket was down - is renewed with the
+        session's refresh token, if it holds one. Only for the session's own
+        state: a refresh token is spent by renewing with it.
+        """
+        scope: dict[str, Any] = {} if session_id is None else {"session": session_id}
+        if state.namespace is not None or state.database is not None:
+            await self._request(
+                RequestMessage(
+                    RequestMethod.USE,
+                    namespace=state.namespace,
+                    database=state.database,
+                    **scope,
+                ),
+                "re-selecting the namespace and database",
+            )
+        for key, value in list(state.variables.items()):
+            await self._request(
+                RequestMessage(RequestMethod.LET, key=key, value=value, **scope),
+                "re-setting a variable",
+            )
+        if authenticate and state.access is not None:
+            try:
+                await self._request(
+                    RequestMessage(
+                        RequestMethod.AUTHENTICATE, token=state.access, **scope
+                    ),
+                    "re-authenticating",
+                )
+            except ServerError as exc:
+                tokens = state.tokens()
+                if (
+                    renew
+                    and tokens is not None
+                    and await self._refreshed(session_id, tokens)
+                ):
+                    return True
+                # The session carries on unauthenticated, and says so.
+                self._emit("error", exc)
+                self._note_signed_out(session_id)
+                return False
+        return True
+
+    async def _restore_live(self, live: LiveQuery) -> None:
+        if self._live_identity_changed(live):
+            self._emit("error", not_restarted(live))
+            self._end_live(str(live.logical), _LIVE_QUEUE_BROKEN)
+            return
+        selection = self._live_selection(live)
+        kwargs: dict[str, Any] = {"table": live.table, "diff": live.diff}
+        if live.session_id is not None:
+            kwargs["session"] = live.session_id
+        try:
+            if selection is not None:
+                await self._request(
+                    selection[0], "re-selecting a live query's namespace and database"
+                )
+            response = await self._request(
+                RequestMessage(RequestMethod.LIVE, **kwargs), "restarting a live query"
+            )
+            self.check_response_for_result(response, "restarting a live query")
+            restarted: UUID | ServerError = UUID(str(response["result"]))
+        except ServerError as exc:
+            restarted = exc
+        if selection is not None:
+            await self._request(selection[1], "re-selecting the namespace and database")
+        if isinstance(restarted, ServerError):
+            self._emit("error", restarted)
+            self._end_live(str(live.logical), _LIVE_QUEUE_BROKEN)
+            return
+        self._registry.move_live(live, restarted)
+
+    def _end_session_live(self, session_id: UUID | None) -> None:
+        """End the live queries the server dropped with *session_id*'s state."""
+        for logical, live in list(self._registry.live.items()):
+            if live.session_id == session_id:
+                self._end_live(logical, _LIVE_QUEUE_CLOSED)
+
+    def _end_live(self, logical: str, sentinel: object) -> None:
+        """Stop tracking a live query and end its subscriptions with *sentinel*."""
+        self._registry.drop_live(logical)
+        self._live_tracker.ended(logical, broken=sentinel is _LIVE_QUEUE_BROKEN)
+        for queue in self.live_queues.pop(logical, []):
+            queue.put_nowait(sentinel)
 
     async def _send(
         self, message: RequestMessage, process: str, bypass: bool = False
     ) -> dict[str, Any]:
         await self.connect()
+        return await self._request(message, process, bypass)
+
+    async def _handshake(self) -> None:
+        """Ask a freshly opened socket's server for its version."""
+        self._forget_server_version()
+        self._streaming_supported = None
+        self._streaming_refusal = None
+        try:
+            response = await self._request(
+                RequestMessage(RequestMethod.VERSION), "checking the server version"
+            )
+        except ServerError:
+            # A server whose capabilities deny `version` still serves
+            # everything else; nothing can be gated, but nothing is refused.
+            self._adopt_server_version(None)
+            return
+        self._adopt_server_version(response.get("result"))
+        if not self._version_allows_streaming():
+            self._streaming_supported = False
+            self._streaming_refusal = UNSUPPORTED_BY_SERVER
+
+    async def _request(
+        self, message: RequestMessage, process: str, bypass: bool = False
+    ) -> dict[str, Any]:
+        """Send *message* on the open socket and wait for its reply."""
         assert (
             self.socket is not None and self.loop is not None
         )  # will always not be None as the self.connect ensures there's a connection
 
+        deadline = self._request_timeout()
         # setup future to wait for response
         fut = self.loop.create_future()
         query_id = message.id
         self.qry[query_id] = fut
+        self._resume_reader()
         try:
             # correlate message to query, send and forget it
-            await self.socket.send(message.WS_CBOR_DESCRIPTOR)
+            try:
+                await self.socket.send(message.encoded(v2=self._v2))
+            except (WebSocketException, OSError) as exc:
+                raise ConnectionUnavailableError(
+                    f"the connection to {self.raw_url} failed while {process}: {exc}"
+                ) from exc
             del message
 
-            # wait for response
-            response = await fut
+            # wait for response, bounded so a reply that never arrives cannot
+            # block the caller forever
+            try:
+                response = await asyncio.wait_for(fut, deadline)
+            except asyncio.TimeoutError as exc:
+                # The server may have rejected this request's frame outright,
+                # in which case it answered with an error carrying no `id` and
+                # no reply is ever coming. That error was held rather than
+                # failing every other request in flight; this is the request it
+                # belongs to, so report it instead of a bare deadline.
+                uncorrelated = self._take_uncorrelated(query_id)
+                if uncorrelated is not None:
+                    raise uncorrelated from exc
+                raise TransportTimeoutError(
+                    f"timed out while {process} on {self.raw_url}: no reply "
+                    f"{describe(deadline)}"
+                ) from exc
         finally:
-            del self.qry[query_id]
+            # ``_recv_task`` clears ``self.qry`` when the socket closes, so the
+            # key may already be gone; ``pop`` avoids a spurious ``KeyError``.
+            self.qry.pop(query_id, None)
+            self._prune_uncorrelated()
 
         if bypass is False:
             self.check_response_for_error(response, process)
@@ -117,9 +1141,81 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
         # Cannot be more specific without runtime schema validation
         return response
 
-    async def connect(self, url: str | None = None) -> None:
-        if self.socket:
+    def _check_event_loop(self) -> None:
+        """Refuse to use a socket that belongs to a different event loop.
+
+        Every awaiting caller's future is created on ``self.loop``, and the
+        reader that resolves them runs there too. Used from a second loop, the
+        first ``await`` failed deep inside asyncio with
+        ``ValueError: The future belongs to a different loop than the one
+        specified as the loop argument`` - a message with nothing in it about
+        connections, event loops the *caller* controls, or what to do next.
+        The connection was then wedged: the request stayed in ``self.qry``, and
+        every later call failed the same way.
+
+        Two loops in one program is not exotic - ``asyncio.run`` builds and
+        destroys one per call, so reusing a connection across two of them is
+        enough. Reconnecting silently instead would trade this for a worse
+        failure: a new socket is a new server-side session, so the next
+        statement would come back ``NotAllowedError`` from a connection the
+        caller had already signed in.
+        """
+        if self.socket is None or self.loop is None:
             return
+        running = asyncio.get_running_loop()
+        if running is self.loop:
+            return
+        state = "closed" if self.loop.is_closed() else "still running"
+        raise ConnectionUnavailableError(
+            f"this connection to {self.raw_url} belongs to a different event "
+            f"loop (which is {state}), so it cannot be used from this one. A "
+            "connection is bound to the loop it was opened on - build a new "
+            "one for this loop, or keep all of its work on a single loop "
+            "(one asyncio.run call, not several)."
+        )
+
+    async def connect(self, url: str | None = None) -> None:
+        # Serialised: `_send` calls this on every request, so the first few
+        # requests of a gathered batch all arrive here at once.
+        self._check_event_loop()
+        await self._await_reconnect()
+        async with self._connect_guard():
+            if not await self._connect_locked(url):
+                return
+            try:
+                await self._handshake()
+                if self._auth_provider is not None:
+                    await self._apply_auth_provider()
+            except BaseException:
+                await self.close()
+                raise
+            self._set_status("connected", self._server_version)
+
+    async def _connect_locked(self, url: str | None = None) -> bool:
+        """Open the socket if it is not open; whether a new one was opened."""
+        if (
+            url is not None
+            and self.socket is not None
+            and f"{Url(url).raw_url}/rpc" != self.raw_url
+        ):
+            # Re-pointing an open connection has to replace the socket, or it
+            # keeps talking to the previous endpoint while reporting the new
+            # URL - the early return below would otherwise swallow *url*. Only
+            # for a *different* endpoint: re-pointing costs the server-side
+            # session, so a defensive `connect(url)` naming the endpoint
+            # already in use must not quietly discard a completed `signin()`.
+            await self.close()
+
+        if self.socket is not None:
+            if self.recv_task is None or not self.recv_task.done():
+                return False
+            # The reader ran and stopped while the socket stayed open, so this
+            # used to be a silent no-op that left the connection permanently
+            # unusable - every later request waited on a future nothing would
+            # resolve. Tear it down and reconnect. Deliberately narrow: a
+            # socket with no reader at all is left alone, since that is not the
+            # state this guards against.
+            await self._teardown()
 
         # overwrite params if passed in
         if url is not None:
@@ -128,13 +1224,41 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
             self.host = self.url.hostname
             self.port = self.url.port
 
-        self.socket = await websockets.connect(
-            self.raw_url,
-            max_size=None,
-            subprotocols=[websockets.Subprotocol("cbor")],
-        )
+        self._set_status("connecting")
+        try:
+            await self._open_socket()
+        except BaseException:
+            self._set_status("disconnected")
+            raise
+        return True
+
+    async def _open_socket(self) -> None:
+        """Open a socket on the current URL and start its reader."""
+        try:
+            self.socket = await websockets.connect(
+                self.raw_url,
+                max_size=None,
+                subprotocols=[
+                    websockets.Subprotocol(CBOR2),
+                    websockets.Subprotocol(CBOR),
+                ],
+                ping_interval=self._ping_interval,
+                ping_timeout=self._ping_timeout,
+            )
+        except asyncio.TimeoutError as exc:
+            raise TransportTimeoutError(
+                f"timed out connecting to {self.raw_url}: {exc}"
+            ) from exc
+        except (WebSocketException, OSError) as exc:
+            raise ConnectionUnavailableError(
+                f"could not connect to {self.raw_url}: {exc}"
+            ) from exc
+        self._v2 = self.socket.subprotocol == CBOR2
         self.loop = asyncio.get_running_loop()
-        self.recv_task = asyncio.create_task(self._recv_task())
+        self._closing = False
+        self.recv_task = asyncio.create_task(
+            _read_frames(weakref.ref(self), self.socket)
+        )
 
     async def authenticate(self, token: str, session_id: UUID | None = None) -> None:
         kwargs: dict[str, Any] = {"token": token}
@@ -142,6 +1266,10 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
             kwargs["session"] = session_id
         message = RequestMessage(RequestMethod.AUTHENTICATE, **kwargs)
         await self._send(message, "authenticating")
+        # Record the token as the session's identity so a reconnect - and, for
+        # the connection's own, new_session() - can replay it.
+        self._note_chosen_auth(session_id)
+        self._note_authenticated(session_id, token)
 
     async def invalidate(self, session_id: UUID | None = None) -> None:
         kwargs: dict[str, Any] = {}
@@ -149,7 +1277,231 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
             kwargs["session"] = session_id
         message = RequestMessage(RequestMethod.INVALIDATE, **kwargs)
         await self._send(message, "invalidating")
-        self.token = None
+        self._note_chosen_auth(session_id)
+        self._note_signed_out(session_id)
+
+    async def refresh(
+        self, tokens: Tokens | None = None, session_id: UUID | None = None
+    ) -> Tokens:
+        """Exchange a refresh token for a new access and refresh token.
+
+        Uses the session's own tokens unless *tokens* is given, authenticates
+        the session with the new access token and returns the new pair. The
+        old refresh token is spent. Needs SurrealDB 3.0 or later and an access
+        method defined ``WITH REFRESH``.
+        """
+        await self.connect()
+        self._require(Features.REFRESH_TOKENS)
+        pair = self._token_pair(tokens, session_id, "refresh()")
+        message = RequestMessage(
+            RequestMethod.REFRESH, params=[pair], **_scope(session_id)
+        )
+        response = await self._send(message, "refreshing the tokens")
+        self.check_response_for_result(response, "refreshing the tokens")
+        renewed = parse_auth_result(response["result"])
+        self._note_tokens(session_id, renewed)
+        return renewed
+
+    async def revoke(
+        self, tokens: Tokens | None = None, session_id: UUID | None = None
+    ) -> None:
+        """Revoke a refresh token, so it can never be exchanged again.
+
+        Uses the session's own tokens unless *tokens* is given. The session
+        stays signed in with its access token until that expires or
+        :meth:`invalidate` is called. Needs SurrealDB 3.0 or later.
+        """
+        await self.connect()
+        self._require(Features.REFRESH_TOKENS)
+        pair = self._token_pair(tokens, session_id, "revoke()")
+        message = RequestMessage(
+            RequestMethod.REVOKE, params=[pair], **_scope(session_id)
+        )
+        await self._send(message, "revoking a refresh token")
+        self._note_revoked(session_id, pair["refresh"])
+
+    async def reset(self, session_id: UUID | None = None) -> None:
+        """Return the session to how it started: no namespace, database,
+        variables or authentication. Needs SurrealDB 3.0 or later."""
+        await self.connect()
+        self._require(Features.SESSIONS)
+        message = RequestMessage(RequestMethod.RESET, **_scope(session_id))
+        await self._send(message, "resetting the session")
+        self._note_chosen_auth(session_id)
+        self._note_reset(session_id)
+        self._end_session_live(session_id)
+
+    async def sessions(self) -> list[UUID]:
+        """The ids of the sessions attached to this connection on the server,
+        not counting its own. Needs SurrealDB 3.0 or later."""
+        await self.connect()
+        self._require(Features.SESSIONS)
+        response = await self._send(
+            RequestMessage(RequestMethod.SESSIONS), "listing the sessions"
+        )
+        self.check_response_for_result(response, "listing the sessions")
+        return [UUID(str(session)) for session in response["result"] or []]
+
+    async def export(self, options: ExportOptions | None = None) -> str:
+        """Export the selected database as SurrealQL.
+
+        Args:
+            options: What to include; the server's default without it.
+                SurrealDB 2.0 takes no options.
+
+        Example:
+            sql = await db.export(ExportOptions(tables=["person"], records=False))
+        """
+        options = options or ExportOptions()
+        await self.connect()
+        options.check(self._server_version)
+        return await aexport_sql(
+            self.url,
+            options,
+            effective_timeout(self, None),
+            self.token,
+            self.namespace,
+            self.database,
+        )
+
+    async def export_to(
+        self, target: ExportTarget, options: ExportOptions | None = None
+    ) -> None:
+        """Export the selected database as SurrealQL into *target*.
+
+        Writes the export as it arrives, so one too large to hold in memory
+        can still be saved.
+
+        Args:
+            target: The path of a file to write, or a binary file object.
+            options: What to include, as for :meth:`export`.
+
+        Example:
+            await db.export_to("backup.surql")
+        """
+        options = options or ExportOptions()
+        await self.connect()
+        options.check(self._server_version)
+        await aexport_sql_to(
+            self.url,
+            options,
+            target,
+            effective_timeout(self, None),
+            self.token,
+            self.namespace,
+            self.database,
+        )
+
+    async def import_(self, data: ImportData) -> None:
+        """Import SurrealQL into the selected database.
+
+        Args:
+            data: The SurrealQL, as ``str`` or ``bytes``, or the path of a
+                file holding it - such as one ``export_to()`` wrote - as a
+                ``pathlib.Path`` or other path-like. A ``str`` is always the
+                SurrealQL itself. SurrealDB 3 requires it to start with
+                ``OPTION IMPORT;``, as exports do.
+
+        Raises:
+            ImportFailedError: if any statement failed, with each failure in
+                ``failures``. The other statements were still applied.
+            ValueError: if *data* is a ``str`` naming a file, which would
+                otherwise be imported as SurrealQL; pass a path instead.
+        """
+        await self.connect()
+        await aimport_sql(
+            self.url,
+            data,
+            effective_timeout(self, None),
+            self.token,
+            self.namespace,
+            self.database,
+        )
+
+    async def health(self) -> None:
+        """Ask the server's ``/health`` endpoint whether it is healthy.
+
+        :raises ConnectionUnavailableError: if it is not, or cannot be reached.
+        """
+        await acheck_health(self.url, self._request_timeout())
+
+    async def api(
+        self,
+        path: str,
+        *,
+        method: str = "get",
+        body: Value = None,
+        headers: Mapping[str, str] | None = None,
+        query: Mapping[str, str] | None = None,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> ApiResponse:
+        """Call an endpoint defined with ``DEFINE API``.
+
+        Sent as ``RETURN api::invoke(path, request)``. Needs SurrealDB 3.0 or
+        later, started with the ``define_api`` experimental capability.
+
+        Args:
+            path: The endpoint's path, starting with ``/``.
+            method: The HTTP method to invoke it with.
+            body: The request body.
+            headers: Request headers.
+            query: Query-string parameters.
+
+        Example:
+            response = await db.api("/greet", method="post", body={"name": "Ada"})
+            assert response.ok
+        """
+        await self.connect()
+        self._require(Features.API)
+        sql, variables = build_api_query(path, method, body, headers, query)
+        result = await self.query(
+            sql, variables, session_id=session_id, txn_id=txn_id
+        ).first()
+        return ApiResponse.from_result(result)
+
+    async def gql(
+        self,
+        query: str,
+        vars: Mapping[str, Value] | None = None,
+        *,
+        session_id: UUID | None = None,
+    ) -> list[Value]:
+        """Run an ISO GQL query, such as ``MATCH (p:person) RETURN p.name``.
+
+        Returns each statement's result, and raises the first statement that
+        failed. Needs a server with the ``gql`` RPC method.
+        """
+        await self.connect()
+        params: list[Value] = [query] if vars is None else [query, dict(vars)]
+        message = RequestMessage(RequestMethod.GQL, params=params, **_scope(session_id))
+        response = await self._send(message, "gql")
+        self.check_response_for_result(response, "gql")
+        return statement_results(response["result"], "gql")
+
+    async def graphql(
+        self,
+        query: str,
+        variables: Mapping[str, Value] | None = None,
+        operation_name: str | None = None,
+        *,
+        session_id: UUID | None = None,
+    ) -> dict[str, Value]:
+        """Run a GraphQL query and return the server's ``{data, errors}``.
+
+        Needs a server with the ``graphql`` RPC method and GraphQL enabled for
+        the database, for example with ``DEFINE CONFIG GRAPHQL AUTO``.
+        """
+        await self.connect()
+        message = RequestMessage(
+            RequestMethod.GRAPHQL,
+            params=graphql_params(query, variables, operation_name),
+            **_scope(session_id),
+        )
+        response = await self._send(message, "graphql")
+        self.check_response_for_result(response, "graphql")
+        result = response["result"]
+        return dict(result) if isinstance(result, dict) else {"data": result}
 
     async def signup(
         self, vars: dict[str, Value], session_id: UUID | None = None
@@ -161,12 +1513,16 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
         response = await self._send(message, "signup")
         self.check_response_for_result(response, "signup")
         tokens = parse_auth_result(response["result"])
-        self.token = tokens.access
+        self._note_chosen_auth(session_id)
+        self._note_tokens(session_id, tokens)
         return tokens
 
     async def signin(
         self, vars: dict[str, Value], session_id: UUID | None = None
     ) -> Tokens:
+        if not self._version_learned and asks_for_refresh(vars):
+            await self.connect()
+        self._require_signin(vars)
         kwargs: dict[str, Any] = {"params": vars}
         if session_id is not None:
             kwargs["session"] = session_id
@@ -174,7 +1530,8 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
         response = await self._send(message, "signing in")
         self.check_response_for_result(response, "signing in")
         tokens = parse_auth_result(response["result"])
-        self.token = tokens.access
+        self._note_chosen_auth(session_id)
+        self._note_tokens(session_id, tokens)
         return tokens
 
     async def info(self, session_id: UUID | None = None) -> Value:
@@ -185,15 +1542,33 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
         response = await self._send(
             message, "getting database information", bypass=True
         )
+
+        if response.get("error") is not None:
+            # Record-auth sessions have no ROOT/NS/DB info; re-resolve the
+            # authenticated record via `$auth`.
+            if self._info_needs_auth_fallback(response):
+                record = self._extract_auth_record(
+                    await self._buffered_first(AUTH_FALLBACK_QUERY, session_id)
+                )
+                if record is not None:
+                    return record
+            raise parse_rpc_error(response["error"])
+
         self.check_response_for_result(response, "getting auth information")
         return response["result"]
 
     async def use(
         self,
-        namespace: str,
-        database: str,
+        namespace: str | NullType | None = None,
+        database: str | NullType | None = None,
         session_id: UUID | None = None,
     ) -> None:
+        """Select a namespace and database.
+
+        Either may be left out, or ``None``, to keep the current one, or
+        ``Null`` to clear it - ``use(database="other")`` changes only the
+        database, and ``use(Null, Null)`` selects neither.
+        """
         kwargs: dict[str, Any] = {
             "namespace": namespace,
             "database": database,
@@ -202,32 +1577,57 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
             kwargs["session"] = session_id
         message = RequestMessage(RequestMethod.USE, **kwargs)
         await self._send(message, "use")
+        self._note_use(session_id, namespace, database)
 
-    async def query(
+    def query(
         self,
         query: str,
         vars: dict[str, Value] | None = None,
         session_id: UUID | None = None,
         txn_id: UUID | None = None,
-    ) -> Value:
-        response = await self.query_raw(
-            query, vars, session_id=session_id, txn_id=txn_id
+    ) -> AsyncQueryBuilder:
+        """Run SurrealQL and return an awaitable builder.
+
+        Awaiting it (or ``.execute()``) returns ``list[Value]`` - one entry per
+        statement, always a list (the v3 fix for issue #232). Use ``.first()``
+        for the first statement's result, or ``.into(cls)`` to map the results
+        onto a dataclass / class.
+        """
+        return AsyncQueryBuilder(
+            executor=self._make_executor(session_id, txn_id),
+            query=query,
+            variables=vars,
         )
-        self.check_response_for_error(response, "query")
-        self.check_response_for_result(response, "query")
-        self._check_query_result(response["result"][0])
-        return response["result"][0]["result"]
+
+    def batch(self) -> AsyncBatch:
+        """Statements to send together as one transaction, in one request.
+
+        Add them with ``.query(sql, vars)`` and run them with ``.execute()``.
+        They all apply or none do. Works on every transport and version.
+        """
+        return AsyncBatch(self)
 
     async def query_raw(
         self,
         query: str,
-        params: dict[str, Value] | None = None,
+        vars: dict[str, Value] | None = None,
         session_id: UUID | None = None,
         txn_id: UUID | None = None,
     ) -> dict[str, Any]:
-        if params is None:
-            params = {}
-        kwargs: dict[str, Any] = {"query": query, "params": params}
+        if vars is None:
+            vars = {}
+        if self._may_stream(txn_id):
+            # Streamed, and the answer rebuilt in the shape a buffered query
+            # returns - so `query()`, `select()`, `create()` and every builder
+            # above this get their rows as the server produces them without
+            # knowing anything about frames. `None` means the query was not run:
+            # the server declined to stream it, so ask the buffered way.
+            streamed = await AsyncQueryStream(
+                self._stream_ops(), query, vars, session_id=session_id
+            )._collect()  # pyright: ignore[reportPrivateUsage]
+            if streamed is not None:
+                return streamed
+        kwargs: dict[str, Any] = {"query": query, "params": vars}
         if session_id is not None:
             kwargs["session"] = session_id
         if txn_id is not None:
@@ -235,6 +1635,146 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
         message = RequestMessage(RequestMethod.QUERY, **kwargs)
         response = await self._send(message, "query", bypass=True)
         return response
+
+    async def _buffered_first(
+        self, query: str, session_id: UUID | None
+    ) -> Value | None:
+        """Run *query* buffered and return its first statement's result.
+
+        For the queries the SDK issues on its own behalf. Streaming exists to
+        get a caller's data moving sooner; a one-row internal lookup gains
+        nothing from frames, and putting `query_stream` on the wire for
+        something nobody asked for makes the SDK's own traffic harder to reason
+        about - and harder to assert on, which is how this was noticed.
+        """
+        kwargs: dict[str, Any] = {"query": query, "params": {}}
+        if session_id is not None:
+            kwargs["session"] = session_id
+        message = RequestMessage(RequestMethod.QUERY, **kwargs)
+        response = await self._send(message, "getting auth information", bypass=True)
+        statements = buffered_statements(response)
+        if not statements:
+            return None
+        first = statements[0]
+        if first.get("status") == "ERR":
+            raise parse_query_error(first)
+        result: Value = first.get("result")
+        return result
+
+    def _may_stream(self, txn_id: UUID | None) -> bool:
+        """Whether this query may be asked for as a stream.
+
+        A query on a client transaction never is. It would run on the
+        transaction `begin` handed out, and requests on one connection are
+        served concurrently, so a `commit` arriving mid-stream would commit a
+        prefix of the query rather than the whole of it. Excluding them removes
+        the hazard instead of documenting it.
+        """
+        if not self._streaming_enabled or txn_id is not None:
+            return False
+        return self._streaming_supported is not False
+
+    def _stream_ops(self) -> AsyncStreamOps:
+        """Bind the operations a streaming query drives.
+
+        Bound methods rather than the connection itself, so a stream reaches
+        only what it needs: it cannot connect or close, and it can only ask the
+        pending-request machinery whether a held protocol error is its own.
+        """
+        return AsyncStreamOps(
+            registry=self._streams,
+            request_timeout=self._request_timeout,
+            open=self._stream_open,
+            release=self._stream_release,
+            send=self._stream_send,
+            cancel=self._stream_cancel,
+            buffered=self._stream_buffered,
+            supported=self._stream_supported,
+            set_supported=self._stream_set_supported,
+            refusal=self._stream_refusal,
+            take_uncorrelated=self._take_uncorrelated,
+        )
+
+    async def _stream_open(self, request_id: str) -> Queue[Any]:
+        """Register *request_id* and return the queue its frames arrive on.
+
+        Registered before the request is sent, so the reader cannot deliver a
+        frame - or the immediate rejection of an unknown method - before there
+        is anywhere to put it.
+
+        The queue is unbounded, and deliberately so. A bounded one would have
+        to stall the shared reader task when it filled, which deadlocks the
+        common pattern of running another query for each row: the reader would
+        be waiting for the consumer, and the consumer waiting for a reply the
+        stalled reader is holding. The protocol offers no per-stream flow
+        control, so a consumer slower than the server buffers rows in memory
+        until it catches up; ``.statements()``, or stopping the stream early,
+        are the ways out.
+        """
+        await self.connect()
+        frames = _StreamQueue(self._reader_gate)
+        self._streams[request_id] = frames
+        self._resume_reader()
+        return frames
+
+    def _stream_release(self, request_id: str) -> None:
+        """Deregister a stream. Safe to call twice."""
+        self._streams.pop(request_id, None)
+        # A held protocol error may have been waiting for this stream to collect
+        # it; with the stream gone it cannot belong to it, and keeping it would
+        # let it ambush an unrelated request much later.
+        self._prune_uncorrelated()
+
+    async def _stream_send(self, message: RequestMessage) -> None:
+        """Send *message* without registering a reply future.
+
+        Not :meth:`_send`: that awaits exactly one response and pops the id
+        when it arrives, which would resolve the call on the first frame and
+        then route every frame after it nowhere.
+        """
+        await self.connect()
+        assert self.socket is not None
+        try:
+            await self.socket.send(message.encoded(v2=self._v2))
+        except (WebSocketException, OSError) as exc:
+            raise ConnectionUnavailableError(
+                f"the connection to {self.raw_url} failed while starting a "
+                f"streaming query: {exc}"
+            ) from exc
+
+    async def _stream_cancel(self, request_id: str) -> None:
+        """Ask the server to stop the stream *request_id* opened.
+
+        A no-op once the socket has gone: there is nothing left to tell, and
+        going through :meth:`_send` would call ``connect()`` and reopen the
+        connection a caller had just closed - on a new session, where the
+        stream does not exist.
+        """
+        if self.socket is None:
+            return
+        message = RequestMessage(RequestMethod.QUERY_CANCEL, stream=request_id)
+        await self._send(message, "cancelling a streaming query")
+
+    async def _stream_buffered(
+        self,
+        query: str,
+        variables: dict[str, Value],
+        session_id: UUID | None,
+        txn_id: UUID | None,
+    ) -> list[dict[str, Any]]:
+        """Run *query* the buffered way, for a server without streaming."""
+        response = await self.query_raw(query, variables, session_id, txn_id)
+        return buffered_statements(response)
+
+    def _stream_supported(self) -> bool | None:
+        return self._streaming_supported
+
+    def _stream_refusal(self) -> str | None:
+        return self._streaming_refusal
+
+    def _stream_set_supported(self, supported: bool, reason: str | None) -> None:
+        self._streaming_supported = supported
+        self._streaming_refusal = reason
 
     async def version(self, session_id: UUID | None = None) -> str:
         kwargs: dict[str, Any] = {}
@@ -259,6 +1799,18 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
             kwargs["txn"] = txn_id
         message = RequestMessage(RequestMethod.LET, **kwargs)
         await self._send(message, "letting")
+        if txn_id is None:
+            self._note_let(session_id, key, value)
+
+    async def set(
+        self,
+        key: str,
+        value: Value,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> None:
+        """Set a variable for the session; ``let`` by its JS name."""
+        await self.let(key, value, session_id=session_id, txn_id=txn_id)
 
     async def unset(
         self,
@@ -273,202 +1825,537 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
             kwargs["txn"] = txn_id
         message = RequestMessage(RequestMethod.UNSET, **kwargs)
         await self._send(message, "unsetting")
+        if txn_id is None:
+            self._note_unset(session_id, key)
 
-    async def select(
+    @overload
+    def select(
+        self,
+        record: RecordID | StringRecordId,
+        *,
+        fields: Sequence[str] | None = None,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[M | None]: ...
+    @overload
+    def select(
+        self,
+        record: Table,
+        *,
+        fields: Sequence[str] | None = None,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def select(
+        self,
+        record: str,
+        *,
+        fields: Sequence[str] | None = None,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[M | list[M] | None]: ...
+    @overload
+    def select(
+        self,
+        record: RecordID | StringRecordId,
+        *,
+        fields: Sequence[str] | None = None,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[dict[str, Value] | None]: ...
+    @overload
+    def select(
+        self,
+        record: Table,
+        *,
+        fields: Sequence[str] | None = None,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def select(
+        self,
+        record: str,
+        *,
+        fields: Sequence[str] | None = None,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[Value]: ...
+    def select(
         self,
         record: RecordIdType,
+        *,
+        fields: Sequence[str] | None = None,
+        into: type[M] | None = None,
         session_id: UUID | None = None,
         txn_id: UUID | None = None,
-    ) -> Value:
-        variables: dict[str, Any] = {}
-        resource_ref = self._resource_to_variable(record, variables, "_resource")
-        query = f"SELECT * FROM {resource_ref}"
+    ) -> AsyncCrudBuilder[Any]:
+        """Select records.
 
-        response = await self.query_raw(
-            query, variables, session_id=session_id, txn_id=txn_id
+        A ``RecordID`` (or ``StringRecordId``) returns the record dict, or ``None``
+        when it is absent. A ``Table`` (or bare table-name string) returns the
+        list of records. Pass ``into=Model`` to map each record onto ``Model``.
+
+        ``fields`` narrows the projection, so the server sends only what is
+        asked for rather than the whole record::
+
+            db.select(RecordID("person", "tobie"), fields=["name", "email"])
+            db.select(Table("person"), fields=["address.city"])
+
+        A dot walks into a nested object; each segment is escaped separately, so
+        a name with a space or unicode in it is quoted correctly. A field whose
+        name genuinely contains a dot cannot be spelled this way - use
+        :meth:`query` for that.
+
+        Note that ``id`` is not included unless you ask for it, exactly as in
+        SurrealQL. A model passed to ``into=`` that declares an ``id`` field
+        therefore needs ``fields=["id", ...]``.
+        """
+        return AsyncCrudBuilder(
+            executor=self._make_executor(session_id, txn_id),
+            operation="SELECT",
+            record=record,
+            op_name="select",
+            into=into,
+            fields=fields,
         )
-        self.check_response_for_error(response, "select")
-        self._check_query_result(response["result"][0])
-        return response["result"][0]["result"]
 
-    async def create(
+    def _make_executor(
         self,
-        record: RecordIdType,
-        data: Value | None = None,
-        session_id: UUID | None = None,
-        txn_id: UUID | None = None,
-    ) -> Value:
-        variables: dict[str, Any] = {}
-        resource_ref = self._resource_to_variable(record, variables, "_resource")
+        session_id: UUID | None,
+        txn_id: UUID | None,
+    ) -> Any:
+        """Build the executor a builder terminates through.
 
-        if data is None:
-            query = f"CREATE {resource_ref}"
-        else:
-            variables["_content"] = data
-            query = f"CREATE {resource_ref} CONTENT $_content"
+        Callable for the buffered answer, ``rows()`` for the rows as they
+        arrive. Both carry this builder's session and transaction, so a
+        streamed `select()` runs in the same place its awaited form would.
+        """
 
-        response = await self.query_raw(
-            query, variables, session_id=session_id, txn_id=txn_id
-        )
-        self.check_response_for_error(response, "create")
-        self._check_query_result(response["result"][0])
-        result = response["result"][0]["result"]
-        # CREATE always creates a single record, so always unwrap
-        return self._unwrap_result(result, unwrap=True)
-
-    async def update(
-        self,
-        record: RecordIdType,
-        data: Value | None = None,
-        session_id: UUID | None = None,
-        txn_id: UUID | None = None,
-    ) -> Value:
-        variables: dict[str, Any] = {}
-        resource_ref = self._resource_to_variable(record, variables, "_resource")
-
-        if data is None:
-            query = f"UPDATE {resource_ref}"
-        else:
-            variables["_content"] = data
-            query = f"UPDATE {resource_ref} CONTENT $_content"
-
-        response = await self.query_raw(
-            query, variables, session_id=session_id, txn_id=txn_id
-        )
-        self.check_response_for_error(response, "update")
-        self._check_query_result(response["result"][0])
-        result = response["result"][0]["result"]
-        # UPDATE on a specific record returns a single dict, on a table returns a list
-        return self._unwrap_result(
-            result, unwrap=self._is_single_record_operation(record)
-        )
-
-    async def merge(
-        self,
-        record: RecordIdType,
-        data: Value | None = None,
-        session_id: UUID | None = None,
-        txn_id: UUID | None = None,
-    ) -> Value:
-        variables: dict[str, Any] = {}
-        resource_ref = self._resource_to_variable(record, variables, "_resource")
-
-        if data is None:
-            query = f"UPDATE {resource_ref} MERGE {{}}"
-        else:
-            variables["_data"] = data
-            query = f"UPDATE {resource_ref} MERGE $_data"
-
-        response = await self.query_raw(
-            query, variables, session_id=session_id, txn_id=txn_id
-        )
-        self.check_response_for_error(response, "merge")
-        self._check_query_result(response["result"][0])
-        result = response["result"][0]["result"]
-        # MERGE on a specific record returns a single dict, on a table returns a list
-        return self._unwrap_result(
-            result, unwrap=self._is_single_record_operation(record)
-        )
-
-    async def patch(
-        self,
-        record: RecordIdType,
-        data: Value | None = None,
-        session_id: UUID | None = None,
-        txn_id: UUID | None = None,
-    ) -> Value:
-        variables: dict[str, Any] = {}
-        resource_ref = self._resource_to_variable(record, variables, "_resource")
-
-        if data is None:
-            query = f"UPDATE {resource_ref} PATCH []"
-        else:
-            variables["_patches"] = data
-            query = f"UPDATE {resource_ref} PATCH $_patches"
-
-        response = await self.query_raw(
-            query, variables, session_id=session_id, txn_id=txn_id
-        )
-        self.check_response_for_error(response, "patch")
-        self._check_query_result(response["result"][0])
-        result = response["result"][0]["result"]
-        # PATCH on a specific record returns a single dict, on a table returns a list
-        return self._unwrap_result(
-            result, unwrap=self._is_single_record_operation(record)
-        )
-
-    async def delete(
-        self,
-        record: RecordIdType,
-        session_id: UUID | None = None,
-        txn_id: UUID | None = None,
-    ) -> Value:
-        variables: dict[str, Any] = {}
-        resource_ref = self._resource_to_variable(record, variables, "_resource")
-        query = f"DELETE {resource_ref} RETURN BEFORE"
-
-        response = await self.query_raw(
-            query, variables, session_id=session_id, txn_id=txn_id
-        )
-        self.check_response_for_error(response, "delete")
-        self._check_query_result(response["result"][0])
-        result = response["result"][0]["result"]
-        # DELETE on a specific record returns a single dict, on a table returns a list
-        return self._unwrap_result(
-            result, unwrap=self._is_single_record_operation(record)
-        )
-
-    async def insert(
-        self,
-        table: str | Table,
-        data: Value,
-        session_id: UUID | None = None,
-        txn_id: UUID | None = None,
-    ) -> Value:
-        # Validate that table is not a RecordID
-        if isinstance(table, RecordID):
-            raise SurrealError(
-                f"There was a problem with the database: Can not execute INSERT statement using value '{table}'"
+        async def _executor(query: str, params: dict[str, Any]) -> dict[str, Any]:
+            return await self.query_raw(
+                query, params, session_id=session_id, txn_id=txn_id
             )
 
-        variables: dict[str, Any] = {}
-        table_ref = self._resource_to_variable(table, variables, "_table")
-        variables["_data"] = data
-        query = f"INSERT INTO {table_ref} $_data"
+        def _stream(
+            query: str,
+            params: dict[str, Value] | None,
+            *,
+            require_streaming: bool = False,
+            statements: bool = False,
+            frames: bool = False,
+        ) -> AsyncQueryStream:
+            return AsyncQueryStream(
+                self._stream_ops(),
+                query,
+                params or None,
+                session_id=session_id,
+                txn_id=txn_id,
+                require_streaming=require_streaming,
+                statements=statements,
+                frames=frames,
+            )
 
-        response = await self.query_raw(
-            query, variables, session_id=session_id, txn_id=txn_id
+        return _Executor(_executor, _stream)
+
+    # CRUD overloads --------------------------------------------------------
+
+    @overload
+    def create(
+        self,
+        record: RecordIdType,
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[M]: ...
+    @overload
+    def create(
+        self,
+        record: RecordID | StringRecordId,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def create(
+        self,
+        record: Table,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def create(
+        self,
+        record: str,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    def create(
+        self,
+        record: RecordIdType,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        """Create a record; returns an awaitable builder.
+
+        ``await db.create(record, data)`` is sugar for
+        ``await db.create(record).content(data)``. Clause methods
+        (``.content`` / ``.replace`` / ``.merge`` / ``.patch``) return the
+        builder so it stays awaitable. Pass ``into=Model`` to map the created
+        record onto ``Model``.
+        """
+        builder: AsyncCrudBuilder[Any] = AsyncCrudBuilder(
+            executor=self._make_executor(session_id, txn_id),
+            operation="CREATE",
+            record=record,
+            op_name="create",
+            always_unwrap=True,
+            into=into,
         )
-        self.check_response_for_error(response, "insert")
-        self._check_query_result(response["result"][0])
-        return response["result"][0]["result"]
+        if data is _UNSET:
+            return builder
+        return builder.content(data)
 
-    async def insert_relation(
+    @overload
+    def update(
+        self,
+        record: RecordID | StringRecordId,
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[M]: ...
+    @overload
+    def update(
+        self,
+        record: Table,
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def update(
+        self,
+        record: str,
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[M | list[M]]: ...
+    @overload
+    def update(
+        self,
+        record: RecordID | StringRecordId,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def update(
+        self,
+        record: Table,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def update(
+        self,
+        record: str,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[Value]: ...
+    def update(
+        self,
+        record: RecordIdType,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        """Update records; returns an awaitable builder.
+
+        Optional clause methods ``.content`` / ``.replace`` / ``.merge`` /
+        ``.patch`` return the builder so it stays awaitable. Pass ``into=Model``
+        to map the returned record(s) onto ``Model`` / ``list[Model]``.
+        """
+        builder: AsyncCrudBuilder[Any] = AsyncCrudBuilder(
+            executor=self._make_executor(session_id, txn_id),
+            operation="UPDATE",
+            record=record,
+            op_name="update",
+            into=into,
+        )
+        if data is _UNSET:
+            return builder
+        return builder.content(data)
+
+    @overload
+    def upsert(
+        self,
+        record: RecordID | StringRecordId,
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[M]: ...
+    @overload
+    def upsert(
+        self,
+        record: Table,
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def upsert(
+        self,
+        record: str,
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[M | list[M]]: ...
+    @overload
+    def upsert(
+        self,
+        record: RecordID | StringRecordId,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def upsert(
+        self,
+        record: Table,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def upsert(
+        self,
+        record: str,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[Value]: ...
+    def upsert(
+        self,
+        record: RecordIdType,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        """Insert or update records; returns an awaitable builder.
+
+        Optional clause methods ``.content`` / ``.replace`` / ``.merge`` /
+        ``.patch`` return the builder so it stays awaitable. Pass ``into=Model``
+        to map the returned record(s) onto ``Model`` / ``list[Model]``.
+        """
+        builder: AsyncCrudBuilder[Any] = AsyncCrudBuilder(
+            executor=self._make_executor(session_id, txn_id),
+            operation="UPSERT",
+            record=record,
+            op_name="upsert",
+            into=into,
+        )
+        if data is _UNSET:
+            return builder
+        return builder.content(data)
+
+    @overload
+    def delete(
+        self,
+        record: RecordID | StringRecordId,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[M | None]: ...
+    @overload
+    def delete(
+        self,
+        record: Table,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def delete(
+        self,
+        record: str,
+        *,
+        into: type[M],
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[M | list[M] | None]: ...
+    @overload
+    def delete(
+        self,
+        record: RecordID | StringRecordId,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[dict[str, Value] | None]: ...
+    @overload
+    def delete(
+        self,
+        record: Table,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def delete(
+        self,
+        record: str,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[Value]: ...
+    def delete(
+        self,
+        record: RecordIdType,
+        *,
+        into: type[M] | None = None,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        """Delete records; returns an awaitable builder.
+
+        A ``RecordID`` (or ``StringRecordId``) resolves to the deleted record, or
+        ``None`` when no record was deleted (matching select); a ``Table`` (or
+        bare name) to the list of deleted records. ``DELETE`` has no clause
+        methods. Pass ``into=Model`` to map the deleted record(s) onto ``Model``.
+        """
+        return AsyncCrudBuilder(
+            executor=self._make_executor(session_id, txn_id),
+            operation="DELETE",
+            record=record,
+            op_name="delete",
+            into=into,
+        )
+
+    @overload
+    def insert(
         self,
         table: str | Table,
-        data: Value,
+        data: Value = _UNSET,
+        *,
+        relation: bool = False,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncInsertBuilder[Value]: ...
+    @overload
+    def insert(
+        self,
+        table: str | Table,
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        relation: bool = False,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncInsertBuilder[M]: ...
+    def insert(
+        self,
+        table: str | Table,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+        relation: bool = False,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncInsertBuilder[Any]:
+        """Insert record(s) or relation(s); returns an awaitable builder.
+
+        Pass ``relation=True`` (or chain ``.relation()``) for ``INSERT
+        RELATION INTO``. Awaiting the builder (or ``.execute()``) runs it. Pass
+        ``into=Model`` to map the inserted records onto ``list[Model]``.
+        """
+        builder: AsyncInsertBuilder[Any] = AsyncInsertBuilder(
+            executor=self._make_executor(session_id, txn_id),
+            table=table,
+            relation=relation,
+            into=into,
+        )
+        if data is _UNSET:
+            return builder
+        return builder.content(data)
+
+    async def run(
+        self,
+        name: str,
+        args: list[Value] | None = None,
+        version: str | None = None,
+        *,
         session_id: UUID | None = None,
         txn_id: UUID | None = None,
     ) -> Value:
-        variables: dict[str, Any] = {}
-        table_ref = self._resource_to_variable(table, variables, "_table")
-        variables["_data"] = data
-        query = f"INSERT RELATION INTO {table_ref} $_data"
-
-        response = await self.query_raw(
-            query, variables, session_id=session_id, txn_id=txn_id
-        )
-        self.check_response_for_error(response, "insert_relation")
-        self._check_query_result(response["result"][0])
-        return response["result"][0]["result"]
+        kwargs: dict[str, Any] = {"name": name}
+        if version is not None:
+            kwargs["version"] = version
+        if args is not None:
+            kwargs["args"] = args
+        if session_id is not None:
+            kwargs["session"] = session_id
+        if txn_id is not None:
+            kwargs["txn"] = txn_id
+        message = RequestMessage(RequestMethod.RUN, **kwargs)
+        response = await self._send(message, "run")
+        self.check_response_for_result(response, "run")
+        return response["result"]
 
     async def live(
         self,
         table: str | Table,
         diff: bool = False,
         session_id: UUID | None = None,
-    ) -> UUID:
-        kwargs: dict[str, Any] = {"table": table}
+    ) -> AsyncLiveSubscription:
+        """Start a live query on *table* and return its subscription.
+
+        The subscription is also the query's UUID. Iterate it with
+        ``async for`` for notifications, and ``kill()`` it, or use it with
+        ``async with``, to stop the query.
+
+        Pass ``diff=True`` for JSON-Patch notifications. Consume notifications
+        with :meth:`subscribe_live` and stop the query with :meth:`kill`.
+        """
+        kwargs: dict[str, Any] = {"table": table, "diff": diff}
         if session_id is not None:
             kwargs["session"] = session_id
         message = RequestMessage(RequestMethod.LIVE, **kwargs)
@@ -477,12 +2364,58 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
         uuid = response["result"]
         assert uuid not in self.live_queues
         self.live_queues[str(uuid)] = []
-        return uuid
+        live_id = UUID(str(uuid))
+        self._track_live(live_id, table, diff, session_id)
+        subscription = AsyncLiveSubscription(live_id, self, session_id, managed=True)
+        self._live_tracker.add(subscription)
+        # Listening from now, so nothing that changes before the caller starts
+        # iterating is lost.
+        subscription._hold(self._open_live(subscription))  # pyright: ignore[reportPrivateUsage]
+        return subscription
+
+    def live_of(
+        self, live_id: str | UUID, session_id: UUID | None = None
+    ) -> AsyncLiveSubscription:
+        """Attach to a live query started some other way, by its id.
+
+        For example one started with ``LIVE SELECT`` through :meth:`query`.
+        Its notifications are delivered from now on; the query is not
+        restarted after a reconnect, since the connection does not know it.
+        """
+        subscription = AsyncLiveSubscription(live_id, self, session_id, managed=False)
+        self._live_tracker.add(subscription)
+        subscription._hold(self._open_live(subscription))  # pyright: ignore[reportPrivateUsage]
+        return subscription
 
     async def subscribe_live(
         self, query_uuid: str | UUID
     ) -> AsyncGenerator[dict[str, Value], None]:
-        result_queue: Queue[dict[str, Any]] = Queue()
+        """Return an async generator yielding notifications for a live query.
+
+        Multiple consumers may subscribe to the same ``query_uuid``; each gets
+        its own queue and receives every notification. The generator ends
+        (a plain ``return``, so ``async for`` stops cleanly) when the query is
+        killed via :meth:`kill` or the connection is closed via :meth:`close`.
+
+        :raises ConnectionUnavailableError: if the connection drops while the
+            subscription is active. That is not a clean end of stream - some
+            changes to the table went undelivered - so it is raised rather than
+            ending the iteration, matching the blocking transport.
+
+        A subscription from :meth:`live` already holds a registered generator,
+        which is handed over rather than registering a second one.
+        """
+        if isinstance(query_uuid, AsyncLiveSubscription):
+            held = query_uuid._take()  # pyright: ignore[reportPrivateUsage]
+            if held is not None:
+                return cast(AsyncGenerator[dict[str, Value], None], held)
+        return self._open_live(query_uuid)
+
+    def _open_live(
+        self, query_uuid: str | UUID
+    ) -> AsyncGenerator[dict[str, Value], None]:
+        """The body of :meth:`subscribe_live`: registers at once, awaits nothing."""
+        result_queue: Queue[Any] = Queue()
         suid = str(query_uuid)
 
         # Auto-register if not already registered
@@ -490,37 +2423,93 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
             self.live_queues[suid] = []
 
         self.live_queues[suid].append(result_queue)
+        self._resume_reader()
 
         async def _iter() -> AsyncGenerator[dict[str, Any], None]:
-            while True:
-                ret = await result_queue.get()
-                yield ret["result"]
+            try:
+                while True:
+                    ret = await result_queue.get()
+                    # ``kill`` / ``close`` push this sentinel to wake waiting
+                    # consumers so the generator terminates instead of leaking.
+                    if ret is _LIVE_QUEUE_CLOSED:
+                        return
+                    if ret is _LIVE_QUEUE_BROKEN:
+                        raise ConnectionUnavailableError(
+                            "WebSocket connection closed while subscribed to "
+                            f"live query {suid}."
+                        )
+                    # The server's own end-of-subscription marker. `kill()`
+                    # here pushes the sentinel above and never reaches this,
+                    # but a query killed by anyone else - another connection,
+                    # or the server - arrives only as this notification, and
+                    # yielding it handed the consumer a notification whose
+                    # `result` was None before iterating on forever.
+                    if isinstance(ret, dict) and ret.get("action") == _LIVE_KILLED:
+                        return
+                    yield ret
+            finally:
+                # Deregister this consumer's queue when the generator is
+                # closed (consumer break, GC, kill, or close).
+                queues = self.live_queues.get(suid)
+                if queues is not None and result_queue in queues:
+                    queues.remove(result_queue)
 
-        return _iter()
+        subscription = _iter()
+        # Registration happens above, before anything is iterated, so release
+        # has to be reachable without iterating. A generator that is never
+        # started does not run its `finally` on close or GC, so a subscription
+        # set up and then abandoned stayed registered for the life of the
+        # connection while notifications kept filling a queue nobody drains.
+        #
+        # Closing over `live_queues` rather than `self`, so the finalizer does
+        # not keep the connection alive for as long as the generator.
+        weakref.finalize(
+            subscription, _release_live_queue, self.live_queues, suid, result_queue
+        )
+        return subscription
 
     async def kill(
         self,
         query_uuid: str | UUID,
         session_id: UUID | None = None,
     ) -> None:
-        kwargs: dict[str, Any] = {"uuid": query_uuid}
+        """Kill a running live query by its UUID."""
+        suid = str(query_uuid)
+        self._check_event_loop()
+        await self._await_reconnect()
+        # The caller holds the id the query was started under; after a
+        # reconnect the server knows it by another. Read only now, once a
+        # reconnect under way has restarted the query under it.
+        current = self._registry.resolve(suid)
+        kwargs: dict[str, Any] = {
+            "uuid": query_uuid if current == suid else UUID(current)
+        }
         if session_id is not None:
             kwargs["session"] = session_id
         message = RequestMessage(RequestMethod.KILL, **kwargs)
         await self._send(message, "kill")
-        self.live_queues.pop(str(query_uuid), None)
+        # Wake any subscribers so their generators terminate, then drop the
+        # registration. Each ``_iter`` removes its own queue in its ``finally``.
+        self._end_live(suid, _LIVE_QUEUE_CLOSED)
 
     async def attach(self) -> UUID:
+        await self.connect()
+        self._require(Features.SESSIONS)
         session_id = UUID(str(uuid.uuid4()))
         message = RequestMessage(RequestMethod.ATTACH, session=session_id)
         await self._send(message, "attach")
+        self._registry.state(session_id)
         return session_id
 
     async def detach(self, session_id: UUID) -> None:
         message = RequestMessage(RequestMethod.DETACH, session=session_id)
         await self._send(message, "detach")
+        self._end_session_live(session_id)
+        self._registry.forget_session(session_id)
 
     async def begin(self, session_id: UUID | None = None) -> UUID:
+        await self.connect()
+        self._require(Features.TRANSACTIONS)
         kwargs: dict[str, Any] = {}
         if session_id is not None:
             kwargs["session"] = session_id
@@ -558,38 +2547,129 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
             message = RequestMessage(RequestMethod.CANCEL, txn=txn_id)
         await self._send(message, "cancel")
 
+    async def fork_session(
+        self, session_id: UUID | None = None
+    ) -> "AsyncSurrealSession":
+        """A new session that starts as a copy of another.
+
+        Copies the namespace and database, the variables and the
+        authentication of *session_id* - the connection's own session by
+        default - into a newly attached session. The two are independent from
+        then on. Needs SurrealDB 3.0 or later.
+
+        The fork gets the access token but not the refresh token, which the
+        server takes only once: shared, renewing either session spent it for
+        both, and the other's next renewal was refused. Renew the fork by
+        signing it in, or by refreshing the source and authenticating the
+        fork with the new access token.
+        """
+        if session_id is not None and session_id not in self._registry.sessions:
+            raise ValueError(
+                f"session {session_id} is not attached to this connection, so "
+                "there is nothing to fork; fork a session that is still open"
+            )
+        source = self._registry.state(session_id).fork()
+        forked = await self.attach()
+        try:
+            authenticated = await self._restore_session(forked, source)
+        except BaseException:
+            await self.detach(forked)
+            raise
+        state = self._registry.state(forked)
+        state.namespace, state.database = source.namespace, source.database
+        state.variables = source.variables
+        if authenticated and source.access is not None:
+            state.access, state.refresh = source.access, None
+        return AsyncSurrealSession(self, forked)
+
+    async def begin_transaction(
+        self, session_id: UUID | None = None
+    ) -> "AsyncSurrealTransaction":
+        """Begin a transaction on a session - the connection's own by default.
+
+        Commit or cancel it, or use it as a context manager, which commits
+        when the block finishes and cancels if it raises. Needs SurrealDB 3.0
+        or later; :meth:`batch` works on every version.
+        """
+        txn_id = await self.begin(session_id=session_id)
+        return AsyncSurrealTransaction(self, session_id, txn_id)
+
     async def new_session(self) -> "AsyncSurrealSession":
         session_id = await self.attach()
+        # A freshly attached session starts unauthenticated on the server -
+        # it does not inherit the socket's auth automatically. Replay the
+        # connection's current token so the new session shares the same
+        # identity, matching the documented usage where you sign in once on
+        # the connection and then open sessions from it. Callers can still
+        # sign in / invalidate on the session to change its identity.
+        if self.token is not None:
+            try:
+                await self.authenticate(self.token, session_id=session_id)
+            except NotAllowedError as e:
+                if not e.is_token_expired:
+                    await self.detach(session_id)
+                    raise
+                self._note_signed_out(None)
         return AsyncSurrealSession(self, session_id)
 
-    async def upsert(
-        self,
-        record: RecordIdType,
-        data: Value | None = None,
-        session_id: UUID | None = None,
-        txn_id: UUID | None = None,
-    ) -> Value:
-        variables: dict[str, Any] = {}
-        resource_ref = self._resource_to_variable(record, variables, "_resource")
-
-        if data is None:
-            query = f"UPSERT {resource_ref}"
-        else:
-            variables["_content"] = data
-            query = f"UPSERT {resource_ref} CONTENT $_content"
-
-        response = await self.query_raw(
-            query, variables, session_id=session_id, txn_id=txn_id
-        )
-        self.check_response_for_error(response, "upsert")
-        self._check_query_result(response["result"][0])
-        result = response["result"][0]["result"]
-        # UPSERT on a specific record returns a single dict, on a table returns a list
-        return self._unwrap_result(
-            result, unwrap=self._is_single_record_operation(record)
-        )
-
     async def close(self) -> None:
+        """Close the websocket, if one is open. Idempotent.
+
+        Usable from a loop other than the one the connection was opened on,
+        unlike every other method: cancelling and awaiting a task that belongs
+        to another loop cannot work, so that case falls back to the same
+        non-awaiting teardown the destructor uses. Without it the advice
+        :meth:`_check_event_loop` gives - build a new connection for this loop -
+        left the old one with no way to release its socket.
+        """
+        self._closing = True
+        self._cancel_renewal()
+        renewal = self._renewal_task
+        self._renewal_task = None
+        if (
+            renewal is not None
+            and not renewal.done()
+            and renewal is not _current_task()
+        ):
+            renewal.cancel()
+        task = self._reconnect_task
+        self._reconnect_task = None
+        if task is not None and not task.done() and task is not _current_task():
+            task.cancel()
+        # Wake any live subscribers so their generators terminate instead of
+        # waiting forever on a socket that is about to disappear.
+        for queues in self.live_queues.values():
+            for queue in queues:
+                queue.put_nowait(_LIVE_QUEUE_CLOSED)
+        self._live_tracker.ended()
+        await self._teardown()
+        # A new socket is a new server-side session, so nothing about this one
+        # is replayed into it.
+        self._registry.clear()
+        self._set_status("disconnected")
+
+    async def _teardown(self) -> None:
+        """Release the socket and its reader, keeping the session state."""
+        # Streams get an error rather than a clean-end sentinel: a caller
+        # iterating rows asked for all of them, and a socket taken away
+        # mid-stream means it will not get them. `close()` does not go through
+        # `_fail_pending`, so without this a stream would wait on a queue that
+        # nothing will ever fill again - and `_connect_locked` calls `close()`
+        # itself when it finds a dead reader on a live socket, so this is
+        # reachable without the caller closing anything.
+        self._break_streams(
+            ConnectionUnavailableError(
+                "the connection was closed while a streaming query was open."
+            )
+        )
+
+        if self.loop is not None and self.loop is not asyncio.get_running_loop():
+            _abandon_connection(self.socket, self.recv_task, self.loop)
+            self.socket = None
+            self.recv_task = None
+            self._forget_uncorrelated()
+            return
+
         # Cancel the receive task first
         if self.recv_task and not self.recv_task.done():
             self.recv_task.cancel()
@@ -612,6 +2692,47 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
                 self.socket = None
                 self.recv_task = None
 
+        # Unconditionally, not only when there was a socket to close: a new
+        # socket is a new conversation, and nothing about the old one may be
+        # waiting to be delivered into it.
+        self._forget_uncorrelated()
+
+    def __del__(self) -> None:
+        """Release the socket if the connection is dropped without ``close()``.
+
+        Each open connection holds a TCP socket and a file descriptor, plus its
+        own reader task and the ``websockets`` keepalive task. Nothing else
+        released them, so a program that built connections and let them go out
+        of scope accumulated all four per connection until the process exited -
+        and because ``asyncio.run`` closes its loop, the leftover tasks also
+        produced "Task was destroyed but it is pending!" on the way out, which
+        reads as a bug in the caller's code rather than in the connection.
+
+        The warning is a ``ResourceWarning``, like the one an unclosed file
+        gives: off by default, visible under ``-W default`` and in tests.
+        """
+        socket = getattr(self, "socket", None)
+        recv_task = getattr(self, "recv_task", None)
+        if socket is None and recv_task is None:
+            return
+        # `try`/`except`, not `contextlib.suppress`: this runs in a destructor,
+        # and at interpreter shutdown a module-global lookup can already have
+        # been torn down - which is the same reason the body below is defensive
+        # at all. `BlockingWsSurrealConnection.__del__` is written the same way.
+        # No `stacklevel` either: the "caller" of a destructor is whatever
+        # happened to drop the last reference, so pointing at it misattributes
+        # the warning. `source=self` is what identifies the leaked connection.
+        try:  # noqa: SIM105
+            warnings.warn(  # noqa: B028 - see the comment above
+                f"unclosed connection to {getattr(self, 'raw_url', '?')} - "
+                "await close(), or use `async with`",
+                ResourceWarning,
+                source=self,
+            )
+        except Exception:
+            pass
+        _abandon_connection(socket, recv_task, getattr(self, "loop", None))
+
     async def __aenter__(self) -> "AsyncWsSurrealConnection":
         """
         Asynchronous context manager entry.
@@ -632,6 +2753,35 @@ class AsyncWsSurrealConnection(AsyncTemplate, UtilsMixin):
         """
         await self.close()
 
+    @property
+    def files(self) -> AsyncFiles:
+        """Typed helpers over the ``file::*`` functions - see `surrealdb.connections.files`."""
+        return AsyncFiles(self)
+
+    def relate(
+        self,
+        from_: RelateEnd,
+        edge: RelateEdge,
+        to: RelateEnd,
+        data: Value = _UNSET,
+        *,
+        session_id: UUID | None = None,
+        txn_id: UUID | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        """Relate *from_* to *to* through *edge*: ``RELATE from->edge->to``.
+
+        *edge* is the edge table (a name or ``Table``), or a ``RecordID`` for
+        an edge with a chosen id. *from_* and *to* are records, or lists of
+        records to relate every pair. Pass *data* to set the edge's content.
+        Returns an awaitable builder taking ``.output()`` and ``.timeout()``.
+        """
+        builder: AsyncCrudBuilder[Any] = relate_builder(
+            AsyncCrudBuilder, self._make_executor(session_id, txn_id), from_, edge, to
+        )
+        if data is not _UNSET:
+            builder.content(data)
+        return builder
+
 
 class AsyncSurrealSession:
     def __init__(
@@ -642,15 +2792,63 @@ class AsyncSurrealSession:
         self._connection = connection
         self._session_id = session_id
 
-    async def use(self, namespace: str, database: str) -> None:
+    def timeout(self, seconds: float | None) -> AbstractContextManager[None]:
+        """Wait *seconds* for each reply inside the block - see the connection's."""
+        return self._connection.timeout(seconds)
+
+    @property
+    def id(self) -> UUID:
+        """The session's id on the server."""
+        return self._session_id
+
+    @property
+    def server_version(self) -> str | None:
+        """The version the connected server reported."""
+        return self._connection.server_version
+
+    async def use(
+        self,
+        namespace: str | NullType | None = None,
+        database: str | NullType | None = None,
+    ) -> None:
         await self._connection.use(namespace, database, session_id=self._session_id)
 
-    async def query(
+    async def refresh(self, tokens: Tokens | None = None) -> Tokens:
+        return await self._connection.refresh(tokens, session_id=self._session_id)
+
+    async def revoke(self, tokens: Tokens | None = None) -> None:
+        await self._connection.revoke(tokens, session_id=self._session_id)
+
+    async def reset(self) -> None:
+        await self._connection.reset(session_id=self._session_id)
+
+    async def fork(self) -> "AsyncSurrealSession":
+        """A new session that starts as a copy of this one."""
+        return await self._connection.fork_session(self._session_id)
+
+    def query(
         self,
         query: str,
         vars: dict[str, Value] | None = None,
-    ) -> Value:
-        return await self._connection.query(query, vars, session_id=self._session_id)
+    ) -> AsyncQueryBuilder:
+        return self._connection.query(query, vars, session_id=self._session_id)
+
+    def batch(self) -> AsyncBatch:
+        """Statements to send together as one transaction, in one request.
+
+        Add them with ``.query(sql, vars)`` and run them with ``.execute()``.
+        They all apply or none do. Works on every transport and version.
+        """
+        return AsyncBatch(self)
+
+    async def query_raw(
+        self,
+        query: str,
+        vars: dict[str, Value] | None = None,
+    ) -> dict[str, Any]:
+        return await self._connection.query_raw(
+            query, vars, session_id=self._session_id
+        )
 
     async def signin(self, vars: dict[str, Value]) -> Tokens:
         return await self._connection.signin(vars, session_id=self._session_id)
@@ -664,78 +2862,285 @@ class AsyncSurrealSession:
     async def invalidate(self) -> None:
         await self._connection.invalidate(session_id=self._session_id)
 
+    async def info(self) -> Value:
+        return await self._connection.info(session_id=self._session_id)
+
+    async def version(self) -> str:
+        return await self._connection.version(session_id=self._session_id)
+
     async def let(self, key: str, value: Value) -> None:
         await self._connection.let(key, value, session_id=self._session_id)
+
+    async def set(self, key: str, value: Value) -> None:
+        """Set a session variable; ``let`` by its JS name."""
+        await self.let(key, value)
 
     async def unset(self, key: str) -> None:
         await self._connection.unset(key, session_id=self._session_id)
 
-    async def select(self, record: RecordIdType) -> Value:
-        return await self._connection.select(record, session_id=self._session_id)
-
-    async def create(
+    @overload
+    def select(
+        self, record: RecordID | StringRecordId, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | None]: ...
+    @overload
+    def select(self, record: Table, *, into: type[M]) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def select(
+        self, record: str, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | list[M] | None]: ...
+    @overload
+    def select(
+        self, record: RecordID | StringRecordId
+    ) -> AsyncCrudBuilder[dict[str, Value] | None]: ...
+    @overload
+    def select(self, record: Table) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def select(self, record: str) -> AsyncCrudBuilder[Value]: ...
+    def select(
         self,
         record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        return await self._connection.create(record, data, session_id=self._session_id)
-
-    async def update(
-        self,
-        record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        return await self._connection.update(record, data, session_id=self._session_id)
-
-    async def merge(
-        self,
-        record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        return await self._connection.merge(record, data, session_id=self._session_id)
-
-    async def patch(
-        self,
-        record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        return await self._connection.patch(record, data, session_id=self._session_id)
-
-    async def delete(self, record: RecordIdType) -> Value:
-        return await self._connection.delete(record, session_id=self._session_id)
-
-    async def insert(
-        self,
-        table: str | Table,
-        data: Value,
-    ) -> Value:
-        return await self._connection.insert(table, data, session_id=self._session_id)
-
-    async def insert_relation(
-        self,
-        table: str | Table,
-        data: Value,
-    ) -> Value:
-        return await self._connection.insert_relation(
-            table, data, session_id=self._session_id
+        *,
+        fields: Sequence[str] | None = None,
+        into: type[M] | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        # Branched because the overloads take `into: type[M]` or nothing, not
+        # `type[M] | None` - the same reason the old delegation branched.
+        if into is None:
+            return self._connection.select(
+                record, fields=fields, session_id=self._session_id
+            )
+        return self._connection.select(
+            record, fields=fields, into=into, session_id=self._session_id
         )
 
-    async def upsert(
+    @overload
+    def create(
+        self, record: RecordIdType, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M]: ...
+    @overload
+    def create(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def create(
+        self, record: Table, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def create(
+        self, record: str, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    def create(
         self,
         record: RecordIdType,
-        data: Value | None = None,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        if into is None:
+            return self._connection.create(record, data, session_id=self._session_id)
+        return self._connection.create(
+            record, data, into=into, session_id=self._session_id
+        )
+
+    @overload
+    def update(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M]: ...
+    @overload
+    def update(
+        self, record: Table, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def update(
+        self, record: str, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | list[M]]: ...
+    @overload
+    def update(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def update(
+        self, record: Table, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def update(self, record: str, data: Value = _UNSET) -> AsyncCrudBuilder[Value]: ...
+    def update(
+        self,
+        record: RecordIdType,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        if into is None:
+            return self._connection.update(record, data, session_id=self._session_id)
+        return self._connection.update(
+            record, data, into=into, session_id=self._session_id
+        )
+
+    @overload
+    def upsert(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M]: ...
+    @overload
+    def upsert(
+        self, record: Table, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def upsert(
+        self, record: str, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | list[M]]: ...
+    @overload
+    def upsert(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def upsert(
+        self, record: Table, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def upsert(self, record: str, data: Value = _UNSET) -> AsyncCrudBuilder[Value]: ...
+    def upsert(
+        self,
+        record: RecordIdType,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        if into is None:
+            return self._connection.upsert(record, data, session_id=self._session_id)
+        return self._connection.upsert(
+            record, data, into=into, session_id=self._session_id
+        )
+
+    @overload
+    def delete(
+        self, record: RecordID | StringRecordId, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | None]: ...
+    @overload
+    def delete(self, record: Table, *, into: type[M]) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def delete(
+        self, record: str, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | list[M] | None]: ...
+    @overload
+    def delete(
+        self, record: RecordID | StringRecordId
+    ) -> AsyncCrudBuilder[dict[str, Value] | None]: ...
+    @overload
+    def delete(self, record: Table) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def delete(self, record: str) -> AsyncCrudBuilder[Value]: ...
+    def delete(
+        self, record: RecordIdType, *, into: type[M] | None = None
+    ) -> AsyncCrudBuilder[Any]:
+        if into is None:
+            return self._connection.delete(record, session_id=self._session_id)
+        return self._connection.delete(record, into=into, session_id=self._session_id)
+
+    @overload
+    def insert(
+        self, table: str | Table, data: Value = _UNSET, *, relation: bool = False
+    ) -> AsyncInsertBuilder[Value]: ...
+    @overload
+    def insert(
+        self,
+        table: str | Table,
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        relation: bool = False,
+    ) -> AsyncInsertBuilder[M]: ...
+    def insert(
+        self,
+        table: str | Table,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+        relation: bool = False,
+    ) -> AsyncInsertBuilder[Any]:
+        if into is None:
+            return self._connection.insert(
+                table, data, relation=relation, session_id=self._session_id
+            )
+        return self._connection.insert(
+            table, data, into=into, relation=relation, session_id=self._session_id
+        )
+
+    async def api(
+        self,
+        path: str,
+        *,
+        method: str = "get",
+        body: Value = None,
+        headers: Mapping[str, str] | None = None,
+        query: Mapping[str, str] | None = None,
+    ) -> ApiResponse:
+        return await self._connection.api(
+            path,
+            method=method,
+            body=body,
+            headers=headers,
+            query=query,
+            session_id=self._session_id,
+        )
+
+    async def gql(
+        self, query: str, vars: Mapping[str, Value] | None = None
+    ) -> list[Value]:
+        return await self._connection.gql(query, vars, session_id=self._session_id)
+
+    async def graphql(
+        self,
+        query: str,
+        variables: Mapping[str, Value] | None = None,
+        operation_name: str | None = None,
+    ) -> dict[str, Value]:
+        return await self._connection.graphql(
+            query, variables, operation_name, session_id=self._session_id
+        )
+
+    async def run(
+        self,
+        name: str,
+        args: list[Value] | None = None,
+        version: str | None = None,
     ) -> Value:
-        return await self._connection.upsert(record, data, session_id=self._session_id)
+        return await self._connection.run(
+            name, args, version, session_id=self._session_id
+        )
 
     async def live(
         self,
         table: str | Table,
         diff: bool = False,
-    ) -> UUID:
+    ) -> AsyncLiveSubscription:
         return await self._connection.live(table, diff, session_id=self._session_id)
+
+    def live_of(self, live_id: str | UUID) -> AsyncLiveSubscription:
+        return self._connection.live_of(live_id, session_id=self._session_id)
 
     async def kill(self, query_uuid: str | UUID) -> None:
         await self._connection.kill(query_uuid, session_id=self._session_id)
+
+    async def subscribe_live(
+        self, query_uuid: str | UUID
+    ) -> AsyncGenerator[dict[str, Value], None]:
+        """Return an async generator of notifications for a live query.
+
+        The session exposed :meth:`live` and :meth:`kill` but not this, so a
+        session could start a live query it had no way to consume - callers had
+        to reach past the wrapper to the underlying connection. Subscriptions
+        are keyed by the live-query id rather than the session, so this
+        forwards unchanged.
+
+        Awaited like the connection's own, since that builds the generator and
+        returns it rather than being an async generator function itself::
+
+            notifications = await session.subscribe_live(live_id)
+            async for change in notifications:
+                ...
+        """
+        return await self._connection.subscribe_live(query_uuid)
 
     async def begin_transaction(self) -> "AsyncSurrealTransaction":
         txn_id = await self._connection.begin(session_id=self._session_id)
@@ -744,130 +3149,366 @@ class AsyncSurrealSession:
     async def close_session(self) -> None:
         await self._connection.detach(self._session_id)
 
+    @property
+    def files(self) -> AsyncFiles:
+        """Typed helpers over the ``file::*`` functions - see `surrealdb.connections.files`."""
+        return AsyncFiles(self)
+
+    def relate(
+        self,
+        from_: RelateEnd,
+        edge: RelateEdge,
+        to: RelateEnd,
+        data: Value = _UNSET,
+    ) -> AsyncCrudBuilder[Any]:
+        return self._connection.relate(
+            from_, edge, to, data, session_id=self._session_id
+        )
+
 
 class AsyncSurrealTransaction:
     def __init__(
         self,
         connection: AsyncWsSurrealConnection,
-        session_id: UUID,
+        session_id: UUID | None,
         txn_id: UUID,
     ) -> None:
         self._connection = connection
         self._session_id = session_id
         self._txn_id = txn_id
+        # Set once commit() or cancel() succeeds: the transaction is gone, so
+        # leaving a `with` block must not try to finish it again.
+        self._finished = False
 
-    async def query(
+    def timeout(self, seconds: float | None) -> AbstractContextManager[None]:
+        """Wait *seconds* for each reply inside the block - see the connection's."""
+        return self._connection.timeout(seconds)
+
+    def query(
         self,
         query: str,
         vars: dict[str, Value] | None = None,
-    ) -> Value:
-        return await self._connection.query(
+    ) -> AsyncQueryBuilder:
+        return self._connection.query(
             query,
             vars,
             session_id=self._session_id,
             txn_id=self._txn_id,
         )
 
-    async def select(self, record: RecordIdType) -> Value:
-        return await self._connection.select(
-            record,
+    async def query_raw(
+        self,
+        query: str,
+        vars: dict[str, Value] | None = None,
+    ) -> dict[str, Any]:
+        return await self._connection.query_raw(
+            query,
+            vars,
             session_id=self._session_id,
             txn_id=self._txn_id,
         )
 
-    async def create(
+    async def info(self) -> Value:
+        return await self._connection.info(session_id=self._session_id)
+
+    async def version(self) -> str:
+        return await self._connection.version(session_id=self._session_id)
+
+    @overload
+    def select(
+        self, record: RecordID | StringRecordId, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | None]: ...
+    @overload
+    def select(self, record: Table, *, into: type[M]) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def select(
+        self, record: str, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | list[M] | None]: ...
+    @overload
+    def select(
+        self, record: RecordID | StringRecordId
+    ) -> AsyncCrudBuilder[dict[str, Value] | None]: ...
+    @overload
+    def select(self, record: Table) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def select(self, record: str) -> AsyncCrudBuilder[Value]: ...
+    def select(
         self,
         record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        return await self._connection.create(
+        *,
+        fields: Sequence[str] | None = None,
+        into: type[M] | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        if into is None:
+            return self._connection.select(
+                record,
+                fields=fields,
+                session_id=self._session_id,
+                txn_id=self._txn_id,
+            )
+        return self._connection.select(
             record,
-            data,
+            fields=fields,
+            into=into,
             session_id=self._session_id,
             txn_id=self._txn_id,
         )
 
-    async def update(
+    @overload
+    def create(
+        self, record: RecordIdType, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M]: ...
+    @overload
+    def create(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def create(
+        self, record: Table, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def create(
+        self, record: str, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    def create(
         self,
         record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        return await self._connection.update(
-            record,
-            data,
-            session_id=self._session_id,
-            txn_id=self._txn_id,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        if into is None:
+            return self._connection.create(
+                record, data, session_id=self._session_id, txn_id=self._txn_id
+            )
+        return self._connection.create(
+            record, data, into=into, session_id=self._session_id, txn_id=self._txn_id
         )
 
-    async def merge(
+    @overload
+    def update(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M]: ...
+    @overload
+    def update(
+        self, record: Table, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def update(
+        self, record: str, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | list[M]]: ...
+    @overload
+    def update(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def update(
+        self, record: Table, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def update(self, record: str, data: Value = _UNSET) -> AsyncCrudBuilder[Value]: ...
+    def update(
         self,
         record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        return await self._connection.merge(
-            record,
-            data,
-            session_id=self._session_id,
-            txn_id=self._txn_id,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        if into is None:
+            return self._connection.update(
+                record, data, session_id=self._session_id, txn_id=self._txn_id
+            )
+        return self._connection.update(
+            record, data, into=into, session_id=self._session_id, txn_id=self._txn_id
         )
 
-    async def patch(
+    @overload
+    def upsert(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M]: ...
+    @overload
+    def upsert(
+        self, record: Table, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def upsert(
+        self, record: str, data: Value = _UNSET, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | list[M]]: ...
+    @overload
+    def upsert(
+        self, record: RecordID | StringRecordId, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def upsert(
+        self, record: Table, data: Value = _UNSET
+    ) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def upsert(self, record: str, data: Value = _UNSET) -> AsyncCrudBuilder[Value]: ...
+    def upsert(
         self,
         record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        return await self._connection.patch(
-            record,
-            data,
-            session_id=self._session_id,
-            txn_id=self._txn_id,
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+    ) -> AsyncCrudBuilder[Any]:
+        if into is None:
+            return self._connection.upsert(
+                record, data, session_id=self._session_id, txn_id=self._txn_id
+            )
+        return self._connection.upsert(
+            record, data, into=into, session_id=self._session_id, txn_id=self._txn_id
         )
 
-    async def delete(self, record: RecordIdType) -> Value:
-        return await self._connection.delete(
-            record,
-            session_id=self._session_id,
-            txn_id=self._txn_id,
+    @overload
+    def delete(
+        self, record: RecordID | StringRecordId, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | None]: ...
+    @overload
+    def delete(self, record: Table, *, into: type[M]) -> AsyncCrudBuilder[list[M]]: ...
+    @overload
+    def delete(
+        self, record: str, *, into: type[M]
+    ) -> AsyncCrudBuilder[M | list[M] | None]: ...
+    @overload
+    def delete(
+        self, record: RecordID | StringRecordId
+    ) -> AsyncCrudBuilder[dict[str, Value] | None]: ...
+    @overload
+    def delete(self, record: Table) -> AsyncCrudBuilder[list[Value]]: ...
+    @overload
+    def delete(self, record: str) -> AsyncCrudBuilder[Value]: ...
+    def delete(
+        self, record: RecordIdType, *, into: type[M] | None = None
+    ) -> AsyncCrudBuilder[Any]:
+        if into is None:
+            return self._connection.delete(
+                record, session_id=self._session_id, txn_id=self._txn_id
+            )
+        return self._connection.delete(
+            record, into=into, session_id=self._session_id, txn_id=self._txn_id
         )
 
-    async def insert(
+    @overload
+    def insert(
+        self, table: str | Table, data: Value = _UNSET, *, relation: bool = False
+    ) -> AsyncInsertBuilder[Value]: ...
+    @overload
+    def insert(
         self,
         table: str | Table,
-        data: Value,
-    ) -> Value:
-        return await self._connection.insert(
-            table,
-            data,
-            session_id=self._session_id,
-            txn_id=self._txn_id,
-        )
-
-    async def insert_relation(
+        data: Value = _UNSET,
+        *,
+        into: type[M],
+        relation: bool = False,
+    ) -> AsyncInsertBuilder[M]: ...
+    def insert(
         self,
         table: str | Table,
-        data: Value,
-    ) -> Value:
-        return await self._connection.insert_relation(
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+        relation: bool = False,
+    ) -> AsyncInsertBuilder[Any]:
+        if into is None:
+            return self._connection.insert(
+                table,
+                data,
+                relation=relation,
+                session_id=self._session_id,
+                txn_id=self._txn_id,
+            )
+        return self._connection.insert(
             table,
             data,
+            into=into,
+            relation=relation,
             session_id=self._session_id,
             txn_id=self._txn_id,
         )
 
-    async def upsert(
+    async def api(
         self,
-        record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        return await self._connection.upsert(
-            record,
-            data,
+        path: str,
+        *,
+        method: str = "get",
+        body: Value = None,
+        headers: Mapping[str, str] | None = None,
+        query: Mapping[str, str] | None = None,
+    ) -> ApiResponse:
+        return await self._connection.api(
+            path,
+            method=method,
+            body=body,
+            headers=headers,
+            query=query,
             session_id=self._session_id,
             txn_id=self._txn_id,
+        )
+
+    async def run(
+        self,
+        name: str,
+        args: list[Value] | None = None,
+        version: str | None = None,
+    ) -> Value:
+        return await self._connection.run(
+            name,
+            args,
+            version,
+            session_id=self._session_id,
+            txn_id=self._txn_id,
+        )
+
+    async def let(self, key: str, value: Value) -> None:
+        await self._connection.let(
+            key, value, session_id=self._session_id, txn_id=self._txn_id
+        )
+
+    async def unset(self, key: str) -> None:
+        await self._connection.unset(
+            key, session_id=self._session_id, txn_id=self._txn_id
         )
 
     async def commit(self) -> None:
         await self._connection.commit(self._txn_id, session_id=self._session_id)
+        self._finished = True
 
     async def cancel(self) -> None:
         await self._connection.cancel(self._txn_id, session_id=self._session_id)
+        self._finished = True
+
+    async def set(self, key: str, value: Value) -> None:
+        """Set a variable for the rest of the transaction; ``let`` by its JS name."""
+        await self.let(key, value)
+
+    async def __aenter__(self) -> "AsyncSurrealTransaction":
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        if self._finished:
+            return
+        if exc_type is None:
+            await self.commit()
+        else:
+            await self.cancel()
+
+    @property
+    def files(self) -> AsyncFiles:
+        """Typed helpers over the ``file::*`` functions - see `surrealdb.connections.files`."""
+        return AsyncFiles(self)
+
+    def relate(
+        self,
+        from_: RelateEnd,
+        edge: RelateEdge,
+        to: RelateEnd,
+        data: Value = _UNSET,
+    ) -> AsyncCrudBuilder[Any]:
+        return self._connection.relate(
+            from_, edge, to, data, session_id=self._session_id, txn_id=self._txn_id
+        )

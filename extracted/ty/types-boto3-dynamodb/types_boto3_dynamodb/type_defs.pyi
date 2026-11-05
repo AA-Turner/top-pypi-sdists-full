@@ -32,6 +32,9 @@ from .literals import (
     BackupTypeType,
     BatchStatementErrorCodeEnumType,
     BillingModeType,
+    BulkOperationInputFormatType,
+    BulkOperationPerformanceTierType,
+    BulkOperationStatusType,
     ComparisonOperatorType,
     ConditionalOperatorType,
     ContinuousBackupsStatusType,
@@ -51,6 +54,7 @@ from .literals import (
     InputFormatType,
     KeyTypeType,
     MultiRegionConsistencyType,
+    OutputTypeEnumType,
     PointInTimeRecoveryStatusType,
     ProjectionTypeType,
     ReplicaStatusType,
@@ -106,6 +110,14 @@ __all__ = (
     "BatchWriteItemOutputServiceResourceTypeDef",
     "BatchWriteItemOutputTypeDef",
     "BillingModeSummaryTypeDef",
+    "BulkOperationBytesTypeDef",
+    "BulkOperationDescriptionTypeDef",
+    "BulkOperationSummaryTypeDef",
+    "BulkOperationTableDetailTypeDef",
+    "BulkOperationUsageTypeDef",
+    "BulkOperationVectorBytesTypeDef",
+    "CancelBulkOperationInputTypeDef",
+    "CancelBulkOperationOutputTypeDef",
     "CapacityTypeDef",
     "ConditionBaseImportTypeDef",
     "ConditionCheckTypeDef",
@@ -152,6 +164,9 @@ __all__ = (
     "DeleteVectorIndexActionTypeDef",
     "DescribeBackupInputTypeDef",
     "DescribeBackupOutputTypeDef",
+    "DescribeBulkOperationInputTypeDef",
+    "DescribeBulkOperationInputWaitTypeDef",
+    "DescribeBulkOperationOutputTypeDef",
     "DescribeContinuousBackupsInputTypeDef",
     "DescribeContinuousBackupsOutputTypeDef",
     "DescribeContributorInsightsInputTypeDef",
@@ -228,6 +243,7 @@ __all__ = (
     "InputFormatOptionsOutputTypeDef",
     "InputFormatOptionsTypeDef",
     "InputFormatOptionsUnionTypeDef",
+    "InputS3ConfigurationTypeDef",
     "ItemCollectionMetricsServiceResourceTypeDef",
     "ItemCollectionMetricsTableTypeDef",
     "ItemCollectionMetricsTypeDef",
@@ -246,6 +262,9 @@ __all__ = (
     "ListBackupsInputPaginateTypeDef",
     "ListBackupsInputTypeDef",
     "ListBackupsOutputTypeDef",
+    "ListBulkOperationsInputPaginateTypeDef",
+    "ListBulkOperationsInputTypeDef",
+    "ListBulkOperationsOutputTypeDef",
     "ListContributorInsightsInputTypeDef",
     "ListContributorInsightsOutputTypeDef",
     "ListExportsInputTypeDef",
@@ -265,6 +284,9 @@ __all__ = (
     "LocalSecondaryIndexTypeDef",
     "OnDemandThroughputOverrideTypeDef",
     "OnDemandThroughputTypeDef",
+    "OutputS3ConfigurationOutputTypeDef",
+    "OutputS3ConfigurationTypeDef",
+    "OutputS3ConfigurationUnionTypeDef",
     "PaginatorConfigTypeDef",
     "ParameterizedStatementTypeDef",
     "PointInTimeRecoveryDescriptionTypeDef",
@@ -327,6 +349,8 @@ __all__ = (
     "SearchVectorsOutputTypeDef",
     "SourceTableDetailsTypeDef",
     "SourceTableFeatureDetailsTypeDef",
+    "StartBulkPutItemsInputTypeDef",
+    "StartBulkPutItemsOutputTypeDef",
     "StreamSpecificationTypeDef",
     "TableAttributeValueTypeDef",
     "TableAutoScalingDescriptionTypeDef",
@@ -475,6 +499,40 @@ class BillingModeSummaryTypeDef(TypedDict):
     BillingMode: NotRequired[BillingModeType]
     LastUpdateToPayPerRequestDateTime: NotRequired[datetime]
 
+class BulkOperationBytesTypeDef(TypedDict):
+    BulkPutBytes: NotRequired[int]
+
+class BulkOperationTableDetailTypeDef(TypedDict):
+    TableName: NotRequired[str]
+    TableId: NotRequired[str]
+
+class InputS3ConfigurationTypeDef(TypedDict):
+    S3Bucket: str
+    InputFormat: BulkOperationInputFormatType
+    S3BucketOwner: NotRequired[str]
+    S3KeyPrefix: NotRequired[str]
+    InputCompressionType: NotRequired[InputCompressionTypeType]
+
+class OutputS3ConfigurationOutputTypeDef(TypedDict):
+    OutputType: list[OutputTypeEnumType]
+    S3BucketOwner: NotRequired[str]
+    S3Bucket: NotRequired[str]
+    S3KeyPrefix: NotRequired[str]
+    S3SseAlgorithm: NotRequired[S3SseAlgorithmType]
+    S3SseKmsKeyId: NotRequired[str]
+
+class BulkOperationSummaryTypeDef(TypedDict):
+    BulkOperationArn: str
+    BulkOperationStatus: BulkOperationStatusType
+    StartTime: datetime
+    EndTime: NotRequired[datetime]
+
+class BulkOperationVectorBytesTypeDef(TypedDict):
+    BulkPutVectorBytes: NotRequired[int]
+
+class CancelBulkOperationInputTypeDef(TypedDict):
+    BulkOperationArn: str
+
 class CapacityTypeDef(TypedDict):
     ReadCapacityUnits: NotRequired[float]
     WriteCapacityUnits: NotRequired[float]
@@ -609,16 +667,19 @@ class DeleteVectorIndexActionTypeDef(TypedDict):
 class DescribeBackupInputTypeDef(TypedDict):
     BackupArn: str
 
+class DescribeBulkOperationInputTypeDef(TypedDict):
+    BulkOperationArn: str
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
 class DescribeContinuousBackupsInputTypeDef(TypedDict):
     TableName: str
 
 class DescribeContributorInsightsInputTypeDef(TypedDict):
     TableName: str
     IndexName: NotRequired[str]
-
-class WaiterConfigTypeDef(TypedDict):
-    Delay: NotRequired[int]
-    MaxAttempts: NotRequired[int]
 
 class FailureExceptionTypeDef(TypedDict):
     ExceptionName: NotRequired[str]
@@ -722,6 +783,10 @@ class PaginatorConfigTypeDef(TypedDict):
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
 
+class ListBulkOperationsInputTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class ListContributorInsightsInputTypeDef(TypedDict):
     TableName: NotRequired[str]
     NextToken: NotRequired[str]
@@ -753,6 +818,14 @@ class ListTablesInputTypeDef(TypedDict):
 class ListTagsOfResourceInputTypeDef(TypedDict):
     ResourceArn: str
     NextToken: NotRequired[str]
+
+class OutputS3ConfigurationTypeDef(TypedDict):
+    OutputType: Sequence[OutputTypeEnumType]
+    S3BucketOwner: NotRequired[str]
+    S3Bucket: NotRequired[str]
+    S3KeyPrefix: NotRequired[str]
+    S3SseAlgorithm: NotRequired[S3SseAlgorithmType]
+    S3SseKmsKeyId: NotRequired[str]
 
 class PointInTimeRecoverySpecificationTypeDef(TypedDict):
     PointInTimeRecoveryEnabled: bool
@@ -931,6 +1004,11 @@ class AutoScalingPolicyUpdateTypeDef(TypedDict):
     )
     PolicyName: NotRequired[str]
 
+class CancelBulkOperationOutputTypeDef(TypedDict):
+    BulkOperationArn: str
+    BulkOperationStatus: BulkOperationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateBackupOutputTypeDef(TypedDict):
     BackupDetails: BackupDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -974,6 +1052,19 @@ class UpdateContributorInsightsOutputTypeDef(TypedDict):
     ContributorInsightsStatus: ContributorInsightsStatusType
     ContributorInsightsMode: ContributorInsightsModeType
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListBulkOperationsOutputTypeDef(TypedDict):
+    BulkOperationsSummaryList: list[BulkOperationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class BulkOperationUsageTypeDef(TypedDict):
+    TableName: NotRequired[str]
+    BulkPutBytes: NotRequired[int]
+    Table: NotRequired[BulkOperationBytesTypeDef]
+    LocalSecondaryIndexes: NotRequired[dict[str, BulkOperationBytesTypeDef]]
+    GlobalSecondaryIndexes: NotRequired[dict[str, BulkOperationBytesTypeDef]]
+    VectorIndexes: NotRequired[dict[str, BulkOperationVectorBytesTypeDef]]
 
 class ConsumedCapacityTypeDef(TypedDict):
     TableName: NotRequired[str]
@@ -1047,6 +1138,10 @@ class GlobalTableWitnessGroupUpdateTypeDef(TypedDict):
 class ReplicaUpdateTypeDef(TypedDict):
     Create: NotRequired[CreateReplicaActionTypeDef]
     Delete: NotRequired[DeleteReplicaActionTypeDef]
+
+class DescribeBulkOperationInputWaitTypeDef(TypedDict):
+    BulkOperationArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class DescribeContributorInsightsInputWaitTypeDef(TypedDict):
     TableName: str
@@ -1224,12 +1319,19 @@ class ListBackupsInputPaginateTypeDef(TypedDict):
     BackupType: NotRequired[BackupTypeFilterType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListBulkOperationsInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListTablesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListTagsOfResourceInputPaginateTypeDef(TypedDict):
     ResourceArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+OutputS3ConfigurationUnionTypeDef = Union[
+    OutputS3ConfigurationTypeDef, OutputS3ConfigurationOutputTypeDef
+]
 
 class UpdateContinuousBackupsInputTypeDef(TypedDict):
     TableName: str
@@ -1511,6 +1613,25 @@ class AutoScalingSettingsUpdateTypeDef(TypedDict):
     AutoScalingRoleArn: NotRequired[str]
     ScalingPolicyUpdate: NotRequired[AutoScalingPolicyUpdateTypeDef]
 
+class BulkOperationDescriptionTypeDef(TypedDict):
+    BulkOperationArn: NotRequired[str]
+    BulkOperationStatus: NotRequired[BulkOperationStatusType]
+    TableDetails: NotRequired[list[BulkOperationTableDetailTypeDef]]
+    ClientToken: NotRequired[str]
+    InputS3Configuration: NotRequired[InputS3ConfigurationTypeDef]
+    OutputS3Configuration: NotRequired[OutputS3ConfigurationOutputTypeDef]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    ProcessedItemCount: NotRequired[int]
+    ProcessedInputBytes: NotRequired[int]
+    TotalInputBytes: NotRequired[int]
+    BulkOperationUsage: NotRequired[list[BulkOperationUsageTypeDef]]
+    FailedItemCount: NotRequired[int]
+    FailureCode: NotRequired[str]
+    FailureMessage: NotRequired[str]
+    MaxWriteRequestUnits: NotRequired[int]
+    PerformanceTier: NotRequired[BulkOperationPerformanceTierType]
+
 class BatchGetItemOutputServiceResourceTypeDef(TypedDict):
     Responses: dict[str, list[dict[str, TableAttributeValueTypeDef]]]
     UnprocessedKeys: dict[str, KeysAndAttributesServiceResourceOutputTypeDef]
@@ -1709,6 +1830,14 @@ class ListImportsOutputTypeDef(TypedDict):
     ImportSummaryList: list[ImportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class StartBulkPutItemsInputTypeDef(TypedDict):
+    InputS3Configuration: InputS3ConfigurationTypeDef
+    OutputS3Configuration: OutputS3ConfigurationUnionTypeDef
+    TableName: str
+    ClientToken: NotRequired[str]
+    MaxWriteRequestUnits: NotRequired[int]
+    PerformanceTier: NotRequired[BulkOperationPerformanceTierType]
 
 class CreateGlobalSecondaryIndexActionTypeDef(TypedDict):
     IndexName: str
@@ -1952,6 +2081,14 @@ class ReplicaGlobalSecondaryIndexSettingsUpdateTypeDef(TypedDict):
     IndexName: str
     ProvisionedReadCapacityUnits: NotRequired[int]
     ProvisionedReadCapacityAutoScalingSettingsUpdate: NotRequired[AutoScalingSettingsUpdateTypeDef]
+
+class DescribeBulkOperationOutputTypeDef(TypedDict):
+    BulkOperationDescription: BulkOperationDescriptionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartBulkPutItemsOutputTypeDef(TypedDict):
+    BulkOperationDescription: BulkOperationDescriptionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ReplicationGroupUpdateTypeDef(TypedDict):
     Create: NotRequired[CreateReplicationGroupMemberActionTypeDef]

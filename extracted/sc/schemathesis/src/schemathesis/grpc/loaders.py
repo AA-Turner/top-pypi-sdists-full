@@ -22,9 +22,18 @@ if TYPE_CHECKING:
 
 BUILD_HINT = "Build one with `buf build -o api.binpb` or `protoc --include_imports --descriptor_set_out=api.binpb`"
 EXTRA_HINT = "Loading gRPC schemas requires the `grpc` extra: `pip install 'schemathesis[grpc]'`"
+# Field numbers of the per-file metadata `buf build` appends to each file of an image.
+BUF_IMAGE_FILE_EXTENSION = 8042
+BUF_IS_IMPORT = 1
 # Reflection lists every service the server registers, these included.
 INFRASTRUCTURE_SERVICES = frozenset(
-    {"grpc.reflection.v1.ServerReflection", "grpc.reflection.v1alpha.ServerReflection", "grpc.health.v1.Health"}
+    {
+        "grpc.reflection.v1.ServerReflection",
+        "grpc.reflection.v1alpha.ServerReflection",
+        "grpc.health.v1.Health",
+        "grpc.channelz.v1.Channelz",
+        "envoy.service.status.v3.ClientStatusDiscoveryService",
+    }
 )
 
 
@@ -108,16 +117,17 @@ def from_url(
             while True:
                 # A server may accept connections before it serves, so a call may last until the wait ends.
                 remaining = max(0, (wait_for_schema or 0) - started_at.elapsed)
+                deadline = (timeout or DEFAULT_RESPONSE_TIMEOUT) + remaining
                 try:
                     return next(
                         call(
                             iter([reflection_pb2.ServerReflectionRequest(**kwargs)]),
                             metadata=metadata,
-                            timeout=(timeout or DEFAULT_RESPONSE_TIMEOUT) + remaining,
+                            timeout=deadline,
                         )
                     )
                 except grpc.RpcError as exc:
-                    error = _reflection_error(cast(grpc.Call, exc), url, address, tls)
+                    error = _reflection_error(cast(grpc.Call, exc), url, address, tls, deadline)
                     # Waiting covers a server that is not up yet; a TLS failure would repeat on every attempt.
                     if (
                         wait_for_schema is None
@@ -140,6 +150,12 @@ def from_url(
             for service in listing.list_services_response.service
             if service.name not in INFRASTRUCTURE_SERVICES
         ]
+        if not names:
+            raise LoaderError(
+                LoaderErrorKind.GRPC_REFLECTION_UNAVAILABLE,
+                "The server lists no services besides reflection and health. Build a descriptor set with "
+                f"`buf build -o api.binpb` and run `schemathesis run api.binpb --url {url}`",
+            )
         files: dict[str, descriptor_pb2.FileDescriptorProto] = {}
         undescribed: list[LoaderError] = []
 
@@ -187,10 +203,10 @@ def from_url(
     return loaded
 
 
-def _reflection_error(error: grpc.Call, url: str, address: str, tls: bool) -> LoaderError:
+def _reflection_error(error: grpc.Call, url: str, address: str, tls: bool, timeout: float) -> LoaderError:
     import grpc
 
-    from schemathesis.transport.grpc import TLS_EXPECTED, TLS_FAILED, TLS_FAILURE_MARKERS, accepts_tls
+    from schemathesis.transport.grpc import TLS_FAILED, TLS_FAILURE_MARKERS, connection_configuration_hint
 
     code = error.code()
     if code == grpc.StatusCode.UNIMPLEMENTED:
@@ -205,9 +221,13 @@ def _reflection_error(error: grpc.Call, url: str, address: str, tls: bool) -> Lo
         if any(marker in details for marker in TLS_FAILURE_MARKERS):
             return LoaderError(LoaderErrorKind.INVALID_CERTIFICATE, TLS_FAILED.format(address=address, details=details))
         message = f"Failed to connect to {address}: {details}"
-        if not tls and accepts_tls(address):
-            return LoaderError(LoaderErrorKind.NETWORK_OTHER, f"{message}. {TLS_EXPECTED.format(address=address)}")
+        if hint := connection_configuration_hint(address, tls, details):
+            return LoaderError(LoaderErrorKind.NETWORK_OTHER, f"{message}. {hint}")
         return LoaderError(LoaderErrorKind.CONNECTION_OTHER, message)
+    if code in (grpc.StatusCode.UNAUTHENTICATED, grpc.StatusCode.PERMISSION_DENIED):
+        return LoaderError(LoaderErrorKind.HTTP_FORBIDDEN, f"Reflection failed with {code.name}: {error.details()}")
+    if code == grpc.StatusCode.DEADLINE_EXCEEDED:
+        return LoaderError(LoaderErrorKind.NETWORK_OTHER, f"Read timed out after {timeout:g} seconds")
     return LoaderError(LoaderErrorKind.UNCLASSIFIED, f"Reflection failed with {code.name}: {error.details()}")
 
 
@@ -226,7 +246,10 @@ def from_path(path: PathLike | str, *, config: SchemathesisConfig | None = None)
         ```
 
     """
-    loaded = _from_descriptor_set(Path(path).read_bytes(), config=config)
+    try:
+        loaded = _from_descriptor_set(Path(path).read_bytes(), config=config)
+    except ImportError as exc:
+        raise ImportError(EXTRA_HINT) from exc
     loaded.location = Path(path).absolute().as_uri()
     return loaded
 
@@ -282,6 +305,14 @@ def _from_descriptor_set(
     imported = {dependency for file in descriptor_set.file for dependency in file.dependency}
     # Imported files of a top-level package belong to the same API. Files without a package all share the empty one.
     packages = {file.package for file in descriptor_set.file if file.name not in imported} - {""}
+
+    def is_imported(file: descriptor_pb2.FileDescriptorProto) -> bool:
+        marked = _marked_as_import(file)
+        if marked is not None:
+            return marked
+        return file.name in imported and file.package not in packages
+
+    imported_services: set[str] = set()
     try:
         for file in descriptor_set.file:
             add(file)
@@ -289,12 +320,13 @@ def _from_descriptor_set(
         if service_names is not None:
             services = {name: pool.FindServiceByName(name) for name in service_names}
         else:
-            services = {
-                service.full_name: service
-                for file in descriptor_set.file
-                for service in pool.FindFileByName(file.name).services_by_name.values()
-                if file.name not in imported or file.package in packages
-            }
+            services = {}
+            for file in descriptor_set.file:
+                for service in pool.FindFileByName(file.name).services_by_name.values():
+                    if service.full_name not in INFRASTRUCTURE_SERVICES:
+                        services[service.full_name] = service
+                        if is_imported(file):
+                            imported_services.add(service.full_name)
     except TypeError as exc:
         raise _does_not_load(str(exc).removeprefix("Couldn't build proto file into descriptor pool: ")) from exc
     except KeyError as exc:
@@ -303,7 +335,13 @@ def _from_descriptor_set(
     schema = load_with_hooks(
         raw_schema,
         config,
-        lambda project_config: GrpcSchema(raw_schema, config=project_config, pool=pool, services=services),
+        lambda project_config: GrpcSchema(
+            raw_schema,
+            config=project_config,
+            pool=pool,
+            services=services,
+            imported_services=frozenset(imported_services),
+        ),
     )
     # Settings every call would fail on are refused once, before any test runs.
     metadata_pairs(filter_metadata(schema.config.headers_for()))
@@ -311,6 +349,25 @@ def _from_descriptor_set(
         settings = schema.config.request_settings_for()
         parse_target(schema.config.base_url, settings.verify, uses_proxy=bool(settings.proxy))
     return schema
+
+
+def _marked_as_import(file: descriptor_pb2.FileDescriptorProto) -> bool | None:
+    """Whether a `buf build` image marks the file as pulled in from outside the built module.
+
+    `None` for descriptor sets without the marker, such as the ones `protoc` writes.
+    """
+    from google.protobuf import empty_pb2, unknown_fields
+
+    fields = unknown_fields.UnknownFieldSet(file)
+    markers = [
+        fields[index].data for index in range(len(fields)) if fields[index].field_number == BUF_IMAGE_FILE_EXTENSION
+    ]
+    if not markers:
+        return None
+    extension = unknown_fields.UnknownFieldSet(empty_pb2.Empty.FromString(markers[0]))
+    return any(
+        extension[index].field_number == BUF_IS_IMPORT and extension[index].data == 1 for index in range(len(extension))
+    )
 
 
 def _does_not_load(detail: str) -> LoaderError:

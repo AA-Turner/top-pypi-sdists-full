@@ -231,6 +231,13 @@ class Settings(BaseSettings):
         bool, Setting(surface="advanced", section="operations")
     ] = Field(False, alias="HAMCP_ENABLE_HISTORY_QUERY_GUARDRAILS")
 
+    # Opt-in: ask HACS / the Marketplace to refresh the component's repository
+    # at startup after a server update (hacs_auto_refresh). An install that ran
+    # the refresh before it became opt-in has it turned on once, on its behalf.
+    hacs_refresh_after_update: Annotated[
+        bool, Setting(surface="advanced", section="operations")
+    ] = Field(False, alias="HAMCP_HACS_REFRESH_AFTER_UPDATE")
+
     # Optional process-wide outer tool-call concurrency. Zero preserves the
     # existing unlimited behavior; constrained installs can opt into queuing.
     ha_tool_concurrency: Annotated[
@@ -250,11 +257,11 @@ class Settings(BaseSettings):
         Setting(surface="advanced", section="operations", restart_required=True),
     ] = Field(True, alias="ENABLE_WEBSOCKET")
 
-    # Base URL of the screenshot engine (e.g. ``http://puppet:10000`` or a
-    # docker-compose sidecar). A connection string, NOT a beta toggle, so
-    # it is not a feature flag. Left blank, the
-    # provisioner auto-discovers the Puppet add-on via the Supervisor in
-    # HA OS / Supervised mode; Container / Core users set it explicitly.
+    # Base URL of the screenshot engine (e.g. ``http://puppet:10000``,
+    # ``http://wpe-screenshot-engine:8080`` or a docker-compose sidecar). A
+    # connection string, NOT a beta toggle, so it is not a feature flag. Left
+    # blank, the provisioner auto-discovers supported apps via the Supervisor
+    # in HA OS / Supervised mode; Container / Core users set it explicitly.
     # Resolved live per capture (resolve_engine), so unlike the time
     # budgets it takes effect without a restart (#1538).
     dashboard_screenshot_engine_url: Annotated[
@@ -563,6 +570,19 @@ class Settings(BaseSettings):
         ),
     ] = Field("", alias="REDACT_APP_OPTION_KEYS")
 
+    # IPv6 networks, beyond the local ones, that may reach the app's port and
+    # the in-process server's "Local network" port (#2915); see
+    # ``ha_mcp.ipv6_lan_guard``. Read when the listener starts.
+    ipv6_allowed_networks: Annotated[
+        str,
+        Setting(
+            surface="advanced",
+            section="operations",
+            app=_ALL_FLAVORS,
+            restart_required=True,
+        ),
+    ] = Field("", alias="IPV6_ALLOWED_NETWORKS")
+
     # Mandatory best-practice skills — server-side master switch for the
     # write-tool skill_content delivery feature (issue #1182). When True
     # (default), the six write tools (automations / scripts / scenes /
@@ -670,9 +690,9 @@ class Settings(BaseSettings):
     # Dashboard screenshot mode — the ``ha_get_dashboard_screenshot`` tool
     # plus the ``include_screenshot`` / ``return_screenshot`` params on the
     # dashboard get/set tools. Renders responsive Lovelace images via a
-    # separate, opt-in headless-Chromium screenshot add-on (balloob's Puppet
-    # add-on, or a docker-compose sidecar). Off by default; nothing heavy is
-    # pulled unless the user enables it AND installs the engine.
+    # separate, opt-in screenshot engine app (Puppet, WPE Screenshot Engine,
+    # or a docker-compose sidecar). Off by default; nothing heavy is pulled
+    # unless the user enables it AND installs the engine.
     enable_dashboard_screenshot: Annotated[
         bool, Setting(surface="feature", beta=True, app=_DEV_FLAVOR)
     ] = Field(False, alias="HAMCP_ENABLE_DASHBOARD_SCREENSHOT")

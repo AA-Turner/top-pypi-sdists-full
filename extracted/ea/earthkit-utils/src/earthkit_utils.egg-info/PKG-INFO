@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-utils
-Version: 1.0.3
+Version: 1.0.4
 Summary: Utilities for the Earthkit ecosystem
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License-Expression: Apache-2.0
@@ -23,19 +23,20 @@ Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: array-api-compat
-Requires-Dist: pint
+Requires-Dist: array-api-compat>=1.12
+Requires-Dist: pint>=0.21
+Requires-Dist: numpy>=1.24
 Provides-Extra: dev
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: numpy; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pre-commit>=3; extra == "dev"
+Requires-Dist: mypy>=1.18; extra == "dev"
+Requires-Dist: numpy>=1.24; extra == "dev"
+Requires-Dist: pytest>=8; extra == "dev"
+Requires-Dist: pytest-cov>=6; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: pre-commit; extra == "docs"
-Requires-Dist: mypy; extra == "docs"
-Requires-Dist: numpy; extra == "docs"
-Requires-Dist: xarray; extra == "docs"
+Requires-Dist: mypy>=1.18; extra == "docs"
+Requires-Dist: numpy>=1.24; extra == "docs"
+Requires-Dist: xarray>=0.21.0; extra == "docs"
 Requires-Dist: geopandas; extra == "docs"
 Requires-Dist: earthkit-data~=1.0; extra == "docs"
 Requires-Dist: ipykernel; extra == "docs"
@@ -51,12 +52,12 @@ Requires-Dist: sphinx-issues; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Requires-Dist: sphinx-tabs; extra == "docs"
 Provides-Extra: test
-Requires-Dist: earthkit-data; extra == "test"
-Requires-Dist: mypy; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: earthkit-data~=1.0; extra == "test"
+Requires-Dist: mypy>=1.18; extra == "test"
+Requires-Dist: pytest>=8; extra == "test"
+Requires-Dist: pytest-cov>=6; extra == "test"
 Requires-Dist: pytest-reraise; extra == "test"
-Requires-Dist: xarray; extra == "test"
+Requires-Dist: xarray>=2023.1.0; extra == "test"
 Dynamic: license-file
 
 <p align="center">

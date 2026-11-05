@@ -27,9 +27,9 @@ if TYPE_CHECKING:
 # then turns its result into terminal output and its errors into an exit code. Behaviour that a script
 # or a platform could also want belongs in that package, not here.
 
-_SESSIONS_DOCS_URL = "https://docs-internal-frameworks.mistral.ai/agents-sdk/core/sessions"
+_SESSIONS_DOCS_URL = "https://docs-internal-frameworks.mistral.ai/agents-sdk/learn/sessions/"
 _OWN_DOCKERFILE_DOCS_URL = (
-    "https://docs-internal-frameworks.mistral.ai/agents-sdk/core/run-modes#bring-your-own-dockerfile"
+    "https://docs-internal-frameworks.mistral.ai/agents-sdk/learn/where-it-runs/deploy#bring-your-own-dockerfile"
 )
 
 app = typer.Typer(
@@ -155,7 +155,7 @@ def _print_try_the_agent(chat_url: str | None) -> None:
     # The control plane sends the chat link of its environment; without one, only the Session API remains.
     typer.echo("  Try the agent:")
     if chat_url is not None:
-        typer.echo(f"  • easily in Vibe's UI:      {chat_url}")
+        typer.echo(f"  • in Vibe Code Web:          {chat_url}")
     typer.echo(f"  • programmatically, using the Session API: {_SESSIONS_DOCS_URL}")
     typer.echo("")
 
@@ -766,6 +766,7 @@ def chat_command(
             from mistralai.vibe_agents.sdk.app.errors import AgentProjectError
             from mistralai.vibe_agents.sdk.app.runtime_logs import terminal_safe
 
+        chat.hide_noticed_connector_logs()
         set_stage(f"Connecting to {name}..." if name else "Loading agent...")
         runner = asyncio.Runner()
         try:
@@ -816,6 +817,15 @@ def chat_command(
             return False
 
     try:
+        # Inside the try, so a Ctrl+C while the notices are read still closes the session.
+        try:
+            runner.run(chat.report_startup_notices(session, output))
+        except Exception:  # noqa: BLE001 - the notices only inform; the chat works without them
+            import structlog  # noqa: PLC0415
+
+            structlog.get_logger(__name__).debug(
+                "agents chat could not read the session's startup notices", exc_info=True
+            )
         if message is not None:
             completed = turn(message)
             if completed is not True:

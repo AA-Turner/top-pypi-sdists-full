@@ -1,12 +1,20 @@
 """build the context a detached import worker or an outbox drain reports under, gated on its backend."""
 
 from __future__ import annotations
+import os
 import re
 import uuid
 from probe.analytics import core as core
-from probe.analytics.analytics import DESKTOP_SURFACE, TelemetryContext, current, null_context
+from probe.analytics.analytics import (
+    DESKTOP_SURFACE, TelemetryContext, current, is_desktop_launched, null_context,
+)
+from probe.analytics.generated import ProductSurface
 from probe.analytics.outcomes import InvokedBy, Via
 from probe.analytics import sender  # call through the module: one binding for tests to patch
+
+#: Set by whoever starts an outbox worker (`probe.sdk.outbox_worker`, drain or rescue): the
+#: program that started it, which its events report as (S4). The service sets `service`.
+WORKER_SURFACE_ENV = "PROBE_TELEMETRY_SURFACE"
 
 
 #: Origin fields are validated on the way OUT of the job record, never trusted: the
@@ -40,7 +48,9 @@ def job_context(origin: object) -> TelemetryContext:
         base_url = core.effective_base_url(core.read_cli_config())
     except Exception:
         base_url = None
-    context = TelemetryContext.start(via=Via.IMPORT_JOB, interactive=False, base_url=base_url)
+    context = TelemetryContext.start(
+        via=Via.IMPORT_JOB, interactive=False, base_url=base_url, surface=ProductSurface.CLI
+    )
     if not isinstance(origin, dict):
         return context
     session = origin.get("session_id")
@@ -57,20 +67,30 @@ def job_context(origin: object) -> TelemetryContext:
     return context
 
 
-def outbox_context(base_url: str | None) -> TelemetryContext:
+def outbox_context(base_url: str | None, *, surface: ProductSurface) -> TelemetryContext:
     """A context for outbox events, gated on the backend THIS CALLER is using.
 
     `base_url` is required, never read from the config: the banner may run under
     `probe --base-url` (on `_conn.base_url` only) and the drainer sends to each op's
     PINNED base_url. Fails closed: no backend -> disabled, because `hosted_base_url`
-    reads None as "assume hosted". Why: DESIGN.md (outbox_context).
+    reads None as "assume hosted". Why: DESIGN.md (outbox_context). `surface`: the caller's
+    (the CLI banner's `cli`; a worker's `get_worker_surface()`).
     """
     if not base_url:
         return null_context()
-    return TelemetryContext.start(via=Via.OUTBOX, interactive=False, base_url=base_url)
+    return TelemetryContext.start(via=Via.OUTBOX, interactive=False, base_url=base_url, surface=surface)
 
 
-def detached_context(base_url: str | None, *, via: str) -> TelemetryContext:
+def get_worker_surface() -> ProductSurface:
+    """The surface an outbox worker's events report as: `WORKER_SURFACE_ENV` when it names a
+    `ProductSurface`, else `sdk`, the original spawner. Outside a worker, `sdk` too."""
+    try:
+        return ProductSurface(os.environ.get(WORKER_SURFACE_ENV) or ProductSurface.SDK.value)
+    except ValueError:
+        return ProductSurface.SDK
+
+
+def detached_context(base_url: str | None, *, via: str, surface: ProductSurface) -> TelemetryContext:
     """`outbox_context`'s gates without becoming THE process's context: sent from a
     daemon thread of any process, whose own session context must stay current."""
     if not base_url:
@@ -84,6 +104,8 @@ def detached_context(base_url: str | None, *, via: str) -> TelemetryContext:
         via=via,
         invoked_by=InvokedBy.AUTOMATION,
         enabled=is_enabled,
+        # The app's launch wins here too, as in `TelemetryContext.start` (S4).
+        surface=DESKTOP_SURFACE if is_desktop_launched(via) else str(surface),
     )
     if is_enabled:
         try:

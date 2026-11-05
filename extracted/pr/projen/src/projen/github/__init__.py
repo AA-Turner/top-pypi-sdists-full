@@ -7873,7 +7873,7 @@ class PullRequestLint(
 ):
     '''(experimental) Configure validations to run on GitHub pull requests.
 
-    Only generates a file if at least one linter is configured.
+    Only generates a file if at least one check is configured.
 
     :stability: experimental
     '''
@@ -7882,19 +7882,23 @@ class PullRequestLint(
         self,
         github: "GitHub",
         *,
+        consolidated_status_check: typing.Optional[builtins.bool] = None,
         contributor_statement: typing.Optional[builtins.str] = None,
         contributor_statement_options: typing.Optional[typing.Union["ContributorStatementOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         semantic_title: typing.Optional[builtins.bool] = None,
         semantic_title_options: typing.Optional[typing.Union["SemanticTitleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        trigger: typing.Optional["PullRequestLintTrigger"] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param github: -
+        :param consolidated_status_check: (experimental) Add a job that combines the results of all checks into a single status check. Use this job as the required status check, so it does not need updating when checks are added or removed. Default: true
         :param contributor_statement: (experimental) Require a contributor statement to be included in the PR description. For example confirming that the contribution has been made by the contributor and complies with the project's license. Appends the statement to the end of the Pull Request template. Default: - no contributor statement is required
         :param contributor_statement_options: (experimental) Options for requiring a contributor statement on Pull Requests. Default: - none
         :param semantic_title: (experimental) Validate that pull request titles follow Conventional Commits. Default: true
         :param semantic_title_options: (experimental) Options for validating the conventional commit title linter. Default: - title must start with "feat", "fix", or "chore"
+        :param trigger: (experimental) The pull request event that triggers the workflow. Default: PullRequestLintTrigger.PULL_REQUEST_TARGET
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param runs_on_group: (experimental) Github Runner Group selection options.
 
@@ -7904,15 +7908,93 @@ class PullRequestLint(
             type_hints = cached_type_hints(_typecheckingstub__2e947e718bf3d7bd85f25ecd7154aeef36d789ef76012c5d50b8c1a265be7750)
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
         options = PullRequestLintOptions(
+            consolidated_status_check=consolidated_status_check,
             contributor_statement=contributor_statement,
             contributor_statement_options=contributor_statement_options,
             semantic_title=semantic_title,
             semantic_title_options=semantic_title_options,
+            trigger=trigger,
             runs_on=runs_on,
             runs_on_group=runs_on_group,
         )
 
         jsii.create(self.__class__, self, [github, options])
+
+    @jsii.member(jsii_name="addCheck")
+    def add_check(
+        self,
+        id: builtins.str,
+        *,
+        steps: typing.Sequence[typing.Union["_workflows_2b7f1587.JobStep", typing.Dict[builtins.str, typing.Any]]],
+        container: typing.Optional[typing.Union["_workflows_2b7f1587.ContainerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        continue_on_error: typing.Optional[builtins.bool] = None,
+        defaults: typing.Optional[typing.Union["_workflows_2b7f1587.JobDefaults", typing.Dict[builtins.str, typing.Any]]] = None,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        environment: typing.Any = None,
+        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_workflows_2b7f1587.JobStepOutput", typing.Dict[builtins.str, typing.Any]]]] = None,
+        runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+        runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        services: typing.Optional[typing.Mapping[builtins.str, typing.Union["_workflows_2b7f1587.ContainerOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
+        timeout_minutes: typing.Optional[jsii.Number] = None,
+        tools: typing.Optional[typing.Union["_workflows_2b7f1587.Tools", typing.Dict[builtins.str, typing.Any]]] = None,
+        permissions: typing.Union["_workflows_2b7f1587.JobPermissions", typing.Dict[builtins.str, typing.Any]],
+        concurrency: typing.Any = None,
+        if_: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        needs: typing.Optional[typing.Sequence[builtins.str]] = None,
+        strategy: typing.Optional[typing.Union["_workflows_2b7f1587.JobStrategy", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Adds a job to the pull request lint workflow that is part of the consolidated status check.
+
+        The job also runs for merge groups. Skip it there with a job condition, a skipped job counts as passing.
+
+        :param id: The job ID, unique within the workflow.
+        :param steps: (experimental) A job contains a sequence of tasks called steps. Steps can run commands, run setup tasks, or run an action in your repository, a public repository, or an action published in a Docker registry. Not all steps run actions, but all actions run as a step. Each step runs in its own process in the runner environment and has access to the workspace and filesystem. Because steps run in their own process, changes to environment variables are not preserved between steps. GitHub provides built-in steps to set up and complete a job.
+        :param container: (experimental) A container to run any steps in a job that don't already specify a container. If you have steps that use both script and container actions, the container actions will run as sibling containers on the same network with the same volume mounts.
+        :param continue_on_error: (experimental) Prevents a workflow run from failing when a job fails. Set to true to allow a workflow run to pass when this job fails.
+        :param defaults: (experimental) A map of default settings that will apply to all steps in the job. You can also set default settings for the entire workflow.
+        :param env: (experimental) A map of environment variables that are available to all steps in the job. You can also set environment variables for the entire workflow or an individual step.
+        :param environment: (experimental) The environment that the job references. All environment protection rules must pass before a job referencing the environment is sent to a runner.
+        :param outputs: (experimental) A map of outputs for a job. Job outputs are available to all downstream jobs that depend on this job.
+        :param runs_on: (experimental) The type of machine to run the job on. The machine can be either a GitHub-hosted runner or a self-hosted runner.
+        :param runs_on_group: (experimental) Github Runner Group selection options.
+        :param services: (experimental) Used to host service containers for a job in a workflow. Service containers are useful for creating databases or cache services like Redis. The runner automatically creates a Docker network and manages the life cycle of the service containers.
+        :param timeout_minutes: (experimental) The maximum number of minutes to let a job run before GitHub automatically cancels it. Default: 360
+        :param tools: (experimental) Tools required for this job. Translates into ``actions/setup-xxx`` steps at the beginning of the job.
+        :param permissions: (experimental) You can modify the default permissions granted to the GITHUB_TOKEN, adding or removing access as required, so that you only allow the minimum required access. Use ``{ contents: READ }`` if your job only needs to clone code. This is intentionally a required field since it is required in order to allow workflows to run in GitHub repositories with restricted default access.
+        :param concurrency: (experimental) Concurrency ensures that only a single job or workflow using the same concurrency group will run at a time. A concurrency group can be any string or expression. The expression can use any context except for the secrets context.
+        :param if_: (experimental) You can use the if conditional to prevent a job from running unless a condition is met. You can use any supported context and expression to create a conditional.
+        :param name: (experimental) The name of the job displayed on GitHub.
+        :param needs: (experimental) Identifies any jobs that must complete successfully before this job will run. It can be a string or array of strings. If a job fails, all jobs that need it are skipped unless the jobs use a conditional expression that causes the job to continue.
+        :param strategy: (experimental) A strategy creates a build matrix for your jobs. You can define different variations to run each job in.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2985fe88b27bb3f01da82057112df6656e451720943e4efb0e22fe462c046de9)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        job = _workflows_2b7f1587.Job(
+            steps=steps,
+            container=container,
+            continue_on_error=continue_on_error,
+            defaults=defaults,
+            env=env,
+            environment=environment,
+            outputs=outputs,
+            runs_on=runs_on,
+            runs_on_group=runs_on_group,
+            services=services,
+            timeout_minutes=timeout_minutes,
+            tools=tools,
+            permissions=permissions,
+            concurrency=concurrency,
+            if_=if_,
+            name=name,
+            needs=needs,
+            strategy=strategy,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "addCheck", [id, job]))
 
     @jsii.member(jsii_name="preSynthesize")
     def pre_synthesize(self) -> None:
@@ -7929,10 +8011,12 @@ class PullRequestLint(
     name_mapping={
         "runs_on": "runsOn",
         "runs_on_group": "runsOnGroup",
+        "consolidated_status_check": "consolidatedStatusCheck",
         "contributor_statement": "contributorStatement",
         "contributor_statement_options": "contributorStatementOptions",
         "semantic_title": "semanticTitle",
         "semantic_title_options": "semanticTitleOptions",
+        "trigger": "trigger",
     },
 )
 class PullRequestLintOptions(_projen_04054675.RunsOnOptions):
@@ -7941,19 +8025,23 @@ class PullRequestLintOptions(_projen_04054675.RunsOnOptions):
         *,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        consolidated_status_check: typing.Optional[builtins.bool] = None,
         contributor_statement: typing.Optional[builtins.str] = None,
         contributor_statement_options: typing.Optional[typing.Union["ContributorStatementOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         semantic_title: typing.Optional[builtins.bool] = None,
         semantic_title_options: typing.Optional[typing.Union["SemanticTitleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        trigger: typing.Optional["PullRequestLintTrigger"] = None,
     ) -> None:
         '''(experimental) Options for PullRequestLint.
 
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param runs_on_group: (experimental) Github Runner Group selection options.
+        :param consolidated_status_check: (experimental) Add a job that combines the results of all checks into a single status check. Use this job as the required status check, so it does not need updating when checks are added or removed. Default: true
         :param contributor_statement: (experimental) Require a contributor statement to be included in the PR description. For example confirming that the contribution has been made by the contributor and complies with the project's license. Appends the statement to the end of the Pull Request template. Default: - no contributor statement is required
         :param contributor_statement_options: (experimental) Options for requiring a contributor statement on Pull Requests. Default: - none
         :param semantic_title: (experimental) Validate that pull request titles follow Conventional Commits. Default: true
         :param semantic_title_options: (experimental) Options for validating the conventional commit title linter. Default: - title must start with "feat", "fix", or "chore"
+        :param trigger: (experimental) The pull request event that triggers the workflow. Default: PullRequestLintTrigger.PULL_REQUEST_TARGET
 
         :stability: experimental
         '''
@@ -7967,15 +8055,19 @@ class PullRequestLintOptions(_projen_04054675.RunsOnOptions):
             type_hints = cached_type_hints(_typecheckingstub__753ecd53f4dea89ebcc13327977e141a051588fef5185d3f14e06f44f6c47a63)
             check_type(argname="argument runs_on", value=runs_on, expected_type=type_hints["runs_on"])
             check_type(argname="argument runs_on_group", value=runs_on_group, expected_type=type_hints["runs_on_group"])
+            check_type(argname="argument consolidated_status_check", value=consolidated_status_check, expected_type=type_hints["consolidated_status_check"])
             check_type(argname="argument contributor_statement", value=contributor_statement, expected_type=type_hints["contributor_statement"])
             check_type(argname="argument contributor_statement_options", value=contributor_statement_options, expected_type=type_hints["contributor_statement_options"])
             check_type(argname="argument semantic_title", value=semantic_title, expected_type=type_hints["semantic_title"])
             check_type(argname="argument semantic_title_options", value=semantic_title_options, expected_type=type_hints["semantic_title_options"])
+            check_type(argname="argument trigger", value=trigger, expected_type=type_hints["trigger"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if runs_on is not None:
             self._values["runs_on"] = runs_on
         if runs_on_group is not None:
             self._values["runs_on_group"] = runs_on_group
+        if consolidated_status_check is not None:
+            self._values["consolidated_status_check"] = consolidated_status_check
         if contributor_statement is not None:
             self._values["contributor_statement"] = contributor_statement
         if contributor_statement_options is not None:
@@ -7984,6 +8076,8 @@ class PullRequestLintOptions(_projen_04054675.RunsOnOptions):
             self._values["semantic_title"] = semantic_title
         if semantic_title_options is not None:
             self._values["semantic_title_options"] = semantic_title_options
+        if trigger is not None:
+            self._values["trigger"] = trigger
 
     @builtins.property
     def runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8008,6 +8102,19 @@ class PullRequestLintOptions(_projen_04054675.RunsOnOptions):
         '''
         result = self._values.get("runs_on_group")
         return typing.cast(typing.Optional["_projen_04054675.GroupRunnerOptions"], result)
+
+    @builtins.property
+    def consolidated_status_check(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Add a job that combines the results of all checks into a single status check.
+
+        Use this job as the required status check, so it does not need updating when checks are added or removed.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("consolidated_status_check")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def contributor_statement(self) -> typing.Optional[builtins.str]:
@@ -8060,6 +8167,17 @@ class PullRequestLintOptions(_projen_04054675.RunsOnOptions):
         result = self._values.get("semantic_title_options")
         return typing.cast(typing.Optional["SemanticTitleOptions"], result)
 
+    @builtins.property
+    def trigger(self) -> typing.Optional["PullRequestLintTrigger"]:
+        '''(experimental) The pull request event that triggers the workflow.
+
+        :default: PullRequestLintTrigger.PULL_REQUEST_TARGET
+
+        :stability: experimental
+        '''
+        result = self._values.get("trigger")
+        return typing.cast(typing.Optional["PullRequestLintTrigger"], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -8070,6 +8188,25 @@ class PullRequestLintOptions(_projen_04054675.RunsOnOptions):
         return "PullRequestLintOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="projen.github.PullRequestLintTrigger")
+class PullRequestLintTrigger(enum.Enum):
+    '''(experimental) The pull request event that triggers the pull request lint workflow.
+
+    :stability: experimental
+    '''
+
+    PULL_REQUEST_TARGET = "PULL_REQUEST_TARGET"
+    '''(experimental) Run in the context of the base branch, with access to secrets and a read/write token.
+
+    :stability: experimental
+    '''
+    PULL_REQUEST = "PULL_REQUEST"
+    '''(experimental) Run in the context of the merge commit, with a read-only token for pull requests from forks.
+
+    :stability: experimental
+    '''
 
 
 @jsii.data_type(
@@ -11602,6 +11739,7 @@ __all__ = [
     "PullRequestFromPatchOptions",
     "PullRequestLint",
     "PullRequestLintOptions",
+    "PullRequestLintTrigger",
     "PullRequestPatchSource",
     "PullRequestSource",
     "PullRequestSourceBranchOptions",
@@ -12490,12 +12628,39 @@ def _typecheckingstub__0c1e5279fc8c18480c3113cc60b389aa13938b2052436bbdcb3069cfe
 def _typecheckingstub__2e947e718bf3d7bd85f25ecd7154aeef36d789ef76012c5d50b8c1a265be7750(
     github: GitHub,
     *,
+    consolidated_status_check: typing.Optional[builtins.bool] = None,
     contributor_statement: typing.Optional[builtins.str] = None,
     contributor_statement_options: typing.Optional[typing.Union[ContributorStatementOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     semantic_title: typing.Optional[builtins.bool] = None,
     semantic_title_options: typing.Optional[typing.Union[SemanticTitleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    trigger: typing.Optional[PullRequestLintTrigger] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2985fe88b27bb3f01da82057112df6656e451720943e4efb0e22fe462c046de9(
+    id: builtins.str,
+    *,
+    steps: typing.Sequence[typing.Union[_workflows_2b7f1587.JobStep, typing.Dict[builtins.str, typing.Any]]],
+    container: typing.Optional[typing.Union[_workflows_2b7f1587.ContainerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    continue_on_error: typing.Optional[builtins.bool] = None,
+    defaults: typing.Optional[typing.Union[_workflows_2b7f1587.JobDefaults, typing.Dict[builtins.str, typing.Any]]] = None,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    environment: typing.Any = None,
+    outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_workflows_2b7f1587.JobStepOutput, typing.Dict[builtins.str, typing.Any]]]] = None,
+    runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+    runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    services: typing.Optional[typing.Mapping[builtins.str, typing.Union[_workflows_2b7f1587.ContainerOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    tools: typing.Optional[typing.Union[_workflows_2b7f1587.Tools, typing.Dict[builtins.str, typing.Any]]] = None,
+    permissions: typing.Union[_workflows_2b7f1587.JobPermissions, typing.Dict[builtins.str, typing.Any]],
+    concurrency: typing.Any = None,
+    if_: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    needs: typing.Optional[typing.Sequence[builtins.str]] = None,
+    strategy: typing.Optional[typing.Union[_workflows_2b7f1587.JobStrategy, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12504,10 +12669,12 @@ def _typecheckingstub__753ecd53f4dea89ebcc13327977e141a051588fef5185d3f14e06f44f
     *,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    consolidated_status_check: typing.Optional[builtins.bool] = None,
     contributor_statement: typing.Optional[builtins.str] = None,
     contributor_statement_options: typing.Optional[typing.Union[ContributorStatementOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     semantic_title: typing.Optional[builtins.bool] = None,
     semantic_title_options: typing.Optional[typing.Union[SemanticTitleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+    trigger: typing.Optional[PullRequestLintTrigger] = None,
 ) -> None:
     """Type checking stubs"""
     pass

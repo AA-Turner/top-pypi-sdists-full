@@ -18,17 +18,15 @@ sha256 or fingerprint per file), PUT to `/v1/catalog/manifests/{sha256}`, then O
 `POST /v1/catalog/datasets` registers it. It waits at most `REGISTER_WAIT_SECONDS`, then
 returns `DatasetRef(pending=True)` and finishes in the background (queued if Probe is
 unreachable). A remote uri is never read: identity is ``sha256("uri\\nrevision")``.
-`upload=True` (C8) hosts the bytes in Probe (`hosting.py`). `.probe.config` (C9): `off`/`read`
-records nothing; `hash` records identity only, never uploads or previews. Preview samples
+`upload=True` (C8) hosts the bytes in Probe (`hosting.py`). Preview samples
 (C11): the first 100 records (or 256 KiB) of an unhosted dataset go up as a run file
 `.probe/previews/<dataset file id><ext>` (`meta.preview_of`, `storage_class='preview'`,
-hidden), for `on` paths only; `preview=False` turns it off.
+hidden); `preview=False` turns it off.
 
 Full text: DESIGN.md in this folder.
 """
 
 from __future__ import annotations
-import os
 import threading
 import time
 from typing import TYPE_CHECKING, Any, Mapping
@@ -39,7 +37,6 @@ from .vocab import Role, SourceKind
 if TYPE_CHECKING:  # pragma: no cover
     from ..client.client import Client
     from ..run.run import Run
-from probe.sdk.catalog.identity import _remote
 from probe.sdk.catalog.refs import (
     CatalogRefused,
     DatasetRef,
@@ -208,27 +205,6 @@ def _refuse_credential(uri: Any, field: str = "uri") -> None:
         )
 
 
-def _refuse_excluded_local(uri: str) -> None:
-    """Refuse a source naming a LOCAL path (`file:`, absolute, `./`, `~`, or existing here) that
-    `.probe.config` keeps out (`off`, `read`): its path is shown to the team. A `hash` path may be named."""
-    from ..recording_rules import recording_rules as exclusions
-    from .. import probe_config as pc
-
-    if _remote(uri) is not None:
-        return
-    local = pc.local_path_of(uri)
-    if local is None:
-        if not (uri.startswith(("/", "./", "../", "~")) or os.path.exists(uri)):
-            return
-        local = uri
-    local = os.path.abspath(os.path.expanduser(local))
-    verdict = exclusions.excluded(local)
-    if verdict.excluded and not getattr(verdict, "identity_only", False):
-        raise CatalogRefused(
-            f"`{pc.shown(local)}` is excluded by `{exclusions.source(verdict)}`, so nothing was recorded about it"
-        )
-
-
 def source_body(
     uri: str,
     *,
@@ -246,7 +222,6 @@ def source_body(
         raise CatalogRefused("a source needs a uri")
     _refuse_credential(uri.strip())
     _refuse_credential(homepage, "homepage")
-    _refuse_excluded_local(uri.strip())
     if kind is not None:
         try:
             kind = SourceKind(str(kind)).value

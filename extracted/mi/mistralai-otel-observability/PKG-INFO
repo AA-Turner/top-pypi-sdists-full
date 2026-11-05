@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mistralai-otel-observability
-Version: 0.5.0
+Version: 0.5.1
 Summary: OTLP-first Mistral AI observability SDK
 Project-URL: Homepage, https://mistral.ai
 Project-URL: Documentation, https://docs.mistral.ai
@@ -23,7 +23,7 @@ Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
 Provides-Extra: grpc
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2.0.0,>=1.30.0; extra == 'grpc'
 Provides-Extra: mistral
-Requires-Dist: mistralai<3.0.0,>=2.5.2; extra == 'mistral'
+Requires-Dist: mistralai<4.0.0,>=2.5.2; extra == 'mistral'
 Description-Content-Type: text/markdown
 
 # Mistral OTLP Observability
@@ -325,6 +325,9 @@ CallbackRedactionPolicy(
     recursive=True,
 )
 ```
+
+Without `recursive=True`, a callback receives a copy of structured values: editing it in place, such as popping a key,
+changes what is recorded but not the caller's data.
 
 Only `RegexRedactionPolicy` and `AttributeRedactionPolicy` honour safe keys. Callbacks see every field except the span
 name, including the error message recorded as the span status description (`status.description`).

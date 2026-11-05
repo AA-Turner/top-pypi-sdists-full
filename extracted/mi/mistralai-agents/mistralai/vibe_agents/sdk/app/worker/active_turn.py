@@ -44,7 +44,7 @@ def command_content(command: wire.MessageCommand) -> list[core_protocol.ContentB
 
 
 def context_messages(command: wire.MessageCommand) -> list[ContextMessage]:
-    """Translate private product context into Harness model-only context."""
+    """Translate private product context into Harness context messages."""
 
     if command.context is None:
         return []

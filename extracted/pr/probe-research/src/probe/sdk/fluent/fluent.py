@@ -144,20 +144,6 @@ def init(
         run_mode = Mode.OFFLINE
     reinit_mode = _reinit_mode(reinit)
     if run_mode is not Mode.DISABLED:
-        # A researcher's `.probe.config` excludes where this runs: no run, and
-        # the script runs exactly as it would with `mode="disabled"`.
-        from ..recording_rules import recording_rules as _exclusions
-        from .. import probe_config as _probe_config
-
-        hit = _exclusions.run_excluded()
-        if hit is not None and hit[1].identity_only:
-            # `hash`: the run opens (V9) and records metrics, config and file
-            # identities; no bytes, and no console log (`outputs.log_enabled`).
-            _exclusions.warn(_exclusions.say(_probe_config.INIT_HASH_ONLY, *hit))
-        elif hit is not None:
-            _exclusions.warn(_exclusions.say(_probe_config.INIT_EXCLUDED, *hit))
-            run_mode = Mode.DISABLED
-    if run_mode is not Mode.DISABLED:
         # This process does a run's work from here on, offline too: what it
         # writes is the run's, never its agent being active (R41).
         from .. import agent_session as _agent_session
@@ -194,7 +180,7 @@ def init(
     # capture too, so they are popped before the attach check drops extras.
     ignore = kw.pop("ignore", None)
     if ignore is not None:
-        from ..recording_rules import ignore as _ignore
+        from ..recording_rules import recording_rules as _ignore
 
         try:
             ignore = _ignore.normalize(ignore)
@@ -225,8 +211,9 @@ def _names_offline_run() -> bool:
     return named.startswith(LOCAL_PREFIX)
 
 
-def finish(status: str = "completed", **kw: Any):
-    """Close the active run, flush its spool, and release the client init built.
+def finish(status: str | None = None, **kw: Any):
+    """Close the active run, flush its spool, and release the client init built. ``status``
+    defaults to ``completed``; ``exit_code=`` maps as `Run.finish` maps it.
 
     A no-op when nothing is active, so calling it twice (or in a ``finally``
     beside a ``with``) is safe."""
@@ -235,7 +222,8 @@ def finish(status: str = "completed", **kw: Any):
         return None
     result = None
     try:
-        result = binding.run.finish(status, **kw)
+        # Only a status the caller named: each run kind keeps its own default (an offline run's).
+        result = binding.run.finish(**kw) if status is None else binding.run.finish(status, **kw)
         return result
     finally:
         # NB: disarming lives in Run.finish, not here. This wrapper is only one

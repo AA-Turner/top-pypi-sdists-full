@@ -7,6 +7,7 @@ import logging
 from ibm_watsonx_ai.gateway import Gateway
 from ibm_watsonx_ai.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 logger = logging.getLogger(__name__)
 
@@ -41,20 +42,7 @@ def get_max_input_tokens(
     return model_context_window - max_completion_tokens
 
 
-def drop_nones(extra: dict, **params: object) -> dict:
-    """Return a dict of *params* with ``None`` values removed, merged with *extra*.
-
-    Only ``None`` is dropped.  Falsy-but-meaningful values such as ``False``,
-    ``0``, ``0.0``, and ``[]`` are **kept** so that callers can forward
-    parameters like ``logprobs=False``, ``store=False``,
-    ``parallel_tool_calls=False``, ``temperature=0``, or ``stop=[]`` to the
-    API without them being silently discarded.
-
-    *extra* is a pass-through dict (typically ``**kwargs`` from the caller)
-    that is merged first so explicit keyword arguments take precedence.
-
-    Example::
-
-        call_params = drop_nones(kwargs, temperature=temperature, seed=seed)
-    """
-    return {k: v for k, v in {**extra, **params}.items() if v is not None}
+# This is kept here for backward compatibility, the function was defined here
+# first and then moved to `WMLResource` to make usage easier across all modules.
+# This export will be removed in SDK version 2.0
+drop_nones = WMLResource._drop_nones_from_payload  # pylint: disable=protected-access

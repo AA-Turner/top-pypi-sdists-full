@@ -567,11 +567,18 @@ def size_text(count: int) -> str:
 
 
 def base_name(base_id: str | None) -> str:
-    """A training base's name (the training registry's), else the id as given."""
+    """A training base's name (the training registry's; a quote's stored id, gr00t-n17, by the
+    name its family lists, gr00t-n1.7), else the id as given."""
     from dreamscale_transport import training_families
 
     if base_id in training_families.listed_bases():
         return training_families.family_of(base_id).base_name(base_id)
+    if training_families.is_base(base_id):
+        family = training_families.family_of(base_id)
+        stored = training_families.stored_base(base_id)
+        for listed in family.listed_bases:
+            if family.bases.get(listed) == stored:
+                return family.base_name(listed)
     return str(base_id)
 
 

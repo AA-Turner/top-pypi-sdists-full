@@ -154,7 +154,6 @@ from bitfab.spans import (
 )
 from bitfab.traces import (
     AssertionCode,
-    AssertionCodeDraft,
     AssertionEvidenceError,
     AssertionEvidenceParameter,
     AssertionEvidenceParameterType,
@@ -163,7 +162,6 @@ from bitfab.traces import (
     AssertionGenerationError,
     AssertionGenerationStatus,
     AssertionGenerationTimeoutError,
-    AssertionKind,
     AssertionLabelEvidence,
     AssertionRewrite,
     AssertionRewriteStatus,
@@ -232,7 +230,6 @@ __all__ = [
     "AssertionCategory",
     "AssertionCategorySummary",
     "AssertionCode",
-    "AssertionCodeDraft",
     "AssertionEvidenceError",
     "AssertionEvidenceParameter",
     "AssertionEvidenceParameterType",
@@ -241,7 +238,6 @@ __all__ = [
     "AssertionGenerationError",
     "AssertionGenerationStatus",
     "AssertionGenerationTimeoutError",
-    "AssertionKind",
     "AssertionLabelEvidence",
     "AssertionRewrite",
     "AssertionRewriteStatus",

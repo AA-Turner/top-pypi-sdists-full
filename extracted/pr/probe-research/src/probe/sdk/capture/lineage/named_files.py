@@ -50,8 +50,8 @@ def expand_named(patterns: "list[str] | tuple[str, ...]", base: str | None = Non
 
 def _named_recordable(path: str) -> bool:
     """A named file the recorder would record: not one it never records
-    (:func:`excluded`), not `read`/`off` in a `.probe.config`, storable."""
-    return not excluded(path) and not _config_excluded(path) and _sendable(path)
+    (:func:`excluded`), storable."""
+    return not excluded(path) and _sendable(path)
 
 
 class NamedFiles:
@@ -136,7 +136,7 @@ class NamedFiles:
             sha = fp = rows_n = None
             stable = True
             result = answers.get(ident)
-            if result is not None and not _below_floor(path, ident[2]):
+            if result is not None:
                 sha, fp, rows_n = result
                 stable = sha is not None or fp is not None
             row = _typed_row(
@@ -178,7 +178,7 @@ class NamedFiles:
         for path, ident in stated:
             sha = fp = rows_n = None
             result = answers.get(ident)
-            if result is not None and not _below_floor(path, ident[2]):
+            if result is not None:
                 sha, fp, rows_n = result
             observation = hashlib.sha256(
                 "\0".join((self.run_id, host, path, "named-output", self.started_at)).encode("utf-8", "surrogatepass")
@@ -192,7 +192,7 @@ class NamedFiles:
             _journal_rows(self.client, self.run_id, "outputs", rows, None)
             self._wake()
         return len(rows)
-from probe.sdk.capture.lineage.exclusions import _below_floor, _config_excluded, _sendable  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.capture.lineage.exclusions import _sendable  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.capture.lineage.finishing import (  # noqa: E402 -- pieces need each other; the front door loads this one first
     OBSERVATIONS_FEATURE,
     OUTPUTS_FEATURE,

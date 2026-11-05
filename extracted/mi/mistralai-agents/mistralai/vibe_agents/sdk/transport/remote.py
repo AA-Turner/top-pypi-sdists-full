@@ -15,6 +15,7 @@ from pydantic import JsonValue
 from mistralai.client import SERVER_GLOBAL, SERVERS
 from mistralai.vibe.harness.app_server import session as harness_session
 from mistralai.vibe_agents import session_workflow as wire
+from mistralai.vibe_agents._http import _header_api_key
 from mistralai.vibe_agents._internal.caller_headers import internal_caller_headers
 from mistralai.vibe_agents.agents_client import AgentsClient
 from mistralai.vibe_agents.sdk.app.config import ControlPlaneSettings, SessionClientSettings, mistral_api_url
@@ -44,7 +45,15 @@ from mistralai.vibe_agents.sessions_client import api_models_v1 as procedure_api
 from mistralai.vibe_agents.sessions_client.client import ProcedureRoute
 
 from .client_tools import NO_CLIENT_TOOLS, ClientToolRegistry, ClientToolSessionClient
-from .event_ids import _CURSOR_PREFIX, _EMPTY_CURSOR, _encode_base64url, _encode_event_id
+from .event_ids import (
+    _CURSOR_PREFIX,
+    _EMPTY_CURSOR,
+    _EMPTY_POSITION,
+    _empty_cursor,
+    _encode_base64url,
+    _encode_event_id,
+    _split_session,
+)
 from .procedures import SESSION_PROCEDURES, refuse_unlisted_procedure
 from .product_session import build_session_from_product
 from .projection_v1 import RelayedPayload, VibeAgentsSessionV1Projection
@@ -109,6 +118,17 @@ _TERMINAL_PRODUCT_STATUSES = frozenset(
 
 class RemoteSessionConflictError(AgentsError, RuntimeError):
     """Raised when a compare-and-set Turn command targets stale state."""
+
+
+def _invalid_event_cursor(
+    event_id: str, session_id: UUID, *, owner: str | None = None
+) -> sdk_errors.InvalidCursorError:
+    """``InvalidCursorError``, as on a local session, still the ``RemoteSessionConflictError`` it was before."""
+    return sdk_errors.invalid_cursor(event_id, session_id, owner=owner, host_class=RemoteSessionConflictError)
+
+
+class _UndecodableEventCursorError(Exception):
+    """The control plane answered 400 to the history read that sends the caller's cursor."""
 
 
 class RemoteSessionTurnConflictError(RemoteSessionConflictError, harness_session.SessionTurnConflictError):
@@ -409,14 +429,19 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                 reason="the current Vibe Agents start contract cannot import canonical history",
             )
         deployment_name = await self._resolve_deployment_name()
+        # One throttle budget for every create call below.
+        throttle_deadline = asyncio.get_running_loop().time() + _OUTCOME_TIMEOUT_SECONDS
 
         async def create(initial_turn: harness_session.InitialTurn | None) -> StartAgentSessionResponse:
-            return await self._sessions.create_session(
-                agent_name=deployment_name,
-                agent=agent,
-                idempotency_key=idempotency_key,
-                session_inputs=dict(session_inputs) if session_inputs else None,
-                initial_turn=initial_turn,
+            return await _retry_throttled_start(
+                lambda: self._sessions.create_session(
+                    agent_name=deployment_name,
+                    agent=agent,
+                    idempotency_key=idempotency_key,
+                    session_inputs=dict(session_inputs) if session_inputs else None,
+                    initial_turn=initial_turn,
+                ),
+                deadline=throttle_deadline,
             )
 
         try:
@@ -502,19 +527,22 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         live stream, before its first frame.
         """
         session_id = self._require_session_id(params.session_id)
-        after_event_id, reconciled_through = _split_reconciled_event_id(params.after_event_id)
-        cursor, subevent_index = _decode_event_id(after_event_id)
+        after_event_id, reconciled_through = _split_reconciled_event_id(params.after_event_id, session_id)
+        cursor, subevent_index = _decode_event_id(after_event_id, session_id, passed=params.after_event_id)
         product = await self._read_bound_session(session_id)
-        projection, resume_payloads = await self._build_stream_projection(
-            product,
-            cursor=cursor,
-            capture_cursor=cursor if subevent_index is not None else None,
-        )
+        try:
+            projection, resume_payloads = await self._build_stream_projection(
+                product,
+                cursor=cursor,
+                capture_cursor=cursor if subevent_index is not None else None,
+            )
+        except _UndecodableEventCursorError as error:
+            raise _invalid_event_cursor(str(params.after_event_id), session_id) from error.__cause__
         resume_cursor: str | None = None
 
         if subevent_index is not None:
             if cursor is None or subevent_index >= len(resume_payloads) - 1:
-                raise RemoteSessionConflictError(f"Invalid Vibe Agents event cursor: {params.after_event_id!r}")
+                raise _invalid_event_cursor(str(params.after_event_id), session_id)
             resume_cursor = cursor
 
         yield harness_session.TransportStreamStarted()
@@ -523,6 +551,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         if subevent_index is not None and resume_cursor is not None:
             for index, payload in enumerate(resume_payloads[subevent_index + 1 :], start=subevent_index + 1):
                 last_event_id = _encode_event_id(
+                    session_id,
                     resume_cursor,
                     subevent_index=index if index < len(resume_payloads) - 1 else None,
                 )
@@ -571,13 +600,14 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
                                 # a session read's cursor can name it, and a reader waiting for that
                                 # cursor would otherwise never see it. A repeated frame gave it already.
                                 if not repeated:
-                                    last_event_id = _encode_event_id(observed.sequence)
+                                    last_event_id = _encode_event_id(session_id, observed.sequence)
                                     yield harness_session.TransportHeartbeat(latest_event_id=last_event_id)
                                 continue
                             emitted_at = _relayed_emitted_at(projection)
                             events = [
                                 _relayed_event(
                                     event_id=_encode_event_id(
+                                        session_id,
                                         observed.sequence,
                                         subevent_index=index if index < len(payloads) - 1 else None,
                                     ),
@@ -932,7 +962,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             deadline=deadline,
         )
         if routed is not None:
-            return _with_route_cursor(routed)
+            return _with_route_cursor(routed, session_id)
         # FIXME: delete once MAIS 2026.11 is released
         await self._require_session_v1()
 
@@ -987,7 +1017,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             deadline=deadline,
         )
         if routed is not None:
-            return _with_route_cursor(routed)
+            return _with_route_cursor(routed, session_id)
         # FIXME: delete once MAIS 2026.11 is released
         await self._require_session_v1()
         try:
@@ -1031,7 +1061,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             deadline=deadline,
         )
         if routed is not None:
-            return _with_route_cursor(routed)
+            return _with_route_cursor(routed, session_id)
         # FIXME: delete once MAIS 2026.11 is released
         await self._require_session_v1()
         try:
@@ -1127,8 +1157,8 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
             if session_id != attached_id:
                 # A callback of another Session of the tree: this transport follows the events of
                 # its own Session only, and the cursor is the owner's.
-                return harness_session.CallbackResultResponse(last_event_id=_EMPTY_CURSOR)
-            return _with_route_cursor(routed)
+                return harness_session.CallbackResultResponse(last_event_id=_empty_cursor(session_id))
+            return _with_route_cursor(routed, session_id)
         # FIXME: delete once MAIS 2026.11 is released
         # A subagent's Session has its root's protocol, so checking the bound Session covers it.
         await self._require_session_v1()
@@ -1138,7 +1168,7 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         if session_id != attached_id:
             # The open callbacks list acknowledges the answer, as the owner's event cursor is not known here.
             await self._wait_until_not_listed(session_id, callback_id, deadline=deadline)
-            return harness_session.CallbackResultResponse(last_event_id=_EMPTY_CURSOR)
+            return harness_session.CallbackResultResponse(last_event_id=_empty_cursor(session_id))
         # `/callbacks` answers before the resolution, so wait until the Session shows it.
         try:
             acknowledged = await self._wait_for_projection(
@@ -1386,11 +1416,18 @@ class VibeAgentsSessionTransport(harness_session.SessionTransport):
         return projection, captured_payloads
 
     async def _next_retained_cursor_after(self, cursor: str) -> str | None:
-        page = await self._sessions.read_session_events_history(
-            agent_session_id=self._require_session_id(),
-            limit=1,
-            cursor=cursor,
-        )
+        try:
+            page = await self._sessions.read_session_events_history(
+                agent_session_id=self._require_session_id(),
+                limit=1,
+                cursor=cursor,
+            )
+        except httpx.HTTPStatusError as error:
+            # The one history read that sends the caller's cursor, not one the control plane gave:
+            # it answers 400 for a cursor it cannot decode, such as a truncated stored cursor.
+            if error.response.status_code != httpx.codes.BAD_REQUEST:
+                raise
+            raise _UndecodableEventCursorError from error
         if not page.events:
             return None
         return page.events[0].sequence
@@ -1740,7 +1777,10 @@ def _client_api_key(api_key: str | None) -> str:
     """Return the API key of an ``agents.Client``: ``api_key``, else ``MISTRAL_API_KEY``."""
     if api_key is not None and not isinstance(api_key, str):
         raise sdk_errors.SdkError(f"api_key must be a string or None, got {type(api_key).__name__}")
-    key = (api_key if api_key is not None else ControlPlaneSettings().api_key).strip()
+    if api_key is None:
+        key = _header_api_key(ControlPlaneSettings().api_key, name="MISTRAL_API_KEY")
+    else:
+        key = _header_api_key(api_key, name="api_key")
     if not key:
         raise sdk_errors.SdkError(
             "The Agents control plane needs an API key: set MISTRAL_API_KEY or pass agents.Client(api_key=...)"
@@ -1962,8 +2002,10 @@ def _response_detail(error: httpx.HTTPStatusError) -> object:
 type _RetryKind = Literal["busy", "unknown"]
 
 
-def _session_busy(error: httpx.HTTPStatusError) -> harness_session.SessionBusyError:
-    return harness_session.SessionBusyError(_detail_message(error, "The Session is busy"))
+def _session_busy(error: httpx.HTTPStatusError) -> sdk_errors.SessionBusyError:
+    busy = sdk_errors.SessionBusyError(_detail_message(error, "The Session is busy"))
+    busy.retry_after = sdk_errors.retry_after_seconds(error.response)
+    return busy
 
 
 async def _retry_within_budget[ResultT](
@@ -2008,7 +2050,7 @@ async def _retry_within_budget[ResultT](
             kind = classify(error)
             if kind is None:
                 raise
-            server_delay = _retry_after_seconds(error.response)
+            server_delay = sdk_errors.retry_after_seconds(error.response) or 0.0
             if kind == "busy":
                 busy_cause = error
             else:
@@ -2028,6 +2070,27 @@ async def _retry_within_budget[ResultT](
             raise outcome_unknown() from unknown_error
         await asyncio.sleep(pause)
         delay = min(delay * 2, _RETRY_MAX_SECONDS)
+
+
+async def _retry_throttled_start[ResultT](attempt: Callable[[], Awaitable[ResultT]], *, deadline: float) -> ResultT:
+    """Resend a Session start the control plane throttled, once its ``Retry-After`` has passed.
+
+    A 429 applied nothing, so the same start is resent. A 429 with no ``Retry-After``, or one that
+    ends after ``deadline`` (event loop time), such as a spent daily quota, is raised at once.
+    """
+
+    loop = asyncio.get_running_loop()
+    while True:
+        try:
+            return await attempt()
+        except httpx.HTTPStatusError as error:
+            delay = sdk_errors.retry_after_seconds(error.response)
+            if error.response.status_code != httpx.codes.TOO_MANY_REQUESTS or delay is None:
+                raise
+            if loop.time() + delay > deadline:
+                raise
+            logger.info("Session start throttled (429), retrying", retry_after_seconds=delay)
+        await asyncio.sleep(delay)
 
 
 # FIXME: delete once MAIS 2026.11 is released
@@ -2109,16 +2172,17 @@ type _RouteCursorResponse = (
 )
 
 
-def _with_route_cursor[ResponseT: _RouteCursorResponse](response: ResponseT) -> ResponseT:
+def _with_route_cursor[ResponseT: _RouteCursorResponse](response: ResponseT, session_id: UUID) -> ResponseT:
     """Wrap the controller ``/events`` cursor a route returns as this transport's event id."""
 
-    return response.model_copy(update={"last_event_id": _encode_event_id(response.last_event_id)})
+    return response.model_copy(update={"last_event_id": _encode_event_id(session_id, response.last_event_id)})
 
 
 def _is_retryable_busy(error: httpx.HTTPStatusError) -> bool:
     """Whether a 429 applied nothing and should clear shortly: a busy code, or no code at all.
 
-    The quota 429 is only on a Session start, which nothing here retries.
+    The quota 429 is only on a Session start, which ``_retry_throttled_start`` retries by its
+    ``Retry-After`` alone.
     """
 
     if error.response.status_code != httpx.codes.TOO_MANY_REQUESTS:
@@ -2134,15 +2198,6 @@ def _detail_message(error: httpx.HTTPStatusError, default: str) -> str:
     if isinstance(detail, dict):
         detail = detail.get("message")
     return str(detail) if detail else default
-
-
-def _retry_after_seconds(response: httpx.Response) -> float:
-    """The response's ``Retry-After`` delay in seconds, or 0 when it has none or names a date."""
-
-    value = response.headers.get("Retry-After", "")
-    if value.isascii() and value.isdigit():
-        return float(value)
-    return 0.0
 
 
 def _send_message_outcome_unknown(error: httpx.HTTPStatusError) -> bool:
@@ -2333,12 +2388,29 @@ def _decode_base64url(value: str) -> str:
     ).decode()
 
 
-def _decode_event_id(event_id: str | None) -> tuple[str | None, int | None]:
+def _decode_event_id(
+    event_id: str | None, session_id: UUID, *, passed: str | None = None
+) -> tuple[str | None, int | None]:
+    """The product cursor and the sub-index ``event_id`` names, ``None`` for the session's start.
+
+    An id without a session id, as the transport gave before, is taken as ``session_id``'s.
+    ``passed`` is the id as the caller gave it, which the error shows, if it differs.
+
+    Raises:
+        InvalidCursorError: The id is not one this transport gives, or is of another session.
+    """
     if event_id is None or event_id == _EMPTY_CURSOR:
         return None, None
     if not event_id.startswith(_CURSOR_PREFIX):
-        raise RemoteSessionConflictError(f"Invalid Vibe Agents event cursor: {event_id!r}")
-    encoded, separator, subevent_index = event_id.removeprefix(_CURSOR_PREFIX).partition(".")
+        raise _invalid_event_cursor(passed or event_id, session_id)
+    owner, position = _split_session(event_id, _CURSOR_PREFIX)
+    if owner is not None and owner != str(session_id):
+        # Its position can be one of this session's too: read by it, the cursor would skip or
+        # repeat events.
+        raise _invalid_event_cursor(passed or event_id, session_id, owner=owner)
+    if position == _EMPTY_POSITION:
+        return None, None
+    encoded, separator, subevent_index = position.partition(".")
     try:
         if separator and not subevent_index.isdigit():
             raise ValueError("Event sub-index is invalid")
@@ -2347,7 +2419,7 @@ def _decode_event_id(event_id: str | None) -> tuple[str | None, int | None]:
             raise ValueError("Event cursor decoded to an empty product cursor")
         return product_cursor, int(subevent_index) if separator else None
     except (ValueError, UnicodeDecodeError) as error:
-        raise RemoteSessionConflictError(f"Invalid Vibe Agents event cursor: {event_id!r}") from error
+        raise _invalid_event_cursor(passed or event_id, session_id) from error
 
 
 def _new_projection(product: AgentSessionResponse, refused_turn_ids: Set[str]) -> VibeAgentsSessionV1Projection:
@@ -2386,7 +2458,7 @@ def _reconciled_turn_events(
         return []
     return [
         harness_session.Event(
-            event_id=_encode_reconciled_event_id(cursor, index),
+            event_id=_encode_reconciled_event_id(session_id, cursor, index),
             emitted_at=projection.session.updated_at,
             session_id=str(session_id),
             root_session_id=projection.session.root_session_id,
@@ -2397,18 +2469,18 @@ def _reconciled_turn_events(
     ]
 
 
-def _encode_reconciled_event_id(product_cursor: str, index: int) -> str:
-    return f"{_encode_event_id(product_cursor)}{_RECONCILED_TURN_MARKER}{index}"
+def _encode_reconciled_event_id(session_id: UUID, product_cursor: str, index: int) -> str:
+    return f"{_encode_event_id(session_id, product_cursor)}{_RECONCILED_TURN_MARKER}{index}"
 
 
-def _split_reconciled_event_id(event_id: str | None) -> tuple[str | None, int | None]:
+def _split_reconciled_event_id(event_id: str | None, session_id: UUID) -> tuple[str | None, int | None]:
     """Separate a reconciled Turn termination's position from the cursor it follows."""
 
     if event_id is None or _RECONCILED_TURN_MARKER not in event_id:
         return event_id, None
     cursor_event_id, _marker, index = event_id.rpartition(_RECONCILED_TURN_MARKER)
     if not index.isdigit():
-        raise RemoteSessionConflictError(f"Invalid Vibe Agents event cursor: {event_id!r}")
+        raise _invalid_event_cursor(event_id, session_id)
     return cursor_event_id, int(index)
 
 
@@ -2503,7 +2575,11 @@ def _started_idle(projection: VibeAgentsSessionV1Projection) -> bool:
 
 
 def _last_event_id(projection: VibeAgentsSessionV1Projection) -> str:
-    return _encode_event_id(projection.product_cursor) if projection.product_cursor is not None else _EMPTY_CURSOR
+    # The session the transport read, not the id its stream reports: a cursor is of that session.
+    session_id = projection.product_session.agent_session_id
+    if projection.product_cursor is None:
+        return _empty_cursor(session_id)
+    return _encode_event_id(session_id, projection.product_cursor)
 
 
 def _encode_page_cursor(

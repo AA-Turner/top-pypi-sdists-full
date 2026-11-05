@@ -1,14 +1,9 @@
 use std::{
 	fmt::Debug,
-	marker::PhantomData,
 	ops::{Deref, DerefMut},
 };
 
-use nom::{Mode, Parser, error::ParseError};
-
-use crate::{lossless::TokenKind, unparse::Unparse};
-
-use super::Input;
+use crate::lossless::TokenKind;
 
 /// A value `T` annotated with a span `S`.
 #[derive(Clone, PartialEq, Eq, Default)]
@@ -87,15 +82,6 @@ where
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.value.into_iter()
-	}
-}
-
-impl<T, S> Unparse for Spanned<T, S>
-where
-	T: Unparse,
-{
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		self.value.fmt(f)
 	}
 }
 
@@ -243,160 +229,23 @@ impl Span for LosslessSpan {
 	}
 }
 
-/// Parser that can have spans applied to its output.
-pub trait WithSpan<'data> {
-	type Output;
-	type Error;
-
+/// Records a parser's result on the current [`tracing::Span`], in its `ok` and `output` fields.
+pub trait Trace: Sized {
 	#[must_use]
-	fn span<S: Span>(
-		self,
-	) -> impl Parser<Input<'data>, Output = Spanned<Self::Output, S>, Error = Self::Error>;
+	fn trace(self) -> Self;
 }
 
-impl<'data, T> WithSpan<'data> for T
-where
-	T: Parser<Input<'data>>,
-	T::Error: ParseError<Input<'data>>,
-{
-	type Output = T::Output;
-	type Error = T::Error;
-
-	fn span<S: Span>(
-		self,
-	) -> impl Parser<Input<'data>, Output = Spanned<Self::Output, S>, Error = Self::Error> {
-		Spanner {
-			parser: self,
-			location: PhantomData,
-		}
-	}
-}
-
-struct Spanner<'data, P, S> {
-	parser: P,
-	location: PhantomData<&'data S>,
-}
-
-impl<'data, S, P> Parser<Input<'data>> for Spanner<'data, P, S>
-where
-	S: Span,
-	P: Parser<Input<'data>>,
-	P::Error: ParseError<Input<'data>>,
-{
-	type Output = Spanned<P::Output, S>;
-	type Error = P::Error;
-
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let start = input.start;
-		let res = self.parser.process::<OM>(input);
-
-		match res {
-			Ok((remaining, output)) => {
-				let output = OM::Output::map(output, |output| Spanned {
-					value: output,
-					span: remaining.span(start),
-				});
-
-				Ok((remaining, output))
+impl<T: Debug, E> Trace for Result<T, E> {
+	// Every parser result passes through here, so with tracing off it must not look up the
+	// current span.
+	fn trace(self) -> Self {
+		if tracing::level_enabled!(tracing::Level::TRACE) {
+			let span = tracing::Span::current();
+			span.record("ok", self.is_ok());
+			if let Ok(output) = &self {
+				span.record("output", tracing::field::debug(output));
 			}
-			Err(err) => Err(err),
 		}
-	}
-}
-
-/// Parser whose input is recorded as a syntax token: see [`Span::Syntax`].
-pub trait WithToken<'data>: Parser<Input<'data>> + Sized {
-	/// Records what this parser consumed as a token of `kind`, alongside its output. Consuming
-	/// nothing records nothing.
-	fn with_token<S: Span>(
-		self,
-		kind: TokenKind,
-	) -> impl Parser<Input<'data>, Output = (Self::Output, S::Syntax), Error = Self::Error> {
-		Tokenizer {
-			parser: self,
-			kind,
-			span: PhantomData::<&'data S>,
-		}
-	}
-
-	/// As [`Self::with_token`], for a parser whose output is only syntax.
-	fn token<S: Span>(
-		self,
-		kind: TokenKind,
-	) -> impl Parser<Input<'data>, Output = S::Syntax, Error = Self::Error> {
-		self.with_token::<S>(kind).map(|(_, syntax)| syntax)
-	}
-}
-
-impl<'data, P> WithToken<'data> for P where P: Parser<Input<'data>> {}
-
-struct Tokenizer<'data, P, S> {
-	parser: P,
-	kind: TokenKind,
-	span: PhantomData<&'data S>,
-}
-
-impl<'data, S, P> Parser<Input<'data>> for Tokenizer<'data, P, S>
-where
-	S: Span,
-	P: Parser<Input<'data>>,
-{
-	type Output = (P::Output, S::Syntax);
-	type Error = P::Error;
-
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let start = input.start;
-		let (remaining, output) = self.parser.process::<OM>(input)?;
-		let end = remaining.start;
-		let kind = self.kind;
-		let output = OM::Output::map(output, |output| {
-			let syntax = if end > start {
-				S::Syntax::token(kind, start, end)
-			} else {
-				S::Syntax::default()
-			};
-			(output, syntax)
-		});
-		Ok((remaining, output))
-	}
-}
-
-/// Add a field `ok` to the current [`tracing::Span`], which records whether the result is [`Ok`].
-pub trait TraceOk: Sized {
-	#[must_use]
-	fn trace_ok(self) -> Self;
-}
-
-impl<T, E> TraceOk for Result<T, E> {
-	fn trace_ok(self) -> Self {
-		tracing::Span::current().record("ok", self.is_ok());
 		self
-	}
-}
-
-/// Adds a field `output` to the current [`tracing::Span`], which records the output of the parser.
-pub trait TraceParse<'data, P>
-where
-	P: Parser<Input<'data>>,
-{
-	fn trace_parse(self) -> impl Parser<Input<'data>, Output = P::Output, Error = P::Error>;
-}
-
-impl<'data, P> TraceParse<'data, P> for P
-where
-	P: Parser<Input<'data>>,
-	P::Output: Debug,
-{
-	fn trace_parse(self) -> impl Parser<Input<'data>, Output = P::Output, Error = P::Error> {
-		self.map(|res| {
-			tracing::Span::current().record("output", tracing::field::debug(&res));
-			res
-		})
 	}
 }

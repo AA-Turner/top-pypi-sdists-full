@@ -10,7 +10,7 @@ address → a command with no key finds it (seq/_account.credential) → each re
 which refreshes it - under a file lock, so two `seq` running at once refresh it once - when under two minutes are
 left → `seq logout` ends it and removes it.
 
-WHY a robot never uses it: it is you, not a robot. connect(), teleop() and planner() take a key alone (Transport's
+WHY a robot never uses it: it is you, not a robot. connect() and teleop() take a key alone (Transport's
 `login` stays off for them), so a robot on a machine where someone ran `seq login` cannot act as that person.
 WHY no token is ever printed or put in an error: whoever holds the refresh token is you until you sign out.
 """

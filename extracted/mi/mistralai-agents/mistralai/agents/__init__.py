@@ -41,12 +41,15 @@ if TYPE_CHECKING:
         CompletedTermination,
         Connector,
         ContentAnnotations,
+        ContextMessage,
         CustomSandbox,
         DangerousLocalSandbox,
         DenyApproval,
         Depends,
         EgressPolicy,
         EmbeddedResourceContentBlock,
+        EntryAdded,
+        EntryCompleted,
         Event,
         ExperimentalWarning,
         Failed,
@@ -54,20 +57,26 @@ if TYPE_CHECKING:
         GitHubBinding,
         HeaderBinding,
         HistoryImportEntry,
+        HistoryImportMessage,
+        HistoryImportReasoning,
+        HistoryImportSnapshot,
+        HistoryImportToolCall,
+        HistoryImportToolResult,
         Hook,
         HookCallbackContext,
         HookDecision,
         ImageContentBlock,
         InternalServerError,
         Interrupted,
+        InvalidCursorError,
         InvalidOutput,
         KeepCallbackOpen,
         LegacySessionError,
         LocalDockerSandbox,
         LocalRuntime,
-        LocalSessionProcedureError,
         LocalSkillBundle,
         LocalSkillFile,
+        MessageEntry,
         MistralApiBinding,
         MistralConnectorNotFoundError,
         MistralSandbox,
@@ -75,6 +84,7 @@ if TYPE_CHECKING:
         Network,
         NoSandbox,
         NotFound,
+        Notice,
         ObservationLost,
         OpenApproval,
         OpenCallback,
@@ -92,7 +102,6 @@ if TYPE_CHECKING:
         RegistrySkill,
         RemoteAgentDeploymentNotFoundError,
         RemoteMCP,
-        RemoteSessionConflictError,
         ResourceLinkContentBlock,
         Running,
         Sandbox,
@@ -102,6 +111,7 @@ if TYPE_CHECKING:
         SandboxWorkspaceSkills,
         SdkError,
         Session,
+        SessionAgentCustomization,
         SessionBusyError,
         SessionConfigMismatchError,
         SessionIdempotencyConflictError,
@@ -119,6 +129,8 @@ if TYPE_CHECKING:
         SubagentPolicy,
         Termination,
         TextContentBlock,
+        TextDelta,
+        TokenUsage,
         ToolAnnotations,
         ToolCall,
         ToolCallbackContext,
@@ -141,6 +153,7 @@ if TYPE_CHECKING:
         UnknownOpenCallback,
         UnknownOutcome,
         UnknownTermination,
+        UnknownValue,
         UnsupportedAgentFeatureError,
         UnsupportedSessionProcedureError,
         WorkspaceHeaderBindings,
@@ -162,13 +175,16 @@ if TYPE_CHECKING:
         uuid4,
     )
 
-    # Deprecated 1.1.0rc12 names, not exported: see `_RENAMED`, `_DEPRECATED_HARNESS` and `__getattr__` below.
+    # Deprecated 1.1.0rc12 and rc14 names, not exported: see `_RENAMED`, `_HOST_ERRORS` and `__getattr__` below.
     from mistralai.vibe_agents.sdk.agents import ClientToolDefinition as ClientToolDefinition
     from mistralai.vibe_agents.sdk.agents import Context as Context
     from mistralai.vibe_agents.sdk.agents import Harness as Harness
     from mistralai.vibe_agents.sdk.agents import HookSession as HookSession
     from mistralai.vibe_agents.sdk.agents import JsonFileSessionJournal as JsonFileSessionJournal
+    from mistralai.vibe_agents.sdk.agents import LocalSessionProcedureError as LocalSessionProcedureError
     from mistralai.vibe_agents.sdk.agents import ParentHarness as ParentHarness
+    from mistralai.vibe_agents.sdk.agents import ParentSandbox as ParentSandbox
+    from mistralai.vibe_agents.sdk.agents import RemoteSessionConflictError as RemoteSessionConflictError
     from mistralai.vibe_agents.sdk.agents import RemoteSessionNotFoundError as RemoteSessionNotFoundError
     from mistralai.vibe_agents.sdk.agents import RemoteSessionOutcomeUnknownError as RemoteSessionOutcomeUnknownError
     from mistralai.vibe_agents.sdk.agents import RemoteSessionStartupTimeoutError as RemoteSessionStartupTimeoutError
@@ -178,7 +194,7 @@ if TYPE_CHECKING:
     from mistralai.vibe_agents.sdk.agents import VibeHarness as VibeHarness
 
 
-# `import mistralai.agents as agents` reaches the SDK's public names directly;
+# `from mistralai import agents` reaches the SDK's public names directly;
 # `from mistralai.agents import agents` keeps returning the module that holds them.
 __all__ = [
     "agents",
@@ -217,30 +233,38 @@ __all__ = [
     "Completed",
     "Connector",
     "ContentAnnotations",
+    "ContextMessage",
     "CustomSandbox",
     "DangerousLocalSandbox",
     "DenyApproval",
     "Depends",
     "EgressPolicy",
     "EmbeddedResourceContentBlock",
+    "EntryAdded",
+    "EntryCompleted",
     "Event",
     "ExperimentalWarning",
     "Failed",
     "GitHubBinding",
     "HeaderBinding",
     "HistoryImportEntry",
+    "HistoryImportMessage",
+    "HistoryImportReasoning",
+    "HistoryImportSnapshot",
+    "HistoryImportToolCall",
+    "HistoryImportToolResult",
     "Hook",
     "HookCallbackContext",
     "HookDecision",
     "InternalServerError",
     "ImageContentBlock",
     "Interrupted",
+    "InvalidCursorError",
     "InvalidOutput",
     "KeepCallbackOpen",
     "LegacySessionError",
     "LocalDockerSandbox",
     "LocalRuntime",
-    "LocalSessionProcedureError",
     "LocalSkillBundle",
     "LocalSkillFile",
     "MistralApiBinding",
@@ -250,6 +274,8 @@ __all__ = [
     "Network",
     "NoSandbox",
     "NotFound",
+    "MessageEntry",
+    "Notice",
     "ObservationLost",
     "OpenApproval",
     "OpenCallback",
@@ -267,7 +293,6 @@ __all__ = [
     "RegistrySkill",
     "RemoteAgentDeploymentNotFoundError",
     "RemoteMCP",
-    "RemoteSessionConflictError",
     "ResourceLinkContentBlock",
     "Running",
     "Sandbox",
@@ -277,6 +302,7 @@ __all__ = [
     "SandboxWorkspaceSkills",
     "SdkError",
     "Session",
+    "SessionAgentCustomization",
     "SessionBusyError",
     "SessionConfigMismatchError",
     "SessionIdempotencyConflictError",
@@ -298,7 +324,10 @@ __all__ = [
     "FailedTermination",
     "UnknownOutcome",
     "UnknownTermination",
+    "UnknownValue",
     "TextContentBlock",
+    "TextDelta",
+    "TokenUsage",
     "ToolAnnotations",
     "ToolCall",
     "ToolCallEntry",
@@ -355,9 +384,13 @@ _RENAMED = frozenset(
     }
 )
 
-# The 1.1.0rc12 Harness names: not exported, but still readable with a DeprecationWarning that names the fields
-# to set instead. The `agents` module holds the table of classes and the warning text.
-_DEPRECATED_HARNESS = frozenset({"Harness", "VibeHarness", "ParentHarness"})
+# The 1.1.0rc12 Harness names and the 1.0 `ParentSandbox`: not exported, but still readable with a
+# DeprecationWarning that names the fields to set instead. The `agents` module holds the table of classes and
+# the warning text.
+_DEPRECATED_HARNESS = frozenset({"Harness", "VibeHarness", "ParentHarness", "ParentSandbox"})
+
+# The 1.1.0rc14 host-specific error names this package exported (see `_HOST_ERRORS` in the `agents` module).
+_HOST_ERRORS = frozenset({"LocalSessionProcedureError", "RemoteSessionConflictError"})
 
 
 # Hidden from type checkers, which read the names from the imports above and so still report a
@@ -392,6 +425,12 @@ if not TYPE_CHECKING:
             agents_module = _agents_module()
             warnings.warn(agents_module._JSON_FILE_SESSION_JOURNAL_WARNING, DeprecationWarning, stacklevel=2)
             return agents_module._JsonFileSessionJournal
+        if name in _HOST_ERRORS:
+            # The 1.1.0rc14 host-specific error names: not exported, but still readable with a DeprecationWarning.
+            # The `agents` module holds the classes and the warning text.
+            agents_module = _agents_module()
+            warnings.warn(agents_module._host_error_warning(name), DeprecationWarning, stacklevel=2)
+            return agents_module._HOST_ERRORS[name]
         if name not in __all__:
             raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

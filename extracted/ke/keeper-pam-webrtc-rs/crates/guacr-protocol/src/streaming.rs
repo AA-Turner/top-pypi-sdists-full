@@ -320,8 +320,7 @@ impl StreamingParser {
 
             if char_byte_len == 0 {
                 return Err(PeekError::Utf8Error(format!(
-                    "Invalid UTF-8 start byte 0x{:02X} at position {}",
-                    byte, byte_pos
+                    "Invalid UTF-8 start byte at position {byte_pos}"
                 )));
             }
 
@@ -455,8 +454,12 @@ impl StreamingParser {
             [initial_pos_for_opcode_len..initial_pos_for_opcode_len + length_end_op_rel];
 
         let length_op: usize = Self::parse_length(opcode_len_slice).map_err(|_| {
-            let length_str_op = str::from_utf8(opcode_len_slice).unwrap_or("<invalid>");
-            PeekError::InvalidFormat(format!("Opcode length not an integer: '{length_str_op}'"))
+            // Never echo wire bytes: instruction text can carry credentials.
+            PeekError::InvalidFormat(format!(
+                "Opcode length not an integer ({} bytes at buffer position {})",
+                opcode_len_slice.len(),
+                initial_pos_for_opcode_len
+            ))
         })?;
 
         pos = initial_pos_for_opcode_len + length_end_op_rel + 1;
@@ -501,9 +504,10 @@ impl StreamingParser {
                 [initial_pos_for_arg_len..initial_pos_for_arg_len + length_end_arg_rel];
 
             let length_arg: usize = Self::parse_length(arg_len_slice).map_err(|_| {
-                let length_str_arg = str::from_utf8(arg_len_slice).unwrap_or("<invalid>");
                 PeekError::InvalidFormat(format!(
-                    "Argument length not an integer: '{length_str_arg}'"
+                    "Argument length not an integer ({} bytes at buffer position {})",
+                    arg_len_slice.len(),
+                    initial_pos_for_arg_len
                 ))
             })?;
 
@@ -538,9 +542,9 @@ impl StreamingParser {
                 is_error_opcode: is_err_op,
             })
         } else {
+            // Positions and lengths only: the instruction text may hold a password.
             Err(PeekError::InvalidFormat(format!(
-                "Expected instruction terminator ';' but found '{}' at buffer position {} (instruction content was: '{}')",
-                buffer_slice[pos] as char, pos, str::from_utf8(&buffer_slice[..pos]).unwrap_or("<invalid_utf8>")
+                "Expected instruction terminator ';' but found a different byte at buffer position {pos} (instruction content withheld, {pos} bytes)"
             )))
         }
     }
@@ -574,7 +578,8 @@ impl StreamingParser {
 
         let length_op: usize = length_str_op.parse().map_err(|e| {
             StreamingParserError::InvalidFormat(format!(
-                "Opcode length not an integer: {e}. Original: '{length_str_op}'"
+                "Opcode length not an integer: {e} ({} bytes at content position {pos})",
+                length_str_op.len()
             ))
         })?;
 
@@ -596,8 +601,7 @@ impl StreamingParser {
         while pos < content_slice.len() {
             if content_slice[pos] != ARG_SEP {
                 return Err(StreamingParserError::InvalidFormat(format!(
-                    "Expected argument separator ',' but found '{}' at content position {}",
-                    content_slice[pos] as char, pos
+                    "Expected argument separator ',' but found a different byte at content position {pos}"
                 )));
             }
             pos += 1; // Skip ARG_SEP
@@ -621,7 +625,8 @@ impl StreamingParser {
 
             let length_arg: usize = length_str_arg.parse().map_err(|e| {
                 StreamingParserError::InvalidFormat(format!(
-                    "Argument length not an integer: {e}. Original: '{length_str_arg}'"
+                    "Argument length not an integer: {e} ({} bytes at content position {pos})",
+                    length_str_arg.len()
                 ))
             })?;
 
@@ -813,30 +818,13 @@ impl StreamingParser {
         }
 
         if buffer_slice[pos] != INST_TERM {
-            let found_char = buffer_slice[pos] as char;
-            let content_so_far = str::from_utf8(&buffer_slice[..pos]).unwrap_or("<invalid_utf8>");
-
-            let mut error_msg = format!(
-                "Expected instruction terminator ';' but found '{}' at buffer position {} (instruction content was: '{}')",
-                found_char, pos, content_so_far
+            // Positions and lengths only. The old message echoed the whole instruction
+            // content (and a UTF-8 hint derived from it), which includes `connect` passwords.
+            // A mismatch between byte and character counts is the usual cause here: clients
+            // must length-prefix in characters, not bytes.
+            let error_msg = format!(
+                "Expected instruction terminator ';' but found a different byte at buffer position {pos} (instruction content withheld, {pos} bytes). If values contain non-ASCII text, check the client length-prefixes in characters, not bytes"
             );
-
-            // UTF-8 debugging: Detect potential character vs byte count issues
-            if content_so_far.contains(',') {
-                if let Some(args_start) = content_so_far.find(',') {
-                    let args_part = &content_so_far[args_start + 1..];
-                    if args_part.chars().any(|c| c as u32 > 127) {
-                        let char_count = args_part.chars().count();
-                        let byte_count = args_part.len();
-                        if char_count != byte_count {
-                            error_msg.push_str(&format!(
-                                ". UTF-8 ISSUE DETECTED: Content has {} characters but {} bytes. Client may be using character count instead of byte count for argument lengths.",
-                                char_count, byte_count
-                            ));
-                        }
-                    }
-                }
-            }
 
             return Err(PeekError::InvalidFormat(error_msg));
         }

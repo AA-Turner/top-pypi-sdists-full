@@ -8,7 +8,7 @@ import toml
 from airbyte_ops_mcp.connector_ops.utils import (
     Connector,
     ConnectorLanguage,
-)  # type: ignore
+)
 from airbyte_ops_mcp.connector_qa import consts
 from airbyte_ops_mcp.connector_qa.models import (
     Check,
@@ -33,7 +33,7 @@ class ValidateMetadata(MetadataCheck):
     def _run(self, connector: Connector) -> CheckResult:
         deserialized_metadata, error = validate_and_load(
             connector.metadata_file_path,
-            PRE_UPLOAD_VALIDATORS,
+            PRE_UPLOAD_VALIDATORS,  # ty: ignore[invalid-argument-type]
             ValidatorOptions(docs_path=str(connector.documentation_file_path)),
         )
         if not deserialized_metadata:
@@ -81,7 +81,9 @@ class CheckConnectorLanguageTag(MetadataCheck):
             )
 
         current_language_tags = [
-            t for t in connector.metadata.get("tags", []) if t.startswith("language:")
+            t
+            for t in connector.metadata.get("tags", [])  # ty: ignore[unresolved-attribute]
+            if t.startswith("language:")
         ]
         if not current_language_tags:
             return self.fail(
@@ -148,7 +150,9 @@ class CheckConnectorCDKTag(MetadataCheck):
 
     def _run(self, connector: Connector) -> CheckResult:
         current_cdk_tags = [
-            t for t in connector.metadata.get("tags", []) if t.startswith("cdk:")
+            t
+            for t in connector.metadata.get("tags", [])  # ty: ignore[unresolved-attribute]
+            if t.startswith("cdk:")
         ]
         expected_cdk_tag = self.get_expected_cdk_tag(connector)
         if not current_cdk_tags:
@@ -194,7 +198,7 @@ class ValidateBreakingChangesDeadlines(MetadataCheck):
                 message="Can't verify breaking changes deadline: connector version is not defined.",
             )
 
-        breaking_changes = connector.metadata.get("releases", {}).get("breakingChanges")
+        breaking_changes = connector.metadata.get("releases", {}).get("breakingChanges")  # ty: ignore[unresolved-attribute]
 
         if not breaking_changes:
             return self.pass_(
@@ -219,7 +223,7 @@ class ValidateBreakingChangesDeadlines(MetadataCheck):
             )
 
         upgrade_deadline_datetime = datetime.strptime(upgrade_deadline, "%Y-%m-%d")
-        one_week_from_now = datetime.utcnow() + timedelta(
+        one_week_from_now = datetime.utcnow() + timedelta(  # ty: ignore[deprecated]
             days=self.minimum_days_until_deadline
         )
 
@@ -257,7 +261,7 @@ class ValidateBreakingChangesDeadlineAction(MetadataCheck):
                 message="Can't verify deadlineAction: connector version is not defined.",
             )
 
-        breaking_changes = connector.metadata.get("releases", {}).get("breakingChanges")
+        breaking_changes = connector.metadata.get("releases", {}).get("breakingChanges")  # ty: ignore[unresolved-attribute]
 
         if not breaking_changes:
             return self.pass_(
@@ -306,7 +310,7 @@ class CheckConnectorMaxSecondsBetweenMessagesValue(MetadataCheck):
     applies_to_connector_support_levels: ClassVar[list[str]] = ["certified"]
 
     def _run(self, connector: Connector) -> CheckResult:
-        max_seconds_between_messages = connector.metadata.get(
+        max_seconds_between_messages = connector.metadata.get(  # ty: ignore[unresolved-attribute]
             "maxSecondsBetweenMessages"
         )
         if not max_seconds_between_messages:

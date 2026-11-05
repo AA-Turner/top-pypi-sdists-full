@@ -4,88 +4,313 @@ Defines the data type for the record ID.
 
 from __future__ import annotations
 
+import uuid as uuid_module
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Union, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic_core import core_schema
 from pydantic_core.core_schema import ValidationInfo
 
-from surrealdb.data.types.table import Table
+from surrealdb.data.types.range import Range
+from surrealdb.data.types.set import SurrealSet
+from surrealdb.data.types.table import Table, table_name_type_error
 from surrealdb.errors import InvalidRecordIdError
 
 if TYPE_CHECKING:
     from pydantic import GetJsonSchemaHandler
     from pydantic.json_schema import JsonSchemaValue
 
-RecordIdType = Union[str, "RecordID", Table]
+#: What SurrealDB accepts as a record id. Exported so callers have a name to
+#: annotate or cast against - ``RecordID.id`` is deliberately wider (see the
+#: attribute's docs), so this is the type to use for a value you construct.
+#:
+#: Built from real generics, never from strings. A ``"list[Any]"`` member stays
+#: a ``ForwardRef`` that is only resolved when something reads the annotation at
+#: runtime - and it is resolved in the *caller's* namespace, where ``Any`` is not
+#: defined. So annotating with this, which is exactly what exporting it is for,
+#: raised ``NameError: name 'Any' is not defined`` from ``get_type_hints``, and
+#: from pydantic's ``validate_call`` at decoration time, i.e. while the caller's
+#: module was still importing. The connection aliases in ``surrealdb/__init__``
+#: shipped that same defect once already.
+RecordIdValue = (
+    str | int | uuid_module.UUID | list[Any] | tuple[Any, ...] | dict[str, Any] | Range
+)
+
+# The runtime half of `RecordIdValue`. Derived by probing every candidate value
+# against live 2.0.5 and 3.2.3 servers rather than from the documentation: these
+# are exactly the id types a server accepts and hands back, plus `Range`, which
+# is never a *stored* id but is how this SDK spells the `person:1..=3` target.
+#
+# `tuple` earns its place empirically. `RecordID(t, ("a", 1))` round-trips on
+# both servers - cbor2 encodes a tuple as a CBOR array - so leaving it out would
+# have silently broken anyone using composite keys.
+_ID_TYPES: tuple[type, ...] = (str, int, uuid_module.UUID, list, tuple, dict, Range)
+
+# Two allowed types have subclasses the server refuses, and `isinstance` would
+# wave both through: `bool` is a subclass of `int`, and `SurrealSet` is a
+# subclass of `list`. They are excluded before the allowlist is consulted.
+_ID_TYPE_IMPOSTORS: tuple[type, ...] = (bool, SurrealSet)
+
+_ID_TYPE_NAMES = "str, int, uuid.UUID, list, tuple, dict or Range"
+
+
+def _hashable(value: Any) -> Any:
+    """*value* as something hashable that is equal wherever *value* is.
+
+    A dict becomes the frozenset of its items, so key order does not count,
+    and a list or tuple a tuple. Anything else hashable is used as it is,
+    which leaves equal numbers hashing alike, as Python guarantees.
+    """
+    if isinstance(value, dict):
+        return frozenset((key, _hashable(item)) for key, item in value.items())
+    if isinstance(value, (list, tuple)):
+        return tuple(_hashable(item) for item in value)
+    try:
+        hash(value)
+    except TypeError:
+        return repr(value)
+    return value
+
+
+def _id_type_error(identifier: Any) -> TypeError:
+    """Build the message for a record id of an unusable type.
+
+    Three types get a hint of their own, because the generic "use one of these
+    instead" reads as wrong to the caller who hit them: someone passing a bool
+    knows perfectly well that a bool is an int, someone passing ``None`` has not
+    made a typo at all, and someone passing a float wants to know which way to
+    round.
+    """
+    got = type(identifier).__name__
+    if isinstance(identifier, bool):
+        hint = (
+            " Python's bool is a subclass of int, but SurrealDB has no boolean"
+            " record id - pass 1 or 0 if you meant the numeric id."
+        )
+    elif identifier is None:
+        hint = (
+            " SurrealDB has no NONE record id. To have the server generate one,"
+            " pass the table instead - e.g. db.create(Table('person'), data)."
+        )
+    elif isinstance(identifier, float):
+        hint = (
+            f" SurrealDB has no float record id - use an int, or"
+            f" {str(identifier)!r} for a string id."
+        )
+    elif isinstance(identifier, SurrealSet):
+        hint = (
+            " A SurrealSet is a set on the wire, which is not a record id -"
+            " pass list(...) if you meant an array id."
+        )
+    else:
+        hint = ""
+    return TypeError(
+        f"RecordID() id must be one of {_ID_TYPE_NAMES}, got {got}:"
+        f" {identifier!r}.{hint}"
+    )
+
+
+# The characters SurrealQL's parser accepts in a *bare* identifier. ASCII only,
+# and deliberately not `str.isalnum()`: Python calls a letter or digit of *any*
+# script alphanumeric - `é`, `α`, `表`, `таблица`, and the superscript `²` - while
+# SurrealDB's parser rejects every one of them unquoted (verified on 2.0.5,
+# 2.3.10 and 3.2.3). Judging them safe left them unwrapped, so a table with a
+# non-ASCII name could not be inserted into at all: `INSERT INTO héllo` came
+# back ``Parse error: Invalid token `é```, while the same name in ⟨...⟩ works on
+# every version.
+#
+# Emoji and punctuation were never affected - they are symbols, so `isalnum()`
+# already returned False for them and they were already being wrapped.
+_UNQUOTED_IDENTIFIER_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+)
+_UNQUOTED_IDENTIFIER_ALPHA = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
+
+
+def escape_identifier(identifier: str) -> str:
+    """Escape a string identifier for use inside SurrealQL.
+
+    A name of ASCII letters, digits and underscores containing at least one
+    letter and not starting with a digit is returned bare. Anything else is
+    delimited, with the delimiter chosen by what the name contains:
+
+    * ``⟨...⟩`` when the name holds neither ``\\`` nor ``⟩`` - spaces, unicode,
+      emoji, backticks and a lone ``⟨`` are all literal inside it;
+    * ``` `...` ``` otherwise, escaping ``\\`` as ``\\\\`` and ``` ` ``` as
+      ``` \\` ```.
+
+    The second form exists because ``⟨...⟩`` is *not* the universal wrapper this
+    function once claimed. Inside it there is no escape that every supported
+    version reads the same way, verified against live servers:
+
+    ======================  ==========  =========
+    emitted                 2.3.10      3.2.3
+    ======================  ==========  =========
+    ``⟨with\\⟩angle⟩``        accepted    Invalid escape sequence
+    ``⟨back\\slash⟩``         internal    Invalid escape sequence
+    ``⟨trailing\\⟩``          internal    Unexpected end of file
+    ======================  ==========  =========
+
+    The last is the worst of them: a trailing backslash escapes the closing
+    delimiter, so the identifier never terminates and swallows whatever follows
+    it. Backticks with doubled backslashes are read identically by both.
+
+    Names that already worked keep their exact previous output, so this only
+    changes what was broken.
+
+    Used by :meth:`RecordID.__str__` for record-id rendering and by the
+    v3 CRUD builders for ``INSERT`` target inlining (SurrealDB rejects
+    parameter binding such as ``type::table($x)`` on INSERT targets, so
+    the SDK escapes the target identifier instead).
+    """
+    if not identifier:
+        return f"⟨{identifier}⟩"
+
+    unsafe = not _UNQUOTED_IDENTIFIER_CHARS.issuperset(identifier)
+    # A leading digit is not a bare identifier either: the parser has already
+    # committed to reading a number by the time it reaches the letters, so
+    # `1tbl` came back ``Invalid token`` on CREATE and ``Unexpected token `a
+    # number``` on INSERT. It used to pass this function unwrapped, because it
+    # contains letters and every character is alphanumeric.
+    starts_with_digit = identifier[0].isascii() and identifier[0].isdigit()
+    # All-digit or all-symbol names need escaping to disambiguate from
+    # numeric IDs in SurrealQL's record-id literal syntax.
+    has_no_alpha = _UNQUOTED_IDENTIFIER_ALPHA.isdisjoint(identifier)
+
+    if unsafe or starts_with_digit or has_no_alpha:
+        return delimit_identifier(identifier)
+    return identifier
+
+
+def delimit_identifier(identifier: str) -> str:
+    """*identifier* delimited, as :func:`escape_identifier` delimits a name it cannot leave bare.
+
+    For a name that must not be read bare even when it could be, such as a
+    field called ``value``, which SurrealQL reads as the keyword.
+    """
+    if "\\" not in identifier and "⟩" not in identifier:
+        return f"⟨{identifier}⟩"
+    escaped = identifier.replace("\\", "\\\\").replace("`", "\\`")
+    return f"`{escaped}`"
 
 
 class RecordID:
     """
     An identifier of the record. This class houses the ID of the row, and the table name.
 
+    To reference a record in a query, prefer binding the whole ``RecordID``
+    as a query variable — it is transmitted as a typed CBOR value, never
+    concatenated into query text, so no escaping (or injection) is possible
+    by construction::
+
+        db.query("RELATE $a->owns->$b;", vars={"a": alice, "b": record_id})
+        db.query("SELECT * FROM $rid;", vars={"rid": record_id})
+
+    Note that only the *whole* record id can be bound: SurrealQL does not
+    accept a variable as just the id part of a record-id literal
+    (``company:$id`` is a parse error).
+
     Attributes:
-        table_name: The table name associated with the record ID
-        identifier: The ID of the row
+        table_name: The table name associated with the record ID. This is
+            the raw, unescaped table name.
+        id: The ID of the row. This is the raw, unescaped value — for a
+            string id, it does **not** carry the quoting information
+            SurrealQL needs to tell it apart from a numeric id of the same
+            digits (e.g. the string id ``"231"`` vs. the numeric id
+            ``231``). Interpolating ``.id`` directly into a hand-built
+            query string is unsafe for exactly this reason. When you cannot
+            bind (composing query *text*, e.g. for logs, migration files,
+            or an ``INSERT`` target — the one spot where the server rejects
+            parameter binding), use ``str(record_id)`` for the full
+            ``table:id`` target, or
+            ``surrealdb.escape_identifier(str(record_id.id))`` for just the
+            escaped id fragment.
     """
 
-    def __init__(self, table_name: str, identifier: Any) -> None:
+    def __init__(self, table_name: str, identifier: RecordIdValue) -> None:
         """
         The constructor for the RecordID class.
 
         Args:
             table_name: The table name associated with the record ID
             identifier: The ID of the row
+
+        Raises:
+            TypeError: if *table_name* is not a string, or *identifier* is not
+                a type SurrealDB accepts as a record id.
+
+        Both arguments used to accept anything at all, and the mistake surfaced
+        only after a round trip: ``RecordID(1, "x")``, ``RecordID("t", 1.5)``
+        and ``RecordID("t", None)`` all encoded cleanly and came back from the
+        server as ``ValidationError: Parse error`` - which names neither the
+        argument nor what was wrong with it, for a mistake that was fully
+        decidable before any I/O.
+
+        The check is *not* an invariant on the attributes: values decoded from
+        the wire bypass it (see :meth:`_unchecked`), so this catches what you
+        construct rather than guaranteeing what ``.id`` holds.
         """
         from surrealdb.types import Value  # imported here to prevent circular import
 
+        if not isinstance(table_name, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise table_name_type_error(
+                "RecordID", table_name, "table_name", identifier
+            )
+        if isinstance(identifier, _ID_TYPE_IMPOSTORS) or not isinstance(
+            identifier, _ID_TYPES
+        ):
+            raise _id_type_error(identifier)
+
         self.table_name: str = table_name
+        #: Deliberately wider than :data:`RecordIdValue`. Every record read back
+        #: is built through :meth:`_unchecked`, so a server the SDK has not been
+        #: taught about can put anything here; narrowing the annotation would
+        #: describe hand-built ids correctly and every decoded one wrongly.
         self.id: Value = cast(Value, identifier)
 
-    @staticmethod
-    def _escape_identifier(identifier: str) -> str:
+    @classmethod
+    def _unchecked(cls, table_name: Any, identifier: Any) -> RecordID:
+        """Build a ``RecordID`` without validating, for the CBOR decoder.
+
+        The decoder builds one of these for every record it reads, so a check
+        here would run against whatever a server sends rather than against
+        anything a caller wrote - and a future server's new id type would stop
+        the record being *readable* at all. That is strictly worse than the
+        late error this validation exists to replace: you can work around a bad
+        write, but not a record you cannot load.
+
+        Worse still, ``tag_decoder`` runs inside the decode of a whole response,
+        so raising here loses every other row with it. This module has shipped
+        that failure twice already - the empty-``Duration`` ``IndexError`` and
+        the ``set``-of-dicts ``unhashable type`` - and neither is worth a third.
         """
-        Escapes a string identifier if needed, following SurrealDB's EscapeRid logic.
-
-        Identifiers need escaping if:
-        - Empty string
-        - Contains non-alphanumeric characters (except underscore)
-        - Contains only digits and underscores (no alphabetic characters)
-
-        Args:
-            identifier: The string identifier to potentially escape
-
-        Returns:
-            The escaped identifier with angle brackets if needed, or the original if not
-        """
-        # Empty string needs escaping
-        if not identifier:
-            return f"⟨{identifier}⟩"
-
-        # Check if contains any non-alphanumeric character (excluding underscore)
-        has_special_chars = any(not c.isalnum() and c != "_" for c in identifier)
-
-        # Check if all characters are digits or underscores (no alphabetic characters)
-        # This means it needs escaping to distinguish from numeric IDs
-        has_no_alpha = not any(c.isalpha() for c in identifier)
-
-        # Apply escaping if any condition is met
-        if has_special_chars or has_no_alpha:
-            # Escape any angle brackets in the identifier itself
-            escaped = identifier.replace("⟩", "\\⟩")
-            return f"⟨{escaped}⟩"
-
-        return identifier
+        record = object.__new__(cls)
+        record.table_name = table_name
+        record.id = identifier
+        return record
 
     def __str__(self) -> str:
+        # The table half is escaped too. Only the id used to be, so a record in
+        # a table whose name needs quoting rendered as unparseable SurrealQL -
+        # `str(RecordID("héllo", "x"))` gave `héllo:x`, and `RecordID("has
+        # space", "x")` gave `has space:x`. This method's own docstring points
+        # at `str(record_id)` as the way to build query text when binding is not
+        # possible, so it has to hold for every name the server accepts, not
+        # just the ones that need no quoting.
+        table = escape_identifier(self.table_name)
         # Only escape if the identifier is a string
         if isinstance(self.id, str):
-            escaped_id = self._escape_identifier(self.id)
-            return f"{self.table_name}:{escaped_id}"
+            return f"{table}:{escape_identifier(self.id)}"
         if isinstance(self.id, bytes):
-            escaped_id = self._escape_identifier(self.id.decode())
-            return f"{self.table_name}:{escaped_id}"
-        return f"{self.table_name}:{self.id}"
+            # Rendered, not decoded. `_unchecked` means a wire value can still
+            # be bytes, so this branch is live - and decoding it was wrong
+            # twice over: it raised `UnicodeDecodeError` on anything that was
+            # not UTF-8, and it rendered b"xy" as `t:xy`, which is a *different*
+            # record from the one it names.
+            return f"{table}:{self.id!r}"
+        return f"{table}:{self.id}"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(table_name={self.table_name}, record_id={self.id!r})"
@@ -95,10 +320,26 @@ class RecordID:
             return self.table_name == other.table_name and self.id == other.id
         return False
 
+    def __hash__(self) -> int:
+        # ``id`` may be an unhashable value (a dict or list) for object and
+        # array record ids, so it is hashed in a hashable form that keeps
+        # ``__eq__``'s notion of equal. Its string form did not: equal objects
+        # with their keys in another order - the server sorts them - and
+        # ``[1]`` against ``[1.0]`` print differently, so a record read back
+        # was not found in a set holding the one written.
+        return hash((self.table_name, _hashable(self.id)))
+
     @staticmethod
     def parse(record_str: str) -> RecordID:
         """
         Converts a string to a RecordID object.
+
+        The string is split on the *first* colon only, so ids that
+        themselves contain colons are preserved intact (e.g.
+        ``"user:complex:id:here"`` yields table ``"user"`` and id
+        ``"complex:id:here"``). ``parse`` always yields a string id — use
+        the :class:`RecordID` constructor directly for numeric, array or
+        object ids.
 
         Args:
             record_str: The string representation of the record ID
@@ -111,7 +352,7 @@ class RecordID:
                 'invalid string provided for parse. the expected string format is "table_name:record_id"'
             )
 
-        table, record_id = record_str.split(":")
+        table, record_id = record_str.split(":", 1)
         return RecordID(table, record_id)
 
     @classmethod
@@ -152,3 +393,130 @@ class RecordID:
         cls, _core_schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
     ) -> JsonSchemaValue:
         return handler(core_schema.str_schema())
+
+
+_QUOTE_CLOSERS = {"⟨": "⟩", "`": "`", '"': '"', "'": "'"}
+_OPENERS = frozenset("[{(")
+_CLOSERS = frozenset("]})")
+
+
+def _top_level(text: str) -> str:
+    """*text* without its quoted or bracketed parts.
+
+    So neither ``person:⟨a..b⟩`` nor the array key ``person:[1..2]`` reads as
+    a range, while ``person:[1]..[3]`` still does.
+    """
+    kept: list[str] = []
+    closer: str | None = None
+    escaped = False
+    depth = 0
+    for char in text:
+        if closer is None:
+            if char in _QUOTE_CLOSERS:
+                closer = _QUOTE_CLOSERS[char]
+            elif char in _OPENERS:
+                depth += 1
+            elif char in _CLOSERS:
+                depth = max(depth - 1, 0)
+            elif depth == 0:
+                kept.append(char)
+        elif escaped:
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == closer:
+            closer = None
+    return "".join(kept)
+
+
+class StringRecordId:
+    """A record id written as SurrealQL, such as ``"person:tobie"`` or
+    ``"person:⟨a:b⟩"``, for the server to parse.
+
+    It names one record. A range is refused: SurrealDB 2 read one as a range,
+    3.x up to 3.3 read only its start, and later servers refuse it, so the
+    same string meant three different things.
+
+    A plain string is always a table name (``"person:tobie"`` names a table
+    called that), so this is how to give a record id as text. The SDK never
+    parses it, so every id the server can read works, and its meaning cannot
+    shift with the SDK's own parsing rules. Use :class:`RecordID` to build an
+    id from its parts.
+    """
+
+    __slots__ = ("_value",)
+
+    def __init__(self, value: str) -> None:
+        if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise TypeError(
+                f"StringRecordId takes a string such as 'person:tobie'; got "
+                f"{type(value).__name__}"
+            )
+        if ":" not in value:
+            raise InvalidRecordIdError(
+                f"StringRecordId takes a 'table:id' string; {value!r} has no ':'"
+            )
+        if ".." in _top_level(value):
+            raise InvalidRecordIdError(
+                f"StringRecordId names one record, and {value!r} is a range; "
+                "use RecordID(table, Range(...)) to target a range of records"
+            )
+        self._value = value
+
+    @property
+    def value(self) -> str:
+        """The record id as SurrealQL."""
+        return self._value
+
+    def __str__(self) -> str:
+        return self._value
+
+    def __repr__(self) -> str:
+        return f"StringRecordId({self._value!r})"
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, StringRecordId) and other._value == self._value
+
+    def __hash__(self) -> int:
+        return hash(("StringRecordId", self._value))
+
+    @classmethod
+    def _unchecked(cls, value: str) -> StringRecordId:
+        """A StringRecordId for *value* as received, without validating it."""
+        instance = cls.__new__(cls)
+        instance._value = value
+        return instance
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,  # pyright: ignore[reportExplicitAny, reportAny]
+        _handler: Callable[[Any], core_schema.CoreSchema],  # pyright: ignore[reportExplicitAny]
+    ) -> core_schema.CoreSchema:
+        from_str_schema = core_schema.chain_schema(
+            [
+                core_schema.str_schema(),
+                core_schema.no_info_plain_validator_function(StringRecordId),
+            ]
+        )
+        return core_schema.json_or_python_schema(
+            json_schema=from_str_schema,
+            python_schema=core_schema.union_schema(
+                [core_schema.is_instance_schema(StringRecordId), from_str_schema]
+            ),
+            serialization=core_schema.wrap_serializer_function_ser_schema(
+                lambda value, _handler, info: (
+                    value if info.mode == "python" else str(value)
+                ),
+                info_arg=True,
+            ),
+        )
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls, _core_schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        return handler(core_schema.str_schema())
+
+
+RecordIdType = str | RecordID | StringRecordId | Table

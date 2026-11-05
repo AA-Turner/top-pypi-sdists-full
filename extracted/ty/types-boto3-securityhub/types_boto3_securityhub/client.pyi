@@ -42,6 +42,8 @@ from .paginator import (
     GetRemediationsV2Paginator,
     GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
+    GetSoftwareResourcesV2Paginator,
+    GetSoftwareV2Paginator,
     ListAggregatorsV2Paginator,
     ListConfigurationPoliciesPaginator,
     ListConfigurationPolicyAssociationsPaginator,
@@ -201,6 +203,12 @@ from .type_defs import (
     GetResourcesV2ResponseTypeDef,
     GetSecurityControlDefinitionRequestTypeDef,
     GetSecurityControlDefinitionResponseTypeDef,
+    GetSoftwareResourcesV2RequestTypeDef,
+    GetSoftwareResourcesV2ResponseTypeDef,
+    GetSoftwareStatisticsV2RequestTypeDef,
+    GetSoftwareStatisticsV2ResponseTypeDef,
+    GetSoftwareV2RequestTypeDef,
+    GetSoftwareV2ResponseTypeDef,
     InviteMembersRequestTypeDef,
     InviteMembersResponseTypeDef,
     ListAggregatorsV2RequestTypeDef,
@@ -1193,6 +1201,37 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_security_control_definition)
         """
 
+    def get_software_resources_v2(
+        self, **kwargs: Unpack[GetSoftwareResourcesV2RequestTypeDef]
+    ) -> GetSoftwareResourcesV2ResponseTypeDef:
+        """
+        Returns a list of resources that contain a specific software package.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_software_resources_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_software_resources_v2)
+        """
+
+    def get_software_statistics_v2(
+        self, **kwargs: Unpack[GetSoftwareStatisticsV2RequestTypeDef]
+    ) -> GetSoftwareStatisticsV2ResponseTypeDef:
+        """
+        Retrieves aggregated counts of software packages installed on your resources,
+        grouped by a field that you specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_software_statistics_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_software_statistics_v2)
+        """
+
+    def get_software_v2(
+        self, **kwargs: Unpack[GetSoftwareV2RequestTypeDef]
+    ) -> GetSoftwareV2ResponseTypeDef:
+        """
+        Returns a list of software packages installed on your resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_software_v2.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_software_v2)
+        """
+
     def invite_members(
         self, **kwargs: Unpack[InviteMembersRequestTypeDef]
     ) -> InviteMembersResponseTypeDef:
@@ -1739,6 +1778,28 @@ class SecurityHubClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_resources_v2"]
     ) -> GetResourcesV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_software_resources_v2"]
+    ) -> GetSoftwareResourcesV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_software_v2"]
+    ) -> GetSoftwareV2Paginator:
         """
         Create a paginator for an operation.
 

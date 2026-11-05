@@ -474,6 +474,43 @@ def remove_thinking(parts: list[ContentPart]) -> list[ContentPart]:
     return [p for p in parts if p["type"] != "thinking"]
 
 
+def append_visible_text(parts: list[ContentPart], text: str) -> None:
+    """Append visible text that parsing lifted from around removed markup.
+
+    Renderers write a message's text parts together, apart from the tool
+    calls and reasoning that parsing removed between them, so text that
+    markup separated stays separated by a newline. No marker contains one,
+    so text can never join with its new neighbours into markup.
+    """
+    if not text:
+        return
+    if any(part["type"] == "text" for part in parts):
+        text = "\n" + text
+    parts.append(TextPart(type="text", text=text))
+
+
+def parsed_text_content(text: str) -> str | list[ContentPart]:
+    """Content for output in which parsing found no blocks.
+
+    A plain string is also how callers hand in history, and renderers read a
+    ``<think>`` or ``</think>`` tag in one as inline reasoning. Output that
+    contains a tag as text therefore comes back as a text part, which no
+    renderer searches for reasoning.
+    """
+    if "<think>" in text or "</think>" in text:
+        return [TextPart(type="text", text=text)]
+    return text
+
+
+def rejected_call_text(message: Message) -> str:
+    """The raw text of a message's rejected tool-call blocks, in order.
+
+    Rendering writes it back so a parsed message keeps what the model wrote:
+    a block that is not a call still belongs to the conversation.
+    """
+    return "".join(call["raw_text"] for call in message.get("unparsed_tool_calls", []))
+
+
 def get_text_content(message: Message) -> str:
     """Extract text content from a message, ignoring thinking/image parts."""
     content = message["content"]
@@ -571,9 +608,12 @@ class Renderer(ABC):
 
         Args:
             text: Raw text from Sample.text.
-            tools: Tool definitions for schema-aware parsers (currently GLM).
-                Pass the same definitions used to build the prompt. Other
-                renderers retain their format-specific argument decoding.
+            tools: The tool definitions used to build the prompt, ``[]`` when
+                it declared none. Formats that write arguments without type
+                markers (GLM, the Qwen family) decode each value by its
+                schema. With ``None`` they decode standard JSON, keep anything
+                else as text, and warn when the response contains a tool
+                call. See ``docs/tool-call-parsing.md``.
 
         Returns:
             ParsedResponse with structured message and stop_found flag.

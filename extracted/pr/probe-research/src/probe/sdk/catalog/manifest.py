@@ -1,4 +1,4 @@
-"""Walk a dataset folder into a hashed manifest with the recorder's own hasher and .probe.config levels."""
+"""Walk a dataset folder into a hashed manifest with the recorder's own hasher."""
 
 from __future__ import annotations
 
@@ -50,12 +50,8 @@ class Manifest:
     #: Something is not identified by its full bytes (fingerprinted, unhashed,
     #: skipped, cut at the file ceiling).
     partial: bool = False
-    #: Files a `.probe.config` keeps out (`off`/`read`): counted, never named.
-    excluded: int = 0
-    #: Paths left out for another reason (a link, not a regular file, unreadable).
+    #: Paths left out (a link, not a regular file, unreadable).
     skipped: int = 0
-    #: Some file is `hash`-level: identity only, never bytes.
-    identity_only: bool = False
 
     @property
     def total_bytes(self) -> int:
@@ -84,8 +80,6 @@ class Manifest:
             "partial": self.partial,
             "rows_complete": self.rows_complete,
         }
-        if self.excluded:
-            body["excluded"] = self.excluded
         return body
 
     def gz(self) -> bytes:
@@ -93,25 +87,15 @@ class Manifest:
         return gzip.compress(raw.encode("utf-8", "surrogatepass"), mtime=0)
 
 
-def _levels() -> tuple[str, str, str, str]:
-    from .. import probe_config as pc
-
-    return pc.ON, getattr(pc, "HASH", "hash"), pc.READ, pc.OFF
-
-
-def _verdict(checker: Any, path: str, *, is_dir: bool) -> Any:
-    return checker.check(path, is_dir=is_dir)
-
-
 def _identify(
-    path: str, *, budget: list[int], deadline: float, hash_level: bool, full: bool = False, cache: Any = None
+    path: str, *, budget: list[int], deadline: float, full: bool = False, cache: Any = None
 ) -> dict | None:
     """One file's identity via the recorder's hasher (same cache and budget, rows counted in the
     same read; `inputs.file_identity`). ``full`` (`hash="full"`, hosting): a file over the
     recorder's 1 GiB fingerprint line is read whole too."""
     from ..capture import lineage as inputs
 
-    if full and not hash_level:
+    if full:
         try:
             size = os.stat(path).st_size
         except OSError:
@@ -124,7 +108,7 @@ def _identify(
             except OSError:
                 return None
             return {"content_hash": digest, "fingerprint": None, "size_bytes": size, "rows": None}
-    return inputs.file_identity(path, budget=budget, cache=cache, deadline=deadline, hash_level=hash_level)
+    return inputs.file_identity(path, budget=budget, cache=cache, deadline=deadline)
 
 
 def _hash_cache() -> Any:
@@ -138,28 +122,21 @@ def build_manifest(
     local: str, *, budget: list[int], deadline: float, require_full: bool = False, full: bool = False
 ) -> Manifest:
     """Manifest of a folder (or one file, by basename). The walk never follows a link (cannot
-    escape the folder), never enters an `off`/`read` folder, and stops after `MAX_MANIFEST_FILES` files."""
-    from ..recording_rules import recording_rules as exclusions
-
+    escape the folder) and stops after `MAX_MANIFEST_FILES` files."""
     cache = _hash_cache()
     try:
-        return _walk_manifest(local, checker=exclusions.checker(hot=True), cache=cache, budget=budget,
-                              deadline=deadline, require_full=require_full, full=full)
+        return _walk_manifest(local, cache=cache, budget=budget, deadline=deadline,
+                              require_full=require_full, full=full)
     finally:
         cache.flush()
 
 
 def _walk_manifest(
-    local: str, *, checker: Any, cache: Any, budget: list[int], deadline: float, require_full: bool, full: bool
+    local: str, *, cache: Any, budget: list[int], deadline: float, require_full: bool, full: bool
 ) -> Manifest:
-    on, hash_level, _read, _off = _levels()
     manifest = Manifest()
     if os.path.isfile(local):
-        verdict = _verdict(checker, local, is_dir=False)
-        level = getattr(verdict, "level", on)
-        manifest.identity_only = level == hash_level
-        _add(manifest, os.path.basename(local), local, budget=budget, deadline=deadline,
-             hash_level=level == hash_level, full=full, cache=cache)
+        _add(manifest, os.path.basename(local), local, budget=budget, deadline=deadline, full=full, cache=cache)
         return _settle(manifest, require_full=require_full)
     seen = 0
     walk_errors: list[OSError] = []
@@ -174,39 +151,28 @@ def _walk_manifest(
             if os.path.islink(path):
                 manifest.skipped += 1
                 continue
-            level = getattr(_verdict(checker, path, is_dir=True), "level", on)
-            if level not in (on, hash_level):
-                manifest.excluded += 1
-                continue
             kept.append(d)
         dirs[:] = kept
         for leaf in sorted(leaves):
             path = os.path.join(root, leaf)
-            level = getattr(_verdict(checker, path, is_dir=False), "level", on)
-            if level not in (on, hash_level):
-                manifest.excluded += 1
-                continue
             if os.path.islink(path) or not os.path.isfile(path):
                 manifest.skipped += 1
                 continue
             if len(manifest.files) >= MAX_MANIFEST_FILES:
                 manifest.partial = True
                 break
-            if level == hash_level:
-                manifest.identity_only = True
             rel = os.path.relpath(path, local).replace(os.sep, "/")
-            _add(manifest, rel, path, budget=budget, deadline=deadline, hash_level=level == hash_level,
-                 full=full, cache=cache)
+            _add(manifest, rel, path, budget=budget, deadline=deadline, full=full, cache=cache)
     if walk_errors:
         manifest.skipped += len(walk_errors)
     return _settle(manifest, require_full=require_full)
 
 
 def _add(
-    manifest: Manifest, rel: str, path: str, *, budget: list[int], deadline: float, hash_level: bool,
+    manifest: Manifest, rel: str, path: str, *, budget: list[int], deadline: float,
     full: bool = False, cache: Any = None,
 ) -> None:
-    got = _identify(path, budget=budget, deadline=deadline, hash_level=hash_level, full=full, cache=cache)
+    got = _identify(path, budget=budget, deadline=deadline, full=full, cache=cache)
     if got is None:
         manifest.skipped += 1
         return

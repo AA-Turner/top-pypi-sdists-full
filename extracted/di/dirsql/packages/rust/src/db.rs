@@ -8,6 +8,7 @@ use thiserror::Error;
 
 use crate::functions::{self, CallReporter, ResolvedFunction, Worker};
 use crate::infer::JsonRow;
+use crate::params::Params;
 use crate::parsed_vtab;
 use crate::path_table::{self, DEFAULT_IGNORES, PathTable, Resolution};
 use crate::scanner;
@@ -37,6 +38,9 @@ pub enum DbError {
     )]
     WriteForbidden,
 
+    #[error("query() runs one statement at a time; remove the SQL after the first statement")]
+    MultipleStatements,
+
     #[error("{0}")]
     Unauthorized(String),
 
@@ -45,6 +49,12 @@ pub enum DbError {
 
     #[error("{}", .0.message)]
     ForeignKey(crate::foreign_key::ForeignKeyViolation),
+
+    #[error("{0}")]
+    Params(String),
+
+    #[error("column {0:?} holds text that is not valid UTF-8")]
+    NotUtf8(String),
 }
 
 /// The reserved namespace for dirsql's internal bookkeeping tables. Every
@@ -64,6 +74,31 @@ const INTERNAL_TABLE_DENIED_MSG: &str = "not authorized: dirsql's internal bookk
 /// arbitrary database file) and denied at prepare time instead.
 const ATTACH_DENIED_MSG: &str = "not authorized: query() does not permit ATTACH or DETACH; \
      attaching external databases is disabled on this surface";
+
+/// The message carried by [`DbError::Unauthorized`] when `query()` rejects a
+/// statement that changes the connection's session state.
+const SESSION_STATE_DENIED_MSG: &str = "not authorized: query() does not permit BEGIN, COMMIT, ROLLBACK, \
+     SAVEPOINT, RELEASE or a PRAGMA that sets a value";
+
+/// The pragmas whose argument names what to read rather than a value to set.
+const READING_PRAGMAS: [&str; 10] = [
+    "foreign_key_check",
+    "foreign_key_list",
+    "index_info",
+    "index_list",
+    "index_xinfo",
+    "integrity_check",
+    "quick_check",
+    "table_info",
+    "table_list",
+    "table_xinfo",
+];
+
+fn sets_session_state(pragma_name: &str) -> bool {
+    !READING_PRAGMAS
+        .iter()
+        .any(|reading| reading.eq_ignore_ascii_case(pragma_name))
+}
 
 fn is_internal_table(name: &str) -> bool {
     name.starts_with(INTERNAL_TABLE_PREFIX)
@@ -216,6 +251,17 @@ pub fn validate_identifier(s: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_column_key(key: &str, columns: &[String]) -> Result<()> {
+    if columns
+        .iter()
+        .any(|column| column.eq_ignore_ascii_case(key))
+    {
+        Ok(())
+    } else {
+        validate_identifier(key)
+    }
+}
+
 pub type Result<T> = std::result::Result<T, DbError>;
 
 const MAPPING_INSERT: &str = "INSERT INTO _dirsql_internal_rows \
@@ -274,7 +320,7 @@ fn insert_sql(table: &str, columns: &[String]) -> String {
     if columns.is_empty() {
         return format!("INSERT INTO \"{table}\" DEFAULT VALUES");
     }
-    let names: Vec<String> = columns.iter().map(|c| format!("\"{c}\"")).collect();
+    let names: Vec<String> = columns.iter().map(|c| quote_identifier(c)).collect();
     let placeholders: Vec<String> = (1..=columns.len()).map(|i| format!("?{i}")).collect();
     format!(
         "INSERT INTO \"{table}\" ({}) VALUES ({})",
@@ -288,7 +334,7 @@ fn insert_sql(table: &str, columns: &[String]) -> String {
 fn select_list(prefix: &str, columns: &[String]) -> String {
     columns
         .iter()
-        .map(|c| format!(", {prefix}\"{c}\""))
+        .map(|c| format!(", {prefix}{}", quote_identifier(c)))
         .collect()
 }
 
@@ -353,13 +399,13 @@ pub(crate) fn shape_json_rows(
     for row in rows {
         if strict {
             for (key, _) in &row.0 {
-                validate_identifier(key)?;
+                validate_column_key(key, &columns)?;
             }
             let extra: Vec<&str> = row
                 .0
                 .iter()
                 .map(|(key, _)| &**key)
-                .filter(|key| !columns.iter().any(|c| c == key))
+                .filter(|key| !columns.iter().any(|c| c.eq_ignore_ascii_case(key)))
                 .collect();
             if !extra.is_empty() {
                 return Err(DbError::SchemaMismatch(format!(
@@ -371,7 +417,7 @@ pub(crate) fn shape_json_rows(
             let missing: Vec<&str> = columns
                 .iter()
                 .map(String::as_str)
-                .filter(|c| !row.0.iter().any(|(key, _)| **key == **c))
+                .filter(|c| !row.0.iter().any(|(key, _)| key.eq_ignore_ascii_case(c)))
                 .collect();
             if !missing.is_empty() {
                 return Err(DbError::SchemaMismatch(format!(
@@ -390,7 +436,7 @@ pub(crate) fn shape_json_rows(
         }
         let mut shaped = vec![Value::Null; columns.len()];
         for (key, value) in row.0 {
-            if let Some(i) = columns.iter().position(|c| **c == *key) {
+            if let Some(i) = columns.iter().position(|c| c.eq_ignore_ascii_case(&key)) {
                 emitted[i] = true;
                 shaped[i] = json_into_value(value);
             }
@@ -438,6 +484,11 @@ const USER_TABLES: &str = "SELECT name FROM pragma_table_list WHERE schema = 'ma
 
 const TABLE_COLUMNS: &str = "SELECT name, type FROM pragma_table_xinfo(?1, 'main') \
      WHERE hidden <> 1 ORDER BY cid";
+
+/// VM instructions between checks of a cancellable query's flag: frequent
+/// enough to stop within microseconds, rare enough to cost nothing.
+#[cfg(feature = "cli")]
+const CANCEL_CHECK_OPS: std::os::raw::c_int = 1000;
 
 pub struct Db {
     conn: Connection,
@@ -751,7 +802,7 @@ impl Db {
         let mut cells = Vec::with_capacity(rows.len());
         for row in rows {
             for (i, column) in columns.iter().enumerate() {
-                emitted[i] |= row.contains_key(column);
+                emitted[i] |= row.keys().any(|key| key.eq_ignore_ascii_case(column));
             }
             let mut row = Self::normalize_against(table, &columns, row, strict)?;
             cells.push(
@@ -776,13 +827,13 @@ impl Db {
     ) -> Result<HashMap<String, Value>> {
         if strict {
             for key in row.keys() {
-                validate_identifier(key)?;
+                validate_column_key(key, columns)?;
             }
-            let column_set: std::collections::HashSet<&str> =
-                columns.iter().map(|s| s.as_str()).collect();
-            let row_keys: std::collections::HashSet<&str> =
-                row.keys().map(|s| s.as_str()).collect();
-            let extra: Vec<&str> = row_keys.difference(&column_set).copied().collect();
+            let extra: Vec<&str> = row
+                .keys()
+                .map(String::as_str)
+                .filter(|key| !columns.iter().any(|c| c.eq_ignore_ascii_case(key)))
+                .collect();
             if !extra.is_empty() {
                 return Err(DbError::SchemaMismatch(format!(
                     "extra columns not in table {}: {}",
@@ -790,7 +841,11 @@ impl Db {
                     extra.join(", ")
                 )));
             }
-            let missing: Vec<&str> = column_set.difference(&row_keys).copied().collect();
+            let missing: Vec<&str> = columns
+                .iter()
+                .map(String::as_str)
+                .filter(|c| !row.keys().any(|key| key.eq_ignore_ascii_case(c)))
+                .collect();
             if !missing.is_empty() {
                 return Err(DbError::SchemaMismatch(format!(
                     "missing columns for table {}: {}",
@@ -798,15 +853,19 @@ impl Db {
                     missing.join(", ")
                 )));
             }
-            Ok(row)
-        } else {
-            let mut normalized = HashMap::with_capacity(columns.len());
-            for col in columns {
-                let value = row.remove(col).unwrap_or(Value::Null);
-                normalized.insert(col.clone(), value);
-            }
-            Ok(normalized)
         }
+        let mut normalized = HashMap::with_capacity(columns.len());
+        for col in columns {
+            let value = row.remove(col).or_else(|| {
+                let key = row
+                    .keys()
+                    .find(|key| key.eq_ignore_ascii_case(col))?
+                    .clone();
+                row.remove(&key)
+            });
+            normalized.insert(col.clone(), value.unwrap_or(Value::Null));
+        }
+        Ok(normalized)
     }
 
     /// Insert a row into a table.
@@ -1117,7 +1176,7 @@ impl Db {
             let sets: Vec<String> = compared
                 .iter()
                 .enumerate()
-                .map(|(n, &i)| format!("\"{}\" = ?{}", columns[i], n + 1))
+                .map(|(n, &i)| format!("{} = ?{}", quote_identifier(&columns[i]), n + 1))
                 .collect();
             let mut update = self.conn.prepare_cached(&format!(
                 "UPDATE \"{table}\" SET {} WHERE rowid = ?{}",
@@ -1233,8 +1292,9 @@ impl Db {
         row_index: usize,
     ) -> Result<()> {
         validate_identifier(table)?;
+        let declared_columns = self.get_table_columns(table)?;
         for key in row.keys() {
-            validate_identifier(key)?;
+            validate_column_key(key, &declared_columns)?;
         }
 
         // The user row carries ONLY user columns; ownership is recorded in
@@ -1245,7 +1305,7 @@ impl Db {
         // is what lets the prepared-statement cache serve it.
         let mut keys: Vec<&String> = row.keys().collect();
         keys.sort();
-        let columns: Vec<String> = keys.iter().map(|c| format!("\"{c}\"")).collect();
+        let columns: Vec<String> = keys.iter().map(|c| quote_identifier(c)).collect();
         let sql = if columns.is_empty() {
             format!("INSERT INTO \"{table}\" DEFAULT VALUES")
         } else {
@@ -1306,7 +1366,7 @@ impl Db {
         let user_columns = self.get_table_columns(table)?;
         let mut col_list = user_columns
             .iter()
-            .map(|c| format!("t.\"{c}\""))
+            .map(|c| format!("t.{}", quote_identifier(c)))
             .collect::<Vec<_>>()
             .join(", ");
         if col_list.is_empty() {
@@ -1463,6 +1523,12 @@ impl Db {
     /// [`QueryResult::columns`]; a renderer that re-derives its columns from
     /// row keys prints them alphabetically instead.
     pub fn query_ordered(&self, sql: &str) -> Result<QueryResult> {
+        self.query_ordered_with(sql, &Params::default())
+    }
+
+    /// [`query_ordered`](Self::query_ordered), binding `params` to the
+    /// statement's placeholders.
+    pub fn query_ordered_with(&self, sql: &str, params: &Params) -> Result<QueryResult> {
         // Bracket the whole statement, prepare included: a worker-backed
         // function called on every row makes this the slowest thing dirsql
         // does, and the guard is what erases the counter before the caller
@@ -1471,13 +1537,13 @@ impl Db {
         let _scope = self.scope.enter();
 
         if self.batched.is_empty() {
-            return self.run_statement(sql);
+            return self.run_statement(sql, params);
         }
         let _collected = ClearOnDrop(&self.batched);
         for worker in &self.batched {
             worker.begin_collect().map_err(worker_error)?;
         }
-        let collected = self.run_statement(sql);
+        let collected = self.run_statement(sql, params);
         let mut invoked = false;
         for worker in &self.batched {
             invoked |= worker.end_collect().map_err(worker_error)?;
@@ -1485,7 +1551,26 @@ impl Db {
         if !invoked {
             return collected;
         }
-        self.run_statement(sql)
+        self.run_statement(sql, params)
+    }
+
+    /// [`query_ordered`](Self::query_ordered), abandoned with an interrupt
+    /// error once `cancelled` is set, so a caller that stopped waiting stops
+    /// holding the connection.
+    #[cfg(feature = "cli")]
+    pub(crate) fn query_ordered_until(
+        &self,
+        sql: &str,
+        cancelled: Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<QueryResult> {
+        self.conn.progress_handler(
+            CANCEL_CHECK_OPS,
+            Some(move || cancelled.load(std::sync::atomic::Ordering::Relaxed)),
+        );
+        let result = self.query_ordered(sql);
+        self.conn
+            .progress_handler(CANCEL_CHECK_OPS, None::<fn() -> bool>);
+        result
     }
 
     /// [`query_ordered`](Self::query_ordered) folding each row's cells, in
@@ -1495,10 +1580,22 @@ impl Db {
         &self,
         sql: &str,
         start: impl FnOnce(&[String]) -> S,
+        on_row: impl FnMut(&mut S, &[Value]),
+    ) -> Result<S> {
+        self.query_each_with(sql, &Params::default(), start, on_row)
+    }
+
+    /// [`query_each`](Self::query_each), binding `params` to the statement's
+    /// placeholders.
+    pub fn query_each_with<S>(
+        &self,
+        sql: &str,
+        params: &Params,
+        start: impl FnOnce(&[String]) -> S,
         mut on_row: impl FnMut(&mut S, &[Value]),
     ) -> Result<S> {
         let mut cells = Vec::new();
-        self.query_each_ref(sql, start, |state, sources| {
+        self.query_each_ref(sql, params, start, |state, sources| {
             cells.resize(sources.len(), Value::Null);
             for (cell, source) in cells.iter_mut().zip(sources) {
                 fill_cell(cell, *source);
@@ -1512,13 +1609,14 @@ impl Db {
     pub(crate) fn query_each_ref<S>(
         &self,
         sql: &str,
+        params: &Params,
         start: impl FnOnce(&[String]) -> S,
         mut on_row: impl FnMut(&mut S, &[ValueRef<'_>]),
     ) -> Result<S> {
         if !self.batched.is_empty() {
             // A batched worker may force a second run, so the rows of the
             // first are not final until it ends.
-            let result = self.query_ordered(sql)?;
+            let result = self.query_ordered_with(sql, params)?;
             let mut state = start(&result.columns);
             for row in &result.rows {
                 let cells: Vec<ValueRef<'_>> = result
@@ -1534,15 +1632,26 @@ impl Db {
         let _scope = self.scope.enter();
         let (mut stmt, column_names, reads) = self.prepare_reading(sql)?;
         let mut state = start(&column_names);
-        if self.read_directly(sql, &reads, &mut |cells| on_row(&mut state, cells)) {
+        let mut not_utf8 = Ok(());
+        let read = self.read_directly(sql, &reads, &mut |cells| {
+            if not_utf8.is_ok() {
+                not_utf8 = utf8_row(cells, &column_names);
+                if not_utf8.is_ok() {
+                    on_row(&mut state, cells);
+                }
+            }
+        });
+        not_utf8?;
+        if read {
             return Ok(state);
         }
-        let mut rows = stmt.query([])?;
+        bind(&mut stmt, params)?;
+        let mut rows = stmt.raw_query();
         let mut spare: Vec<ValueRef<'_>> = Vec::with_capacity(column_names.len());
         while let Some(row) = rows.next()? {
             let mut cells = recycled(spare);
-            for i in 0..column_names.len() {
-                cells.push(row.get_ref(i)?);
+            for (i, column) in column_names.iter().enumerate() {
+                cells.push(utf8_checked(row.get_ref(i)?, column)?);
             }
             on_row(&mut state, &cells);
             spare = recycled(cells);
@@ -1552,20 +1661,18 @@ impl Db {
 
     /// Prepare and run one read-only statement, registering the path-tables
     /// it names along the way.
-    fn run_statement(&self, sql: &str) -> Result<QueryResult> {
+    fn run_statement(&self, sql: &str, params: &Params) -> Result<QueryResult> {
         let (mut stmt, column_names) = self.prepare_statement(sql)?;
-        let rows = stmt.query_map([], |row| {
+        bind(&mut stmt, params)?;
+        let mut rows = stmt.raw_query();
+        let mut results = Vec::new();
+        while let Some(row) = rows.next()? {
             let mut map = HashMap::new();
             for (i, name) in column_names.iter().enumerate() {
-                let val: rusqlite::types::Value = row.get(i)?;
+                let val = rusqlite::types::Value::from(utf8_checked(row.get_ref(i)?, name)?);
                 map.insert(name.clone(), Value::from(val));
             }
-            Ok(map)
-        })?;
-
-        let mut results = Vec::new();
-        for row in rows {
-            results.push(row?);
+            results.push(map);
         }
         Ok(QueryResult {
             columns: column_names,
@@ -1609,7 +1716,8 @@ impl Db {
             return Err(DbError::WriteForbidden);
         }
         self.scope.warm(&reads);
-        let column_names: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
+        let column_names =
+            unique_column_names(stmt.column_names().iter().map(|s| s.to_string()).collect());
         Ok((stmt, column_names, reads))
     }
 
@@ -1655,6 +1763,7 @@ impl Db {
     /// installed and cleared around every attempt, so a re-prepare after
     /// registering a path-table is gated identically to the first.
     fn prepare_guarded(&self, sql: &str) -> Result<(rusqlite::Statement<'_>, HashSet<String>)> {
+        use rusqlite::fallible_iterator::FallibleIterator;
         use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
         use std::sync::{Arc, Mutex};
 
@@ -1689,16 +1798,36 @@ impl Db {
                     *denial_cb.lock().unwrap() = Some(ATTACH_DENIED_MSG);
                     Authorization::Deny
                 }
+                // These outlive the statement on the connection every query
+                // shares, yet SQLite classifies them as read-only.
+                AuthAction::Pragma {
+                    pragma_name,
+                    pragma_value: Some(_),
+                } if sets_session_state(pragma_name) => {
+                    *denial_cb.lock().unwrap() = Some(SESSION_STATE_DENIED_MSG);
+                    Authorization::Deny
+                }
+                AuthAction::Transaction { .. } | AuthAction::Savepoint { .. } => {
+                    *denial_cb.lock().unwrap() = Some(SESSION_STATE_DENIED_MSG);
+                    Authorization::Deny
+                }
                 _ => Authorization::Allow,
             }));
-        let prepared = self.conn.prepare(sql);
+        let mut statements = rusqlite::Batch::new(&self.conn, sql);
+        let prepared = statements.next();
         // Clear the authorizer so it only ever gates this one user query; the
         // shared connection's internal write paths must not see it.
         self.conn
             .authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
 
         match prepared {
-            Ok(stmt) => Ok((stmt, std::mem::take(&mut *reads.lock().unwrap()))),
+            Ok(Some(stmt)) => {
+                if !matches!(statements.next(), Ok(None)) {
+                    return Err(DbError::MultipleStatements);
+                }
+                Ok((stmt, std::mem::take(&mut *reads.lock().unwrap())))
+            }
+            Ok(None) => Ok((self.conn.prepare(sql)?, HashSet::new())),
             Err(e)
                 if e.sqlite_error_code()
                     == Some(rusqlite::ErrorCode::AuthorizationForStatementDenied) =>
@@ -1878,6 +2007,25 @@ fn fill_cell(cell: &mut Value, source: ValueRef<'_>) {
     }
 }
 
+/// `cell`, unless it is text that is not valid UTF-8: rusqlite panics
+/// converting such text to an owned value.
+/// `Ok` unless a cell of `cells` is text that is not valid UTF-8.
+fn utf8_row(cells: &[ValueRef<'_>], columns: &[String]) -> Result<()> {
+    cells
+        .iter()
+        .zip(columns)
+        .try_for_each(|(cell, column)| utf8_checked(*cell, column).map(drop))
+}
+
+fn utf8_checked<'a>(cell: ValueRef<'a>, column: &str) -> Result<ValueRef<'a>> {
+    match cell {
+        ValueRef::Text(bytes) if std::str::from_utf8(bytes).is_err() => {
+            Err(DbError::NotUtf8(column.to_string()))
+        }
+        _ => Ok(cell),
+    }
+}
+
 fn value_ref(value: &Value) -> ValueRef<'_> {
     match value {
         Value::Null => ValueRef::Null,
@@ -1955,6 +2103,41 @@ fn scanned_columns(program: &[Op]) -> Option<Vec<usize>> {
         .flatten()
 }
 
+/// Bind `params` to `stmt`'s placeholders, refusing values that do not fit
+/// them.
+fn bind(stmt: &mut rusqlite::Statement<'_>, params: &Params) -> Result<()> {
+    let names: Vec<Option<String>> = (1..=stmt.parameter_count())
+        .map(|i| stmt.parameter_name(i).map(str::to_owned))
+        .collect();
+    let names: Vec<Option<&str>> = names.iter().map(Option::as_deref).collect();
+    let values = crate::params::plan(&names, params).map_err(DbError::Params)?;
+    for (i, value) in values.into_iter().enumerate() {
+        stmt.raw_bind_parameter(i + 1, value)?;
+    }
+    Ok(())
+}
+
+fn unique_column_names(names: Vec<String>) -> Vec<String> {
+    let reserved: HashSet<String> = names.iter().cloned().collect();
+    let mut used = HashSet::new();
+    names
+        .into_iter()
+        .map(|name| {
+            if used.insert(name.clone()) {
+                return name;
+            }
+            let mut suffix = 1;
+            loop {
+                let candidate = format!("{name}:{suffix}");
+                if !reserved.contains(&candidate) && used.insert(candidate.clone()) {
+                    return candidate;
+                }
+                suffix += 1;
+            }
+        })
+        .collect()
+}
+
 /// `cells` emptied and free to borrow anew, keeping its allocation.
 fn recycled<'a>(mut cells: Vec<ValueRef<'_>>) -> Vec<ValueRef<'a>> {
     cells.clear();
@@ -1976,6 +2159,36 @@ impl From<rusqlite::types::Value> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn utf8_row_accepts_a_row_of_valid_cells() {
+        let cells = [
+            ValueRef::Text(b"a"),
+            ValueRef::Blob(&[0xff]),
+            ValueRef::Null,
+        ];
+        let columns = ["p".to_string(), "b".to_string(), "n".to_string()];
+        assert!(utf8_row(&cells, &columns).is_ok());
+    }
+
+    #[test]
+    fn utf8_row_names_the_column_whose_text_is_not_utf8() {
+        let cells = [ValueRef::Text(b"a"), ValueRef::Text(&[0xff])];
+        let columns = ["ok".to_string(), "path".to_string()];
+        assert_eq!(
+            utf8_row(&cells, &columns).unwrap_err().to_string(),
+            "column \"path\" holds text that is not valid UTF-8"
+        );
+    }
+
+    #[test]
+    fn duplicate_result_names_avoid_existing_projection_names() {
+        let names = ["a", "a", "a:1", "a"]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        assert_eq!(unique_column_names(names), ["a", "a:2", "a:1", "a:3"]);
+    }
 
     #[test]
     fn text_and_blob_values_bind_without_copying() {
@@ -2286,12 +2499,31 @@ mod tests {
     }
 
     #[test]
-    fn query_each_reads_text_that_is_not_utf8_lossily() {
+    fn query_each_fails_on_text_that_is_not_utf8() {
         let db = titled_docs(&["a"]);
 
-        let (_, rows) = folded(&db, "SELECT CAST(x'ff41' AS TEXT) AS t");
+        let error = db
+            .query_each("SELECT CAST(x'ff41' AS TEXT) AS t", |_| (), |_, _| {})
+            .unwrap_err();
 
-        assert_eq!(rows, [[Value::Text("\u{FFFD}A".into())]]);
+        assert_eq!(
+            error.to_string(),
+            "column \"t\" holds text that is not valid UTF-8"
+        );
+    }
+
+    #[test]
+    fn query_ordered_fails_on_text_that_is_not_utf8() {
+        let db = titled_docs(&["a"]);
+
+        let error = db
+            .query_ordered("SELECT CAST(x'ff41' AS TEXT) AS t")
+            .unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "column \"t\" holds text that is not valid UTF-8"
+        );
     }
 
     fn owned(cell: &ValueRef<'_>) -> Value {
@@ -2305,8 +2537,13 @@ mod tests {
     }
 
     fn folded_refs(db: &Db, sql: &str) -> (Vec<String>, Vec<Vec<Value>>) {
+        folded_refs_with(db, sql, &Params::default())
+    }
+
+    fn folded_refs_with(db: &Db, sql: &str, params: &Params) -> (Vec<String>, Vec<Vec<Value>>) {
         db.query_each_ref(
             sql,
+            params,
             |columns| (columns.to_vec(), Vec::new()),
             |(_, rows), cells| rows.push(cells.iter().map(owned).collect()),
         )
@@ -2335,7 +2572,8 @@ mod tests {
 
         let held = db
             .query_each_ref(
-                "SELECT CAST(x'ff41' AS TEXT) AS t",
+                "SELECT CAST(x'c3a941' AS TEXT) AS t",
+                &Params::default(),
                 |_| Vec::new(),
                 |held: &mut Vec<Vec<u8>>, cells| match cells {
                     [ValueRef::Text(bytes)] => held.push(bytes.to_vec()),
@@ -2344,7 +2582,7 @@ mod tests {
             )
             .unwrap();
 
-        assert_eq!(held, [b"\xffA".to_vec()]);
+        assert_eq!(held, [b"\xc3\xa9A".to_vec()]);
     }
 
     #[test]
@@ -2372,11 +2610,180 @@ mod tests {
     }
 
     #[test]
+    fn query_ordered_with_binds_a_parameter() {
+        let db = titled_docs(&["a", "b"]);
+
+        let result = db
+            .query_ordered_with(
+                "SELECT title FROM docs WHERE title = ?",
+                &Params::Positional(vec![Value::Text("b".into())]),
+            )
+            .unwrap();
+
+        assert_eq!(texts(&result, "title"), [Value::Text("b".into())]);
+    }
+
+    #[test]
+    fn query_ordered_with_refuses_params_that_do_not_fit() {
+        let db = titled_docs(&["a"]);
+
+        let err = db
+            .query_ordered_with("SELECT ?", &Params::Positional(Vec::new()))
+            .unwrap_err();
+
+        assert!(matches!(err, DbError::Params(_)), "got: {err:?}");
+        assert_eq!(
+            err.to_string(),
+            "the query has 1 parameter(s), but 0 value(s) were given"
+        );
+    }
+
+    #[test]
+    fn query_refuses_an_unbound_placeholder() {
+        let db = titled_docs(&["a"]);
+
+        let err = db.query("SELECT ?").unwrap_err();
+
+        assert!(matches!(err, DbError::Params(_)), "got: {err:?}");
+    }
+
+    #[test]
+    fn query_ordered_with_binds_both_runs_of_a_batched_function() {
+        let mut db = titled_docs(&["a", "b", "c"]);
+        let (worker, _) = functions::test_support::batched_worker(
+            "up",
+            8,
+            Arc::clone(&db.calls),
+            vec![r#"{"ok": "A"}"#, r#"{"results": [{"ok": "C"}]}"#],
+        );
+        db.register_batched_worker(worker, &[1]);
+
+        let result = db
+            .query_ordered_with(
+                "SELECT up(title) AS v FROM docs WHERE title != :skip ORDER BY title",
+                &Params::Named(HashMap::from([("skip".into(), Value::Text("b".into()))])),
+            )
+            .unwrap();
+
+        assert_eq!(
+            texts(&result, "v"),
+            [Value::Text("A".into()), Value::Text("C".into())]
+        );
+    }
+
+    #[cfg(feature = "cli")]
+    const COUNT_TO_A_MILLION: &str = "WITH RECURSIVE c(x) AS \
+        (SELECT 1 UNION ALL SELECT x+1 FROM c LIMIT 1000000) SELECT count(*) AS n FROM c";
+
+    #[cfg(feature = "cli")]
+    #[test]
+    fn query_ordered_until_runs_to_completion_while_not_cancelled() {
+        let db = Db::new().unwrap();
+        let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+        let result = db
+            .query_ordered_until(COUNT_TO_A_MILLION, cancelled)
+            .unwrap();
+
+        assert_eq!(texts(&result, "n"), [Value::Integer(1_000_000)]);
+    }
+
+    #[cfg(feature = "cli")]
+    #[test]
+    fn query_ordered_until_is_interrupted_once_cancelled() {
+        let db = Db::new().unwrap();
+        let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(true));
+
+        let err = db
+            .query_ordered_until(COUNT_TO_A_MILLION, cancelled)
+            .expect_err("a cancelled query must not finish");
+
+        assert!(err.to_string().contains("interrupted"), "got: {err}");
+    }
+
+    #[cfg(feature = "cli")]
+    #[test]
+    fn query_ordered_until_leaves_later_queries_uncancelled() {
+        let db = Db::new().unwrap();
+        let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let _ = db.query_ordered_until(COUNT_TO_A_MILLION, cancelled);
+
+        let result = db.query_ordered(COUNT_TO_A_MILLION).unwrap();
+
+        assert_eq!(texts(&result, "n"), [Value::Integer(1_000_000)]);
+    }
+
+    #[test]
+    fn query_each_with_folds_the_bound_rows() {
+        let db = titled_docs(&["a", "b"]);
+
+        let rows = db
+            .query_each_with(
+                "SELECT ? AS n, title FROM docs WHERE title = ?",
+                &Params::Positional(vec![Value::Integer(5), Value::Text("a".into())]),
+                |_| Vec::new(),
+                |rows, cells| rows.push(cells.to_vec()),
+            )
+            .unwrap();
+
+        assert_eq!(rows, [[Value::Integer(5), Value::Text("a".into())]]);
+    }
+
+    #[test]
+    fn query_each_ref_binds_a_parameter() {
+        let db = titled_docs(&["a", "b"]);
+
+        let (_, rows) = folded_refs_with(
+            &db,
+            "SELECT title FROM docs WHERE title = ?",
+            &Params::Positional(vec![Value::Text("b".into())]),
+        );
+
+        assert_eq!(rows, [[Value::Text("b".into())]]);
+    }
+
+    #[test]
+    fn query_each_ref_refuses_params_that_do_not_fit() {
+        let db = titled_docs(&["a"]);
+
+        let err = db
+            .query_each_ref(
+                "SELECT title FROM docs WHERE title = ?",
+                &Params::default(),
+                |_| (),
+                |_, _| {},
+            )
+            .unwrap_err();
+
+        assert!(matches!(err, DbError::Params(_)), "got: {err:?}");
+    }
+
+    #[test]
+    fn query_each_ref_binds_through_a_batched_function() {
+        let mut db = titled_docs(&["a", "b", "c"]);
+        let (worker, _) = functions::test_support::batched_worker(
+            "up",
+            8,
+            Arc::clone(&db.calls),
+            vec![r#"{"ok": "A"}"#, r#"{"results": [{"ok": "C"}]}"#],
+        );
+        db.register_batched_worker(worker, &[1]);
+
+        let (_, rows) = folded_refs_with(
+            &db,
+            "SELECT up(title) AS v FROM docs WHERE title != ? ORDER BY title",
+            &Params::Positional(vec![Value::Text("b".into())]),
+        );
+
+        assert_eq!(rows, [[Value::Text("A".into())], [Value::Text("C".into())]]);
+    }
+
+    #[test]
     fn query_each_ref_refuses_a_write() {
         let db = titled_docs(&["a"]);
 
         let err = db
-            .query_each_ref("DELETE FROM docs", |_| (), |_, _| {})
+            .query_each_ref("DELETE FROM docs", &Params::default(), |_| (), |_, _| {})
             .unwrap_err();
 
         assert!(matches!(err, DbError::WriteForbidden));
@@ -2795,6 +3202,64 @@ mod tests {
     }
 
     #[test]
+    fn normalize_row_keys_a_case_differing_key_by_its_column() {
+        let db = Db::new().unwrap();
+        db.create_table("t", "CREATE TABLE t (Name TEXT)").unwrap();
+        let row = HashMap::from([("nAME".into(), Value::Text("apple".into()))]);
+        for strict in [false, true] {
+            let normalized = db.normalize_row("t", &row, strict).unwrap();
+            assert_eq!(
+                normalized,
+                HashMap::from([("Name".into(), Value::Text("apple".into()))])
+            );
+        }
+    }
+
+    #[test]
+    fn normalize_row_prefers_the_exact_key_over_a_case_variant() {
+        let db = Db::new().unwrap();
+        db.create_table("t", "CREATE TABLE t (name TEXT)").unwrap();
+        let row = HashMap::from([
+            ("NAME".into(), Value::Text("variant".into())),
+            ("name".into(), Value::Text("exact".into())),
+        ]);
+        let normalized = db.normalize_row("t", &row, false).unwrap();
+        assert_eq!(normalized["name"], Value::Text("exact".into()));
+    }
+
+    #[test]
+    fn normalize_row_does_not_fold_non_ascii_case() {
+        let db = Db::new().unwrap();
+        db.create_table("t", "CREATE TABLE t (\"é\" TEXT)").unwrap();
+        let row = HashMap::from([("É".into(), Value::Text("x".into()))]);
+        let normalized = db.normalize_row("t", &row, false).unwrap();
+        assert_eq!(normalized["é"], Value::Null);
+    }
+
+    #[test]
+    fn normalize_row_strict_names_exactly_the_unmatched_keys_and_columns() {
+        let db = Db::new().unwrap();
+        db.create_table("t", "CREATE TABLE t (Name TEXT, n INTEGER)")
+            .unwrap();
+        let extra = HashMap::from([
+            ("NAME".into(), Value::Null),
+            ("N".into(), Value::Null),
+            ("color".into(), Value::Null),
+        ]);
+        let err = db.normalize_row("t", &extra, true).unwrap_err();
+        assert!(
+            matches!(&err, DbError::SchemaMismatch(m) if m == "extra columns not in table t: color"),
+            "got: {err}"
+        );
+        let missing = HashMap::from([("NAME".into(), Value::Null)]);
+        let err = db.normalize_row("t", &missing, true).unwrap_err();
+        assert!(
+            matches!(&err, DbError::SchemaMismatch(m) if m == "missing columns for table t: n"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
     fn insert_and_query_real_value() {
         let db = Db::new().unwrap();
         db.create_table("t", "CREATE TABLE t (price REAL)").unwrap();
@@ -2943,6 +3408,34 @@ mod tests {
     }
 
     #[test]
+    fn prepare_guarded_rejects_a_second_statement() {
+        let db = Db::new().unwrap();
+
+        let err = db.prepare_guarded("SELECT 1; SELECT 2").err().unwrap();
+
+        assert!(matches!(err, DbError::MultipleStatements), "got: {err:?}");
+    }
+
+    #[test]
+    fn prepare_guarded_accepts_trailing_terminators_and_comments() {
+        let db = Db::new().unwrap();
+
+        let (stmt, _) = db.prepare_guarded("SELECT 1;; -- done").unwrap();
+
+        assert_eq!(stmt.column_count(), 1);
+    }
+
+    #[test]
+    fn prepare_guarded_leaves_sql_with_no_statement_to_sqlite() {
+        let db = Db::new().unwrap();
+
+        let (stmt, reads) = db.prepare_guarded("-- nothing").unwrap();
+
+        assert_eq!(stmt.column_count(), 0);
+        assert!(reads.is_empty());
+    }
+
+    #[test]
     fn internal_table_denied_message_mentions_the_namespace() {
         assert!(INTERNAL_TABLE_DENIED_MSG.contains("not authorized"));
         assert!(INTERNAL_TABLE_DENIED_MSG.contains("_dirsql_"));
@@ -2966,6 +3459,25 @@ mod tests {
         let err = db.query("DETACH ext").unwrap_err();
         assert!(matches!(err, DbError::Unauthorized(_)), "got: {err}");
         assert!(err.to_string().contains("not authorized"), "got: {err}");
+    }
+
+    #[test]
+    fn sets_session_state_spares_only_the_reading_pragmas() {
+        assert!(!sets_session_state("table_info"));
+        assert!(!sets_session_state("TABLE_INFO"));
+        assert!(!sets_session_state("integrity_check"));
+        assert!(sets_session_state("case_sensitive_like"));
+        assert!(sets_session_state("cache_size"));
+    }
+
+    #[test]
+    fn query_denies_session_state_changes() {
+        let db = Db::new().unwrap();
+        for sql in ["BEGIN", "SAVEPOINT a", "PRAGMA case_sensitive_like=1"] {
+            let err = db.query(sql).unwrap_err();
+            assert!(matches!(err, DbError::Unauthorized(_)), "got: {err}");
+            assert_eq!(err.to_string(), SESSION_STATE_DENIED_MSG);
+        }
     }
 
     #[test]
@@ -3239,6 +3751,46 @@ mod tests {
         let rows = db.get_rows_by_file("t", "f.json").unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["order"], Value::Integer(7));
+    }
+
+    #[test]
+    fn quoted_ddl_column_round_trips_through_insert_select_and_update() {
+        let db = Db::new().unwrap();
+        db.create_table(
+            "t",
+            "CREATE TABLE t (\"a\"\"b\" TEXT PRIMARY KEY, value TEXT)",
+        )
+        .unwrap();
+        let first = db
+            .shape_rows(
+                "t",
+                json_rows(serde_json::json!([{"a\"b":"key","value":"old"}])),
+                true,
+            )
+            .unwrap();
+        db.insert_rows("t", &first, "a.json").unwrap();
+
+        let second = db
+            .shape_rows(
+                "t",
+                json_rows(serde_json::json!([{"a\"b":"key","value":"new"}])),
+                true,
+            )
+            .unwrap();
+        db.reconcile_batch_rows("t", "a.json", &second).unwrap();
+        let rows = db.get_rows_by_file("t", "a.json").unwrap();
+        assert_eq!(rows[0]["a\"b"], Value::Text("key".into()));
+        assert_eq!(rows[0]["value"], Value::Text("new".into()));
+
+        db.insert_row(
+            "t",
+            &HashMap::from([("a\"b".into(), Value::Text("other".into()))]),
+            "b.json",
+            0,
+        )
+        .unwrap();
+        let rows = db.get_rows_by_file("t", "b.json").unwrap();
+        assert_eq!(rows[0]["a\"b"], Value::Text("other".into()));
     }
 
     #[test]
@@ -3816,6 +4368,53 @@ mod tests {
         assert_eq!(
             out.cells,
             vec![vec![Value::Text("a".into()), Value::Integer(1)]]
+        );
+    }
+
+    #[test]
+    fn shape_rows_fills_a_column_from_a_key_differing_only_by_case() {
+        let db = Db::new().unwrap();
+        db.create_table("t", "CREATE TABLE t (Id TEXT, n INTEGER)")
+            .unwrap();
+        for strict in [false, true] {
+            let out = db
+                .shape_rows(
+                    "t",
+                    json_rows(serde_json::json!([{"N":1,"iD":"a"}])),
+                    strict,
+                )
+                .unwrap();
+            assert_eq!(out.columns, vec!["Id", "n"]);
+            assert_eq!(out.emitted, vec![true, true]);
+            assert_eq!(
+                out.cells,
+                vec![vec![Value::Text("a".into()), Value::Integer(1)]]
+            );
+        }
+    }
+
+    #[test]
+    fn shape_rows_strict_names_exactly_the_unmatched_keys_and_columns() {
+        let db = Db::new().unwrap();
+        db.create_table("t", "CREATE TABLE t (Name TEXT, n INTEGER)")
+            .unwrap();
+        let err = db
+            .shape_rows(
+                "t",
+                json_rows(serde_json::json!([{"NAME":"x","N":1,"color":"red"}])),
+                true,
+            )
+            .unwrap_err();
+        assert!(
+            matches!(&err, DbError::SchemaMismatch(m) if m == "extra columns not in table t: color"),
+            "got: {err}"
+        );
+        let err = db
+            .shape_rows("t", json_rows(serde_json::json!([{"NAME":"x"}])), true)
+            .unwrap_err();
+        assert!(
+            matches!(&err, DbError::SchemaMismatch(m) if m == "missing columns for table t: n"),
+            "got: {err}"
         );
     }
 
@@ -5333,6 +5932,22 @@ mod tests {
                 vec![Value::Null, Value::Null, Value::Integer(1)],
             ]
         );
+    }
+
+    #[test]
+    fn shape_value_rows_marks_a_column_emitted_by_a_case_differing_key() {
+        let db = Db::new().unwrap();
+        db.create_table("t", "CREATE TABLE t (id INTEGER, Name TEXT)")
+            .unwrap();
+        let rows = vec![HashMap::from([(
+            "nAME".to_string(),
+            Value::Text("a".into()),
+        )])];
+
+        let out = db.shape_value_rows("t", rows, false).unwrap();
+
+        assert_eq!(out.emitted, vec![false, true]);
+        assert_eq!(out.cells, vec![vec![Value::Null, Value::Text("a".into())]]);
     }
 
     #[test]

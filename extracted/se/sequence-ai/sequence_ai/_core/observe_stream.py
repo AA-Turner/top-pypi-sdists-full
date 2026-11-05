@@ -179,7 +179,6 @@ class ObserveStream:
         self._pending: dict[str, list[tuple[int, Optional[bytes]]]] = {}
 
         self._kept: dict[str, dict[int, Optional[bytes]]] = {}
-        self._prompted: dict[str, set[int]] = {}
 
         self._handed: dict[str, dict[int, float]] = {}
 
@@ -206,16 +205,11 @@ class ObserveStream:
         for thread in self._threads:
             thread.start()
 
-    def put(self, episode: str, seq: int, packed_frame: bytes, blocks: Optional[tuple] = None,
-            said: bool = False) -> None:
+    def put(self, episode: str, seq: int, packed_frame: bytes, blocks: Optional[tuple] = None) -> None:
         """One observation of `episode`, its number `seq` and its frame packed (frame()), to be posted as soon as a post
         is free to take it - once: handed again as it is while it waits, is on its way or was answered (a stream after
         a switch posts what the one before kept), it is not posted again. `blocks`: what its frame's references name
-        (blocks.Cut's used, contents, paths), its contents kept with it until it is forgotten. `said`: it says something
-        its planner reads, which goes once: no newer frame stands behind it (_newest)."""
-        if said:
-            with self._cv:
-                self._prompted.setdefault(episode, set()).add(seq)
+        (blocks.Cut's used, contents, paths), its contents kept with it until it is forgotten."""
         if self._on_put is not None:
 
             self._on_put(len(packed_frame) + (sum(len(c) for c in blocks[1].values()) if blocks else 0))
@@ -297,7 +291,6 @@ class ObserveStream:
         it is the new id's, posted under it - what the worker had under the old one is not there."""
         with self._cv:
             kept, pending = self._kept.pop(old, {}), self._pending.pop(old, [])
-            self._prompted.pop(old, None)
             self._handed.setdefault(new, {}).update(self._handed.pop(old, {}))
 
 
@@ -335,7 +328,6 @@ class ObserveStream:
         with self._cv:
             self._pending.pop(episode, None)
             self._kept.pop(episode, None)
-            self._prompted.pop(episode, None)
             self._handed.pop(episode, None)
             self._flying.pop(episode, None)
             self._got.pop(episode, None)
@@ -404,7 +396,7 @@ class ObserveStream:
         framed = [s for s, f in batch if f is not None]
         if len(framed) < 2:
             return batch
-        stale = set(framed[:-1]) - self._prompted.get(episode, set())
+        stale = set(framed[:-1])
         if not stale:
             return batch
         kept = self._kept.get(episode, {})

@@ -25,6 +25,7 @@ from datamodel_code_generator._user_keys import class_field_key
 from datamodel_code_generator.imports import Import
 from datamodel_code_generator.parser._convert_common import _copy_schema, _name_definitions
 from datamodel_code_generator.parser._null_facts import null_schema
+from datamodel_code_generator.parser._type_overrides import override_spells_builtin
 from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
 
 if TYPE_CHECKING:
@@ -41,10 +42,7 @@ JsonSchema = dict[str, Any]
 NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MICROSECONDS_PER_DAY = 86_400_000_000
 DURATION_BYTE_LENGTH = 12
-_PHYSICAL_DEFAULT_OVERRIDES = frozenset({
-    Import.from_full_path("builtins.int"),
-    Import.from_full_path("builtins.bytes"),
-})
+_PHYSICAL_DEFAULT_BUILTINS = frozenset({"int", "bytes"})
 _TEMPORAL_KINDS = {"date": "date", "time": "time", "date-time": "datetime", "date-time-local": "datetime"}
 
 STRING_SCHEMA: JsonSchema = {"type": "string"}
@@ -97,15 +95,21 @@ def _is_valid_namespace(namespace: str) -> bool:
     return not namespace or _is_valid_fullname(namespace)
 
 
+def _is_physical_default_override(type_override: Import | None) -> bool:
+    """Return whether an override writes the physical ``int`` or ``bytes`` of a logical default, alone or with None."""
+    return override_spells_builtin(type_override, _PHYSICAL_DEFAULT_BUILTINS)
+
+
 def _logical_default_expression(kind: str, value: str) -> Any:
     """Build a logical constructor with an import identity that can be aliased."""
     from datamodel_code_generator.python_literal import (  # ruff: ignore[import-outside-top-level]
         PythonRuntimeExpression,
         _isoformat_expression,
+        stable_repr,
     )
 
     if kind == "decimal":
-        return PythonRuntimeExpression.from_import_call(Import(from_="decimal", import_="Decimal"), repr(value))
+        return PythonRuntimeExpression.from_import_call(Import(from_="decimal", import_="Decimal"), stable_repr(value))
     if kind == "timedelta":
         return PythonRuntimeExpression.from_import_call(
             Import(from_="datetime", import_="timedelta"), f"milliseconds={value}"
@@ -243,7 +247,9 @@ class _AvroSchemaConverter:
             case dict() as schema:
                 return self._convert_schema_dict(schema, namespace, root=root)
 
-        msg = f"Unsupported Avro schema value: {schema!r}"
+        from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
+        msg = f"Unsupported Avro schema value: {stable_repr(schema)}"
         raise Error(msg)
 
     def _convert_schema_dict(
@@ -265,7 +271,9 @@ class _AvroSchemaConverter:
             case str() as type_name:
                 return self._convert_schema_object(schema, type_name, namespace, root=root)
             case _:
-                msg = f"Avro schema object requires a string, object, or union type: {schema!r}"
+                from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
+                msg = f"Avro schema object requires a string, object, or union type: {stable_repr(schema)}"
                 raise Error(msg)
 
     def _convert_schema_object(
@@ -327,7 +335,9 @@ class _AvroSchemaConverter:
                     raise Error(msg)
                 union_type = type_value if isinstance(type_value, str) and type_value not in NAMED_TYPES else None
             else:
-                msg = f"Unsupported Avro union value: {item!r}"
+                from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
+                msg = f"Unsupported Avro union value: {stable_repr(item)}"
                 raise Error(msg)
 
             if union_type is None:
@@ -360,7 +370,9 @@ class _AvroSchemaConverter:
         elif type_value == "fixed":
             converted = self._convert_fixed(raw_schema, fullname)
         else:  # pragma: no cover
-            msg = f"Unsupported Avro named type: {type_value!r}"
+            from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
+            msg = f"Unsupported Avro named type: {stable_repr(type_value)}"
             raise Error(msg)
         converted.setdefault("title", definition_key)
         self._building_definitions.remove(fullname)
@@ -405,7 +417,7 @@ class _AvroSchemaConverter:
                 if (
                     self.overridden_defaults is not None
                     and overrides
-                    and overrides.get(field_name) in _PHYSICAL_DEFAULT_OVERRIDES
+                    and _is_physical_default_override(overrides.get(field_name))
                 ):
                     self.overridden_defaults.setdefault(fullname, {})[field_name] = field, field_schema["default"]
             else:
@@ -563,7 +575,7 @@ class _AvroSchemaConverter:
         if self._logical_default_enabled is not None and not self._logical_default_enabled(
             self._logical_format(schema["logicalType"], schema["type"]), type_override
         ):
-            if type_override in _PHYSICAL_DEFAULT_OVERRIDES and isinstance(value, bytes):
+            if _is_physical_default_override(type_override) and isinstance(value, bytes):
                 from datamodel_code_generator.python_literal import PythonCode  # ruff: ignore[import-outside-top-level]
 
                 # This is an intentional physical literal, including in shared Avro definitions.
@@ -888,7 +900,7 @@ class AvroParser(JsonSchemaParser):
 
     def _logical_default_enabled(self, format_: str, type_override: Import | None = None) -> bool:
         """Keep physical defaults when a mapping replaces the logical representation of a default of ``format_``."""
-        if type_override in _PHYSICAL_DEFAULT_OVERRIDES:
+        if _is_physical_default_override(type_override):
             return False
         if not self.type_mappings:
             return True

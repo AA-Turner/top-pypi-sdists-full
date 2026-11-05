@@ -112,7 +112,10 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
             continue;
         }
         /* the caller skips leading whitespace and comments, so pending_ws and comment_gap are only set after a token
-           has been emitted: out is non-empty whenever either is pending */
+           has been emitted: out is non-empty whenever either is pending, unless a failed growth dropped that token */
+        if (*out->oom) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            return;      /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
         if (pending_ws) {
             css_char last = out->data[out->len - 1];
             int blocked = last == '>' || last == '+' || last == '~' || last == ',' || last == '[' || last == '(';
@@ -257,7 +260,9 @@ static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start,
     while (prop_end > prop_start && vec->items[prop_end - 1].kind == CSS_WS) {
         prop_end--;
     }
-    if (prop_start >= prop_end) {
+    /* in a declaration left open at the end of the input, a block still open before the colon holds it, so the text is
+       no declaration; written out, the block would take in the `}` that ends the rule */
+    if (prop_start >= prop_end || (end == vec->len && css_leaves_block_open(vec, prop_start, colon))) {
         return 0;
     }
     /* the raw property text spans from the first to the last non-ws token; build it for the --* check and interning */

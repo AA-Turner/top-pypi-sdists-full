@@ -79,6 +79,8 @@ __all__ = (
     "GetRemediationsV2PaginatorName",
     "GetResourcesTrendsV2PaginatorName",
     "GetResourcesV2PaginatorName",
+    "GetSoftwareResourcesV2PaginatorName",
+    "GetSoftwareV2PaginatorName",
     "GranularityFieldType",
     "GroupByFieldType",
     "GuidanceFormatType",
@@ -141,6 +143,8 @@ __all__ = (
     "ServiceName",
     "SeverityLabelType",
     "SeverityRatingType",
+    "SoftwareGroupByFieldType",
+    "SoftwareStringFieldType",
     "SortOrderType",
     "StandardsControlsUpdatableType",
     "StandardsProviderType",
@@ -366,6 +370,8 @@ GetRecommendedPolicyV2PaginatorName = Literal["get_recommended_policy_v2"]
 GetRemediationsV2PaginatorName = Literal["get_remediations_v2"]
 GetResourcesTrendsV2PaginatorName = Literal["get_resources_trends_v2"]
 GetResourcesV2PaginatorName = Literal["get_resources_v2"]
+GetSoftwareResourcesV2PaginatorName = Literal["get_software_resources_v2"]
+GetSoftwareV2PaginatorName = Literal["get_software_v2"]
 GranularityFieldType = Literal["Daily", "Monthly", "Weekly"]
 GroupByFieldType = Literal[
     "activity_name",
@@ -690,6 +696,34 @@ SecurityControlsProviderType = Literal["AWS", "Azure"]
 SecurityHubFeatureType = Literal["SecurityHub", "SecurityHubV2"]
 SeverityLabelType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM"]
 SeverityRatingType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
+SoftwareGroupByFieldType = Literal[
+    "AccountId",
+    "PackageName",
+    "PackageType",
+    "PackageVersion",
+    "Region",
+    "ResourceCloudPartition",
+    "ResourceId",
+    "ResourceOwnerAccountId",
+    "ResourceOwnerOrgId",
+    "ResourceProvider",
+    "ResourceRegion",
+    "ResourceType",
+]
+SoftwareStringFieldType = Literal[
+    "AccountId",
+    "PackageName",
+    "PackageType",
+    "PackageVersion",
+    "Region",
+    "ResourceCloudPartition",
+    "ResourceId",
+    "ResourceOwnerAccountId",
+    "ResourceOwnerOrgId",
+    "ResourceProvider",
+    "ResourceRegion",
+    "ResourceType",
+]
 SortOrderType = Literal["asc", "desc"]
 StandardsControlsUpdatableType = Literal["NOT_READY_FOR_UPDATES", "READY_FOR_UPDATES"]
 StandardsProviderType = Literal["AWS", "Azure"]
@@ -1192,6 +1226,8 @@ PaginatorName = Literal[
     "get_remediations_v2",
     "get_resources_trends_v2",
     "get_resources_v2",
+    "get_software_resources_v2",
+    "get_software_v2",
     "list_aggregators_v2",
     "list_configuration_policies",
     "list_configuration_policy_associations",

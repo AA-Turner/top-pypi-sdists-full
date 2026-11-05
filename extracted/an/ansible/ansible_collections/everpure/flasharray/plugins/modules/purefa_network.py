@@ -1,0 +1,1091 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# (c) 2020, Simon Dodsley (simon@everpuredata.com)
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import absolute_import, division, print_function
+
+__metaclass__ = type
+
+
+ANSIBLE_METADATA = {
+    "metadata_version": "1.1",
+    "status": ["preview"],
+    "supported_by": "community",
+}
+
+
+DOCUMENTATION = """
+---
+module: purefa_network
+short_description:  Manage network interfaces in a Everpure FlashArray
+version_added: '1.0.0'
+description:
+    - This module manages the physical and virtual network interfaces on a Everpure FlashArray.
+    - To manage VLAN interfaces use the I(everpure.flasharray.purefa_vlan) module.
+    - To manage network subnets use the I(everpure.flasharray.purefa_subnet) module.
+    - To remove an IP address from a non-management port use 0.0.0.0/0
+author: Everpure Ansible Team (@sdodsley) <pure-ansible-team@everpuredata.com>
+options:
+  name:
+    description:
+      - Interface name (physical or virtual).
+      - Newer Purity releases store a virtual interface that is attached to a
+        file server under the server's name, as C(<server>::<name>), and
+        report it that way. Such an interface may be given here either as the
+        bare C(<name>) it was created with or as the C(<server>::<name>) the
+        array reports. With the bare name, I(server) picks the file server
+        when it is given, otherwise the interface is matched under whichever
+        file server it is attached to.
+    required: true
+    type: str
+  state:
+    description:
+      - State of existing interface (on/off).
+    required: false
+    default: present
+    choices: [ "present", "absent" ]
+    type: str
+  address:
+    description:
+      - IPv4 or IPv6 address of interface in CIDR notation.
+      - To remove an IP address from a non-management port use 0.0.0.0/0
+    required: false
+    type: str
+  gateway:
+    description:
+      - IPv4 or IPv6 address of interface gateway.
+    required: false
+    type: str
+  mtu:
+    description:
+      - MTU size of the interface. Range is 1280 to 9216.
+    required: false
+    type: int
+  servicelist:
+    description:
+      - Assigns the specified (comma-separated) service list to one or more specified interfaces.
+      - Replaces the previous service list.
+      - Supported service lists depend on whether the network interface is Ethernet or Fibre Channel.
+      - Note that I(system) is only valid for Cloud Block Store.
+    elements: str
+    type: list
+    choices: [ "replication", "management", "ds", "file", "iscsi", "scsi-fc", "nvme-fc", "nvme-tcp", "nvme-roce", "system"]
+    version_added: '1.15.0'
+  interface:
+    description:
+      - Type of interface to create if subinterfaces is supplied
+    type: str
+    choices: [ "vif", "lacp" ]
+    version_added: '1.22.0'
+  subordinates:
+    description:
+     - List of one or more child devices to be added to a LACP interface
+     - Subordinates must be on the same controller, therefore the full device needs
+       to be provided.
+    type: list
+    elements: str
+    version_added: '1.22.0'
+  subinterfaces:
+    description:
+     - List of one or more child devices to be added to a VIF interface
+     - Only the 'eth' name needs to be provided, such as 'eth6'. This interface on
+       all controllers will be assigned to the interface.
+    type: list
+    elements: str
+    version_added: '1.22.0'
+  subnet:
+    description:
+     - Name of the subnet which interface is to be attached
+    type: str
+    version_added: '1.22.0'
+  enabled:
+    description:
+    - State of the network interface
+    type: bool
+    default: true
+    version_added: '1.22.0'
+  server:
+    description:
+      - Name of the file server the interface is attached to for data ingress.
+      - An Ethernet interface can be attached to at most one file server. File
+        servers themselves are managed by M(everpure.flasharray.purefa_server).
+      - Omit this to leave the attachment alone. A newly created interface is
+        then attached to the array's default C(_array_server), which is what the
+        array does when the attachment is not specified.
+      - Set to an empty string to attach the interface to no file server at all,
+        which detaches an existing interface from the server it is on.
+      - Only applies to Ethernet interfaces.
+    type: str
+    version_added: '1.46.0'
+extends_documentation_fragment:
+    - everpure.flasharray.everpure.fa
+notes:
+  - I(server) requires Purity//FA REST API 2.44 or higher, which is where file
+    servers first appear.
+  - I(server) attaches only the interface it is given. To manage the full set of
+    interfaces a file server is reachable on, use the I(network_interfaces)
+    option of M(everpure.flasharray.purefa_server), which is declarative and
+    detaches any interface it is not given.
+"""
+
+EXAMPLES = """
+- name: Configure and enable network interface ct0.eth8
+  everpure.flasharray.purefa_network:
+    name: ct0.eth8
+    gateway: 10.21.200.1
+    address: "10.21.200.18/24"
+    mtu: 9000
+    state: present
+    fa_url: 10.10.10.2
+    api_token: c6033033-fe69-2515-a9e8-966bb7fe4b40
+
+- name: Disable physical interface ct1.eth2
+  everpure.flasharray.purefa_network:
+    name: ct1.eth2
+    state: absent
+    fa_url: 10.10.10.2
+    api_token: c6033033-fe69-2515-a9e8-966bb7fe4b40
+
+- name: Enable virtual network interface vir0
+  everpure.flasharray.purefa_network:
+    name: vir0
+    state: present
+    fa_url: 10.10.10.2
+    api_token: c6033033-fe69-2515-a9e8-966bb7fe4b40
+
+- name: Remove an IP address from iSCSI interface ct0.eth4
+  everpure.flasharray.purefa_network:
+    name: ct0.eth4
+    address: 0.0.0.0/0
+    gateway: 0.0.0.0
+    fa_url: 10.10.10.2
+    api_token: c6033033-fe69-2515-a9e8-966bb7fe4b40
+
+- name: Change service list for FC interface ct0.fc1
+  everpure.flasharray.purefa_network:
+    name: ct0.fc1
+    servicelist:
+      - replication
+    fa_url: 10.10.10.2
+    api_token: c6033033-fe69-2515-a9e8-966bb7fe4b40
+
+- name: Create a file VIF attached to a file server
+  everpure.flasharray.purefa_network:
+    name: filevif1
+    interface: vif
+    subinterfaces:
+      - eth6
+    address: "10.21.200.30/24"
+    gateway: 10.21.200.1
+    server: filesvr1
+    servicelist:
+      - file
+    fa_url: 10.10.10.2
+    api_token: c6033033-fe69-2515-a9e8-966bb7fe4b40
+
+- name: Detach a file VIF from the file server it is attached to
+  everpure.flasharray.purefa_network:
+    name: filevif1
+    server: ""
+    fa_url: 10.10.10.2
+    api_token: c6033033-fe69-2515-a9e8-966bb7fe4b40
+"""
+
+RETURN = """
+"""
+
+try:
+    from netaddr import IPAddress, IPNetwork, valid_ipv4
+
+    HAS_NETADDR = True
+except ImportError:
+    HAS_NETADDR = False
+
+try:
+    from pypureclient.flasharray import (
+        NetworkInterfacePatch,
+        NetworkInterfacePost,
+        NetworkinterfacepostEth,
+        NetworkinterfacepatchEth,
+        FixedReferenceNoId,
+        Reference,
+        ReferenceNoId,
+    )
+
+    HAS_PYPURECLIENT = True
+except ImportError:
+    HAS_PYPURECLIENT = False
+
+from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.everpure.flasharray.plugins.module_utils.purefa import (
+    get_array,
+    purefa_argument_spec,
+)
+from ansible_collections.everpure.flasharray.plugins.module_utils.api_helpers import (
+    check_api_version,
+    check_response,
+)
+
+# File servers, and the network interface field that attaches an interface to
+# one, arrived together in this version
+SERVER_API_VERSION = "2.44"
+
+# An unconfigured address, netmask or gateway is reported by the array as null,
+# but is cleared by writing 0.0.0.0 (or :: for IPv6). Those describe the same
+# state, so both have to be reduced to a single representation before the
+# current and desired settings can be compared - otherwise clearing an address
+# looks like a change that still needs making on every subsequent run.
+UNSET_IP = (None, "", "0.0.0.0", "::")
+UNSET_NETMASK = (None, "", "0.0.0.0", "0")
+
+# Newer Purity releases store a virtual interface attached to a file server
+# under the server's name, <server>::<vif>, the way other scoped objects such
+# as pod::volume are named, and a lookup by the bare name is then refused with
+# "Specified network interface does not exist". A VIF created over REST keeps
+# its bare name even when attached, so both forms coexist on one array. The
+# single colon is tolerated in case a release uses it.
+SCOPE_SEPARATORS = ("::", ":")
+
+
+def _split_scope(name):
+    """Split a scoped interface name into (server, bare name)
+
+    Returns (None, name) for a name that carries no server prefix.
+    """
+    for separator in SCOPE_SEPARATORS:
+        if separator in name:
+            return tuple(name.split(separator, 1))
+    return None, name
+
+
+def _first_item(res):
+    """First item of a lookup response, or None when nothing matched
+
+    An unknown name is answered with an error response rather than an empty
+    list, and an error response carries no items to read.
+    """
+    if res.status_code != 200:
+        return None
+    return next(iter(res.items), None)
+
+
+def _could_be_file_vif(module):
+    """Whether the task's interface may be stored under a file server's name
+
+    Physical ports and their VLAN children carry a controller prefix, such as
+    ct0.eth4 or ct0.eth4.100, and are never scoped. A virtual interface has
+    no such prefix.
+    """
+    return module.params.get("interface") == "vif" or "." not in module.params["name"]
+
+
+def _resolve_interface(module, array):
+    """Find the interface the task names, and the name the array stores it under
+
+    Returns (interface, name), or (None, None) when there is no such
+    interface. The name is tried as given first, which also finds an
+    interface given as <server>::<name>. When that finds nothing and the
+    interface may be a file VIF, the interfaces are listed and one stored
+    as <server>::<name> is accepted - for the task's I(server) when one is
+    given, otherwise under whichever file server it is attached to. The name
+    returned is the one every later read, update and delete has to use.
+    """
+    name = module.params["name"]
+    interface = _first_item(array.get_network_interfaces(names=[name]))
+    if interface is not None:
+        return interface, name
+    if not _could_be_file_vif(module):
+        return None, None
+    res = array.get_network_interfaces()
+    if res.status_code != 200:
+        return None, None
+    wanted_server = module.params.get("server") or None
+    candidates = []
+    for interface in list(res.items):
+        server, bare = _split_scope(interface.name)
+        if server is None or bare != name:
+            continue
+        if wanted_server is None or server == wanted_server:
+            candidates.append(interface)
+    if len(candidates) > 1:
+        # The same bare name under two file servers: prefer the one whose
+        # scope matches the server it is actually attached to
+        attached = [
+            interface
+            for interface in candidates
+            if _attached_server_name(interface) == _split_scope(interface.name)[0]
+        ]
+        candidates = attached or candidates
+    if len(candidates) > 1:
+        module.fail_json(
+            msg="Interface name {0} is ambiguous, it matches {1}. Give the "
+            "server option to say which one is meant.".format(
+                name, ", ".join(sorted(interface.name for interface in candidates))
+            )
+        )
+    if not candidates:
+        return None, None
+    return candidates[0], candidates[0].name
+
+
+def _created_name(res, name):
+    """The name the array stored a newly created interface under
+
+    A newer array stores a VIF attached to a file server as <server>::<name>,
+    and the create response is where that name first appears. Falls back to
+    the requested name when the response names nothing.
+    """
+    created = next(iter(getattr(res, "items", None) or []), None)
+    return getattr(created, "name", None) or name
+
+
+def _comparable_state(state):
+    """Return a copy of an interface state with cleared IP settings unified"""
+    comparable = dict(state)
+    for setting in ("address", "gateway"):
+        if comparable[setting] in UNSET_IP:
+            comparable[setting] = ""
+    if comparable["netmask"] in UNSET_NETMASK:
+        comparable["netmask"] = ""
+    return comparable
+
+
+def _is_fc_interface(name):
+    """Whether an interface name is a Fibre Channel port, such as ct0.fc1"""
+    parts = name.split(".")
+    return len(parts) > 1 and parts[1].lower().startswith("f")
+
+
+def _attached_server_name(interface):
+    """Name of the file server an interface is attached to, or None
+
+    The array reports at most one, and reports no attachment by leaving the
+    field out entirely - reading interface.attached_servers directly raises
+    AttributeError on the interfaces that have no server, which is most of
+    them.
+    """
+    reference = next(iter(getattr(interface, "attached_servers", None) or []), None)
+    return getattr(reference, "name", None)
+
+
+def _attached_servers_value(server):
+    """Build the value the attached_servers field is sent as
+
+    The API takes a list of at most one reference, and documents the empty list
+    as "no server at all". On a create that is also the only way to opt out of
+    the array attaching the interface to its default _array_server.
+    """
+    return [Reference(name=server)] if server else []
+
+
+def _update_attached_server(module, array, interface):
+    """Make the interface's file server match the task
+
+    Returns whether anything needed changing. Does nothing when the task did
+    not name the option, so a task that says nothing about file servers never
+    detaches an interface from one.
+    """
+    if module.params["server"] is None:
+        return False
+    if _attached_server_name(interface) == (module.params["server"] or None):
+        return False
+    if not module.check_mode:
+        res = array.patch_network_interfaces(
+            names=[interface.name],
+            network=NetworkInterfacePatch(
+                attached_servers=_attached_servers_value(module.params["server"])
+            ),
+        )
+        check_response(
+            res,
+            module,
+            f"Failed to update the file server attached to {interface.name}",
+        )
+    return True
+
+
+def update_fc_interface(module, array, interface):
+    """Modify FC Interface settings"""
+    changed = False
+    if not interface.enabled and module.params["state"] == "present":
+        changed = True
+        if not module.check_mode:
+            network = NetworkInterfacePatch(enabled=True, override_npiv_check=True)
+            res = array.patch_network_interfaces(
+                names=[module.params["name"]], network=network
+            )
+            check_response(
+                res, module, f"Failed to enable interface {module.params['name']}"
+            )
+    if interface.enabled and module.params["state"] == "absent":
+        changed = True
+        if not module.check_mode:
+            network = NetworkInterfacePatch(enabled=False, override_npiv_check=True)
+            res = array.patch_network_interfaces(
+                names=[module.params["name"]], network=network
+            )
+            check_response(
+                res, module, f"Failed to disable interface {module.params['name']}"
+            )
+    # An interface with no services assigned reports them as null
+    services = getattr(interface, "services", None) or []
+    if module.params["servicelist"] and sorted(module.params["servicelist"]) != sorted(
+        services
+    ):
+        changed = True
+        if not module.check_mode:
+            network = NetworkInterfacePatch(services=module.params["servicelist"])
+            res = array.patch_network_interfaces(
+                names=[module.params["name"]], network=network
+            )
+            check_response(
+                res,
+                module,
+                f"Failed to update interface service list {module.params['name']}",
+            )
+
+    module.exit_json(changed=changed)
+
+
+def _check_subinterfaces(module, array, name=None):
+    """Names of the children of an interface, read under its stored name"""
+    subordinates = []
+    interfaces = list(
+        array.get_network_interfaces(names=[name or module.params["name"]]).items
+    )
+    # An interface with no children reports subinterfaces as null, and the SDK
+    # models raise AttributeError for any field the array returned as null
+    for subinterface in getattr(interfaces[0].eth, "subinterfaces", None) or []:
+        # subinterfaces are FixedReferenceNoId objects; store the name so the
+        # result is a list of sortable/comparable strings
+        subordinates.append(subinterface.name)
+    return subordinates
+
+
+def _create_subordinates(module, array):
+    subordinates_v1 = []
+    subordinates_v2 = []
+    all_children = True
+    if module.params["subordinates"]:
+        for inter in sorted(module.params["subordinates"]):
+            if array.get_network_interfaces(names=[inter]).status_code != 200:
+                all_children = False
+            if not all_children:
+                module.fail_json(
+                    msg="Subordinate {0} does not exist. Ensure you have specified the controller.".format(
+                        inter
+                    )
+                )
+            subordinates_v2.append(FixedReferenceNoId(name=inter))
+            subordinates_v1.append(inter)
+    return subordinates_v1, subordinates_v2
+
+
+def _create_subinterfaces(module, array):
+    subinterfaces_v1 = []
+    subinterfaces_v2 = []
+    all_children = True
+    purity_vm = bool(len(array.get_controllers().items) == 1)
+    if module.params["subinterfaces"]:
+        if any("lacp" in sub for sub in module.params["subinterfaces"]):
+            for inter in sorted(module.params["subinterfaces"]):
+                if array.get_network_interfaces(names=[inter]).status_code != 200:
+                    all_children = False
+                if not all_children:
+                    module.fail_json(
+                        msg="Child subinterface {0} does not exist".format(inter)
+                    )
+                subinterfaces_v2.append(FixedReferenceNoId(name=inter))
+                subinterfaces_v1.append(inter)
+        else:
+            for inter in sorted(module.params["subinterfaces"]):
+                # As we may be on a single controller device, only check for the ct0 version of the interface
+                if (
+                    array.get_network_interfaces(names=["ct0." + inter]).status_code
+                    != 200
+                ):
+                    all_children = False
+                if not all_children:
+                    module.fail_json(
+                        msg="Child subinterface {0} does not exist".format(inter)
+                    )
+                subinterfaces_v2.append(FixedReferenceNoId(name="ct0." + inter))
+                subinterfaces_v1.append("ct0." + inter)
+                if not purity_vm:
+                    subinterfaces_v2.append(FixedReferenceNoId(name="ct1." + inter))
+                    subinterfaces_v1.append("ct1." + inter)
+    return subinterfaces_v1, subinterfaces_v2
+
+
+def update_interface(module, array, interface=None, name=None):
+    """Modify Interface settings
+
+    The interface and the name the array stores it under come from
+    _resolve_interface, and are looked up here when not already given.
+    """
+    changed = False
+    if interface is None:
+        interface, name = _resolve_interface(module, array)
+    if interface is None:
+        module.fail_json("Interface {0} not found".format(module.params["name"]))
+    name = name or module.params["name"]
+
+    # An interface with no services assigned reports them as null
+    services = getattr(interface, "services", None) or []
+
+    # Modify FC Interface settings
+    if _is_fc_interface(module.params["name"]):
+        if not interface.enabled and module.params["state"] == "present":
+            changed = True
+            if not module.check_mode:
+                network = NetworkInterfacePatch(enabled=True, override_npiv_check=True)
+                res = array.patch_network_interfaces(names=[name], network=network)
+                check_response(res, module, f"Failed to enable interface {name}")
+        if interface.enabled and module.params["state"] == "absent":
+            changed = True
+            if not module.check_mode:
+                network = NetworkInterfacePatch(enabled=False, override_npiv_check=True)
+                res = array.patch_network_interfaces(names=[name], network=network)
+                check_response(res, module, f"Failed to disable interface {name}")
+        if module.params["servicelist"] and sorted(
+            module.params["servicelist"]
+        ) != sorted(services):
+            changed = True
+            if not module.check_mode:
+                network = NetworkInterfacePatch(services=module.params["servicelist"])
+                res = array.patch_network_interfaces(names=[name], network=network)
+                check_response(
+                    res,
+                    module,
+                    f"Failed to update interface service list {name}",
+                )
+        module.exit_json(changed=changed)
+    # Modify ETH Interface settings
+    current_state = {
+        "enabled": interface.enabled,
+        "mtu": getattr(interface.eth, "mtu", None),
+        "gateway": getattr(interface.eth, "gateway", None),
+        "address": getattr(interface.eth, "address", None),
+        "netmask": getattr(interface.eth, "netmask", None),
+        "services": sorted(services),
+        # subinterfaces are FixedReferenceNoId objects - sort by name, not object
+        "subinterfaces": sorted(
+            sub.name for sub in (getattr(interface.eth, "subinterfaces", None) or [])
+        ),
+    }
+    new_state = current_state.copy()
+
+    if module.params["subinterfaces"]:
+        new_subinterfaces = _check_subinterfaces(module, array, name)
+        if sorted(new_subinterfaces) != current_state["subinterfaces"]:
+            new_state["subinterfaces"] = sorted(new_subinterfaces)
+
+    if module.params["subordinates"]:
+        subordinates = _check_subinterfaces(module, array, name)
+        if sorted(subordinates) != sorted(module.params["subordinates"]):
+            new_state["subinterfaces"] = sorted(module.params["subordinates"])
+
+    if module.params["enabled"] != current_state["enabled"]:
+        new_state["enabled"] = module.params["enabled"]
+
+    if (
+        module.params["servicelist"]
+        and sorted(module.params["servicelist"]) != current_state["services"]
+    ):
+        new_state["services"] = sorted(module.params["servicelist"])
+
+    if (
+        module.params["address"]
+        and module.params["address"] != current_state["address"]
+    ):
+        new_state["netmask"] = current_state["netmask"]
+        if module.params["gateway"] and module.params["gateway"] not in [
+            "0.0.0.0",
+            "::",
+        ]:
+            if module.params["gateway"] not in IPNetwork(module.params["address"]):
+                module.fail_json(msg="Gateway and subnet are not compatible.")
+        # An interface keeps its existing gateway when the play does not give
+        # one, so that gateway has to sit inside the new subnet. current_state
+        # holds it read with a default - reading interface.eth.gateway directly
+        # raises AttributeError on an interface that has no gateway configured.
+        # UNSET_IP covers both ways the array reports no gateway: null when one
+        # has never been set, 0.0.0.0 or :: once it has been cleared.
+        if not module.params["gateway"] and current_state["gateway"] not in UNSET_IP:
+            if current_state["gateway"] not in IPNetwork(module.params["address"]):
+                module.fail_json(msg="Gateway and subnet are not compatible.")
+        new_state["address"] = str(module.params["address"].split("/", 1)[0])
+        if new_state["address"] in ["0.0.0.0", "::"]:
+            new_state["netmask"] = ""
+
+    if module.params["mtu"] and module.params["mtu"] != current_state["mtu"]:
+        if not 1280 <= module.params["mtu"] <= 9216:
+            module.fail_json(
+                msg="MTU {0} is out of range (1280 to 9216)".format(
+                    module.params["mtu"]
+                )
+            )
+        else:
+            new_state["mtu"] = module.params["mtu"]
+
+    if module.params["address"]:
+        if new_state["address"]:
+            if valid_ipv4(new_state["address"]):
+                new_state["netmask"] = str(IPNetwork(module.params["address"]).netmask)
+            else:
+                new_state["netmask"] = str(module.params["address"].split("/", 1)[1])
+        if new_state["netmask"] in ["0.0.0.0", "0"]:
+            new_state["netmask"] = ""
+
+    if module.params["gateway"] and module.params["gateway"] in ["0.0.0.0", "::"]:
+        new_state["gateway"] = ""
+    elif module.params["gateway"]:
+        # Only validate gateway against subnet if we have a valid address and netmask
+        # Skip validation if address is being cleared (0.0.0.0 or ::) or netmask is empty
+        if (
+            new_state["address"]
+            and new_state["address"] not in ["0.0.0.0", "::"]
+            and new_state["netmask"]
+            and valid_ipv4(new_state["address"])
+        ):
+            cidr = str(IPAddress(new_state["netmask"]).netmask_bits())
+            full_addr = new_state["address"] + "/" + cidr
+            if module.params["gateway"] not in IPNetwork(full_addr):
+                module.fail_json(msg="Gateway and subnet are not compatible.")
+        new_state["gateway"] = module.params["gateway"]
+
+    if new_state["address"]:
+        if (
+            current_state["address"]
+            and IPAddress(new_state["address"]).version
+            != IPAddress(current_state["address"]).version
+        ):
+            if new_state["gateway"]:
+                if (
+                    IPAddress(new_state["gateway"]).version
+                    != IPAddress(new_state["address"]).version
+                ):
+                    module.fail_json(
+                        msg="Changing IP protocol requires gateway to change as well."
+                    )
+    if _comparable_state(new_state) != _comparable_state(current_state):
+        changed = True
+        if module.params["servicelist"] and sorted(
+            module.params["servicelist"]
+        ) != sorted(services):
+            if not module.check_mode:
+                network = NetworkInterfacePatch(services=module.params["servicelist"])
+                res = array.patch_network_interfaces(names=[name], network=network)
+                check_response(
+                    res,
+                    module,
+                    f"Failed to update interface service list {name}",
+                )
+        if ("management" in services or "app" in services) and new_state["address"] in [
+            "0.0.0.0",
+            "::",
+        ]:
+            module.fail_json(
+                msg="Removing IP address from a management or app port is not supported"
+            )
+        if not module.check_mode:
+            res = array.patch_network_interfaces(
+                names=[name],
+                network=NetworkInterfacePatch(enabled=new_state["enabled"]),
+            )
+            check_response(
+                res,
+                module,
+                f"Failed to enable or disable interface {name}",
+            )
+            if new_state["gateway"] is not None:
+                res = array.patch_network_interfaces(
+                    names=[name],
+                    network=NetworkInterfacePatch(
+                        eth=NetworkinterfacepatchEth(
+                            address=new_state["address"],
+                            mtu=new_state["mtu"],
+                            netmask=new_state["netmask"],
+                            gateway=new_state["gateway"],
+                        )
+                    ),
+                )
+                check_response(res, module, f"Failed to update IP settings for {name}")
+                if (
+                    current_state["subinterfaces"] != new_state["subinterfaces"]
+                    and new_state["subinterfaces"] != []
+                ):
+                    new_subs = []
+                    for sub in new_state["subinterfaces"]:
+                        new_subs.append(ReferenceNoId(sub))
+                    res = array.patch_network_interfaces(
+                        names=[name],
+                        network=NetworkInterfacePatch(
+                            eth=NetworkinterfacepatchEth(
+                                subinterfacelist=new_subs,
+                            )
+                        ),
+                    )
+                    check_response(
+                        res,
+                        module,
+                        f"Failed to update subinterfaces for {name}",
+                    )
+            else:
+                # The interface has no gateway. Only send the IP settings that
+                # are changing: sending the full set here put None into the
+                # address, MTU and netmask and a cleared gateway of "::" into
+                # a patch that may only have been changing the MTU.
+                comparable_new = _comparable_state(new_state)
+                comparable_current = _comparable_state(current_state)
+                eth_settings = {}
+                if (
+                    comparable_new["address"] != comparable_current["address"]
+                    or comparable_new["netmask"] != comparable_current["netmask"]
+                ):
+                    eth_settings["address"] = new_state["address"]
+                    eth_settings["netmask"] = new_state["netmask"]
+                    # A new address goes with an explicitly cleared gateway of
+                    # the matching IP version
+                    try:
+                        if valid_ipv4(new_state["address"]):
+                            eth_settings["gateway"] = "0.0.0.0"
+                        else:
+                            eth_settings["gateway"] = "::"
+                    except Exception:
+                        eth_settings["gateway"] = "::"
+                if new_state["mtu"] != current_state["mtu"]:
+                    eth_settings["mtu"] = new_state["mtu"]
+                if eth_settings:
+                    res = array.patch_network_interfaces(
+                        names=[name],
+                        network=NetworkInterfacePatch(
+                            eth=NetworkinterfacepatchEth(**eth_settings)
+                        ),
+                    )
+                    check_response(
+                        res,
+                        module,
+                        f"Failed to update IP settings for {name}",
+                    )
+                if (
+                    current_state["subinterfaces"] != new_state["subinterfaces"]
+                    and new_state["subinterfaces"] != []
+                ):
+                    res = array.delete_network_interfaces(names=[name])
+                    check_response(
+                        res,
+                        module,
+                        f"Failed to delete network interface {name}",
+                    )
+                    create_interface(module, array)
+    # The file server is patched on its own rather than folded into the state
+    # comparison above, so that changing only the attachment does not rewrite
+    # the interface's IP settings as a side effect
+    if _update_attached_server(module, array, interface):
+        changed = True
+    module.exit_json(changed=changed)
+
+
+def create_interface(module, array):
+    changed = True
+    # Only look the subnet up when one was asked for. Reading it unconditionally
+    # sends the array a request for a subnet named None.
+    if module.params["subnet"]:
+        if array.get_subnets(names=[module.params["subnet"]]).status_code != 200:
+            module.fail_json(
+                msg="Subnet {0} does not exist".format(module.params["subnet"])
+            )
+
+    if module.params["interface"] == "vif":
+        dummy, subinterfaces = _create_subinterfaces(module, array)
+    else:
+        dummy, subinterfaces = _create_subordinates(module, array)
+
+    if not module.check_mode:
+        if module.params["address"]:
+            address = str(module.params["address"].strip("[]").split("/", 1)[0])
+            if valid_ipv4(address):
+                netmask = str(IPNetwork(module.params["address"]).netmask)
+            else:
+                netmask = str(module.params["address"].strip("[]").split("/", 1)[1])
+        else:
+            netmask = None
+            address = None
+        if module.params["gateway"]:
+            gateway = str(module.params["gateway"].strip("[]"))
+            if gateway not in ["0.0.0.0", "::"]:
+                if address and gateway not in IPNetwork(module.params["address"]):
+                    module.fail_json(msg="Gateway and subnet are not compatible.")
+        else:
+            gateway = None
+        # The service list and the file server are settable on the create
+        # itself. The follow-up patches below carry neither, so sending them
+        # here is what makes them take effect on the run that creates the
+        # interface rather than only on the next one. Leaving the file server
+        # out is not the same as sending no server - the array then attaches
+        # the interface to its default _array_server.
+        post_settings = {}
+        if module.params["servicelist"]:
+            post_settings["services"] = module.params["servicelist"]
+        if module.params["server"] is not None:
+            post_settings["attached_servers"] = _attached_servers_value(
+                module.params["server"]
+            )
+        if module.params["interface"] == "vif":
+            res = array.post_network_interfaces(
+                names=[module.params["name"]],
+                network=NetworkInterfacePost(
+                    eth=NetworkinterfacepostEth(subtype="vif"), **post_settings
+                ),
+            )
+        else:
+            res = array.post_network_interfaces(
+                names=[module.params["name"]],
+                network=NetworkInterfacePost(
+                    eth=NetworkinterfacepostEth(
+                        subtype="lacpbond", subinterfaces=subinterfaces
+                    ),
+                    **post_settings,
+                ),
+            )
+
+        check_response(
+            res, module, f"Failed to create interface {module.params['name']}"
+        )
+        # A newer array may have stored the interface as <server>::<name>,
+        # which is then the only name the follow-up settings can be sent to
+        name = _created_name(res, module.params["name"])
+
+        if module.params["subinterfaces"] and module.params["subnet"]:
+            res = array.patch_network_interfaces(
+                names=[name],
+                network=NetworkInterfacePatch(
+                    enabled=module.params["enabled"],
+                    eth=NetworkinterfacepatchEth(
+                        subinterfaces=subinterfaces,
+                        address=address,
+                        gateway=gateway,
+                        mtu=module.params["mtu"],
+                        netmask=netmask,
+                        subnet=ReferenceNoId(name=module.params["subnet"]),
+                    ),
+                ),
+            )
+            if res.status_code != 200:
+                array.delete_network_interfaces(names=[name])
+                module.fail_json(
+                    msg=f"Failed to create interface {module.params['name']}. "
+                    f"Error: {res.errors[0].message}"
+                )
+        elif module.params["subinterfaces"] and not module.params["subnet"]:
+            res = array.patch_network_interfaces(
+                names=[name],
+                network=NetworkInterfacePatch(
+                    enabled=module.params["enabled"],
+                    eth=NetworkinterfacepatchEth(
+                        subinterfaces=subinterfaces,
+                        address=address,
+                        gateway=gateway,
+                        mtu=module.params["mtu"],
+                        netmask=netmask,
+                    ),
+                ),
+            )
+            if res.status_code != 200:
+                array.delete_network_interfaces(names=[name])
+                module.fail_json(
+                    msg=f"Failed to create interface {module.params['name']}. "
+                    f"Error: {res.errors[0].message}"
+                )
+        elif not module.params["subinterfaces"] and module.params["subnet"]:
+            res = array.patch_network_interfaces(
+                names=[name],
+                network=NetworkInterfacePatch(
+                    enabled=module.params["enabled"],
+                    eth=NetworkinterfacepatchEth(
+                        address=address,
+                        gateway=gateway,
+                        mtu=module.params["mtu"],
+                        netmask=netmask,
+                        subnet=ReferenceNoId(name=module.params["subnet"]),
+                    ),
+                ),
+            )
+            if res.status_code != 200:
+                array.delete_network_interfaces(names=[name])
+                module.fail_json(
+                    msg=f"Failed to create interface {module.params['name']}. "
+                    f"Error: {res.errors[0].message}"
+                )
+        else:
+            res = array.patch_network_interfaces(
+                names=[name],
+                network=NetworkInterfacePatch(
+                    enabled=module.params["enabled"],
+                    eth=NetworkinterfacepatchEth(
+                        address=address,
+                        gateway=gateway,
+                        mtu=module.params["mtu"],
+                        netmask=netmask,
+                    ),
+                ),
+            )
+            if res.status_code != 200:
+                array.delete_network_interfaces(names=[name])
+                module.fail_json(
+                    msg=f"Failed to create interface {module.params['name']}. "
+                    f"Error: {res.errors[0].message}"
+                )
+
+    module.exit_json(changed=changed)
+
+
+def delete_interface(module, array, name=None):
+    """Delete an interface under the name the array stores it as"""
+    changed = True
+    name = name or module.params["name"]
+    if not module.check_mode:
+        res = array.delete_network_interfaces(names=[name])
+        check_response(res, module, f"Failed to delete network interface {name}")
+    module.exit_json(changed=changed)
+
+
+def main():
+    argument_spec = purefa_argument_spec()
+    argument_spec.update(
+        dict(
+            name=dict(type="str", required=True),
+            state=dict(type="str", default="present", choices=["present", "absent"]),
+            address=dict(type="str"),
+            gateway=dict(type="str"),
+            mtu=dict(type="int"),
+            servicelist=dict(
+                type="list",
+                elements="str",
+                choices=[
+                    "replication",
+                    "management",
+                    "ds",
+                    "file",
+                    "iscsi",
+                    "scsi-fc",
+                    "nvme-fc",
+                    "nvme-tcp",
+                    "nvme-roce",
+                    "system",
+                ],
+            ),
+            interface=dict(type="str", choices=["vif", "lacp"]),
+            subinterfaces=dict(type="list", elements="str"),
+            subordinates=dict(type="list", elements="str"),
+            subnet=dict(type="str"),
+            enabled=dict(type="bool", default=True),
+            server=dict(type="str"),
+        )
+    )
+
+    module = AnsibleModule(argument_spec, supports_check_mode=True)
+
+    if module.params["state"] == "present":
+        if module.params["interface"] == "lacp" and not module.params["subordinates"]:
+            module.fail_json(
+                msg="interface is lacp but all of the following are missing: subordinates"
+            )
+
+    creating_new_if = bool(module.params["interface"])
+
+    if not HAS_NETADDR:
+        module.fail_json(msg="netaddr module is required")
+
+    if not HAS_PYPURECLIENT:
+        module.fail_json(msg="pypureclient module is required")
+    array = get_array(module)
+    if module.params["address"]:
+        module.params["address"] = module.params["address"].strip("[]")
+        if "/" not in module.params["address"]:
+            module.fail_json(msg="address must include valid netmask bits")
+    if module.params["gateway"]:
+        module.params["gateway"] = module.params["gateway"].strip("[]")
+    if bool("CBS" in list(array.get_controllers().items)[0].model):
+        if module.params["servicelist"] and "system" in module.params["servicelist"]:
+            module.fail_json(
+                msg="Only Cloud Block Store supports the 'system' service type"
+            )
+    if module.params["server"] is not None:
+        # The API applies attached_servers to Ethernet interfaces only, and
+        # rejects it for a Fibre Channel port with an error that does not say
+        # why, so the name is checked here first
+        if _is_fc_interface(module.params["name"]):
+            module.fail_json(
+                msg="server is only supported for Ethernet interfaces, "
+                "not Fibre Channel port {0}".format(module.params["name"])
+            )
+        check_api_version(
+            array,
+            SERVER_API_VERSION,
+            module,
+            "Attaching a network interface to a file server",
+        )
+        if (
+            module.params["server"]
+            and array.get_servers(names=[module.params["server"]]).status_code != 200
+        ):
+            module.fail_json(
+                msg="File server {0} does not exist".format(module.params["server"])
+            )
+    if "." in module.params["name"]:
+        interface, name = _resolve_interface(module, array)
+        if interface is None:
+            module.fail_json(msg="Invalid network interface specified.")
+        else:
+            update_interface(module, array, interface, name)
+    else:
+        if (module.params["interface"] == "vif" and module.params["subordinates"]) or (
+            module.params["interface"] == "lacp" and module.params["subinterfaces"]
+        ):
+            module.fail_json(
+                msg="interface type not compatible with provided subinterfaces | subordinates"
+            )
+        # The array rejects a virtual interface name containing a hyphen with
+        # a bare "Invalid network interface name", so say what is wrong first.
+        # A file server's name may carry one, so only the interface's own
+        # part of a <server>::<name> is checked.
+        if (
+            creating_new_if
+            and module.params["state"] == "present"
+            and "-" in _split_scope(module.params["name"])[1]
+        ):
+            module.fail_json(
+                msg="Invalid network interface name {0}: {1} interface names "
+                "may not contain hyphens".format(
+                    module.params["name"], module.params["interface"]
+                )
+            )
+        interface, name = _resolve_interface(module, array)
+        if not creating_new_if:
+            if interface is None:
+                if module.params["state"] == "absent":
+                    # Deleting an interface that is already gone is a no-op
+                    module.exit_json(changed=False)
+                module.fail_json(msg="Invalid network interface specified.")
+            elif module.params["state"] == "present":
+                update_interface(module, array, interface, name)
+            else:
+                delete_interface(module, array, name)
+        elif interface is None and module.params["state"] == "present":
+            create_interface(module, array)
+        elif interface is not None and module.params["state"] == "absent":
+            delete_interface(module, array, name)
+        elif interface is not None and module.params["state"] == "present":
+            update_interface(module, array, interface, name)
+        else:
+            module.exit_json(changed=False)
+
+    module.exit_json(changed=False)
+
+
+if __name__ == "__main__":
+    main()

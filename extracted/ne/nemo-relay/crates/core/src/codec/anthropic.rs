@@ -30,8 +30,9 @@ use super::request::{
 };
 use super::resolve::{ProviderSurface, ProviderSurfaceDescriptor};
 use super::response::{
-    AnnotatedLlmResponse, ApiSpecificResponse, FinishReason, RawUsageCost, ResponseToolCall, Usage,
-    estimate_cost_for_provider, infer_model_provider, provider_reported_cost,
+    AnnotatedLlmResponse, ApiSpecificResponse, FinishReason, RawProviderUsageCost,
+    ResponseToolCall, Usage, estimate_cost_for_provider, infer_model_provider,
+    provider_reported_cost,
 };
 use super::traits::{LlmCodec, LlmResponseCodec};
 
@@ -91,12 +92,18 @@ struct RawAnthropicUsage {
     output_tokens: Option<u64>,
     cache_read_input_tokens: Option<u64>,
     cache_creation_input_tokens: Option<u64>,
+    cache_creation: Option<RawAnthropicCacheCreation>,
     /// Per-sampling usage. Compaction work is reported only here and is not
     /// included in the response's top-level token counts.
     iterations: Option<Vec<RawAnthropicIterationUsage>>,
     #[serde(rename = "cost_usd")]
     provider_cost: Option<f64>,
-    cost: Option<RawUsageCost>,
+    cost: Option<RawProviderUsageCost>,
+}
+
+#[derive(Deserialize)]
+struct RawAnthropicCacheCreation {
+    ephemeral_1h_input_tokens: Option<u64>,
 }
 
 #[derive(Deserialize)]
@@ -106,6 +113,7 @@ struct RawAnthropicIterationUsage {
     output_tokens: Option<u64>,
     cache_read_input_tokens: Option<u64>,
     cache_creation_input_tokens: Option<u64>,
+    cache_creation: Option<RawAnthropicCacheCreation>,
 }
 
 /// The subset of an Anthropic response needed to decide whether aggregate usage can be priced.
@@ -941,11 +949,32 @@ fn anthropic_usage(
         let cache_read_tokens = iterations
             .and_then(|values| sum_iteration_field(values, |value| value.cache_read_input_tokens))
             .or(u.cache_read_input_tokens);
-        let cache_write_tokens = iterations
+        let iteration_cache_write_tokens = iterations.and_then(|values| {
+            sum_iteration_field(values, |value| value.cache_creation_input_tokens)
+        });
+        let cache_write_tokens = iteration_cache_write_tokens.or(u.cache_creation_input_tokens);
+        let cache_write_1h_tokens = iterations
             .and_then(|values| {
-                sum_iteration_field(values, |value| value.cache_creation_input_tokens)
+                sum_iteration_field(values, |value| {
+                    value
+                        .cache_creation
+                        .as_ref()
+                        .and_then(|cache| cache.ephemeral_1h_input_tokens)
+                })
             })
-            .or(u.cache_creation_input_tokens);
+            .or_else(|| {
+                // A top-level cache split can describe the same writes when
+                // iterations merely repeat the aggregate. Do not apply it to
+                // compaction-inclusive iteration totals that differ.
+                (iterations.is_none()
+                    || iteration_cache_write_tokens == u.cache_creation_input_tokens)
+                    .then(|| {
+                        u.cache_creation
+                            .as_ref()
+                            .and_then(|cache| cache.ephemeral_1h_input_tokens)
+                    })
+                    .flatten()
+            });
         let mut usage = Usage {
             prompt_tokens: prompt,
             completion_tokens: completion,
@@ -956,6 +985,7 @@ fn anthropic_usage(
             },
             cache_read_tokens,
             cache_write_tokens,
+            cache_write_1h_tokens,
             uncached_input_tokens: prompt,
             cost: provider_reported_cost(u.provider_cost, u.cost),
         };

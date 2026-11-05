@@ -19,6 +19,7 @@ from dreamscale.constants import (
     START_TIMEOUT_S,
 )
 from dreamscale.control import Session
+from dreamscale.policy.connection import rate_limited_delay_s
 
 # How a region reads in progress lines; other region ids print as they are.
 _REGION_LABELS = {"us-west-2": "us-west", "us-east-1": "us-east"}
@@ -271,8 +272,10 @@ class Heartbeat:
         self._task = asyncio.create_task(self._run())
 
     async def _run(self) -> None:
+        delay_s = self._interval_s
         while True:
-            await self._sleep(self._interval_s)
+            await self._sleep(delay_s)
+            delay_s = self._interval_s
             try:
                 answer = await self._control.heartbeat(self._session_id)
                 if isinstance(answer, dict):
@@ -281,7 +284,13 @@ class Heartbeat:
                 # A control-plane redeploy answers 502/503 for a while; the session on the
                 # worker is untouched. Keep heartbeating, like any transient network error.
                 continue
-            except errors.DreamscaleError:
+            except errors.DreamscaleError as exc:
+                if exc.code == "rate_limited":
+                    # A 429 (a WAF rule, a busy NAT) says wait, not that the session is gone:
+                    # the next beat waits as Retry-After says, jittered, never sooner than usual.
+                    retry_after_s = getattr(exc, "retry_after_s", None)
+                    delay_s = max(self._interval_s, rate_limited_delay_s(retry_after_s))
+                    continue
                 self.expired.set()
                 return
             except httpx.HTTPError:

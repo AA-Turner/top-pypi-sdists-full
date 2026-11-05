@@ -32,6 +32,7 @@ class AggregateBackfillTarget(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     AGGREGATE_BACKFILL_TARGET_UNSPECIFIED: _ClassVar[AggregateBackfillTarget]
     AGGREGATE_BACKFILL_TARGET_ONLINE: _ClassVar[AggregateBackfillTarget]
     AGGREGATE_BACKFILL_TARGET_OFFLINE: _ClassVar[AggregateBackfillTarget]
+    AGGREGATE_BACKFILL_TARGET_ONLINE_SUMMARIES: _ClassVar[AggregateBackfillTarget]
 
 AGGREGATE_BACKFILL_STATUS_UNSPECIFIED: AggregateBackfillStatus
 AGGREGATE_BACKFILL_STATUS_INITIALIZING: AggregateBackfillStatus
@@ -45,6 +46,7 @@ AGGREGATE_BACKFILL_STATUS_CANCELED: AggregateBackfillStatus
 AGGREGATE_BACKFILL_TARGET_UNSPECIFIED: AggregateBackfillTarget
 AGGREGATE_BACKFILL_TARGET_ONLINE: AggregateBackfillTarget
 AGGREGATE_BACKFILL_TARGET_OFFLINE: AggregateBackfillTarget
+AGGREGATE_BACKFILL_TARGET_ONLINE_SUMMARIES: AggregateBackfillTarget
 
 class AggregateBackfillCostEstimate(_message.Message):
     __slots__ = ("max_buckets", "expected_buckets", "expected_bytes", "expected_storage_cost", "expected_runtime")

@@ -14,17 +14,20 @@ class DescribeHybridProxyLinkedClientListRequest(DaraModel):
         remark: str = None,
         uuid: str = None,
     ):
-        # The name of the proxy cluster. You can view the proxy cluster name in the console.
+        # The name of the proxy cluster. You can view the name in the Security Center console.
+        # > **ProxyUuid** and **ClusterName** cannot be left empty at the same time. If neither is provided, the API returns an HTTP 400 error with the error code -101.
         self.cluster_name = cluster_name
-        # The page number of the current page when paging is used.
+        # The page number of the current page returned in a paging query.
         self.current_page = current_page
-        # The maximum number of entries per page when paging is used.
+        # The maximum number of entries to return on each page in a paging query.
         self.page_size = page_size
-        # The UUID of the proxy node. You can call the DescribeHybridProxyList operation to obtain this value.
+        # The UUID of the proxy node.
+        # > You can call the [DescribeHybridProxyList](~~DescribeHybridProxyList~~) operation to obtain this parameter from the ProxyList[].ProxyUuid field in the response.
+        # > **ProxyUuid** and **ClusterName** cannot be left empty at the same time. If neither is provided, the API returns an HTTP 400 error with the error code -101.
         self.proxy_uuid = proxy_uuid
         # The remarks.
         self.remark = remark
-        # The unique key of the Security Center agent. You can call an asset query operation to obtain the UUID of the Security Center agent installed on the server.
+        # The unique key of the Security Center client. You can obtain the UUID of the Security Center client installed on a server by querying the asset.
         self.uuid = uuid
 
     def validate(self):

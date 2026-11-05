@@ -103,13 +103,22 @@ def _span_id(run_id: str, pid: object, event: str) -> str:
 
 def _client_for(entry: dict[str, Any]):
     """A client aimed at wherever this run reports. Built per entry, because a
-    box can host runs from more than one context."""
+    box can host runs from more than one context. A registry entry names an address; the stored
+    login goes only to the address it was stored for (D26, C1), and a watcher run for a fenced
+    caller (`env.CALLER_FENCED_ENV`) reports only to an address this machine's config names."""
+    from probe.foundation.service_api.env import CALLER_FENCED_ENV
+    from probe.sdk import errors
     from probe.sdk.client.client import Client
-    from probe.sdk.settings.settings import resolve
+    from probe.sdk.delivery.service.callers import is_known_endpoint
+    from probe.sdk.settings.settings import keep_stored_keys_home, load_context, resolve
 
+    context = entry.get("context") or None
+    base_url = entry.get("base_url") or None
+    if base_url and os.environ.get(CALLER_FENCED_ENV) == "1" and not is_known_endpoint(base_url, {}):
+        raise errors.UnroutableEndpointError(f"a fenced caller's registry entry names {base_url}: not reported")
     # `resolve`, the SDK's own settings merge: this called `Settings.load`, which never existed,
     # so every report failed (swallowed below) until X9 turned the watcher on.
-    settings = resolve(context=entry.get("context") or None, base_url=entry.get("base_url") or None)
+    settings = keep_stored_keys_home(resolve(context=context, base_url=base_url), load_context(context), context)
     # async_writes=False: this is a short-lived observer, not a training loop.
     # It should deliver now and find out immediately if it cannot.
     return Client(settings=settings, async_writes=False)

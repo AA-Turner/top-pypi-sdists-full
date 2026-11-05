@@ -8,6 +8,10 @@ TAG_DECIMAL_STRING = 10
 TAG_RANGE = 49
 TAG_BOUND_INCLUDED = 50
 TAG_BOUND_EXCLUDED = 51
+# A file pointer: `[bucket, key]`. Named TAG_FILE_POINTER in the JavaScript
+# SDK's codec, which is the other implementation of this wire format.
+TAG_FILE = 55
+TAG_SET = 56
 
 TAG_DATETIME_COMPACT = 12
 TAG_DURATION = 13
@@ -20,3 +24,24 @@ TAG_GEOMETRY_MULTI_POINT = 91
 TAG_GEOMETRY_MULTI_LINE = 92
 TAG_GEOMETRY_MULTI_POLYGON = 93
 TAG_GEOMETRY_COLLECTION = 94
+
+TAG_UUID = 37
+
+# SurrealDB 4.0's sized numbers, carried only over `cbor.2`.
+TAG_I8 = 180
+TAG_U8 = 181
+TAG_I16 = 182
+TAG_U16 = 183
+TAG_I32 = 184
+TAG_U32 = 185
+TAG_U64 = 186
+TAG_F16 = 187
+TAG_F32 = 188
+
+# SurrealDB 4.0's other kinds that only `cbor.2` carries.
+TAG_DATE = 100
+TAG_TIME = 189
+TAG_TIMESTAMP = 190
+TAG_INTERVAL = 191
+TAG_BIGDECIMAL = 192
+TAG_REGEX = 193

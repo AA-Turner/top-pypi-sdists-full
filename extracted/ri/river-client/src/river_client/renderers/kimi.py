@@ -40,7 +40,13 @@ import math
 import re
 from typing import cast
 
+from river_client.renderers.tool_arguments import (
+    find_outside_json_strings,
+    standard_json,
+)
 from river_client.renderers.base import (
+    append_visible_text,
+    rejected_call_text,
     ContentPart,
     ImageChunk,
     ImageFormat,
@@ -87,25 +93,11 @@ _TOOL_CALL_END = "<|tool_call_end|>"
 
 _THINK_CLOSED_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
 _THINK_OPEN_RE = re.compile(r"<think>.*$", re.DOTALL)
-_TOOL_SECTION_RE = re.compile(
-    re.escape(_TOOL_CALLS_BEGIN) + r"(.*?)" + re.escape(_TOOL_CALLS_END),
-    re.DOTALL,
-)
-_TOOL_CALL_RE = re.compile(
-    re.escape(_TOOL_CALL_BEGIN)
-    + r"(.*?)"
-    + re.escape(_TOOL_CALL_ARG_BEGIN)
-    + r"(.*?)"
-    + r"(?:"
-    + re.escape(_TOOL_CALL_END)
-    + r"|(?="
-    + re.escape(_TOOL_CALL_BEGIN)
-    + r")|$)",
-    re.DOTALL,
-)
-_NAMED_CALL_ID_RE = re.compile(r"^(?:functions\.)?(?P<name>[\w.\-]+):(?P<index>\d+)$")
-_BARE_CALL_ID_RE = re.compile(r"^\d+$")
-
+# A call ID names its tool up to the last ":"; River Serve and the reference
+# parser accept any characters that cannot start another marker.
+_NAMED_CALL_ID_RE = re.compile(r"(?:functions\.)?(?P<name>[^\s<|]+):(?P<index>\d+)")
+_BARE_CALL_ID_RE = re.compile(r"\d+")
+_MARKERS = (_TOOL_CALLS_BEGIN, _TOOL_CALLS_END, _TOOL_CALL_BEGIN)
 
 # ─── NaViT token-count math ──────────────────────────────────────────────
 
@@ -186,73 +178,141 @@ def _tool_name_for_id(
     return None
 
 
-def _parse_kimi_tool_section(
-    section: str, *, tools: list[ToolSpec] | None = None
-) -> list[ToolCall | UnparsedToolCall]:
-    """Parse one ``<|tool_calls_section_begin|>`` body.
+def _next_marker(text: str, start: int) -> int:
+    """Where the first Kimi tool-call marker at or after ``start`` begins."""
+    found = (text.find(marker, start) for marker in _MARKERS)
+    return min((at for at in found if at != -1), default=len(text))
 
-    Call ids normally follow ``functions.{name}:{index}``; Kimi can also
-    emit bare numeric ids. The latter require ``tools`` so the function can
-    be inferred from the JSON argument keys. A call that cannot be identified
-    or whose argument body fails JSON parsing is surfaced as an
-    :class:`UnparsedToolCall` rather than silently dropped.
+
+def _first_call_marker(text: str) -> int:
+    """Where the first tool-call marker outside reasoning begins.
+
+    Reasoning runs from ``<think>`` to ``</think>`` or to the first tool-call
+    section, whichever comes first, as River Serve splits it: a section ends
+    reasoning, and a call marker the model wrote while thinking is reasoning,
+    so it never runs.
     """
-    results: list[ToolCall | UnparsedToolCall] = []
-    for call_id_raw, args_str in _TOOL_CALL_RE.findall(section):
-        call_id = call_id_raw.strip()
-        try:
-            arguments = json.loads(args_str.strip())
-        except json.JSONDecodeError as exc:
-            results.append(
-                UnparsedToolCall(
-                    raw_text=f"{_TOOL_CALL_BEGIN}{call_id_raw}"
-                    f"{_TOOL_CALL_ARG_BEGIN}{args_str}{_TOOL_CALL_END}",
-                    error=f"tool call arguments are not valid JSON: {exc}",
-                )
-            )
-            continue
+    position = 0
+    while True:
+        marker = _next_marker(text, position)
+        think = text.find("<think>", position, marker)
+        if think < 0:
+            return marker
+        body = think + len("<think>")
+        close = text.find("</think>", body)
+        section = text.find(_TOOL_CALLS_BEGIN, body)
+        if section >= 0 and (close < 0 or section < close):
+            return section
+        if close < 0:
+            return len(text)
+        position = close + len("</think>")
 
-        if (
-            isinstance(arguments, dict)
-            and "name" in arguments
-            and "arguments" in arguments
-        ):
-            name = arguments["name"]
-            arguments = arguments["arguments"]
-        else:
-            name = _tool_name_for_id(call_id, tools or [], arguments)
 
-        if not isinstance(name, str):
-            results.append(
-                UnparsedToolCall(
-                    raw_text=f"{_TOOL_CALL_BEGIN}{call_id_raw}"
-                    f"{_TOOL_CALL_ARG_BEGIN}{args_str}{_TOOL_CALL_END}",
-                    error=(
-                        f"Could not determine Kimi tool name from call ID {call_id!r}"
-                    ),
-                )
-            )
-            continue
+def _parse_kimi_call(
+    text: str, start: int, tools: list[ToolSpec]
+) -> tuple[int, ToolCall | UnparsedToolCall]:
+    """Parse the call block opening at ``start``: where it ends, and the result.
 
-        results.append(
-            ToolCall(
-                type="function",
-                id=call_id or None,
-                function=ToolCallFunction(
-                    name=name,
-                    arguments=json.dumps(
-                        arguments if isinstance(arguments, dict) else {},
-                        ensure_ascii=False,
-                    ),
-                ),
-            )
+    A block is ``<|tool_call_begin|>ID<|tool_call_argument_begin|>JSON
+    <|tool_call_end|>``. Marker text inside a JSON string is content, so the
+    arguments run to the first marker outside one, whether or not they then
+    prove valid: a rejected block keeps everything up to that marker, and no
+    quoted marker can start another call. Arguments that are not one standard
+    JSON object, or any other shape, reject the block.
+    """
+    boundary = _next_marker(text, start + len(_TOOL_CALL_BEGIN))
+    header_end = text.find(_TOOL_CALL_ARG_BEGIN, start, boundary)
+    if header_end == -1:
+        end_at = text.find(_TOOL_CALL_END, start, boundary)
+        end = boundary if end_at == -1 else end_at + len(_TOOL_CALL_END)
+        return end, UnparsedToolCall(
+            raw_text=text[start:end], error="Kimi tool call has no argument marker"
         )
-    return results
+    arguments_at = header_end + len(_TOOL_CALL_ARG_BEGIN)
+    at, marker = find_outside_json_strings(
+        text, (_TOOL_CALL_END, *_MARKERS), arguments_at
+    )
+    end = at + len(_TOOL_CALL_END) if marker == _TOOL_CALL_END else at
+
+    def rejected(error: str) -> tuple[int, UnparsedToolCall]:
+        return end, UnparsedToolCall(raw_text=text[start:end], error=error)
+
+    if marker is None:
+        return rejected("Unclosed Kimi tool call")
+    if marker != _TOOL_CALL_END:
+        return rejected("Kimi tool call has no end marker")
+    try:
+        arguments = standard_json(text[arguments_at:at])
+    except ValueError as exc:
+        return rejected(f"tool call arguments are not valid JSON: {exc}")
+    if not isinstance(arguments, dict):
+        return rejected("Kimi tool call arguments must be a JSON object")
+    call_id = text[start + len(_TOOL_CALL_BEGIN) : header_end].strip()
+    name = _tool_name_for_id(call_id, tools, arguments)
+    if name is None:
+        return rejected(f"Could not determine Kimi tool name from call ID {call_id!r}")
+    return end, ToolCall(
+        type="function",
+        id=call_id,
+        function=ToolCallFunction(
+            name=name, arguments=json.dumps(arguments, ensure_ascii=False)
+        ),
+    )
+
+
+def _split_kimi_tool_calls(
+    text: str, tools: list[ToolSpec]
+) -> tuple[str, list[str], list[ToolCall | UnparsedToolCall]]:
+    """Split ``text`` into the text before its first tool-call marker, the
+    visible pieces after it, and one call or rejected block per call block.
+
+    Section markers only delimit, so every block is parsed wherever it sits,
+    as River Serve does, and none silently stays text or disappears: a block
+    the output ends inside is rejected, and text after a section stays.
+    Call IDs normally follow ``functions.{name}:{index}``; bare numeric IDs
+    need ``tools`` to infer the function from the argument keys.
+    """
+    first = _first_call_marker(text)
+    after: list[str] = []
+    results: list[ToolCall | UnparsedToolCall] = []
+    position = first
+    while position < len(text):
+        at = _next_marker(text, position)
+        if text[position:at].strip():
+            after.append(text[position:at])
+        if at == len(text):
+            break
+        if text.startswith(_TOOL_CALL_BEGIN, at):
+            position, result = _parse_kimi_call(text, at, tools)
+            results.append(result)
+        elif text.startswith(_TOOL_CALLS_BEGIN, at):
+            position = at + len(_TOOL_CALLS_BEGIN)
+        else:
+            position = at + len(_TOOL_CALLS_END)
+    return text[:first], after, results
 
 
 def _restore_prefilled_think(text: str) -> str:
-    """Restore the opening tag omitted by Kimi's generation prefill."""
-    if "<think>" not in text and "</think>" in text:
+    """Restore the opening tag omitted by Kimi's generation prefill.
+
+    Prefilled reasoning closes with a ``</think>`` that no ``<think>``
+    precedes, before the first tool-call section, which would have ended it.
+    Tags inside a call's JSON arguments are content, so only text outside
+    call blocks decides.
+    """
+    outside, position = [], 0
+    while True:
+        at = _next_marker(text, position)
+        outside.append(text[position:at])
+        if at == len(text) or text.startswith(_TOOL_CALLS_BEGIN, at):
+            break
+        if text.startswith(_TOOL_CALL_BEGIN, at):
+            position, _ = _parse_kimi_call(text, at, [])
+        else:
+            position = at + len(_TOOL_CALLS_END)
+    # Joined by a newline, which no tag contains, so none forms across a call.
+    seen = "\n".join(outside)
+    if "<think>" not in seen and "</think>" in seen:
         return "<think>" + text
     return text
 
@@ -262,9 +322,7 @@ def _parse_kimi_content_parts(text: str) -> list[ContentPart]:
     parts: list[ContentPart] = []
     pos = 0
     for match in _THINK_CLOSED_RE.finditer(text):
-        before = text[pos : match.start()]
-        if before:
-            parts.append(TextPart(type="text", text=before))
+        append_visible_text(parts, text[pos : match.start()])
         if match.group(1):
             parts.append(ThinkingPart(type="thinking", thinking=match.group(1)))
         pos = match.end()
@@ -273,13 +331,12 @@ def _parse_kimi_content_parts(text: str) -> list[ContentPart]:
         open_idx = remaining.find("<think>")
         if open_idx >= 0:
             # Unclosed trailing think block (truncated generation).
-            if remaining[:open_idx]:
-                parts.append(TextPart(type="text", text=remaining[:open_idx]))
+            append_visible_text(parts, remaining[:open_idx])
             thinking = remaining[open_idx + len("<think>") :]
             if thinking:
                 parts.append(ThinkingPart(type="thinking", thinking=thinking))
         else:
-            parts.append(TextPart(type="text", text=remaining))
+            append_visible_text(parts, remaining)
     return parts
 
 
@@ -288,21 +345,23 @@ def parse_kimi_k2_content_blocks(
 ) -> tuple[list[ContentPart], list[ToolCall | UnparsedToolCall]] | None:
     """Parse a Kimi K2 completion into text and structured tool calls.
 
-    Kimi terminates a response with its tool-call section, so content before
-    that section is returned as structured text and thinking parts. Standard
-    Kimi call ids include the function name; for bare numeric ids, pass the
-    original tool specifications to infer the function from the call's JSON
-    argument keys.
+    Kimi ends a response with its tool-call section, which also ends a
+    reasoning block before it; a call marker inside reasoning is reasoning.
+    Pass the tool specifications that
+    rendered the prompt so bare numeric call IDs resolve to a function.
 
-    Returns ``None`` when the response contains no Kimi tool-call section.
+    Returns ``None`` when the response contains no Kimi tool-call marker.
     """
-    section_match = _TOOL_SECTION_RE.search(content)
-    if section_match is None:
+    # Restore the prefilled opener first, so the call scan sees the
+    # reasoning it must skip.
+    content = _restore_prefilled_think(content)
+    before, after, results = _split_kimi_tool_calls(content, tools or [])
+    if before == content:
         return None
-
-    prefix = _restore_prefilled_think(content[: section_match.start()])
-    parts = _parse_kimi_content_parts(prefix)
-    return parts, _parse_kimi_tool_section(section_match.group(1), tools=tools)
+    parts = _parse_kimi_content_parts(before)
+    for piece in after:
+        append_visible_text(parts, piece)
+    return parts, results
 
 
 # ─── Renderer ────────────────────────────────────────────────────────────
@@ -445,7 +504,14 @@ class KimiRenderer(Renderer):
         reasoning, _ = self._split_reasoning(message)
         return f"<think>{reasoning if keep else ''}</think>"
 
-    def _format_tool_calls(self, tool_calls: list[ToolCall]) -> str:
+    def _tool_section(self, message: Message) -> str:
+        """An assistant message's tool-call section, rejected blocks after calls."""
+        rejected = rejected_call_text(message)
+        if "tool_calls" not in message and not rejected:
+            return ""
+        return self._format_tool_calls(message.get("tool_calls", []), rejected)
+
+    def _format_tool_calls(self, tool_calls: list[ToolCall], rejected: str = "") -> str:
         parts = [_TOOL_CALLS_BEGIN]
         for i, tc in enumerate(tool_calls):
             func = tc.get("function") or {}
@@ -459,6 +525,7 @@ class KimiRenderer(Renderer):
                 f"{_TOOL_CALL_BEGIN}{call_id}"
                 f"{_TOOL_CALL_ARG_BEGIN}{args_str}{_TOOL_CALL_END}"
             )
+        parts.append(rejected)
         parts.append(_TOOL_CALLS_END)
         return "".join(parts)
 
@@ -535,8 +602,8 @@ class KimiRenderer(Renderer):
                 parts.append(answer)
             else:
                 parts.append(self._render_parts_for_sample(msg, images, image_formats))
-            if msg["role"] == "assistant" and "tool_calls" in msg:
-                parts.append(self._format_tool_calls(msg["tool_calls"]))
+            if msg["role"] == "assistant":
+                parts.append(self._tool_section(msg))
             parts.append(_IM_END)
 
         parts.append(self._generation_prompt())
@@ -593,13 +660,10 @@ class KimiRenderer(Renderer):
         else:
             text = _restore_prefilled_think(text)
 
-        tool_results: list[ToolCall | UnparsedToolCall] = []
-        section_match = _TOOL_SECTION_RE.search(text)
-        if section_match:
-            tool_results = _parse_kimi_tool_section(section_match.group(1))
-            text = text[: section_match.start()] + text[section_match.end() :]
-
-        parts = _parse_kimi_content_parts(text)
+        before, after, tool_results = _split_kimi_tool_calls(text, tools or [])
+        parts = _parse_kimi_content_parts(before)
+        for piece in after:
+            append_visible_text(parts, piece)
 
         message: Message = {"role": "assistant", "content": parts if parts else ""}
         tool_calls = [t for t in tool_results if "function" in t]
@@ -670,8 +734,8 @@ class KimiRenderer(Renderer):
             else:
                 self._render_parts_for_training(msg, builder, content_weight)
 
-            if is_assistant and "tool_calls" in msg:
-                _add(self._format_tool_calls(msg["tool_calls"]), content_weight)
+            if is_assistant:
+                _add(self._tool_section(msg), content_weight)
 
             eos_weight = 1.0 if (trainable and train_on_eos) else 0.0
             _add(_IM_END, eos_weight)

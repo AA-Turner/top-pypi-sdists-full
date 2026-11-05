@@ -876,7 +876,7 @@ def set_connector_version_override(
         version_id = resolve_connector_version_id(
             actor_definition_id=actor_definition_id,
             connector_type=connector_type,
-            version=version,
+            version=version,  # ty: ignore[invalid-argument-type]
             config_api_root=config_api_root,
             client_id=client_id,
             client_secret=client_secret,
@@ -921,7 +921,7 @@ def set_connector_version_override(
         all_configs = get_all_scoped_configuration_contexts(
             connector_id=connector_id,
             actor_definition_id=actor_definition_id,
-            workspace_id=workspace_id,
+            workspace_id=workspace_id,  # ty: ignore[invalid-argument-type]
             organization_id=organization_id,
             config_api_root=config_api_root,
             client_id=client_id,
@@ -1287,7 +1287,7 @@ def set_workspace_connector_version_override(
     version_id = resolve_connector_version_id(
         actor_definition_id=actor_definition_id,
         connector_type=connector_type,
-        version=version,
+        version=version,  # ty: ignore[invalid-argument-type]
         config_api_root=config_api_root,
         bearer_token=access_token,
     )
@@ -1528,7 +1528,7 @@ def set_organization_connector_version_override(
     version_id = resolve_connector_version_id(
         actor_definition_id=actor_definition_id,
         connector_type=connector_type,
-        version=version,
+        version=version,  # ty: ignore[invalid-argument-type]
         config_api_root=config_api_root,
         bearer_token=access_token,
     )

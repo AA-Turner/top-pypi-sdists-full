@@ -26,6 +26,8 @@ Usage::
         GetRemediationsV2Paginator,
         GetResourcesTrendsV2Paginator,
         GetResourcesV2Paginator,
+        GetSoftwareResourcesV2Paginator,
+        GetSoftwareV2Paginator,
         ListAggregatorsV2Paginator,
         ListConfigurationPoliciesPaginator,
         ListConfigurationPolicyAssociationsPaginator,
@@ -60,6 +62,8 @@ Usage::
     get_remediations_v2_paginator: GetRemediationsV2Paginator = client.get_paginator("get_remediations_v2")
     get_resources_trends_v2_paginator: GetResourcesTrendsV2Paginator = client.get_paginator("get_resources_trends_v2")
     get_resources_v2_paginator: GetResourcesV2Paginator = client.get_paginator("get_resources_v2")
+    get_software_resources_v2_paginator: GetSoftwareResourcesV2Paginator = client.get_paginator("get_software_resources_v2")
+    get_software_v2_paginator: GetSoftwareV2Paginator = client.get_paginator("get_software_v2")
     list_aggregators_v2_paginator: ListAggregatorsV2Paginator = client.get_paginator("list_aggregators_v2")
     list_configuration_policies_paginator: ListConfigurationPoliciesPaginator = client.get_paginator("list_configuration_policies")
     list_configuration_policy_associations_paginator: ListConfigurationPolicyAssociationsPaginator = client.get_paginator("list_configuration_policy_associations")
@@ -93,6 +97,8 @@ from .paginator import (
     GetRemediationsV2Paginator,
     GetResourcesTrendsV2Paginator,
     GetResourcesV2Paginator,
+    GetSoftwareResourcesV2Paginator,
+    GetSoftwareV2Paginator,
     ListAggregatorsV2Paginator,
     ListConfigurationPoliciesPaginator,
     ListConfigurationPolicyAssociationsPaginator,
@@ -128,6 +134,8 @@ __all__ = (
     "GetRemediationsV2Paginator",
     "GetResourcesTrendsV2Paginator",
     "GetResourcesV2Paginator",
+    "GetSoftwareResourcesV2Paginator",
+    "GetSoftwareV2Paginator",
     "ListAggregatorsV2Paginator",
     "ListConfigurationPoliciesPaginator",
     "ListConfigurationPolicyAssociationsPaginator",

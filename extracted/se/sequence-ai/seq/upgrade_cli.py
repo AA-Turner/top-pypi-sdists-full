@@ -217,6 +217,11 @@ def plan_lines(plan: dict, kind: str) -> list[str]:
 
     if plan.get("notice"):
         out.append(f"notice      {plan['notice']}")
+
+
+    if plan.get("adapters"):
+        out.append(f"adapters    also registered in your account: {', '.join(plan['adapters'])}; an eval names "
+                   f"{'them' if len(plan['adapters']) > 1 else 'it'} with nothing more to deploy")
     if kind == "policy":
         out.append(f"keeps       its name, robot keys, scaling (max GPUs, warm and spare workers), monthly budget, "
                    f"alerts and params; the version serving now is kept — seq policy rollback {plan.get('name')}")

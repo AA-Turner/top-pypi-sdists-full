@@ -133,7 +133,17 @@ async def _default_heal(page, description, method_name, original_locator, *args,
         token = _in_heal.set(True)
         try:
             fresh = root.locator(selector)
-            result = await getattr(fresh, method_name)(*args, **_capped_retry_kwargs(kwargs))
+            option_index = healed.get("option_index") if method_name == "select_option" else None
+            if option_index is not None:
+                # A re-probed select whose option a variable chooses: heal
+                # returned the OPTION for the current value — select it on its
+                # <select>, not the recorded (prior run's) value.
+                fresh = fresh.locator("xpath=ancestor-or-self::select[1]")
+                retry_kwargs = {k: v for k, v in _capped_retry_kwargs(kwargs).items()
+                                if k not in ("value", "label", "index", "element")}
+                result = await fresh.select_option(index=option_index, **retry_kwargs)
+            else:
+                result = await getattr(fresh, method_name)(*args, **_capped_retry_kwargs(kwargs))
         except Exception as e:
             _log.warning(
                 "[heal] retry on fresh locator %r failed: %s",
@@ -144,7 +154,7 @@ async def _default_heal(page, description, method_name, original_locator, *args,
             # The per-step positive cache replays via page.locator(<selector>) —
             # top-level only, so it cannot carry frame scope. Cache main-frame
             # heals; re-heal a framed element each action (correctness > speed).
-            if cache is not None and not frame_chain:
+            if cache is not None and not frame_chain and option_index is None:
                 try:
                     cache[original_locator] = selector
                 except TypeError:

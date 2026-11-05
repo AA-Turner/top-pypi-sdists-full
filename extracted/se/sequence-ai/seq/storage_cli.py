@@ -255,7 +255,7 @@ def _secret_set(name: str, env_keys: list[str] | None, base_url: str | None) -> 
 
     if not env_keys:
         raise InvalidRequest(
-            "seq secret set requires at least one --env KEY (e.g. --env PLANNER_API_KEY)"
+            "seq secret set requires at least one --env KEY (e.g. --env MODEL_API_KEY)"
         )
 
     seen: set[str] = set()

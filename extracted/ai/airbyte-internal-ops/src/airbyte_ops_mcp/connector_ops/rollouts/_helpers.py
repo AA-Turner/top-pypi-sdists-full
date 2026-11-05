@@ -815,6 +815,6 @@ def estimate_tier_eligible_actors(
         actor_id_key = "source_id"
 
     enrich_rows_by_org(rows)
-    in_tier = filter_rows_by_tier(rows, tier)
+    in_tier = filter_rows_by_tier(rows, tier)  # ty: ignore[invalid-argument-type]
     distinct_actors = {str(r.get(actor_id_key)) for r in in_tier if r.get(actor_id_key)}
     return _classify_eligibility(tier, len(distinct_actors))

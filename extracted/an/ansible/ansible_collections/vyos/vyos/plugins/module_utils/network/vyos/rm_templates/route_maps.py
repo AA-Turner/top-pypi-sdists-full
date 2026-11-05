@@ -5,7 +5,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 """
@@ -33,8 +32,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "route_map",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "route_map",
@@ -51,8 +49,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "sequence",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "sequence",
@@ -75,8 +72,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "call",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\scall\s(?P<call>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\scall\s(?P<call>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "setval": "policy route-map {{route_map}} rule {{sequence}} call {{call}}",
@@ -99,8 +95,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "description",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sdescription\s(?P<description>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sdescription\s(?P<description>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "setval": "policy route-map {{route_map}} rule {{sequence}} description {{description}}",
@@ -123,8 +118,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "action",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\saction\s(?P<action>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\saction\s(?P<action>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "setval": "policy route-map {{route_map}} rule {{sequence}} action {{action}}",
@@ -147,8 +141,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "continue_sequence",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\scontinue\s(?P<continue>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\scontinue\s(?P<continue>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "setval": "policy route-map {{route_map}} rule {{sequence}} continue {{continue_sequence}}",
@@ -171,8 +164,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "on_match_next",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\son-match\s(?P<next>next)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\son-match\s(?P<next>next)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "on_match.next",
@@ -198,8 +190,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "on_match_goto",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\son-match\sgoto\s(?P<goto>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\son-match\sgoto\s(?P<goto>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "on_match.goto",
@@ -225,8 +216,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_aggregator_ip",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\saggregator\sip\s(?P<ip>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\saggregator\sip\s(?P<ip>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.aggregator.ip",
@@ -254,8 +244,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_aggregator_as",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\saggregator\sas\s(?P<as>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\saggregator\sas\s(?P<as>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.aggregator.as",
@@ -283,8 +272,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_as_path_exclude",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sas-path-exclude\s(?P<as>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sas-path-exclude\s(?P<as>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.as_path_exclude",
@@ -337,8 +325,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_atomic_aggregate",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\s(?P<as>atomic-aggregate)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\s(?P<as>atomic-aggregate)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.atomic_aggregate",
@@ -364,8 +351,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_bgp_extcommunity_rt",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sbgp-extcommunity-rt\s(?P<bgp>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sbgp-extcommunity-rt\s(?P<bgp>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.bgp_extcommunity_rt",
@@ -392,8 +378,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_comm_list",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\scommunity\scommunity-list\s(?P<comm_list>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\scommunity\scommunity-list\s(?P<comm_list>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.community.community_list",
@@ -420,8 +405,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_comm_list_delete",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\scomm-list\sdelete(?P<delete>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\scomm-list\s(?P<delete>delete)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.comm_list.comm_list",
@@ -448,8 +432,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_extcommunity_rt",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sextcommunity-rt\s(?P<extcommunity_rt>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sextcommunity-rt\s(?P<extcommunity_rt>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.extcommunity_rt",
@@ -476,8 +459,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_extcommunity_soo",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sextcommunity-soo\s(?P<extcommunity_soo>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sextcommunity-soo\s(?P<extcommunity_soo>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.extcommunity_soo",
@@ -504,8 +486,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_extcommunity_bandwidth",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sextcommunity\sbandwidth\s(?P<extcommunity_bw>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sextcommunity\sbandwidth\s(?P<extcommunity_bw>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.extcommunity_bandwidth",
@@ -532,8 +513,8 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_extcommunity_bandwidth_non_transitive",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sextcommunity\s(?P<extcommunity_bw_nt>bandwidth-non-transitive)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)
+                \sset\sextcommunity\s(?P<extcommunity_bw_nt>bandwidth-non-transitive)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.extcommunity_bandwidth_non_transitive",
@@ -560,8 +541,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_ip_next_hop",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sip-next-hop\s(?P<ip_next_hop>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sip-next-hop\s(?P<ip_next_hop>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.ip_next_hop",
@@ -590,8 +570,7 @@ class Route_mapsTemplate(NetworkTemplate):
                 r"""
                 ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sipv6-next-hop
                 \s(?P<type>global|local)
-                \s(?P<value>\S+)
-                *$""",
+                \s(?P<value>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.ipv6_next_hop",
@@ -621,8 +600,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_large_community",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\slarge-community\s(?P<large_community>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\slarge-community\s(?P<large_community>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.large_community",
@@ -649,8 +627,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_local_preference",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\slocal-preference\s(?P<local_preference>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\slocal-preference\s(?P<local_preference>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.local_preference",
@@ -677,8 +654,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_metric",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\smetric\s(?P<metric>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\smetric\s(?P<metric>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.metric",
@@ -705,8 +681,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_metric_type",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\smetric-type\s(?P<metric_type>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\smetric-type\s(?P<metric_type>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.metric_type",
@@ -733,8 +708,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_origin",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sorigin\s(?P<origin>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sorigin\s(?P<origin>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.origin",
@@ -761,8 +735,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_originator_id",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\soriginator-id\s(?P<originator_id>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\soriginator-id\s(?P<originator_id>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.originator_id",
@@ -789,8 +762,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_src",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\ssrc\s(?P<src>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\ssrc\s(?P<src>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.src",
@@ -817,8 +789,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_tag",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\stag\s(?P<tag>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\stag\s(?P<tag>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.tag",
@@ -845,8 +816,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_weight",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sweight\s(?P<weight>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\sweight\s(?P<weight>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.weight",
@@ -873,8 +843,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_table",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\stable\s(?P<table>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\stable\s(?P<table>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.weight",
@@ -901,8 +870,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "set_community",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\scommunity\s(?P<value>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\sset\scommunity\s(?P<value>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "set.community.value",
@@ -931,8 +899,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_as_path",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sas-path\s(?P<as_path>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sas-path\s(?P<as_path>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.as_path",
@@ -959,8 +926,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_community_community_list",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\scommunity\scommunity-list\s(?P<community_list>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\scommunity\scommunity-list\s(?P<community_list>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.community.community_list",
@@ -987,8 +953,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_community_exact_match",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\scommunity\sexact-match(?P<exact_match>)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\scommunity\sexact-match(?P<exact_match>)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.community.exact_match",
@@ -1015,8 +980,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_extcommunity",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sextcommunity\s(?P<extcommunity>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sextcommunity\s(?P<extcommunity>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.extcommunity",
@@ -1043,8 +1007,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_interface",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sinterface\s(?P<interface>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sinterface\s(?P<interface>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.interface",
@@ -1071,8 +1034,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_large_community_large_community_list",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\slarge-community\slarge-community-list\s(?P<lc>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\slarge-community\slarge-community-list\s(?P<lc>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.large_community_large_community_list",
@@ -1099,8 +1061,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_metric",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\smetric\s(?P<metric>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\smetric\s(?P<metric>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.metric",
@@ -1127,8 +1088,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_origin",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sorigin\s(?P<origin>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sorigin\s(?P<origin>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.origin",
@@ -1155,8 +1115,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_peer",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\speer\s(?P<peer>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\speer\s(?P<peer>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.peer",
@@ -1185,8 +1144,7 @@ class Route_mapsTemplate(NetworkTemplate):
                 r"""
                 ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sip\saddress
                 \s(?P<list_type>access-list|prefix-list)
-                \s(?P<value>\S+)
-                *$""",
+                \s(?P<value>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.ip.address",
@@ -1219,8 +1177,7 @@ class Route_mapsTemplate(NetworkTemplate):
                 r"""
                 ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sip\snexthop
                 \s(?P<list_type>access-list|prefix-list)
-                \s(?P<value>\S+)
-                *$""",
+                \s(?P<value>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.ip.next_hop",
@@ -1253,8 +1210,7 @@ class Route_mapsTemplate(NetworkTemplate):
                 r"""
                 ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sip\sroute-source
                 \s(?P<list_type>access-list|prefix-list)
-                \s(?P<value>\S+)
-                *$""",
+                \s(?P<value>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.ip.route_source",
@@ -1287,8 +1243,7 @@ class Route_mapsTemplate(NetworkTemplate):
                 r"""
                 ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sipv6\saddress
                 \s(?P<list_type>access-list|prefix-list)
-                \s(?P<value>\S+)
-                *$""",
+                \s(?P<value>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.ipv6.address",
@@ -1320,8 +1275,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "getval": re.compile(
                 r"""
                 ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sipv6\snexthop
-                \s(?P<value>\S+)
-                *$""",
+                \s(?P<value>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.ipv6.next_hop",
@@ -1349,8 +1303,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "name": "match_protocol",
             "getval": re.compile(
                 r"""
-                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sprotocol\s(?P<value>\S+)
-                *$""",
+                ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\sprotocol\s(?P<value>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.protocol",
@@ -1377,8 +1330,7 @@ class Route_mapsTemplate(NetworkTemplate):
             "getval": re.compile(
                 r"""
                 ^set\spolicy\sroute-map\s(?P<route_map>\S+)\srule\s(?P<sequence>\d+)\smatch\srpki
-                \s(?P<value>\S+)
-                *$""",
+                \s(?P<value>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "compval": "match.rpki",

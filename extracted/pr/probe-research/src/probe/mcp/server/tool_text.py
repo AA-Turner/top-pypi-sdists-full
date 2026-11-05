@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from typing import Any
-from ..tools.view import _VIEWS, _supported_views
+from ..tools.view import VIEW_PURPOSE, _VIEWS, View, _supported_views
 
 
 # -- browse's filter parameters ---------------------------------------
@@ -85,9 +85,19 @@ _VIEW_MATRIX_DOC = "\n".join(
     f"  {kind:<11}{' | '.join(_supported_views(kind))}" for kind in sorted({k for k, _ in _VIEWS})
 )
 
+#: One page, four reads, glossed in the schema: "Summary" is the dashboard tab's name, and with
+#: the bare matrix a model read `summary`, got the person-written block, and called the tab empty
+#: (chat 731cc3d6). The lines come from VIEW_PURPOSE, never typed twice.
+_PAGE_VIEWS_DOC = "\n".join(
+    f"  {view:<16}{VIEW_PURPOSE[view]}"
+    for view in (View.SUMMARY, View.OVERVIEW, View.SUMMARY_HISTORY, View.NOTES)
+)
+
 _VIEW_DOC = f"""Which read to take -- pick by the question. `card` (the default) lists that entity's `available_views`.
 
 {_VIEW_MATRIX_DOC}
+
+{_PAGE_VIEWS_DOC}
 """
 
 _VIEW_OPTIONS_DOC = """View-specific keys.

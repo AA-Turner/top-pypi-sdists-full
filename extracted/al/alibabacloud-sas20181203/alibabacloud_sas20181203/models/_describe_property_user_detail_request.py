@@ -20,34 +20,36 @@ class DescribePropertyUserDetailRequest(DaraModel):
         user: str = None,
         uuid: str = None,
     ):
-        # The page number of the page to return in a paginated query. Default value: **1**, which indicates the first page.
+        # The number of the page to return. Default value: **1**.
         self.current_page = current_page
-        # Specifies whether fuzzy match is supported for account names. Set this parameter to **1** to enable fuzzy match. Any other value or an empty value indicates that fuzzy match is not supported.
+        # Specifies whether fuzzy match is supported for the account name. To enable fuzzy match, set this parameter to **1**. Other values or an empty value indicate that fuzzy match is not supported.
         self.extend = extend
-        # Specifies whether the account to query has ROOT permissions. Valid values:
+        # Specifies whether the account to query has root permissions. Valid values:
         # 
         # - **0**: No.
         # - **1**: Yes.
         self.is_root = is_root
-        # The end timestamp for querying the last logon time of the account. Unit: milliseconds.
+        # The end timestamp for retrieving the last logon time of the account. Unit: milliseconds.
         self.last_login_time_end = last_login_time_end
-        # The start timestamp for querying the last logon time of the account. Unit: milliseconds.
+        # The start timestamp for retrieving the last logon time of the account. Unit: milliseconds.
         self.last_login_time_start = last_login_time_start
-        # The token that marks the current position from which to start reading. Leave this parameter empty to start from the beginning.
+        # The token that specifies the position from which to start reading. If this parameter is left empty, the reading starts from the beginning.
         # 
-        # > Do not specify this parameter for the first call. The response includes the NextToken value for the second call. Each subsequent response contains the NextToken value for the next call.
+        # > You do not need to specify this parameter for the first call. The response will contain the NextToken for the second call, and each subsequent response will contain the NextToken for the next call.
         self.next_token = next_token
-        # The number of account asset fingerprint entries per page in a paging query. Default value: **10**, which indicates 10 account asset fingerprint entries per page.
+        # The Settings for the number of account Asset fingerprint entries to return on each page during paging for a paged query. Default value: **10**, which indicates that 10 account Asset fingerprint entries are returned on each page.
         self.page_size = page_size
         # The name or IP address of the server to query.
         self.remark = remark
+        # The ID of the management account for the member accounts in the resource folder.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
-        # Specifies whether to use the NextToken method to retrieve the vulnerability list data. If this parameter is used, TotalCount is no longer returned. Valid values:
+        # Specifies whether to use the NextToken method to retrieve vulnerability list data. If this parameter is used, TotalCount is no longer returned. Valid values:
         # 
-        # - **true**: Uses the NextToken method.
-        # - **false**: Does not use the NextToken method.
+        # - **true**: Use the NextToken method.
+        # - **false**: Do not use the NextToken method.
         self.use_next_token = use_next_token
-        # The account name on the server to query.
+        # The name of the account on the server to query.
         self.user = user
         # The UUID of the server to query.
         self.uuid = uuid

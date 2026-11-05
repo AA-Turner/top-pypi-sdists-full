@@ -86,7 +86,22 @@ SectorType = Literal["Business", "Government", "Individual"]
 SupplementalTaxRegistrationTypeType = Literal["VAT"]
 TaxRegistrationNumberTypeType = Literal["LocalRegistrationNumber", "TaxRegistrationNumber"]
 TaxRegistrationStatusType = Literal["Deleted", "Pending", "Rejected", "Verified"]
-TaxRegistrationTypeType = Literal["CNPJ", "CPF", "GST", "NIP", "NRIC", "PAN", "SST", "TIN", "VAT"]
+TaxRegistrationTypeType = Literal[
+    "CDI",
+    "CI",
+    "CNPJ",
+    "CPF",
+    "CUIT",
+    "GST",
+    "NIE",
+    "NIP",
+    "NRIC",
+    "PAN",
+    "RUT",
+    "SST",
+    "TIN",
+    "VAT",
+]
 UkraineTrnTypeType = Literal["Business", "Individual"]
 UzbekistanTaxRegistrationNumberTypeType = Literal["Business", "Individual"]
 TaxSettingsServiceName = Literal["taxsettings"]

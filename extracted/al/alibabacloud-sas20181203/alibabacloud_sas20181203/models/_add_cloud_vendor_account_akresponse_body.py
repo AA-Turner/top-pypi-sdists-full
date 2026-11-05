@@ -13,7 +13,7 @@ class AddCloudVendorAccountAKResponseBody(DaraModel):
         data: main_models.AddCloudVendorAccountAKResponseBodyData = None,
         request_id: str = None,
     ):
-        # The added AccessKey information.
+        # The added AK information.
         self.data = data
         # The ID of the request.
         self.request_id = request_id
@@ -60,30 +60,30 @@ class AddCloudVendorAccountAKResponseBodyData(DaraModel):
         vendor: str = None,
         vendor_auth_alias: str = None,
     ):
-        # The AccessKey type. Valid values:
+        # The AK type. Valid values:
         # 
-        # - **primary**: Primary account
-        # - **sub**: Sub-account
+        # - **primary**: primary account
+        # - **sub**: sub-account
         self.ak_type = ak_type
-        # The unique ID of the AccessKey.
+        # The unique ID of the AK.
         self.auth_id = auth_id
-        # The list of modules associated with the AccessKey.
+        # The list of modules associated with the AK.
         self.auth_modules = auth_modules
         # The account ID.
         # 
         # > The account ID of the connected cloud vendor.
         self.ctdr_cloud_user_id = ctdr_cloud_user_id
-        # The exception information of the AccessKey.
+        # The exception information of the AK.
         self.message = message
-        # The AccessKey ID.
+        # The AK parameter ID.
         self.secret_id = secret_id
-        # The usage status of the AccessKey. Valid values:
+        # The usage status of the AK. Valid values:
         # - **0**: In use
-        # - **1**: Exception
-        # - **2**: Verifying
-        # - **3**: Verification timed out
+        # - **1**: Usage exception
+        # - **2**: Validating
+        # - **3**: Validation timed out
         self.service_status = service_status
-        # The AccessKey status. Valid values:
+        # The status of the AK. Valid values:
         # - **0**: Enabled
         # - **1**: Disabled
         self.status = status
@@ -104,8 +104,8 @@ class AddCloudVendorAccountAKResponseBodyData(DaraModel):
         # - **OracleCloud**: Oracle Cloud
         # - **StateCloud**: China Telecom Cloud
         self.vendor = vendor
-        # The name of the AccessKey account.
-        # > This parameter is used to identify the account to which the third-party host assets belong.
+        # The name of the AK account.
+        # >This parameter is used to identify the account to which the third-party host assets belong.
         self.vendor_auth_alias = vendor_auth_alias
 
     def validate(self):
@@ -214,9 +214,9 @@ class AddCloudVendorAccountAKResponseBodyDataAuthModules(DaraModel):
         self.module_disp = module_disp
         # The status of the module. Valid values:
         # - **0**: In use
-        # - **1**: Exception
-        # - **2**: Verifying
-        # - **3**: Verification timed out
+        # - **1**: Usage exception
+        # - **2**: Validating
+        # - **3**: Validation timed out
         self.module_service_status = module_service_status
         # The description of the permissions associated with the module.
         self.module_statement = module_statement

@@ -25,6 +25,9 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
         summary (Union[Unset, str]):
         emails (Union[Unset, List[str]]):
         instance_role (Union[Unset, None, ListInstanceGroupsWithWorkspacesResponse200ItemInstanceRole]):
+        external_id (Union[Unset, None, str]): IdP group this group is linked to; its membership then follows the SSO
+            groups claim
+        scim_managed (Union[Unset, bool]): Provisioned by SCIM, which then owns external_id
         workspaces (Union[Unset, List['ListInstanceGroupsWithWorkspacesResponse200ItemWorkspacesItem']]):
     """
 
@@ -32,6 +35,8 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
     summary: Union[Unset, str] = UNSET
     emails: Union[Unset, List[str]] = UNSET
     instance_role: Union[Unset, None, ListInstanceGroupsWithWorkspacesResponse200ItemInstanceRole] = UNSET
+    external_id: Union[Unset, None, str] = UNSET
+    scim_managed: Union[Unset, bool] = UNSET
     workspaces: Union[Unset, List["ListInstanceGroupsWithWorkspacesResponse200ItemWorkspacesItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -46,6 +51,8 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
         if not isinstance(self.instance_role, Unset):
             instance_role = self.instance_role.value if self.instance_role else None
 
+        external_id = self.external_id
+        scim_managed = self.scim_managed
         workspaces: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.workspaces, Unset):
             workspaces = []
@@ -67,6 +74,10 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
             field_dict["emails"] = emails
         if instance_role is not UNSET:
             field_dict["instance_role"] = instance_role
+        if external_id is not UNSET:
+            field_dict["external_id"] = external_id
+        if scim_managed is not UNSET:
+            field_dict["scim_managed"] = scim_managed
         if workspaces is not UNSET:
             field_dict["workspaces"] = workspaces
 
@@ -94,6 +105,10 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
         else:
             instance_role = ListInstanceGroupsWithWorkspacesResponse200ItemInstanceRole(_instance_role)
 
+        external_id = d.pop("external_id", UNSET)
+
+        scim_managed = d.pop("scim_managed", UNSET)
+
         workspaces = []
         _workspaces = d.pop("workspaces", UNSET)
         for workspaces_item_data in _workspaces or []:
@@ -108,6 +123,8 @@ class ListInstanceGroupsWithWorkspacesResponse200Item:
             summary=summary,
             emails=emails,
             instance_role=instance_role,
+            external_id=external_id,
+            scim_managed=scim_managed,
             workspaces=workspaces,
         )
 

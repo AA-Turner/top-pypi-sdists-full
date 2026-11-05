@@ -13,6 +13,7 @@ Usage::
     from mypy_boto3_dynamodb.client import DynamoDBClient
     from mypy_boto3_dynamodb.paginator import (
         ListBackupsPaginator,
+        ListBulkOperationsPaginator,
         ListTablesPaginator,
         ListTagsOfResourcePaginator,
         QueryPaginator,
@@ -23,6 +24,7 @@ Usage::
     client: DynamoDBClient = session.client("dynamodb")
 
     list_backups_paginator: ListBackupsPaginator = client.get_paginator("list_backups")
+    list_bulk_operations_paginator: ListBulkOperationsPaginator = client.get_paginator("list_bulk_operations")
     list_tables_paginator: ListTablesPaginator = client.get_paginator("list_tables")
     list_tags_of_resource_paginator: ListTagsOfResourcePaginator = client.get_paginator("list_tags_of_resource")
     query_paginator: QueryPaginator = client.get_paginator("query")
@@ -40,6 +42,8 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     ListBackupsInputPaginateTypeDef,
     ListBackupsOutputTypeDef,
+    ListBulkOperationsInputPaginateTypeDef,
+    ListBulkOperationsOutputTypeDef,
     ListTablesInputPaginateTypeDef,
     ListTablesOutputTypeDef,
     ListTagsOfResourceInputPaginateTypeDef,
@@ -57,6 +61,7 @@ else:
 
 __all__ = (
     "ListBackupsPaginator",
+    "ListBulkOperationsPaginator",
     "ListTablesPaginator",
     "ListTagsOfResourcePaginator",
     "QueryPaginator",
@@ -79,6 +84,24 @@ class ListBackupsPaginator(_ListBackupsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/paginator/ListBackups.html#DynamoDB.Paginator.ListBackups.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/paginators/#listbackupspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListBulkOperationsPaginatorBase = Paginator[ListBulkOperationsOutputTypeDef]
+else:
+    _ListBulkOperationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListBulkOperationsPaginator(_ListBulkOperationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/paginator/ListBulkOperations.html#DynamoDB.Paginator.ListBulkOperations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/paginators/#listbulkoperationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBulkOperationsInputPaginateTypeDef]
+    ) -> PageIterator[ListBulkOperationsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/paginator/ListBulkOperations.html#DynamoDB.Paginator.ListBulkOperations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dynamodb/paginators/#listbulkoperationspaginator)
         """
 
 if TYPE_CHECKING:

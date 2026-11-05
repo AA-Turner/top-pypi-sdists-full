@@ -49,8 +49,8 @@ import cppe
 from packaging.version import parse as _parse_version
 min_version = '0.3.1'
 if _parse_version(cppe.__version__) < _parse_version(min_version):
-    raise ModuleNotFoundError("cppe version {} is required at least. "
-                              "Version {} was found.".format(min_version, cppe.__version__))
+    raise ModuleNotFoundError(f"cppe version {min_version} is required at least. "
+                              f"Version {cppe.__version__} was found.")
 
 from pyscf import lib
 from pyscf.lib import logger
@@ -295,8 +295,6 @@ class PolEmbed(lib.StreamObject):
         return self
 
     def kernel(self, dm, elec_only=False):
-        '''
-        '''
         if not (isinstance(dm, numpy.ndarray) and dm.ndim == 2):
             # spin-traced DM for UHF or ROHF
             dm = dm[0] + dm[1]
@@ -485,46 +483,3 @@ class PolEmbed(lib.StreamObject):
 
     def nuc_grad_method(self, grad_method):
         raise NotImplementedError("Nuclear gradients not implemented for PE.")
-
-if __name__ == '__main__':
-    import tempfile
-    from pyscf.solvent import PE
-    mol = gto.M(atom='''
-           6        0.000000    0.000000   -0.542500
-           8        0.000000    0.000000    0.677500
-           1        0.000000    0.935307   -1.082500
-           1        0.000000   -0.935307   -1.082500
-                ''', basis='sto3g')
-    mf = mol.RHF()
-    with lib.NamedTemporaryFile() as f:
-        f.write(b'''!
-@COORDINATES
-3
-AA
-O     3.53300000    2.99600000    0.88700000      1
-H     4.11100000    3.13200000    1.63800000      2
-H     4.10500000    2.64200000    0.20600000      3
-@MULTIPOLES
-ORDER 0
-3
-1     -0.67444000
-2      0.33722000
-3      0.33722000
-@POLARIZABILITIES
-ORDER 1 1
-3
-1      5.73935000     0.00000000     0.00000000     5.73935000     0.00000000     5.73935000
-2      2.30839000     0.00000000     0.00000000     2.30839000     0.00000000     2.30839000
-3      2.30839000     0.00000000     0.00000000     2.30839000     0.00000000     2.30839000
-EXCLISTS
-3 3
-1   2  3
-2   1  3
-3   1  2''')
-        f.flush()
-        pe_options = {"potfile": f.name}
-        # pe = pol_embed.PolEmbed(mol, pe_options)
-        #mf = PE(mf, pe).run()
-        mf = PE(mf, pe_options).run()
-        print(mf.e_tot - -112.35232445743728)
-        print(mf.with_solvent.e - 0.00020182314249546455)

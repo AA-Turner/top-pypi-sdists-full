@@ -26,6 +26,7 @@ def _get_kwargs(
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
+    job_id: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -65,6 +66,8 @@ def _get_kwargs(
     params["before_id"] = before_id
 
     params["all_workspaces"] = all_workspaces
+
+    params["job_id"] = job_id
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -122,6 +125,7 @@ def sync_detailed(
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
+    job_id: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListAuditLogsResponse200Item"]]:
     """list audit logs (requires admin privilege)
 
@@ -139,6 +143,7 @@ def sync_detailed(
         action_kind (Union[Unset, None, ListAuditLogsActionKind]):
         before_id (Union[Unset, None, int]):
         all_workspaces (Union[Unset, None, bool]):
+        job_id (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -162,6 +167,7 @@ def sync_detailed(
         action_kind=action_kind,
         before_id=before_id,
         all_workspaces=all_workspaces,
+        job_id=job_id,
     )
 
     response = client.get_httpx_client().request(
@@ -187,6 +193,7 @@ def sync(
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
+    job_id: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListAuditLogsResponse200Item"]]:
     """list audit logs (requires admin privilege)
 
@@ -204,6 +211,7 @@ def sync(
         action_kind (Union[Unset, None, ListAuditLogsActionKind]):
         before_id (Union[Unset, None, int]):
         all_workspaces (Union[Unset, None, bool]):
+        job_id (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -228,6 +236,7 @@ def sync(
         action_kind=action_kind,
         before_id=before_id,
         all_workspaces=all_workspaces,
+        job_id=job_id,
     ).parsed
 
 
@@ -247,6 +256,7 @@ async def asyncio_detailed(
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
+    job_id: Union[Unset, None, str] = UNSET,
 ) -> Response[List["ListAuditLogsResponse200Item"]]:
     """list audit logs (requires admin privilege)
 
@@ -264,6 +274,7 @@ async def asyncio_detailed(
         action_kind (Union[Unset, None, ListAuditLogsActionKind]):
         before_id (Union[Unset, None, int]):
         all_workspaces (Union[Unset, None, bool]):
+        job_id (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -287,6 +298,7 @@ async def asyncio_detailed(
         action_kind=action_kind,
         before_id=before_id,
         all_workspaces=all_workspaces,
+        job_id=job_id,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -310,6 +322,7 @@ async def asyncio(
     action_kind: Union[Unset, None, ListAuditLogsActionKind] = UNSET,
     before_id: Union[Unset, None, int] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
+    job_id: Union[Unset, None, str] = UNSET,
 ) -> Optional[List["ListAuditLogsResponse200Item"]]:
     """list audit logs (requires admin privilege)
 
@@ -327,6 +340,7 @@ async def asyncio(
         action_kind (Union[Unset, None, ListAuditLogsActionKind]):
         before_id (Union[Unset, None, int]):
         all_workspaces (Union[Unset, None, bool]):
+        job_id (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -352,5 +366,6 @@ async def asyncio(
             action_kind=action_kind,
             before_id=before_id,
             all_workspaces=all_workspaces,
+            job_id=job_id,
         )
     ).parsed

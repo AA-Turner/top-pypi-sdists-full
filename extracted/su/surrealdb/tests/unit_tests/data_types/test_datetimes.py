@@ -1,5 +1,6 @@
 import datetime
 import sys
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 from surrealdb.data import cbor
 from surrealdb.data.types.datetime import Datetime
+from surrealdb.types import Value
 
 
 # Unit tests for encoding
@@ -16,6 +18,47 @@ def test_datetime_encode() -> None:
     encoded = cbor.encode(now)
     assert isinstance(encoded, bytes)
     assert len(encoded) > 0
+
+
+def test_datetime_str() -> None:
+    """Test Datetime.__str__ produces a valid SurrealQL datetime literal (d"...")."""
+    dt = Datetime("2025-02-03T12:30:45.123456Z")
+    assert str(dt) == 'd"2025-02-03T12:30:45.123456Z"'
+
+
+def test_datetime_str_escapes_double_quotes() -> None:
+    """Test Datetime.__str__ escapes an embedded double quote in the ISO string."""
+    dt = Datetime('2025-02-03T12:30:45"Z')
+    assert str(dt) == 'd"2025-02-03T12:30:45\\"Z"'
+
+
+def test_datetime_repr() -> None:
+    """Test Datetime.__repr__ shows the class name and stored value (issue #14)."""
+    dt = Datetime("2025-02-03T12:30:45.123456Z")
+    assert repr(dt) == "Datetime('2025-02-03T12:30:45.123456Z')"
+
+
+def test_datetime_equality() -> None:
+    """Test Datetime equality by stored value (issue #14)."""
+    dt1 = Datetime("2025-02-03T12:30:45.123456Z")
+    dt2 = Datetime("2025-02-03T12:30:45.123456Z")
+    dt3 = Datetime("2020-01-01T00:00:00Z")
+
+    assert dt1 == dt2
+    assert dt1 != dt3
+    assert dt1 != "2025-02-03T12:30:45.123456Z"
+    assert dt1 != object()
+
+
+def test_datetime_hashable() -> None:
+    """Datetime defines __eq__, so it must define a consistent __hash__ to
+    remain usable as a dict key / set member (issue #14)."""
+    dt1 = Datetime("2025-02-03T12:30:45.123456Z")
+    dt2 = Datetime("2025-02-03T12:30:45.123456Z")
+
+    assert hash(dt1) == hash(dt2)
+    assert dt1 in {dt2}
+    assert {dt1: "value"}[Datetime("2025-02-03T12:30:45.123456Z")] == "value"
 
 
 def test_datetime_custom_encode() -> None:
@@ -97,11 +140,13 @@ def test_datetime_in_list_roundtrip() -> None:
 
 
 @pytest.fixture
-async def surrealdb_connection():  # type: ignore[misc]
-    url = "ws://localhost:8000/rpc"
+async def surrealdb_connection(
+    ws_url: str,
+) -> AsyncGenerator[AsyncWsSurrealConnection, None]:
+    url = ws_url
     password = "root"
     username = "root"
-    vars_params = {"username": username, "password": password}
+    vars_params: dict[str, Value] = {"username": username, "password": password}
     database_name = "test_db"
     namespace = "test_ns"
     connection = AsyncWsSurrealConnection(url)
@@ -123,7 +168,7 @@ async def test_native_datetime(surrealdb_connection: Any) -> None:
     )
     compact_test_outcome = await surrealdb_connection.query(
         "SELECT * FROM datetime_tests;"
-    )
+    ).first()
     assert compact_test_outcome[0]["datetime"] == now
     outcome = compact_test_outcome[0]["datetime"]
     assert now.isoformat() == outcome.isoformat()
@@ -142,7 +187,7 @@ async def test_datetime_iso_format(surrealdb_connection: Any) -> None:
     )
     compact_test_outcome = await surrealdb_connection.query(
         "SELECT * FROM datetime_tests;"
-    )
+    ).first()
     assert str(compact_test_outcome[0]["datetime"]) == str(iso_datetime_obj)
     date_str = compact_test_outcome[0]["datetime"].isoformat()
     if sys.version_info >= (3, 11):

@@ -64,5 +64,6 @@ def ask_actions(plugin: "UptimePlugin") -> list[AskAction]:
             },
             _summary,
             add,
+            outward=True,
         )
     ]

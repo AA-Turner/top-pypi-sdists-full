@@ -1,17 +1,21 @@
+from collections.abc import Iterator
+from typing import Any
+
 import pytest
 
 from surrealdb.connections.blocking_http import BlockingHttpSurrealConnection
-from surrealdb.request_message.message import RequestMessage
-from surrealdb.request_message.methods import RequestMethod
+from surrealdb.types import Value
 
 
 @pytest.fixture(autouse=True)
-def setup_blocking_http_signup() -> None:
+def setup_blocking_http_signup(
+    connection_params: dict[str, Any],
+) -> Iterator[dict[str, Any]]:
     """Setup fixture for blocking HTTP signup tests"""
-    url = "http://localhost:8000"
+    url = connection_params["url"]
     password = "root"
     username = "root"
-    vars_params = {
+    vars_params: dict[str, Value] = {
         "username": username,
         "password": password,
     }
@@ -19,23 +23,23 @@ def setup_blocking_http_signup() -> None:
     namespace = "test_ns"
     connection = BlockingHttpSurrealConnection(url)
     _ = connection.signin(vars_params)
-    _ = connection.use(namespace=namespace, database=database_name)
+    connection.use(namespace=namespace, database=database_name)
     _ = connection.query_raw("DELETE user;")
     _ = connection.query_raw("REMOVE TABLE user;")
-    _ = connection.query(
+    connection.query(
         "DEFINE TABLE user SCHEMAFULL PERMISSIONS FOR select, update, delete WHERE id = $auth.id;"
         "DEFINE FIELD name ON user TYPE string;"
         "DEFINE FIELD email ON user TYPE string;"
         "DEFINE FIELD password ON user TYPE string;"
         "DEFINE FIELD enabled ON user TYPE bool;"
         "DEFINE INDEX email ON user FIELDS email UNIQUE;"
-    )
+    ).execute()
     _ = connection.query_raw("REMOVE ACCESS user ON DATABASE;")
-    _ = connection.query(
+    connection.query(
         "DEFINE ACCESS user ON DATABASE TYPE RECORD "
         "SIGNUP ( CREATE user SET name = $name, email = $email, password = crypto::argon2::generate($password), enabled = true ) "
         "SIGNIN ( SELECT * FROM user WHERE email = $email AND crypto::argon2::compare(password, $password) );"
-    )
+    ).execute()
 
     yield {
         "url": url,
@@ -47,11 +51,11 @@ def setup_blocking_http_signup() -> None:
         "connection": connection,
     }
 
-    connection.query("DELETE user;")
-    connection.query("REMOVE TABLE user;")
+    connection.query("DELETE user;").execute()
+    connection.query("REMOVE TABLE user;").execute()
 
 
-def test_signup(setup_blocking_http_signup) -> None:
+def test_signup(setup_blocking_http_signup: dict[str, Any]) -> None:
     vars = {
         "namespace": setup_blocking_http_signup["namespace"],
         "database": setup_blocking_http_signup["database_name"],

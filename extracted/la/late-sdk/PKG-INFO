@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.1519
+Version: 1.4.1552
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -47,6 +47,7 @@ Requires-Dist: ruff>=0.8.0; extra == 'dev'
 Provides-Extra: mcp
 Requires-Dist: fastmcp>=3.1.0; extra == 'mcp'
 Requires-Dist: mcp>=1.8.0; extra == 'mcp'
+Requires-Dist: sentry-sdk>=2.43.0; extra == 'mcp'
 Requires-Dist: starlette>=0.42.0; extra == 'mcp'
 Requires-Dist: uvicorn[standard]>=0.32.0; extra == 'mcp'
 Description-Content-Type: text/markdown
@@ -323,6 +324,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `analytics.get_post_timeline()` | Get post analytics timeline |
 | `analytics.get_posting_frequency()` | Get frequency vs engagement |
 | `analytics.get_tik_tok_account_insights()` | Get TikTok account-level insights |
+| `analytics.get_tik_tok_demographics()` | Get TikTok follower demographics |
 | `analytics.get_tracking_window()` | Get a tracking window |
 | `analytics.get_you_tube_channel_insights()` | Get YouTube channel insights |
 | `analytics.get_you_tube_daily_views()` | Get YouTube daily views |
@@ -418,6 +420,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.list_whats_app_phone_numbers()` | List numbers for selection |
 | `connect.create_o_auth_app()` | Add an OAuth app |
 | `connect.create_pinterest_board()` | Create Pinterest board |
+| `connect.create_platform_invite()` | Create a connect link |
 | `connect.create_youtube_playlist()` | Create YouTube playlist |
 | `connect.get_connect_handoff()` | Get a phone handoff |
 | `connect.get_connect_url()` | Get OAuth connect URL |
@@ -730,6 +733,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | Method | Description |
 |--------|-------------|
 | `ad_rules.list_ad_rule_activity()` | List every change ad rules made |
+| `ad_rules.list_ad_rule_alerts()` | List a rule's alerts |
 | `ad_rules.list_ad_rule_runs()` | List an ad rule's runs |
 | `ad_rules.list_ad_rule_templates()` | List ready-made ad rules |
 | `ad_rules.list_ad_rules()` | List ad rules |
@@ -738,6 +742,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_rules.update_ad_rule()` | Update an ad rule |
 | `ad_rules.delete_ad_rule()` | Delete an ad rule |
 | `ad_rules.preview_ad_rule()` | Preview an ad rule |
+| `ad_rules.undo_ad_rule_activity()` | Undo a change an ad rule made |
 
 ### Ad Targeting
 | Method | Description |

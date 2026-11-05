@@ -17,28 +17,37 @@ class ListUnknownThreatDetectMachineRequest(DaraModel):
         study_time_start: int = None,
         uuid: str = None,
     ):
-        # The page number of the current page in a paged query.
+        # The page number of the current page in a paging query.
         self.current_page = current_page
+        # The status of the alert event. Valid values:
+        # - **1**: pending
+        # - **2**: ignored
+        # - **4**: confirmed
+        # - **8**: marked as false positive
+        # - **16**: processing
+        # - **32**: handled
+        # - **64**: expired
+        # - **604**: marked as false positive by the system
         self.event_status = event_status
-        # The maximum number of entries to display per page in a paged query.
+        # The maximum number of entries to return on each page in a paging query.
         self.page_size = page_size
-        # The server name or IP address.
+        # The name or IP address of the server.
         self.remark = remark
-        # The machine running status. Valid values:
+        # The running status of the server. Valid values:
         # 
-        # - **monitoring**: warning in progress
-        # - **blocking**: under control
-        # - **studying**: learning in progress
+        # - **monitoring**: alerting
+        # - **blocking**: blocking
+        # - **studying**: learning
         # - **study_finish**: learning completed
         self.status = status
         # The whitelist mode. Valid values:
         # 
-        # - **hash**: process hash
-        # - **path**: process path
+        # - **hash**: the hash of the process
+        # - **path**: the path of the process
         self.study_mode = study_mode
-        # The end of the model creation time range. The value is a timestamp in milliseconds.
+        # The end time of the time range when the model was created. The value is a UNIX timestamp in milliseconds.
         self.study_time_end = study_time_end
-        # The start of the model creation time range. The value is a timestamp in milliseconds.
+        # The start time of the time range when the model was created. The value is a UNIX timestamp in milliseconds.
         self.study_time_start = study_time_start
         # The UUID of the server.
         self.uuid = uuid

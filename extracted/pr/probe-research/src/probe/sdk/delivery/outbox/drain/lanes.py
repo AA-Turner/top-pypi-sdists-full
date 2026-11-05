@@ -308,10 +308,13 @@ class DrainLanesMixin:
         return False
 
     def _needs_newer_sdk(self, op: dict, lane: Any) -> bool:
-        """An op kind this SDK does not know: left in order for a newer worker."""
+        """An op kind (or journal version, `journal/contract.py`) this SDK does not know: left in
+        order for a newer worker."""
         report = self.report
         kind = op.get("kind")
-        if isinstance(kind, str) and kind not in OP_KINDS:
+        if is_newer_than_v1(op):
+            kind = f"{op.get('schema')}:{kind}"
+        if (isinstance(kind, str) and kind not in OP_KINDS) or is_newer_than_v1(op):
             # A newer SDK's op. Not attempted: no attempt charged, the 24 h budget never
             # starts; it waits, in its run's order, for a worker that can deliver it (plan
             # 1.11). A kind that is not even a string is not a newer SDK's: `_execute`
@@ -322,7 +325,7 @@ class DrainLanesMixin:
             if reason not in report.errors:
                 report.errors.append(reason)
             if lane is not None:
-                self.stalled[lane] = LaneStall(reason)
+                self.stalled[lane] = LaneStall(reason, needs_newer=True)
             # An op naming no run holds only itself: the run-less lane has no order to keep
             # and stalling it would hold every other run-less write behind a newer SDK's op.
             return True
@@ -444,6 +447,7 @@ from probe.sdk.delivery.ops.ops import _lane_of  # noqa: E402 -- pieces need eac
 from probe.sdk.delivery.outbox.drain.report import DrainReport  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.report import LaneStall  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import OP_KINDS  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.journal.contract import is_newer_than_v1  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.holds import _close_hold_expired  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.outbox.drain.holds import _close_hold_left  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.ops.ops import _is_multipart  # noqa: E402 -- pieces need each other; the front door loads this one first

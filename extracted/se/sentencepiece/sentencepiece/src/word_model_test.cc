@@ -14,11 +14,11 @@
 
 #include "word_model.h"
 
+#include <gtest/gtest.h>
+
 #include <string>
 
 #include "sentencepiece_model.pb.h"
-#include "testharness.h"
-#include "util.h"
 
 namespace sentencepiece {
 namespace word {
@@ -29,9 +29,9 @@ namespace {
 
 ModelProto MakeBaseModelProto() {
   ModelProto model_proto;
-  auto *sp1 = model_proto.add_pieces();
-  auto *sp2 = model_proto.add_pieces();
-  auto *sp3 = model_proto.add_pieces();
+  auto* sp1 = model_proto.add_pieces();
+  auto* sp2 = model_proto.add_pieces();
+  auto* sp3 = model_proto.add_pieces();
 
   sp1->set_type(ModelProto::SentencePiece::UNKNOWN);
   sp1->set_piece("<unk>");
@@ -43,9 +43,9 @@ ModelProto MakeBaseModelProto() {
   return model_proto;
 }
 
-void AddPiece(ModelProto *model_proto, const std::string &piece,
+void AddPiece(ModelProto* model_proto, const std::string& piece,
               float score = 0.0) {
-  auto *sp = model_proto->add_pieces();
+  auto* sp = model_proto->add_pieces();
   sp->set_piece(piece);
   sp->set_score(score);
 }
@@ -86,6 +86,29 @@ TEST(WordModelTest, NotSupportedTest) {
   const Model model(model_proto);
   EXPECT_EQ(NBestEncodeResult(), model.NBestEncode("test", 10));
   EXPECT_EQ(EncodeResult(), model.SampleEncode("test", 0.1));
+}
+
+TEST(WordModelTest, EncodeReservedAndUnusedTest) {
+  ModelProto model_proto = MakeBaseModelProto();
+  AddPiece(&model_proto, WS "a", 0.1);
+  // CONTROL piece with leading whitespace (index 4)
+  auto* ctrl = model_proto.add_pieces();
+  ctrl->set_piece(WS "<s>");
+  ctrl->set_type(ModelProto::SentencePiece::CONTROL);
+  // UNUSED piece with leading whitespace (index 5)
+  auto* unused = model_proto.add_pieces();
+  unused->set_piece(WS "unused");
+  unused->set_type(ModelProto::SentencePiece::UNUSED);
+
+  const Model model(model_proto);
+  const EncodeResult result = model.Encode(WS "a" WS "<s>" WS "unused");
+  ASSERT_EQ(3, result.size());
+  EXPECT_EQ(WS "a", result[0].first);
+  EXPECT_EQ(3, result[0].second);
+  EXPECT_EQ(WS "<s>", result[1].first);
+  EXPECT_EQ(0, result[1].second);  // <unk>
+  EXPECT_EQ(WS "unused", result[2].first);
+  EXPECT_EQ(0, result[2].second);  // <unk>
 }
 
 }  // namespace

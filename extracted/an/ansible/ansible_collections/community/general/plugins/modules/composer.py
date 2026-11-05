@@ -90,6 +90,7 @@ options:
   apcu_autoloader:
     description:
       - Uses APCu to cache found/not-found classes.
+      - Passed as C(--apcu) to C(dump-autoload), which has no C(--apcu-autoloader).
     default: false
     type: bool
   ignore_platform_reqs:
@@ -308,7 +309,7 @@ def main():
         "no_dev": "no-dev",
         "no_scripts": "no-scripts",
         "no_plugins": "no-plugins",
-        "apcu_autoloader": "acpu-autoloader",
+        "apcu_autoloader": "apcu-autoloader",
         "optimize_autoloader": "optimize-autoloader",
         "classmap_authoritative": "classmap-authoritative",
         "ignore_platform_reqs": "ignore-platform-reqs",
@@ -318,6 +319,10 @@ def main():
         if module.params.get(param) and option in available_options:
             option = f"--{option}"
             options.append(option)
+
+    # dump-autoload calls the APCu flag --apcu instead of --apcu-autoloader
+    if module.params["apcu_autoloader"] and "apcu-autoloader" not in available_options and "apcu" in available_options:
+        options.append("--apcu")
 
     working_dir = module.params["working_dir"]
 

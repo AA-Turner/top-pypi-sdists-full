@@ -6,11 +6,22 @@ All errors raised by this SDK extend ``SurrealError`` so that callers can
 the ``ServerError`` sub-tree which mirrors the structured error format
 (kind / details / cause) introduced in SurrealDB 3.x while remaining
 backward-compatible with the legacy code-only format.
+
+Failures that never reached the server, or that came back in a form with no
+structured error to parse, use the ``TransportError`` sub-tree instead.  The
+split is what retry logic keys on: a ``TransportError`` may succeed if tried
+again, a ``ServerError`` describes a decision the server already made.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    # `surrealdb.data.types.duration` imports `InvalidDurationError` from here,
+    # so importing it at module scope is a cycle. The property below imports it
+    # where it is used instead.
+    from surrealdb.data.types.duration import Duration
 
 # ------------------------------------------------------------------ #
 #  Base                                                                #
@@ -92,6 +103,7 @@ class QueryDetailKind:
     NOT_EXECUTED = "NotExecuted"
     TIMED_OUT = "TimedOut"
     CANCELLED = "Cancelled"
+    TRANSACTION_CONFLICT = "TransactionConflict"
 
 
 class SerializationDetailKind:
@@ -276,15 +288,43 @@ class QueryError(ServerError):
         return _detail_kind(self.details) == "Cancelled"
 
     @property
-    def timeout(self) -> dict[str, Any] | None:
-        """The timeout duration (``{"secs": ..., "nanos": ...}``) or ``None``."""
+    def is_transaction_conflict(self) -> bool:
+        return _detail_kind(self.details) == "TransactionConflict"
+
+    @property
+    def timeout(self) -> Duration | None:
+        """The timeout the statement exceeded, or ``None``.
+
+        A :class:`~surrealdb.Duration`, which is what the server sends - the
+        previous annotation said ``{"secs": ..., "nanos": ...}`` and the body
+        only accepted a ``dict``, so this returned ``None`` for every timeout on
+        every transport. Verified against SurrealDB 3.2.3, where the detail
+        arrives as ``{"kind": "TimedOut", "details": {"duration": Duration(...)}}``
+        on both websocket and HTTP.
+
+        Still ``None`` on 2.x, which sends no structured detail for a timeout at
+        all - that surfaces as an ``InternalError`` rather than a ``QueryError``,
+        so there is nothing to read the duration out of.
+
+        A ``{"secs": ..., "nanos": ...}`` mapping is also accepted and converted,
+        since no supported version sends one but the shape was what the old
+        annotation promised.
+        """
+        from surrealdb.data.types.duration import Duration
+
         if _detail_kind(self.details) != "TimedOut":
             return None
         inner = _detail_inner(self.details)
-        if isinstance(inner, dict):
-            duration = inner.get("duration")
-            if isinstance(duration, dict):
-                return duration
+        if not isinstance(inner, dict):
+            return None
+        duration = inner.get("duration")
+        if isinstance(duration, Duration):
+            return duration
+        if isinstance(duration, dict):
+            secs = duration.get("secs")
+            nanos = duration.get("nanos")
+            if isinstance(secs, int) and isinstance(nanos, int):
+                return Duration(secs * 1_000_000_000 + nanos)
         return None
 
 
@@ -389,8 +429,58 @@ class InternalError(ServerError):
 # ------------------------------------------------------------------ #
 
 
-class ConnectionUnavailableError(SurrealError):
+class ImportFailedError(SurrealError):
+    """Statements in an import failed; the rest were applied.
+
+    Attributes:
+        failures: The error each failed statement gave, in order.
+    """
+
+    def __init__(self, failures: list[ServerError]) -> None:
+        shown = "; ".join(str(failure) for failure in failures[:3])
+        more = f" (and {len(failures) - 3} more)" if len(failures) > 3 else ""
+        super().__init__(
+            f"{len(failures)} statement(s) in the import failed: {shown}{more}"
+            if failures
+            else "the import failed, and the server did not say which statements"
+        )
+        self.failures: list[ServerError] = failures
+
+
+class TransportError(SurrealError):
+    """Transport-level failure that produced no structured server response.
+
+    Raised when a request could not be sent, could not be completed, or came
+    back in a form the SDK cannot interpret as an RPC result.  Distinct from
+    ``ServerError``, which represents a failure the server described in its
+    own structured error format.
+    """
+
+
+class ConnectionUnavailableError(TransportError):
     """No active connection to the database."""
+
+
+class TransportTimeoutError(TransportError):
+    """The request timed out before the server responded."""
+
+
+class HttpStatusError(TransportError):
+    """The server returned a non-2xx HTTP response for an RPC request.
+
+    Attributes:
+        status: The HTTP status code.
+        body: The response body decoded as text, truncated.  Empty when the
+            response had no body.
+        url: The URL the request was sent to.
+    """
+
+    def __init__(self, status: int, body: str, url: str) -> None:
+        detail = f": {body}" if body else ""
+        super().__init__(f"HTTP {status} from {url}{detail}")
+        self.status: int = status
+        self.body: str = body
+        self.url: str = url
 
 
 class UnsupportedEngineError(SurrealError):
@@ -399,13 +489,52 @@ class UnsupportedEngineError(SurrealError):
     def __init__(self, url: str) -> None:
         super().__init__(
             f"Unsupported protocol in URL: {url}. "
-            "Use 'memory', 'mem://', 'file://', 'surrealkv://', 'surrealkv+versioned://', 'ws://', or 'http://'."
+            "Use 'ws://', 'wss://', 'http://', or 'https://' for remote connections. "
+            "For embedded connections ('memory', 'mem://', 'file://', 'surrealkv://', "
+            "'surrealkv+versioned://'), install: pip install surrealdb[embedded]"
         )
         self.url = url
 
 
 class UnsupportedFeatureError(SurrealError):
     """Feature not supported by this connection type."""
+
+
+class UnavailableFeatureError(UnsupportedFeatureError):
+    """The connected server is too old (or too new) for a feature.
+
+    A subclass of :class:`UnsupportedFeatureError`, so code catching that still
+    catches this. Raised before anything is sent, from the version the server
+    reported when the connection opened.
+    """
+
+    def __init__(self, feature: str, version: str, since: str | None) -> None:
+        needs = f"SurrealDB {since} or later" if since else "a different server"
+        super().__init__(
+            f"{feature} needs {needs}, but this server is {version}. Upgrade "
+            "the server, or avoid this feature on this connection."
+        )
+        self.feature = feature
+        self.version = version
+        self.since = since
+
+
+class UnsupportedVersionError(SurrealError):
+    """The server's version is outside the range this SDK supports.
+
+    Raised when a connection opens. Build the connection with
+    ``version_check=False`` to connect anyway, at your own risk.
+    """
+
+    def __init__(self, version: str, minimum: str, maximum: str) -> None:
+        super().__init__(
+            f"SurrealDB {version} is not supported by this SDK, which supports "
+            f"{minimum} up to, but not including, {maximum}. Use a supported "
+            "server, or pass version_check=False to connect anyway."
+        )
+        self.version = version
+        self.minimum = minimum
+        self.maximum = maximum
 
 
 class UnexpectedResponseError(SurrealError):
@@ -426,6 +555,16 @@ class InvalidGeometryError(SurrealError):
 
 class InvalidTableError(SurrealError):
     """Table or record ID string is invalid."""
+
+
+class InvalidUrlError(SurrealError):
+    """Connection URL could not be parsed.
+
+    Raised for a URL whose *scheme* is recognised but whose remainder is
+    malformed - an out-of-range port, a non-numeric port, an unterminated IPv6
+    literal. An unrecognised scheme raises :class:`UnsupportedEngineError`
+    instead, since that is a different mistake with a different fix.
+    """
 
 
 # ------------------------------------------------------------------ #
@@ -474,7 +613,12 @@ KIND_TO_CLASS: dict[str, type[ServerError]] = {
 
 
 def _resolve_kind(kind: str | None, code: int | None) -> str:
-    """Determine the error kind from *kind* and/or legacy *code*."""
+    """Determine the error kind from *kind* and/or legacy *code*.
+
+    SurrealDB 2.x sends no ``kind`` and only the generic ``-32000`` code, so
+    everything it rejects resolves to ``Internal`` - see the compatibility note
+    in the README's error-handling section.
+    """
     if kind:
         return kind
     if code is not None:
@@ -482,12 +626,41 @@ def _resolve_kind(kind: str | None, code: int | None) -> str:
     return "Internal"
 
 
-def parse_rpc_error(raw: dict[str, Any]) -> ServerError:
+# SurrealDB 3.x added the CBOR set tag; 2.x has no set representation at all -
+# it returns SurrealQL sets as plain arrays - and answers anything carrying the
+# tag with "unknown CBOR tag". Sets are the only value this SDK encodes that a
+# supported 2.x server cannot read, so the bare message is worth explaining
+# rather than passing straight through.
+_UNKNOWN_TAG_HINT = (
+    " (the server did not recognise a CBOR tag in the request: this SDK "
+    "encodes a Python set with SurrealDB 3.x's set tag, which SurrealDB 2.x "
+    "does not understand - send a list instead)"
+)
+
+
+def _explain(message: str) -> str:
+    """Add the likely cause to a server message that does not carry one."""
+    if "unknown CBOR tag" in message:
+        return message + _UNKNOWN_TAG_HINT
+    return message
+
+
+def parse_rpc_error(raw: Any) -> ServerError:
     """Parse an RPC-level error response into a ``ServerError``.
 
     Handles both the new format (``kind`` + ``details`` + ``cause``) and
     the legacy format (``code`` + ``message`` only).
+
+    An error that is not an object at all is still turned into a
+    ``ServerError`` carrying its text. SurrealDB 2.x answers some failures -
+    a NUL byte anywhere in a request, for one - with a bare string where the
+    protocol calls for an error object, and reading ``kind`` off that raised
+    ``AttributeError`` from inside the SDK: the caller got no message, and
+    nothing an ``except SurrealError`` would catch.
     """
+    if not isinstance(raw, dict):
+        return InternalError(kind="Internal", message=_explain(str(raw)), code=0)
+
     kind = _resolve_kind(raw.get("kind"), raw.get("code"))
     cause: ServerError | None = None
     if raw.get("cause") is not None:
@@ -495,7 +668,7 @@ def parse_rpc_error(raw: dict[str, Any]) -> ServerError:
     cls = KIND_TO_CLASS.get(kind, ServerError)
     return cls(
         kind=kind,
-        message=raw.get("message", ""),
+        message=_explain(raw.get("message", "")),
         code=raw.get("code", 0),
         details=raw.get("details"),
         cause=cause,
@@ -525,7 +698,7 @@ def parse_query_error(raw: dict[str, Any]) -> ServerError:
     cls = KIND_TO_CLASS.get(kind, ServerError)
     return cls(
         kind=kind,
-        message=raw.get("result", ""),
+        message=_explain(raw.get("result", "")),
         code=0,
         details=details,
         cause=cause,

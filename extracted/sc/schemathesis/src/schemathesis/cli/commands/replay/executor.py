@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from collections.abc import MutableMapping
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -14,7 +13,6 @@ from schemathesis.core.media_types import is_json
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.timing import Instant
 from schemathesis.core.transforms import UNRESOLVABLE, iter_decoded_pointer_segments
-from schemathesis.core.transport import AUTH_REJECTION_STATUSES
 from schemathesis.reporting.crashes import CrashCheck, CrashFile, CrashLink, CrashStep
 
 if TYPE_CHECKING:
@@ -70,8 +68,8 @@ class RejectedStep:
     """A replayed step the API rejected for authentication though the recorded request was accepted."""
 
     number: int
-    status_code: int
-    recorded_status_code: int
+    status: str
+    recorded_status: str
 
 
 @dataclass(slots=True)
@@ -176,7 +174,7 @@ def _unverified_without_recorded_values(outcome: ReplayOutcome, *, unrestorable:
         note = f"{_masked_names(outcome.unsupplied_masked)} masked in the crash file"
     elif outcome.rejected is not None:
         message = _rejected_credentials_message(outcome.rejected, steps=len(outcome.step_outcomes))
-        note = f"replay was not authenticated ({outcome.rejected.status_code})"
+        note = f"replay was not authenticated ({outcome.rejected.status})"
     elif unrestorable:
         message = (
             "the crash file has masked values that replay cannot restore; "
@@ -305,6 +303,7 @@ def _replay_sequence(
                 parent_output = step_outputs[step.parent_index]
         elif step_outputs:
             parent_output = step_outputs[-1]
+        parent_index = step.parent_index if step.parent_index is not None else index - 1
 
         links: list[LinkedValue] = []
         if (
@@ -313,7 +312,7 @@ def _replay_sequence(
             and (step.link.parameters or step.link.request_body is not None)
         ):
             try:
-                links = _apply_link_parameters(case, step.link, parent_output)
+                links = _apply_link_parameters(case, step.link, parent_output, sequence[parent_index].response_body)
             except (KeyError, ValueError) as exc:
                 return _errored_outcome(
                     f"extraction failed at step {index + 1} - {exc}",
@@ -328,11 +327,13 @@ def _replay_sequence(
 
         if (
             rejected is None
-            and response.status_code in AUTH_REJECTION_STATUSES
-            and step.response_status not in AUTH_REJECTION_STATUSES
+            and schema.classify_status(response.status_code).is_auth_failure
+            and not schema.classify_status(step.response_status).is_auth_failure
         ):
             rejected = RejectedStep(
-                number=index + 1, status_code=response.status_code, recorded_status_code=step.response_status
+                number=index + 1,
+                status=status_label(schema, response.status_code),
+                recorded_status=status_label(schema, step.response_status),
             )
 
         for parameter in _masked_parameters(step, replacement):
@@ -409,21 +410,23 @@ def _send_as(case: Case, identities: EscalatingAuthProvider, name: str) -> None:
     case._auth_identity = name
 
 
-def _apply_link_parameters(case: Case, link: CrashLink, previous_step_output: StepOutput) -> list[LinkedValue]:
-    from schemathesis.specs.openapi.expressions import body_pointers, evaluate
+def _apply_link_parameters(
+    case: Case, link: CrashLink, previous_step_output: StepOutput, parent_body: str
+) -> list[LinkedValue]:
+    from schemathesis.specs.openapi.expressions import body_pointers
 
+    schema = case.operation.schema
     linked: list[LinkedValue] = []
     # Re-extract each link parameter from the previous response into its container.
     for key, expression in link.parameters.items():
         location, _, name = key.partition(".")
-        container = case.get_container(ParameterLocation(location))
-        assert isinstance(container, MutableMapping)
-        value = evaluate(expression, previous_step_output)
+        recorded = schema.read_link_value(case, ParameterLocation(location), name, expression, parent_body)
+        value = schema.resolve_link_value(expression, previous_step_output, recorded)
         linked.append(
             LinkedValue(
                 location=location,
                 name=name,
-                recorded=container.get(name, NOT_SET),
+                recorded=recorded,
                 fresh=value,
                 pointers=body_pointers(expression),
             )
@@ -431,11 +434,11 @@ def _apply_link_parameters(case: Case, link: CrashLink, previous_step_output: St
         if value is UNRESOLVABLE:
             # Re-extraction failed; reuse the value captured at the original failure.
             continue
-        container[name] = value
+        schema.write_link_value(case, ParameterLocation(location), name, recorded, value)
 
     if link.request_body is not None:
         # Re-extract the body from the previous response, merging into the recorded one.
-        body = evaluate(link.request_body, previous_step_output, evaluate_nested=True)
+        body = schema.resolve_link_value(link.request_body, previous_step_output, case.body)
         if isinstance(body, dict) and isinstance(case.body, dict) and isinstance(link.request_body, dict):
             recorded_body = case.body
             linked.extend(
@@ -615,11 +618,16 @@ def _missing_credentials_message(missing: list[tuple[ParameterLocation, str]]) -
     return f"{names} were masked in the crash file; provide them via config, -H, --auth or an auth hook"
 
 
+def status_label(schema: BaseSchema, status_code: int) -> str:
+    name = schema.status_name_for_code(status_code)
+    return name or str(status_code)
+
+
 def _rejected_credentials_message(rejected: RejectedStep, *, steps: int) -> str:
     location = f" at step {rejected.number}" if steps > 1 else ""
     return (
-        f"replay was not authenticated: the API answered {rejected.status_code}{location} "
-        f"where the recorded request got {rejected.recorded_status_code}; "
+        f"replay was not authenticated: the API answered {rejected.status}{location} "
+        f"where the recorded request got {rejected.recorded_status}; "
         "check the credentials passed via config, -H, --auth or an auth hook"
     )
 

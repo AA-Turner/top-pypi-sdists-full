@@ -1,10 +1,15 @@
 import decimal
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
 
+from surrealdb.cbor import CBORTag, dumps
 from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 from surrealdb.data import cbor
+from surrealdb.data.types import constants
+from surrealdb.errors import UnexpectedResponseError
+from surrealdb.types import Value
 
 
 # Unit tests for encoding
@@ -98,11 +103,13 @@ def test_decimal_in_dict_roundtrip() -> None:
 
 
 @pytest.fixture
-async def surrealdb_connection():  # type: ignore[misc]
-    url = "ws://localhost:8000/rpc"
+async def surrealdb_connection(
+    ws_url: str,
+) -> AsyncGenerator[AsyncWsSurrealConnection, None]:
+    url = ws_url
     password = "root"
     username = "root"
-    vars_params = {"username": username, "password": password}
+    vars_params: dict[str, Value] = {"username": username, "password": password}
     database_name = "test_db"
     namespace = "test_ns"
     connection = AsyncWsSurrealConnection(url)
@@ -120,7 +127,7 @@ async def test_dec_literal(surrealdb_connection: Any) -> None:
     await surrealdb_connection.query(
         "CREATE numeric_tests:literal_test SET value = 99.99dec;"
     )
-    result = await surrealdb_connection.query("SELECT * FROM numeric_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM numeric_tests;").first()
     stored_value = result[0]["value"]
     assert str(stored_value) == "99.99"
     assert isinstance(stored_value, decimal.Decimal)
@@ -132,10 +139,12 @@ async def test_float_parameter(surrealdb_connection: Any) -> None:
     initial_result = await surrealdb_connection.query(
         "CREATE numeric_tests:float_test SET value = $float_val;",
         vars={"float_val": float_value},
-    )
+    ).first()
     assert isinstance(initial_result[0]["value"], float)
     assert initial_result[0]["value"] == 3.141592653589793
-    second_result = await surrealdb_connection.query("SELECT * FROM numeric_tests;")
+    second_result = await surrealdb_connection.query(
+        "SELECT * FROM numeric_tests;"
+    ).first()
     assert isinstance(second_result[0]["value"], float)
     assert second_result[0]["value"] == 3.141592653589793
 
@@ -146,9 +155,36 @@ async def test_decimal_parameter(surrealdb_connection: Any) -> None:
     initial_result = await surrealdb_connection.query(
         "CREATE numeric_tests:decimal_test SET value = $decimal_val;",
         vars={"decimal_val": decimal_value},
-    )
+    ).first()
     assert isinstance(initial_result[0]["value"], decimal.Decimal)
     assert initial_result[0]["value"] == decimal.Decimal("3.141592653589793")
-    second_result = await surrealdb_connection.query("SELECT * FROM numeric_tests;")
+    second_result = await surrealdb_connection.query(
+        "SELECT * FROM numeric_tests;"
+    ).first()
     assert isinstance(second_result[0]["value"], decimal.Decimal)
     assert second_result[0]["value"] == decimal.Decimal("3.141592653589793")
+
+
+def test_trailing_zeros_past_surrealdbs_scale_are_dropped() -> None:
+    """`Decimal("0E-30")` is an ordinary result of Decimal arithmetic; written
+    out as is, its 30 digits after the point are more than any SurrealDB
+    decimal holds, and the SDK's own decoder refused the round trip."""
+    for value, sent in [
+        (decimal.Decimal("0E-30"), "0." + "0" * 28),
+        (decimal.Decimal("1." + "0" * 31), "1." + "0" * 28),
+        (decimal.Decimal("-2.5" + "0" * 30), "-2.5" + "0" * 27),
+    ]:
+        assert cbor.decode(cbor.encode(value)) == value
+        assert sent.encode() in cbor.encode(value)
+
+
+def test_a_decimal_too_long_for_surrealdb_is_refused_as_a_bad_response() -> None:
+    raw = dumps(CBORTag(constants.TAG_DECIMAL_STRING, "9" * 5000))
+    with pytest.raises(UnexpectedResponseError, match="96-bit"):
+        cbor.decode(raw)
+
+
+def test_a_decimal_is_read_from_ascii_digits_only() -> None:
+    raw = dumps(CBORTag(constants.TAG_DECIMAL_STRING, "١٢٣"))
+    with pytest.raises(UnexpectedResponseError, match="decimal number as text"):
+        cbor.decode(raw)

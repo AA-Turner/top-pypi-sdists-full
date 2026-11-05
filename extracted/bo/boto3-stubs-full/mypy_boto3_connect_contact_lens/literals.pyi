@@ -30,6 +30,7 @@ __all__ = (
     "ResourceServiceName",
     "SentimentValueType",
     "ServiceName",
+    "TagComparisonTypeType",
 )
 
 ExtractedInformationFailureCodeType = Literal[
@@ -48,6 +49,7 @@ PostContactSummaryFailureCodeType = Literal[
 ]
 PostContactSummaryStatusType = Literal["COMPLETED", "FAILED"]
 SentimentValueType = Literal["NEGATIVE", "NEUTRAL", "POSITIVE"]
+TagComparisonTypeType = Literal["EQUALS", "NOT_EQUALS"]
 ConnectContactLensServiceName = Literal["connect-contact-lens"]
 ServiceName = Literal[
     "accessanalyzer",

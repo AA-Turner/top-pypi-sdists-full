@@ -83,7 +83,8 @@ def is_pos_def(cov, threshold=1e-8):
 
     cov_ = np.array(cov, ndmin=2)
     w = LA.eigh(cov_, lower=True, check_finite=True, eigvals_only=True)
-    value = np.all(w >= threshold)
+    # Return a Python bool: callers check the result with `is True` / `is False`
+    value = bool(np.all(w >= threshold))
 
     return value
 
@@ -261,7 +262,7 @@ def cov_returns(cov, seed=0):
     a = a @ L1.T
 
     if flag:
-        cov_ = pd.DataFrame(a, columns=cols)
+        a = pd.DataFrame(a, columns=cols)
 
     return a
 

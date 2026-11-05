@@ -202,11 +202,21 @@ preloader={
             'exec':federalSingleTaxBracketsLogger,
             'desc':'Store federal tax brackets'
             	},
-   	   f'{uuid1()}':{
+   	f'{uuid1()}':{
             'cmds':['virginia state tax brackets log',"vastb",],
             'exec':virginiaTaxBracketsLogger,
             'desc':'Store virginia state tax brackets'
             	},
+    f'{uuid1()}':{
+            'cmds':['set tax rate inlist',"stri",],
+            'exec':set_tax_across_in_list,
+            'desc':'set taxes for items in list using decimal rate'
+                },
+    f'{uuid1()}':{
+            'cmds':['remainder tax withholding',"rtw",],
+            'exec':remainder_tax_withholding,
+            'desc':'calculate the remainder tax that may need to be stored away for the IRS'
+                },
     f'{uuid1()}':{
             'cmds':['tax bracket federal single',"tb fed s",],
             'exec':TaxBracket_Federal_Single,
@@ -222,6 +232,11 @@ preloader={
             'exec':customer_name,
             'desc':'create new name for entry\'s where customer is needed'
             	},
+    f'{uuid1()}':{
+            'cmds':['xp nm pyslp',"payslip","pyslp",],
+            'exec':experimentName_payslip,
+            'desc':'create new name for entry\'s where payslip info is needed'
+                },
     f'{uuid1()}':{
             'cmds':['bt',"break time",],
             'exec':Break_Time,

@@ -739,6 +739,11 @@ class AsyncIndex(BaseIndex):
             show_ranking_score_details=show_ranking_score_details,
             vector=vector,
             hybrid=hybrid,
+            ranking_score_threshold=ranking_score_threshold,
+            locales=locales,
+            retrieve_vectors=retrieve_vectors,
+            media=media,
+            show_performance_details=show_performance_details,
             personalize=personalize,
         )
         if self._pre_search_plugins:
@@ -925,6 +930,10 @@ class AsyncIndex(BaseIndex):
             ranking_score_threshold=ranking_score_threshold,
             vector=vector,
             exhaustive_facet_count=exhaustive_facet_count,
+            facet_name=facet_name,
+            facet_query=facet_query,
+            locales=locales,
+            retrieve_vectors=retrieve_vectors,
             personalize=personalize,
         )
         if self._pre_facet_search_plugins:
@@ -999,10 +1008,10 @@ class AsyncIndex(BaseIndex):
             "rankingScoreThreshold": ranking_score_threshold,
         }
 
-        if offset:
+        if offset is not None:
             payload["offset"] = offset
 
-        if limit:
+        if limit is not None:
             payload["limit"] = limit
 
         response = await self._http_requests.post(
@@ -1248,6 +1257,9 @@ class AsyncIndex(BaseIndex):
             >>>     index = client.index("movies")
             >>>     await index.add_documents_in_batches(documents)
         """
+        if batch_size < 1:
+            raise ValueError("batch_size must be at least 1")
+
         if concurrency_limit:
             semaphore = asyncio.Semaphore(concurrency_limit)
 
@@ -1862,6 +1874,9 @@ class AsyncIndex(BaseIndex):
             >>>     index = client.index("movies")
             >>>     await index.update_documents_in_batches(documents)
         """
+        if batch_size < 1:
+            raise ValueError("batch_size must be at least 1")
+
         if concurrency_limit:
             semaphore = asyncio.Semaphore(concurrency_limit)
 
@@ -2058,6 +2073,9 @@ class AsyncIndex(BaseIndex):
             >>>     index = client.index("movies")
             >>>     await index.update_documents_from_directory_in_batches(directory_path)
         """
+        if batch_size < 1:
+            raise ValueError("batch_size must be at least 1")
+
         directory = Path(directory_path) if isinstance(directory_path, str) else directory_path
 
         if combine_documents:

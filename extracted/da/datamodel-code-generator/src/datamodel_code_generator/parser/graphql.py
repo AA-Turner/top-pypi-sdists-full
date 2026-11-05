@@ -40,10 +40,7 @@ from datamodel_code_generator.types import Types
 try:
     import graphql
 except ImportError as exc:  # pragma: no cover
-    msg = (
-        f"Please run {install_command('graphql', row='legacy-graphql-quote')} "
-        "to generate data-model from a GraphQL schema."
-    )
+    msg = f"Please run {install_command('graphql')} to generate data-model from a GraphQL schema."
     raise Exception(msg) from exc  # noqa: TRY002
 
 
@@ -211,7 +208,8 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
     def parse_scalar(self, scalar_graphql_object: graphql.GraphQLScalarType) -> None:
         """Parse a GraphQL scalar type and add it to results."""
         self._graph_builder.register_model(
-            self.data_model_scalar_type(
+            self._new_model(
+                self.data_model_scalar_type,
                 reference=self.references[scalar_graphql_object.name],
                 fields=[],
                 custom_template_dir=self.custom_template_dir,
@@ -259,6 +257,16 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
         )
         self._graph_builder.register_model(data_model_type)
 
+    def _enum_member_extras(self, value: graphql.GraphQLEnumValue) -> dict[str, Any]:
+        """Return the extras of an enum member: the description of its value where a docstring option writes it.
+
+        A member never writes ``Field(description=...)``, but a Pydantic field with a description registers the
+        ``Field`` import, so a description that no docstring option writes stays out and the module imports keep order.
+        """
+        if value.description is None or not (self.use_field_description or self.use_inline_field_description):
+            return {}
+        return {"description": value.description}
+
     def parse_enum_as_enum_class(self, enum_object: graphql.GraphQLEnumType) -> None:
         """Parse enum values as an Enum class."""
         enum_fields: list[DataModelFieldBase] = []
@@ -274,7 +282,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
 
             enum_fields.append(
                 self._build_field(
-                    "graphql-enum-member",
+                    "enum-member",
                     self.data_type_manager.get_data_type(
                         Types.string,
                     ),
@@ -282,7 +290,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
                     default=default,
                     required=True,
                     has_default=True,
-                    use_field_description=value.description is not None,
+                    extras=self._enum_member_extras(value),
                     original_name=None,
                 )
             )
@@ -296,7 +304,8 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
             has_strenum=python_target_meets("python.strenum", self.target_python_version.version_key),
             keep_member_values=self.config.keep_enum_member_values,
         )
-        enum = _enum_class(kind)(
+        enum = self._new_model(
+            _enum_class(kind),
             reference=self.references[enum_object.name],
             fields=enum_fields,
             path=self.current_source_path,
@@ -457,7 +466,8 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
             self._build_field("bare", DataType(), name=self.references[types[index].name].name)
             for index in plan.members
         ]
-        data_model_type = self.data_model_union_type(
+        data_model_type = self._new_model(
+            self.data_model_union_type,
             reference=self.references[union_object.name],
             fields=fields,
             custom_base_class=self._resolve_base_class(union_object.name),

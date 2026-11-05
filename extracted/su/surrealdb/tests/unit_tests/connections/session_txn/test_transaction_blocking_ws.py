@@ -2,7 +2,7 @@ from collections.abc import Generator
 
 import pytest
 
-from surrealdb import UnexpectedResponseError
+from surrealdb import StringRecordId, UnexpectedResponseError
 from surrealdb.connections.blocking_ws import BlockingWsSurrealConnection
 
 
@@ -10,10 +10,10 @@ from surrealdb.connections.blocking_ws import BlockingWsSurrealConnection
 def setup_table(
     blocking_ws_connection: BlockingWsSurrealConnection,
 ) -> Generator[None, None, None]:
-    blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_test;")
-    blocking_ws_connection.query("DEFINE TABLE session_txn_test SCHEMALESS;")
+    blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_test;").execute()
+    blocking_ws_connection.query("DEFINE TABLE session_txn_test SCHEMALESS;").execute()
     yield
-    blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_test;")
+    blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_test;").execute()
 
 
 def test_transaction_commit(
@@ -29,13 +29,13 @@ def test_transaction_commit(
     txn = session.begin_transaction()
 
     txn.create(
-        "session_txn_test:committed",
+        StringRecordId("session_txn_test:committed"),
         {"name": "txn-commit", "value": 42},
     )
 
     before_commit = session.query(
         "SELECT * FROM session_txn_test WHERE id = session_txn_test:committed;"
-    )
+    ).first()
     assert isinstance(before_commit, list)
     assert len(before_commit) == 0
 
@@ -43,7 +43,7 @@ def test_transaction_commit(
 
     after_commit = session.query(
         "SELECT * FROM session_txn_test WHERE id = session_txn_test:committed;"
-    )
+    ).first()
     assert isinstance(after_commit, list)
     assert len(after_commit) == 1
     assert after_commit[0].get("name") == "txn-commit"
@@ -65,7 +65,7 @@ def test_transaction_cancel(
     txn = session.begin_transaction()
 
     txn.create(
-        "session_txn_test:cancelled",
+        StringRecordId("session_txn_test:cancelled"),
         {"name": "txn-cancel", "value": 99},
     )
 
@@ -73,7 +73,7 @@ def test_transaction_cancel(
 
     after_cancel = session.query(
         "SELECT * FROM session_txn_test WHERE id = session_txn_test:cancelled;"
-    )
+    ).first()
     assert isinstance(after_cancel, list)
     assert len(after_cancel) == 0
 
@@ -93,15 +93,15 @@ def test_transaction_query_select(
     txn = session.begin_transaction()
 
     txn.create(
-        "session_txn_test:txn_query",
+        StringRecordId("session_txn_test:txn_query"),
         {"name": "txn-query", "value": 1},
     )
-    result = txn.query("SELECT * FROM session_txn_test:txn_query;")
+    result = txn.query("SELECT * FROM session_txn_test:txn_query;").first()
     assert isinstance(result, list)
     assert len(result) == 1
     assert result[0].get("name") == "txn-query"
 
-    selected = txn.select("session_txn_test:txn_query")
+    selected = txn.select(StringRecordId("session_txn_test:txn_query")).execute()
     assert selected is not None
     assert selected.get("name") == "txn-query"
 

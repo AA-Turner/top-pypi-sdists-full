@@ -22,7 +22,7 @@ from datamodel_code_generator.model.pydantic_v2.base_model import (
     _safe_config_dict_items,
 )
 from datamodel_code_generator.model.pydantic_v2.imports import IMPORT_CONFIG_DICT
-from datamodel_code_generator.python_literal import represent_untrusted_python_value
+from datamodel_code_generator.python_literal import represent_untrusted_python_value, stable_repr
 
 IMPORT_ABC_ITERATOR = Import.from_full_path("collections.abc.Iterator")
 IMPORT_ABC_SEQUENCE = Import.from_full_path("collections.abc.Sequence")
@@ -82,7 +82,7 @@ class RootModel(BaseModel):
             Import.from_full_path("enum.Enum"),
             Import.from_full_path("pydantic.model_validator"),
         ))
-        literal_source = repr(values)
+        literal_source = stable_repr(values)
         if any(
             marker in literal_source
             for marker in ("[inf", "(inf", "{inf", " inf", "[nan", "(nan", "{nan", " nan", "-inf")
@@ -219,7 +219,7 @@ class RootModel(BaseModel):
     def _rendered_config_items(self) -> list[tuple[str, str]]:
         """Return the root model's config items: its engine and freezing, literal values and a neutral ``extra``."""
         config = {**dict(_root_model_config_items(self.extra_template_data.get("config"))), **self._root_config()}
-        return _safe_config_dict_items(config) if config else []
+        return _safe_config_dict_items(config, self.target_python_version) if config else []
 
     def _root_config(self) -> dict[str, Any]:
         """Return the config a root model adds to its own: its literal values and the neutral ``extra``."""
@@ -312,7 +312,7 @@ class RootModel(BaseModel):
             _ = fields[0].type_hint
         if RENDER_READY.get() is None:
             self._decide_config_items_outside_a_parse()
-        extra_template_data = self._custom_template_data() if use_custom_template else self._builtin_template_data()
+        extra_template_data = self._render_template_data(use_custom_template=use_custom_template)
         rendered = self._render(
             class_name=class_name or self.class_name,
             fields=fields,

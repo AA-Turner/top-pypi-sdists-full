@@ -9,6 +9,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, closing
 from functools import partial
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Final, Literal
 
 import pytest
@@ -120,6 +121,18 @@ def test_constructor_rejects_a_timeout_that_is_not_a_number(
         lock_type(
             lock_file,
             timeout=timeout,  # ty: ignore[invalid-argument-type]  # the rejected type is the contract
+            is_singleton=False,
+        )
+
+
+@pytest.mark.parametrize("blocking", [pytest.param("false", id="str"), pytest.param(0, id="int")])
+def test_constructor_rejects_a_blocking_that_is_not_a_bool(
+    lock_type: type[ReadWriteLock | SoftReadWriteLock], blocking: str | int, lock_file: str
+) -> None:
+    with pytest.raises(TypeError, match="blocking must be a bool"):
+        lock_type(
+            lock_file,
+            blocking=blocking,  # ty: ignore[invalid-argument-type]  # the rejected type is the contract
             is_singleton=False,
         )
 
@@ -679,7 +692,12 @@ def test_busy_timeout_recomputed_after_journal_mode(
     lock_file: str, mocker: MockerFixture, mode: Literal["read", "write"]
 ) -> None:
     counter = iter([0.0, 0.0, 0.0, 0.5])
-    mocker.patch("filelock._read_write.time.perf_counter", side_effect=counter)
+    mocker.patch(
+        "filelock._read_write.time",
+        new=SimpleNamespace(
+            monotonic=time.monotonic, perf_counter=mocker.create_autospec(time.perf_counter, side_effect=counter)
+        ),
+    )
     lock = ReadWriteLock(lock_file, is_singleton=False)
     (lock.acquire_read if mode == "read" else lock.acquire_write)(timeout=2.0)
     lock.release()
@@ -959,6 +977,25 @@ def sync_locks(tmp_path: Path) -> Generator[tuple[ReadWriteLock, ReadWriteLock]]
         closing(ReadWriteLock(tmp_path / "a", timeout=30, is_singleton=False)) as contender,
     ):
         yield holder, contender
+
+
+@pytest.mark.parametrize("mode", [pytest.param("read", id="read"), pytest.param("write", id="write")])
+@pytest.mark.parametrize("blocking", [pytest.param("false", id="str"), pytest.param(0, id="int")])
+def test_acquire_rejects_a_blocking_that_is_not_a_bool(
+    timeout_locks: tuple[ReadWriteLock | SoftReadWriteLock, ReadWriteLock | SoftReadWriteLock],
+    mode: Literal["read", "write"],
+    blocking: str | int,
+) -> None:
+    # Contended, so a 0 read as blocking would wait out the contender's timeout instead of failing fast.
+    holder, contender = timeout_locks
+    acquire: Final = contender.acquire_read if mode == "read" else contender.acquire_write
+    with holder.acquire_write(blocking=False):
+        started: Final = time.monotonic()
+        with pytest.raises(TypeError, match="blocking must be a bool"):
+            acquire(blocking=blocking)  # ty: ignore[invalid-argument-type]  # the rejected type is the contract
+        assert time.monotonic() - started < 5
+    with contender.acquire_write(blocking=False):
+        pass
 
 
 @pytest.mark.parametrize("mode", [pytest.param("read", id="read"), pytest.param("write", id="write")])

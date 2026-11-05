@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mistralai-agents
-Version: 1.1.0rc16
+Version: 1.1.0rc18
 Summary: Mistral Agents SDK - build and serve agents in Python
 Author-email: Mistral AI <support@mistral.ai>
 License: Apache-2.0
@@ -16,7 +16,7 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: cachetools<8,>=7.1.6
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: mistralai-otel-observability>=0.5.0
-Requires-Dist: mistralai-vibe-harness[observability,workflows]==0.1.15
+Requires-Dist: mistralai-vibe-harness[observability,workflows]==0.1.17
 Requires-Dist: mistralai-vibe-sdk<0.15,>=0.14.0
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1
 Requires-Dist: mistralai-workflows<4,>=3.16.0
@@ -35,10 +35,10 @@ Provides-Extra: koyeb
 Requires-Dist: koyeb-sdk<2,>=1.5.5; extra == 'koyeb'
 Provides-Extra: sessions-client
 Requires-Dist: httpx>=0.28.1; extra == 'sessions-client'
-Requires-Dist: mistralai-vibe-harness==0.1.15; extra == 'sessions-client'
+Requires-Dist: mistralai-vibe-harness==0.1.17; extra == 'sessions-client'
 Description-Content-Type: text/markdown
 
-# Mistral Agents SDK
+# Mistral Managed Agents
 
 Build an agent in Python. Try it on your laptop, then run the same code in production with one command.
 
@@ -63,7 +63,7 @@ import asyncio
 
 from mistralai import agents
 
-agent = agents.Agent(model="mistral-medium-latest")
+agent = agents.Agent(model="mistral-large-4")
 
 
 async def main() -> None:
@@ -93,9 +93,7 @@ These git commands assume `agents init` created the repository and committed the
 
 ## Learn more
 
-- [Documentation](https://docs-internal-frameworks.mistral.ai/agents-sdk/)
-- [Quickstart](https://docs-internal-frameworks.mistral.ai/agents-sdk/getting-started/quickstart)
-- [Feature highlights](https://docs-internal-frameworks.mistral.ai/agents-sdk/getting-started/feature-highlights)
+- [Documentation](https://docs.mistral.ai/studio/agents/overview)
 
 ## Feedback
 

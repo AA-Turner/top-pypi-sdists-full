@@ -15,15 +15,20 @@ class UpdateInstanceGroupJsonBody:
         new_summary (str):
         instance_role (Union[Unset, None, str]): Instance-level role for group members. 'superadmin', 'devops', 'user'
             or empty to clear.
+        external_id (Union[Unset, str]): IdP group the SSO groups claim links this group to: a group id or a full path
+            such as /operators/network-team. Omitted keeps the current link, blank clears it. Refused on a group SCIM
+            provisioned.
     """
 
     new_summary: str
     instance_role: Union[Unset, None, str] = UNSET
+    external_id: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         new_summary = self.new_summary
         instance_role = self.instance_role
+        external_id = self.external_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -34,6 +39,8 @@ class UpdateInstanceGroupJsonBody:
         )
         if instance_role is not UNSET:
             field_dict["instance_role"] = instance_role
+        if external_id is not UNSET:
+            field_dict["external_id"] = external_id
 
         return field_dict
 
@@ -44,9 +51,12 @@ class UpdateInstanceGroupJsonBody:
 
         instance_role = d.pop("instance_role", UNSET)
 
+        external_id = d.pop("external_id", UNSET)
+
         update_instance_group_json_body = cls(
             new_summary=new_summary,
             instance_role=instance_role,
+            external_id=external_id,
         )
 
         update_instance_group_json_body.additional_properties = d

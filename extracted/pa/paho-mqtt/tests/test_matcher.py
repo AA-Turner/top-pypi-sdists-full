@@ -1,5 +1,6 @@
-import paho.mqtt.client as client
 import pytest
+
+from paho.mqtt import client
 
 
 class Test_client_function:
@@ -17,6 +18,7 @@ class Test_client_function:
         ("#", "/foo/bar"),
         ("/#", "/foo/bar"),
         ("$SYS/bar", "$SYS/bar"),
+        ("$SYS/#", "$SYS/foo/bar"),
     ])
     def test_matching(self, sub, topic):
         assert client.topic_matches_sub(sub, topic)

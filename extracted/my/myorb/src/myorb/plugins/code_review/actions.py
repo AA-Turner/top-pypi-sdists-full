@@ -109,5 +109,6 @@ def ask_actions(github: GitHub) -> list[AskAction]:
             SCHEMA,
             comment_summary,
             comment,
+            outward=True,
         ),
     ]

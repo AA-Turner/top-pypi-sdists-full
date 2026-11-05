@@ -326,8 +326,9 @@ class SessionsClient(_InternalHTTPClient):
 
         A retry with the same ``idempotency_key``, message, ``message_entry_id`` and
         ``context_messages`` returns the original receipt. ``message_entry_id`` names the user
-        message entry; without it, the Session derives one from the key. ``context_messages`` reach
-        the model only: history, snapshots, and events never show them.
+        message entry; without it, the Session derives one from the key. The model gets each of
+        ``context_messages`` in a ``<Context>`` block at the start of the message; history records
+        each as a ``context`` entry of kind ``input`` just before the user message.
         ``source`` names the calling product, as on the other commands.
         Refusals stay ``httpx.HTTPStatusError``: 429 when the Session applied nothing yet (retry;
         ``detail.code`` is ``session_busy``, ``intake_overloaded`` or ``session_continuing``),

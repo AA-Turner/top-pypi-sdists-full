@@ -7,20 +7,23 @@ from darabonba.model import DaraModel
 class SubmitCheckRequest(DaraModel):
     def __init__(
         self,
+        config_id: str = None,
         resource_directory_account_id: int = None,
         scan_range: str = None,
         task_source: str = None,
     ):
-        # The Alibaba Cloud account ID of the member account in the resource directory.
-        # >You can call the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        # The policy ID. This parameter takes effect only when ScanRange is set to POLICY. You can obtain the value by calling the ListCheckConfigs operation. If this parameter is not specified or is set to default, the scan is triggered based on the system default policy. If the default policy does not exist, NoDefaultStrategy is returned. If another value is specified, the scan is triggered based on the check items of the specified policy. If the policy does not exist or does not belong to the current account, IllegalParam is returned. This parameter is ignored when ScanRange is set to FULL or FREE.
+        self.config_id = config_id
+        # The ID of the Alibaba Cloud account to which the member accounts of the resource folder belong.
+        # >You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
         # The check scope. Valid values:
-        # - **FULL**: scans all check items
-        # - **POLICY**: scans custom-configured check items
+        # - **FULL**: Scans all check items.
+        # - **POLICY**: Scans check items of custom configurations.
         self.scan_range = scan_range
-        # The task source. Valid values:
+        # The source of the task. Valid values:
         # 
-        # - **YAO_CHI**: Alibaba Cloud ApsaraDB console.
+        # - **YAO_CHI**: ApsaraDB console.
         self.task_source = task_source
 
     def validate(self):
@@ -31,6 +34,9 @@ class SubmitCheckRequest(DaraModel):
         _map = super().to_map()
         if _map is not None:
             result = _map
+        if self.config_id is not None:
+            result['ConfigId'] = self.config_id
+
         if self.resource_directory_account_id is not None:
             result['ResourceDirectoryAccountId'] = self.resource_directory_account_id
 
@@ -44,6 +50,9 @@ class SubmitCheckRequest(DaraModel):
 
     def from_map(self, m: dict = None):
         m = m or dict()
+        if m.get('ConfigId') is not None:
+            self.config_id = m.get('ConfigId')
+
         if m.get('ResourceDirectoryAccountId') is not None:
             self.resource_directory_account_id = m.get('ResourceDirectoryAccountId')
 

@@ -88,6 +88,7 @@ from ._typing import (
     ValidFilePath,
 )
 from .annotations import Layer
+from .api_key.masking import mask_text
 from .api_objects.model import ModelStatusConfiguration, RemoteModel
 from .artifacts import Artifact, LoggedArtifact
 from .assets import preprocess as assets_preprocess
@@ -213,6 +214,7 @@ from .flatten_dict.flattener import (
 )
 from .logging_messages import (
     ADD_TAGS_ERROR,
+    API_KEY_MASKING_FAILED_WARNING,
     AWS_LAMBDA_NEEDS_END,
     CODECARBON_DIR_CREATION_FAILED,
     CODECARBON_NOT_INSTALLED,
@@ -364,6 +366,7 @@ from .messages import (
     RegisterModelMessage,
     SystemInfoMessage,
 )
+from .messages_utils import mask_api_keys
 from .monkey_patching import ALREADY_IMPORTED_MODULES
 from .rpc import RemoteCall, call_remote_function
 from .streamer import BaseStreamer
@@ -1502,6 +1505,13 @@ class CometExperiment(CommonExperiment):
         # We do the check in _enqueue_message as it is the most central code
         if get_ident() == self.main_thread_id:
             self._check_rpc_callbacks()
+        try:
+            mask_api_keys(message, getattr(self, "api_key", None))
+        except Exception:
+            # Never break a log_* call over masking; the message goes out as before.
+            LOGGER.warning(
+                API_KEY_MASKING_FAILED_WARNING, type(message).__name__, exc_info=True
+            )
         self.streamer.put_message_in_q(message)
 
     def _get_asset_upload_step(self) -> Optional[int]:
@@ -2688,6 +2698,8 @@ class CometExperiment(CommonExperiment):
             exp.end()
             ```
         """
+        if isinstance(text, str):
+            text = mask_text(text, getattr(self, "api_key", None))
         # Send fake file_name, which is replaced on the backend:
         return self._log_asset_data(
             text,

@@ -121,7 +121,6 @@ _HOMES = {
     "_CODE_CAPTURE_KINDS": "probe.sdk.capture.outputs.sweep",
     "_REASONS": "probe.sdk.capture.outputs.sweep",
     "_UNREACHABLE_WARNED": "probe.sdk.capture.outputs.sweep",
-    "_config_checker": "probe.sdk.capture.outputs.sweep",
     "_is_code_capture": "probe.sdk.capture.outputs.sweep",
     "_owndirs": "probe.sdk.capture.outputs.sweep",
     "_shallow_first_key": "probe.sdk.capture.outputs.sweep",

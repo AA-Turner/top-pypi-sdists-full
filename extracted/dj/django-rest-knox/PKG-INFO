@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: django-rest-knox
-Version: 5.1.0
+Version: 5.1.1
 Summary: Authentication for django rest framework
 Author-email: James McMahon <james1345@googlemail.com>
 License: MIT
-Project-URL: Homepage, https://github.com/jazzband/django-rest-knox
-Project-URL: Documentation, https://jazzband.co/projects/django-rest-knox
-Project-URL: Changelog, https://github.com/jazzband/django-rest-knox/blob/master/CHANGELOG.md
+Project-URL: Homepage, https://github.com/django-commons/django-rest-knox
+Project-URL: Documentation, https://django-commons.org/django-rest-knox/
+Project-URL: Changelog, https://github.com/django-commons/django-rest-knox/blob/master/CHANGELOG.md
 Keywords: django,rest,authentication,login
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -33,8 +33,7 @@ Dynamic: license-file
 django-rest-knox
 ================
 
-[![Jazzband](https://jazzband.co/static/img/badge.svg)](https://jazzband.co/)
-[![image](https://github.com/jazzband/django-rest-knox/workflows/Test/badge.svg?branch=develop)](https://github.com/jazzband/django-rest-knox/actions)
+[![image](https://github.com/django-commons/django-rest-knox/workflows/Test/badge.svg?branch=develop)](https://github.com/django-commons/django-rest-knox/actions)
 
 Authentication module for Django rest auth.
 
@@ -73,7 +72,7 @@ default implementation:
     the app settings (default is 10 hours.)
 
 More information can be found in the
-[Documentation](https://jazzband.github.io/django-rest-knox/)
+[Documentation](https://django-commons.org/django-rest-knox/)
 
 # Run the tests locally
 

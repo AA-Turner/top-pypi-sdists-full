@@ -189,6 +189,81 @@ def prepare_urlencoded(data: Any) -> Any:
     return data
 
 
+class StatusClass(enum.Enum):
+    """What a response status says about the call, whatever protocol sent it."""
+
+    SUCCESS = "success"
+    REDIRECT = "redirect"
+    # A client error no class below describes.
+    CLIENT_ERROR = "client_error"
+    UNAUTHENTICATED = "unauthenticated"
+    FORBIDDEN = "forbidden"
+    NOT_FOUND = "not_found"
+    METHOD_NOT_ALLOWED = "method_not_allowed"
+    CONFLICT = "conflict"
+    RATE_LIMITED = "rate_limited"
+    # The server failed while handling the request.
+    INTERNAL_ERROR = "internal_error"
+    # The server does not implement what the request asks for.
+    NOT_IMPLEMENTED = "not_implemented"
+    # A server error no class above describes, e.g. an unavailable upstream.
+    SERVER_ERROR = "server_error"
+    # An informational status or one outside the protocol's range.
+    OTHER = "other"
+
+    @property
+    def is_client_error(self) -> bool:
+        return self in _CLIENT_ERRORS
+
+    @property
+    def is_auth_failure(self) -> bool:
+        return self in (StatusClass.UNAUTHENTICATED, StatusClass.FORBIDDEN)
+
+    @property
+    def is_server_error(self) -> bool:
+        return self in (StatusClass.INTERNAL_ERROR, StatusClass.NOT_IMPLEMENTED, StatusClass.SERVER_ERROR)
+
+
+_CLIENT_ERRORS = frozenset(
+    {
+        StatusClass.CLIENT_ERROR,
+        StatusClass.UNAUTHENTICATED,
+        StatusClass.FORBIDDEN,
+        StatusClass.NOT_FOUND,
+        StatusClass.METHOD_NOT_ALLOWED,
+        StatusClass.CONFLICT,
+        StatusClass.RATE_LIMITED,
+    }
+)
+# HTTP status -> the class only it stands for.
+_HTTP_STATUS_CLASSES = {
+    401: StatusClass.UNAUTHENTICATED,
+    403: StatusClass.FORBIDDEN,
+    404: StatusClass.NOT_FOUND,
+    405: StatusClass.METHOD_NOT_ALLOWED,
+    409: StatusClass.CONFLICT,
+    429: StatusClass.RATE_LIMITED,
+    500: StatusClass.INTERNAL_ERROR,
+    501: StatusClass.NOT_IMPLEMENTED,
+}
+HTTP_STATUS_CODES_BY_CLASS = {status_class: code for code, status_class in _HTTP_STATUS_CLASSES.items()}
+
+
+def http_status_class(status_code: int) -> StatusClass:
+    status_class = _HTTP_STATUS_CLASSES.get(status_code)
+    if status_class is not None:
+        return status_class
+    if 200 <= status_code < 300:
+        return StatusClass.SUCCESS
+    if 300 <= status_code < 400:
+        return StatusClass.REDIRECT
+    if 400 <= status_code < 500:
+        return StatusClass.CLIENT_ERROR
+    if 500 <= status_code < 600:
+        return StatusClass.SERVER_ERROR
+    return StatusClass.OTHER
+
+
 class CallOutcome(enum.Enum):
     """What an API did with a request carrying positive test data."""
 
@@ -215,16 +290,12 @@ def is_uninformative_status(status_code: int) -> bool:
 
 
 class Response:
-    """HTTP response wrapper that normalizes different transport implementations.
-
-    Provides a consistent interface for accessing response data whether the request
-    was made via HTTP, ASGI, or WSGI transports.
-    """
+    """Response from any transport (HTTP, ASGI, WSGI or gRPC) in one shape."""
 
     status_code: int
-    """HTTP status code (e.g., 200, 404, 500)."""
+    """Status code in the protocol's own numbering (e.g., HTTP 404, gRPC 5)."""
     headers: Headers
-    """Response headers with lowercase keys and list values."""
+    """Headers, or gRPC metadata, with lowercase keys and list values."""
     content: bytes
     """Raw response body as bytes, or its leading bytes when the body was kept only in part."""
     content_size: int
@@ -236,9 +307,9 @@ class Response:
     verify: bool
     """Whether TLS verification was enabled for the request."""
     message: str
-    """HTTP status message (e.g., "OK", "Not Found")."""
+    """Status text (e.g., "Not Found" for HTTP, "NOT_FOUND" for gRPC)."""
     http_version: str
-    """HTTP protocol version ("1.0" or "1.1")."""
+    """HTTP version the response arrived over (e.g., "1.1", or "2" for gRPC)."""
     encoding: str | None
     """Character encoding for text content, if detected."""
     stream_cut_short: bool
@@ -449,7 +520,8 @@ class Response:
 
         """
         if self._deserialized is NOT_SET:
-            self._deserialized = json.loads(self.text)
+            rendered = self.render_content(self.content) if self.render_content is not None else None
+            self._deserialized = json.loads(rendered if rendered is not None else self.text)
         return self._deserialized
 
     def clear_cache(self) -> None:

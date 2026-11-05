@@ -7241,6 +7241,7 @@ https://docs.chalk.ai/cli/apply
         input_sql: str | None = None,
         num_shards: int | None = None,
         plan_only: bool = False,
+        store_online_summaries: bool | None = None,
     ) -> AggregateBackfillResponse:
         return self._grpc_client.trigger_aggregate_backfill(
             features=features,
@@ -7256,6 +7257,7 @@ https://docs.chalk.ai/cli/apply
             input_sql=input_sql,
             num_shards=num_shards,
             plan_only=plan_only,
+            store_online_summaries=store_online_summaries,
         )
 
     def _workflow_auth_context(

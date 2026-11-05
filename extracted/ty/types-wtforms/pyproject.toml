@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-WTForms"
-version = "3.3.0.20261103"
+version = "3.3.0.20261104"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for WTForms"
@@ -31,7 +31,7 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.92
 
 It was generated from typeshed commit
-[`92b4407b6ed288e6d7cc4a0f7017e18991854e41`](https://github.com/python/typeshed/commit/92b4407b6ed288e6d7cc4a0f7017e18991854e41).
+[`62a7ba1fef5f6bbcb513cc1fb80011d75199a240`](https://github.com/python/typeshed/commit/62a7ba1fef5f6bbcb513cc1fb80011d75199a240).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

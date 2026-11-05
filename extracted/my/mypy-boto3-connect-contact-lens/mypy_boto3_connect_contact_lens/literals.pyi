@@ -30,6 +30,7 @@ __all__ = (
     "ResourceServiceName",
     "SentimentValueType",
     "ServiceName",
+    "TagComparisonTypeType",
 )
 
 ExtractedInformationFailureCodeType = Literal[
@@ -48,6 +49,7 @@ PostContactSummaryFailureCodeType = Literal[
 ]
 PostContactSummaryStatusType = Literal["COMPLETED", "FAILED"]
 SentimentValueType = Literal["NEGATIVE", "NEUTRAL", "POSITIVE"]
+TagComparisonTypeType = Literal["EQUALS", "NOT_EQUALS"]
 ConnectContactLensServiceName = Literal["connect-contact-lens"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -129,6 +131,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -156,6 +159,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "continuum",
     "controlcatalog",
     "controltower",
     "cost-optimization-hub",
@@ -201,12 +205,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -231,6 +235,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -273,6 +278,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -325,6 +331,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -406,6 +413,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -456,7 +464,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

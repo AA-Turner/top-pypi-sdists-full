@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from bitfab.constants import _replay_context
+from bitfab.error_chain import describe_error
 from bitfab.trace_metadata import record_caller_trace_metadata
 from bitfab.warn_once import warn_once
 
@@ -795,7 +796,9 @@ def _on_unwind(code: Any, instruction_offset: int, exception: BaseException) -> 
     # the first time an exception passed through library code. Filter instead.
     if is_library_code(code.co_filename):
         return None
-    return _close(code, None, f"{type(exception).__name__}: {exception}")
+    return _close(
+        code, None, f"{type(exception).__name__}: {describe_error(exception)}"
+    )
 
 
 def _is_free_threaded() -> bool:
@@ -1033,7 +1036,11 @@ class BorrowedSpan:
             updated[session] = _without(stack, index)
         _open.set(updated)
         if exc_type is not None:
-            self.emit(None, f"{exc_type.__name__}: {exc}")
+            self.emit(
+                None,
+                f"{exc_type.__name__}: "
+                f"{describe_error(exc) if isinstance(exc, BaseException) else exc}",
+            )
 
 
 def borrowed_span(

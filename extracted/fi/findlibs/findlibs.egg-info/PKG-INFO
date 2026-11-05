@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: findlibs
-Version: 0.1.4
+Version: 0.1.5
 Summary: A package to search for shared libraries on various platforms
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software@ecmwf.int>
 License: Apache License Version 2.0

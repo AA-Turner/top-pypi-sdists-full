@@ -55,10 +55,8 @@ class ConfigTemplates:
 
     # Template mapping for different configuration types
     TEMPLATE_MAPPING = {
-        "interface": "interface_template.yaml",
         "backbone_interface": "backbone_interface_template.yaml",
         "lag_interfaces": "lag_interfaces_template.yaml",
-        "circuit": "circuit_template.yaml",
         "global_prefix_set": "global_prefix_set_template.yaml",
         "global_bgp_filter": "global_bgp_routing_policies_template.yaml",
         "global_graphiant_filter": "global_graphiant_routing_policies_template.yaml",
@@ -67,7 +65,6 @@ class ConfigTemplates:
         "ipfix_service": "global_ipfix_template.yaml",
         "vpn_profile": "global_vpn_profile_template.yaml",
         "site_list": "global_site_lists_template.yaml",
-        "vrrp_interfaces": "vrrp_interfaces_template.yaml",
     }
 
     def __init__(self, config_template_path: str):
@@ -167,17 +164,9 @@ class ConfigTemplates:
         return self.render_template(template_name, **kwargs)
 
     # Specific template rendering methods
-    def render_interface(self, **kwargs) -> Dict[str, Any]:
-        """Render interface template."""
-        return self.render_by_type("interface", **kwargs)
-
     def render_backbone_interface(self, **kwargs) -> Dict[str, Any]:
         """Render backbone (Core device) interface template."""
         return self.render_by_type("backbone_interface", **kwargs)
-
-    def render_circuit(self, **kwargs) -> Dict[str, Any]:
-        """Render circuit template."""
-        return self.render_by_type("circuit", **kwargs)
 
     def render_lag_interfaces(self, **kwargs) -> Dict[str, Any]:
         """Render LAG interfaces template."""
@@ -202,10 +191,6 @@ class ConfigTemplates:
     def render_syslog_service(self, **kwargs) -> Dict[str, Any]:
         """Render syslog service template."""
         return self.render_by_type("syslog_service", **kwargs)
-
-    def render_vrrp_interfaces(self, **kwargs) -> Dict[str, Any]:
-        """Render VRRP on interfaces template."""
-        return self.render_by_type("vrrp_interfaces", **kwargs)
 
     def render_ipfix_service(self, **kwargs) -> Dict[str, Any]:
         """Render IPFIX service template."""

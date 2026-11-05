@@ -165,7 +165,11 @@ def release_staged(state: dict) -> None:
 
 
 def _check_staged(state: dict) -> None:
-    """The staged copy is unchanged, or nothing more is sent (permanent: the drain records a reference row)."""
+    """The staged copy is unchanged, or nothing more is sent (permanent: the drain records a reference row).
+    A fenced caller's drain reads only a copy staged in its outbox (H1, `need_staged_bytes`)."""
+    from probe.sdk.delivery.journal.uploads import need_staged_bytes
+
+    need_staged_bytes(state["staged_path"])
     try:
         st = os.stat(state["staged_path"])
     except FileNotFoundError:

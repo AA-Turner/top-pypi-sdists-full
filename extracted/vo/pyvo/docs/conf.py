@@ -172,3 +172,9 @@ for line in open("nitpick-exceptions"):
         continue
     dtype, target = line.split(None, 1)
     nitpick_ignore.append((dtype, target.strip()))
+
+# -- Options for linkcheck output -------------------------------------------
+linkcheck_retry = 3
+linkcheck_ignore = [
+    "https://ui.adsabs.harvard.edu",  # 405 Client Error: Not Allowed for sphinx-build
+]

@@ -2,16 +2,16 @@
 ``steer_turn``) idempotent.
 
 ``MessageReceiptLedger`` keeps, per command id, the Turn each admitted message joined, so a retry
-gets that Turn back. A ``send_message`` receipt also keeps the content digest, so a reuse of its
-key with other content conflicts; a start or steer replays by command id alone (ADR 0038). The
-Harness Runtime owns admission.
+gets that Turn back. A ``send_message`` or ``start_turn`` receipt also keeps the content digest, so
+a reuse of its key with other content conflicts; a steer replays by command id alone (ADR 0038).
+The Harness Runtime owns admission.
 """
 
 import hashlib
 import json
 
 from mistralai.vibe_agents.sdk.app.worker.continuation import MessageReceiptRecord
-from mistralai.vibe_agents.session_workflow.update_inputs import SendMessageInput
+from mistralai.vibe_agents.session_workflow.update_inputs import SendMessageInput, StartTurnInput
 
 # ponytail: FIFO past this many message receipts, stored and carried. Retries come within
 # seconds; an older retry still conflicts while the Runtime keeps its command id. Raise the
@@ -68,7 +68,7 @@ class MessageReceiptLedger:
             del self._receipts[command_id]
 
 
-def build_message_digest(message: SendMessageInput) -> str:
+def build_message_digest(message: SendMessageInput | StartTurnInput) -> str:
     # Only the message, its entry id and its context messages decide a conflict, as Harness
     # ``MessageSendParams`` states. Metadata carries a per-request correlation id, and the source
     # names the sending surface, not the message. exclude_none keeps the digest stable when a

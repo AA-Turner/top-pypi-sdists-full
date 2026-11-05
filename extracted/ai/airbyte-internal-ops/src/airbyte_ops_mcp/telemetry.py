@@ -22,7 +22,7 @@ try:
 
     SEGMENT_AVAILABLE = True
 except ImportError:
-    analytics = None  # type: ignore[assignment]
+    analytics = None  # ty: ignore[invalid-assignment]
     SEGMENT_AVAILABLE = False
 
 logger = logging.getLogger(__name__)

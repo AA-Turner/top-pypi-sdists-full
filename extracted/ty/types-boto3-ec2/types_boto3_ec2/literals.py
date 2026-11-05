@@ -3672,7 +3672,7 @@ SubnetStateType = Literal[
 ]
 SummaryStatusType = Literal["impaired", "initializing", "insufficient-data", "not-applicable", "ok"]
 SupportabilityMarketTypeType = Literal["on-demand", "spot"]
-SupportabilityScoreType = Literal["high", "low", "medium"]
+SupportabilityScoreType = Literal["high", "low", "medium", "unsupported"]
 SupportedAdditionalProcessorFeatureType = Literal["amd-sev-snp", "nested-virtualization"]
 SystemStatusOkWaiterName = Literal["system_status_ok"]
 TaggableResourceTypeType = Literal["auto-scaling-group", "instance", "network-interface"]

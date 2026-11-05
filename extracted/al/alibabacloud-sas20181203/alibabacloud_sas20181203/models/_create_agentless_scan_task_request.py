@@ -24,40 +24,40 @@ class CreateAgentlessScanTaskRequest(DaraModel):
     ):
         # The asset selection identifier.
         self.asset_selection_type = asset_selection_type
-        # The image retention period, in days. This parameter takes effect only for host detection. It does not take effect for user snapshot detection or user custom image detection.
+        # The retention period of the image, in days. This parameter takes effect only for host detection and does not take effect for user snapshot detection or custom image detection.
         self.auto_delete_days = auto_delete_days
         # The idempotency key.
         self.client_token = client_token
-        # The source of the API call, which is used to collect statistics on scan task volume and scan data volume by source. If this parameter is not specified, the value is empty.
+        # The source of the API call. This parameter is used to collect statistics on the number of scan tasks and the amount of scanned data by source. If this parameter is not specified, it is left empty.
         self.from_ = from_
-        # The region ID, which is usually automatically populated by the gateway.
+        # The region ID. This parameter is usually automatically populated by the gateway.
         self.region_id = region_id
         # Specifies whether to enable the cost-saving mode. Valid values:
         # 
-        # - **true**: Enabled.
-        # - **false**: Disabled.
+        # - **true**: Enable.
+        # - **false**: Disable.
         self.release_after_scan = release_after_scan
         # The region ID of the resource to be detected, such as cn-hangzhou.
         self.resource_region_id = resource_region_id
         # Specifies whether to detect data cloud disks. Valid values:
         # 
-        # - **true**: Detected.
-        # - **false**: Not detected.
+        # - **true**: Yes.
+        # - **false**: No.
         self.scan_data_disk = scan_data_disk
         # The target type. Valid values:
         # 
-        # - **1**: Host detection - detection by snapshot.
-        # - **2**: Host detection - detection by image.
+        # - **1**: Host detection by using snapshots.
+        # - **2**: Host detection by using images.
         # - **3**: User snapshot detection.
-        # - **2**: User custom image detection.
+        # - **2**: Custom image detection.
         # 
         # This parameter is required.
         self.target_type = target_type
-        # The list of targets for image security remediation. Each target specifies the source image, the region, the name of the remediated image, and the vulnerability identifiers to be fixed.
+        # The list of targets for image security remediation. Each target specifies the source image, the region, the name of the remediated image, and the identifiers of the vulnerabilities to be remediated.
         self.targets = targets
         # The UUIDs of the assets to be detected.
         # 
-        # > You can call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain the UUIDs of servers.
+        # > You can call the [DescribeCloudCenterInstances](~~DescribeCloudCenterInstances~~) operation to obtain the UUID of the server.
         self.uuid_list = uuid_list
 
     def validate(self):
@@ -157,15 +157,15 @@ class CreateAgentlessScanTaskRequestTargets(DaraModel):
         region_id: str = None,
         vulnerability_ids: List[str] = None,
     ):
-        # The ID of the source ECS custom image to be remediated. The image must be located in the region specified by RegionId of this target.
+        # The ID of the source ECS custom image to be remediated. The image must be located in the region specified by the RegionId parameter of the target.
         self.image_id = image_id
         # The name of the source ECS custom image to be remediated.
         self.origin_image_name = origin_image_name
-        # The name of the ECS image generated after remediation.
+        # The name of the ECS image generated after the remediation is completed.
         self.output_image_name = output_image_name
         # The region ID of the source image to be remediated, such as cn-hangzhou.
         self.region_id = region_id
-        # The list of vulnerability identifiers to be fixed. At least one vulnerability identifier must be specified, and each identifier must be unique and non-empty.
+        # The list of vulnerability identifiers to be remediated in this task. You must specify at least one vulnerability identifier. The identifiers cannot be empty or duplicate.
         self.vulnerability_ids = vulnerability_ids
 
     def validate(self):

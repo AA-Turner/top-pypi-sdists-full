@@ -422,6 +422,7 @@ def export_from_registries(
         proto_target_by_storage_target = {
             AggregateBackfillTarget.ONLINE: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_ONLINE,
             AggregateBackfillTarget.OFFLINE: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE,
+            AggregateBackfillTarget.ONLINE_SUMMARIES: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_ONLINE_SUMMARIES,
         }
         proto_targets = [proto_target_by_storage_target[target] for target in backfill.targets]
         # environment/num_shards/include_partial_bucket are passed only when set; the proto fields are added in

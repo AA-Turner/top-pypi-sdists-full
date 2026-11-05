@@ -21,7 +21,7 @@ from typing import Any, Callable, Optional
 from sequence_ai._core.capacity import LOAD_MAX, count, held, wait_said
 
 from seq.clock import stamp
-from sequence_ai._core.money import money, per_hour, whole
+from sequence_ai._core.money import cents, money, per_hour, whole
 from seq.deployments_cli import _call
 from sequence_ai._core.names import segment
 
@@ -132,10 +132,12 @@ WHY = {
 
 
 LIMITS = {"max_policies_per_user": "policies", "max_benchmarks_per_user": "benchmarks",
-          "max_production_policies_per_user": "production policies", "max_keys_per_user": "dev and production keys",
-          "max_robot_keys_per_user": "robot keys", "max_planner_keys_per_user": "planner keys",
+          "max_keys_per_user": "keys",
+          "max_robot_keys_per_user": "robot keys",
           "max_calls_per_min": "calls a minute",
           "max_gpus_per_user": "GPUs at once", "daily_spend_cap_per_user_usd": "daily spend (USD)"}
+
+GONE_LIMIT = "max_production_policies_per_user"
 
 
 def why(reason: Any, name: str) -> str | None:
@@ -259,7 +261,7 @@ def _account_id(base_url: str | None) -> str | None:
 
 
 def account(*, base_url: str | None = None, echo: Echo = _silent) -> dict:
-    """The account's balance, its GPUs (limit, held by serving, by evals and by build checks, available, the evals
+    """The account's balance, its GPUs (limit, held by serving, by evals, by build checks and by shells, available, the evals
     waiting for GPUs), usage and limits - or, with a robot key, the one deployment it is for (show_deployment); signed
     in, headed by the account's id, the one the console's Account page asks for to delete it.
 """
@@ -348,22 +350,35 @@ def show_account(out: dict, echo: Echo) -> None:
     if limits:
         echo("limits    " + ", ".join(f"{LIMITS.get(k, k.removeprefix('max_').replace('_', ' '))} "
                                      f"{'none' if v is None else v}{own(k, v, overrides, plan)}"
-                                     for k, v in limits.items()))
+                                     for k, v in limits.items() if k != GONE_LIMIT))
 
 
 def show_spend(bal: Any, echo: Echo) -> None:
-    """The month as billing reads it, postpaid (GET /v1/account's balance): what this month has spent, how much of the
-    plan's monthly limit is left, what running workers and evals hold until they stop - and the payment method its bill
-    goes to, or, with none on the account, that usage stops at the monthly credit. Nothing when the platform did not
-    say what was spent. The limit and the credit are a plan's, in whole dollars, as its fee is (money.whole).
-    
+    """The month as billing reads it, postpaid (GET /v1/account's balance): what this month has spent and what is left
+    to spend - account_spendable_of (the `spendable` field): the balance and any card or contract line, capped at the
+    plan's monthly limit, the same "Left to spend" the console shows, with or without a card. Also what running workers
+    and evals hold until they stop, and the payment method the bill goes to: with a card, that it pays past the credits
+    up to the plan's monthly limit; with none, that usage past the credits needs one. Nothing when the platform did not
+    say what was spent. The limit is a plan's, in whole dollars, as its fee is (money.whole).
 
 """
     if not isinstance(bal, dict) or not _amount(bal.get("period_spent_usd")):
         return
-    line = f"spent     {_usd(bal['period_spent_usd'])} this month"
-    if _amount(bal.get("month_left_usd")) and _amount(bal.get("month_limit_usd")):
-        line += f" · {_usd(bal['month_left_usd'])} of your {_usd(bal['month_limit_usd'], whole)} monthly limit left"
+
+
+    line = f"spent     {_usd(bal['period_spent_usd'], cents)} this month"
+
+
+
+
+
+
+
+    spend = bal.get("spendable")
+    if not _amount(spend):
+        spend = bal.get("balance")
+    if _amount(spend):
+        line += f" · {_usd(spend)} left to spend"
     held = bal.get("held_usd")
     if _amount(held) and held > 0:
 
@@ -372,12 +387,16 @@ def show_spend(bal: Any, echo: Echo) -> None:
     card = bal.get("payment_method")
     if isinstance(card, dict):
         month, year = card.get("exp_month"), card.get("exp_year")
+
+
+
+
+        limit = (f" - it pays past your credits, up to this month's {_usd(bal['month_limit_usd'], whole)} limit"
+                 if _amount(bal.get("month_limit_usd")) else "")
         echo(f"payment   {card.get('brand') or 'card'} ending {card.get('last4') or '····'}"
-             + (f", expires {int(month):02d}/{int(year)}" if _amount(month) and _amount(year) else ""))
+             + (f", expires {int(month):02d}/{int(year)}" if _amount(month) and _amount(year) else "") + limit)
     elif "payment_method" in bal:
-        credit = f"your {_usd(bal['credit_usd'], whole)} " if _amount(bal.get("credit_usd")) else "the "
-        echo(f"payment   none: usage stops at {credit}monthly credit - add a payment method on the console's Billing "
-             "page")
+        echo("payment   none: usage past your credits needs a payment method - add one on the console's Billing page")
 
 
 def _amount(v: Any) -> bool:
@@ -514,12 +533,8 @@ def show_fleet(name: str, f: dict, echo: Echo) -> None:
     cap = (f"max GPUs {f['max_gpus']}" if f.get("max_gpus") else
            "no max GPUs of its own" if holds_gpus(f) else "on CPU, no GPUs")
     full = f"when full a new robot waits up to {f.get('queue_timeout_s', 120)} s for a seat"
-
-
-    members = f.get("planner")
     seats = f.get("max") if f.get("max") is not None else "—"
-    echo(f"fleet: {len(live)} worker(s) holding {cards} GPU(s) · {cap} · plans for {', '.join(members)}" if members else
-         f"fleet: {len(live)} worker(s) holding {cards} GPU(s) · {cap} · {full} · robots per worker: {seats}"
+    echo(f"fleet: {len(live)} worker(s) holding {cards} GPU(s) · {cap} · {full} · robots per worker: {seats}"
          f"{wait_said(f)}")
 
 
@@ -536,12 +551,11 @@ def show_fleet(name: str, f: dict, echo: Echo) -> None:
 
 
     if workers:
-        echo(f"  {'worker':14}{'state':{sw}}{'card':12}up since" if members else
-             f"  {'worker':14}{'state':{sw}}{'card':12}{'copies':>7}{'seats':>8}{'sessions':>10}  up since")
+        echo(f"  {'worker':14}{'state':{sw}}{'card':12}{'copies':>7}{'seats':>8}{'sessions':>10}  up since")
     for w in workers:
         card = f"{w.get('gpu') or '—'} × {count(w.get('cards'))}"
         echo(f"  {str(w.get('handle'))[:12]:14}{str(w.get('state')):{sw}}{card:12}"
-             + ("" if members else f"{count(w.get('slots')):>7}{count(w.get('seats')):>8}{count(w.get('sessions')):>10}  ")
+             + f"{count(w.get('slots')):>7}{count(w.get('seats')):>8}{count(w.get('sessions')):>10}  "
              + f"{_clock(w.get('started_at')) if w.get('started_at') else '—'}")
         if why(w.get("reason"), name):
             echo(f"    ↳ {why(w['reason'], name)}")
@@ -562,6 +576,15 @@ def show_fleet(name: str, f: dict, echo: Echo) -> None:
                 f"copy {d.get('reached')} did not start)") if d.get("per_replica_vram_mb") and d.get("reached") else ""
         echo(f"last failure: a worker of v{last.get('version', '?')} stopped {_clock(last.get('at'))} — "
              f"{why(last['cause'], name) or 'it stopped serving'}{took}")
+    loop = f.get("crash_loop")
+    if loop and loop.get("failures"):
+
+
+
+        cause = (DEATH.get(loop.get("cause")) or "they failed").split(" — ")[0]
+        error = f": {loop['error']}" if loop.get("error") else ""
+        echo(f"crash-looping: its last {loop['failures']} starts failed — {cause}{error}; the next starts "
+             f"{_clock(loop.get('next_start_at'))} — `seq policy logs {name}` shows each")
     ended = episodes_lost_line(f.get("episodes_lost"), name)
     if ended:
         echo(ended)
@@ -705,21 +728,19 @@ def now_line(f: dict) -> str | None:
 
 
 def show_session_params(f: dict, echo: Echo) -> None:
-    """The inference parameters each connected robot runs with — its own over the deployment's defaults — and the
-    defaults themselves (`seq policy set <name> params.<name>=`), and who drives each robot now: its model, a person
-    by the name their console gave, or nobody, stopped (driver_words). Nothing for a policy that declares none. Under
-    each robot, why it sits on its worker, as the platform says it (`seated`).
+    """The inference parameters every robot of it runs with (`seq policy set <name> params.<name>=`), said once - no robot
+    has its own: what differs between robots goes in their observations - and who drives each robot now: its model, a
+    person by the name their console gave, or nobody, stopped (driver_words). Under each robot, why it sits on its worker,
+    as the platform says it (`seated`).
     
 """
     defaults, sessions = f.get("params"), f.get("sessions")
     if defaults:
         echo("inference parameters (deployment defaults): " + _kv(defaults))
     for s in sessions or []:
-        given = s.get("params")
         driver = driver_words(s.get("driver"))
         region = f" ({s['region']})" if isinstance(s.get("region"), str) and s["region"] else ""
-        echo(f"  robot {s.get('session')} on {str(s.get('worker') or '')[:12]}{region}: "
-             + (_kv(given) if given else "the policy's defaults" if given == {} else "parameters not recorded")
+        echo(f"  robot {s.get('session')} on {str(s.get('worker') or '')[:12]}{region}"
              + (f" · {driver}" if driver else ""))
         if isinstance(s.get("seated"), str) and s["seated"]:
             echo(f"    ↳ {s['seated']}")
@@ -898,11 +919,10 @@ def show_billed_price(p: dict | None, echo: Echo) -> None:
 
 def acts_unmeasured(measured: dict | None) -> bool:
     """Whether the build check never called infer, so what it measured of a copy is its load alone: the check acts on a
-    sample episode only (@seq.sample, measured.sample) and a planner's answers no act (measured.planner), so a version
-    measured with neither. The worker's measured said io_mode and its probe until worker 5's 64ad99b0 took them out,
+    sample episode only (@seq.sample, measured.sample), so a version measured without one. The worker's measured said io_mode and its probe until worker 5's 64ad99b0 took them out,
     and this read io_mode "raw", never there since."""
     m = measured if isinstance(measured, dict) else {}
-    return bool(m) and not (m.get("sample") or m.get("planner"))
+    return bool(m) and not m.get("sample")
 
 
 def show_capacity(cap: dict | None, echo: Echo, measured: dict | None = None) -> None:
@@ -953,6 +973,8 @@ def show_batching(measured: dict | None, echo: Echo) -> None:
     a robot's asks - and an eval's copy runs its acts in batches of those sizes. Nothing for a policy that declares no
     @seq.concurrent. The worker reports the declaration as `measured.concurrent` ({sizes}).
 """
+    from seq.parts import most_a_copy
+
     batch = (measured or {}).get("concurrent") or {}
     listed = [int(n) for n in batch["sizes"]] if isinstance(batch.get("sizes"), list) and batch["sizes"] else None
     if not listed:
@@ -963,7 +985,7 @@ def show_batching(measured: dict | None, echo: Echo) -> None:
          f"as long as their batches fill at most {LOAD_MAX:.0%} of the time between a robot's asks "
          "(action_chunk_replan_at steps at hz) - one robot a copy when it asks at its last valid step or declares no "
          "action_chunk_valid_len; where it sets max_wait_for_batch, within that wait in place of those steps; an "
-         "eval's copy runs its acts in batches of those sizes")
+         f"eval's copy runs its acts in batches of those sizes{most_a_copy(listed)}")
 
 
 def show_sample(measured: dict | None, echo: Echo) -> None:

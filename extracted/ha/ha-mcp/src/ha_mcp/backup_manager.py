@@ -103,12 +103,18 @@ from .backup_helper_target import require_holds as _require_holds
 from .backup_helper_target import safety_target as _safety_target
 from .backup_integrations import fetch_integration, restore_integration
 from .backup_tags import restore_tag, tag_snapshot
+from .backup_todo import current_key as todo_current_key
+from .backup_todo import fetch_todo_item, restore_todo_item
+from .backup_todo import snapshot_item as todo_snapshot_item
 from .backup_zones import fetch_zone, restore_zone
 from .client.rest_client import (
+    HomeAssistantAuthError,
     HomeAssistantCommandError,
     HomeAssistantConnectionError,
     HomeAssistantError,
 )
+from .errors import ErrorCode, get_error_code
+from .storage_helper_types import SIMPLE_HELPER_TYPES
 from .utils.data_paths import get_data_dir
 from .utils.registry_update_lock import registry_update_lock
 
@@ -194,6 +200,19 @@ class BackupRestoreError(HomeAssistantError):
             "apply_status": apply_status,
             "verification_status": verification_status,
         }
+
+
+def restore_error_code(err: BackupRestoreError) -> ErrorCode:
+    """The error code a refused or failed restore is reported with."""
+    return {
+        "snapshot_not_found": ErrorCode.RESOURCE_NOT_FOUND,
+        "invalid_snapshot": ErrorCode.VALIDATION_INVALID_PARAMETER,
+        "unsupported_domain": ErrorCode.VALIDATION_INVALID_PARAMETER,
+        "backup_capture_failed": ErrorCode.BACKUP_CAPTURE_FAILED,
+        "entry_deleted": ErrorCode.RESOURCE_NOT_FOUND,
+        "entity_unavailable": ErrorCode.ENTITY_UNAVAILABLE,
+        "entity_not_found": ErrorCode.ENTITY_NOT_FOUND,
+    }.get(err.outcome.get("reason") or "", ErrorCode.SERVICE_CALL_FAILED)
 
 
 class InvalidBackupSnapshotError(ValueError):
@@ -1658,6 +1677,15 @@ class BackupManager:
 
     # ----- diff ----------------------------------------------------------
 
+    async def _comparison_target(self, domain: str, data: dict[str, Any]) -> str | None:
+        """The id the item a snapshot holds has now."""
+        target: str = data["entity_id"]
+        if domain == "entity":
+            return await current_entity_id(self._client, target, data["config"])
+        if domain == "todo_item":
+            return todo_current_key(target, data["config"])
+        return target
+
     async def snapshot_comparison(self, name: str) -> tuple[dict[str, Any], Any]:
         """Read a snapshot and the live config for its stable target identity."""
         data = await asyncio.to_thread(self.read_snapshot, name)
@@ -1671,9 +1699,7 @@ class BackupManager:
         handler = self.handler_for(domain)
         if handler is None:
             raise LookupError(f"No diff handler registered for domain {domain!r}")
-        target = data["entity_id"]
-        if domain == "entity":
-            target = await current_entity_id(self._client, target, data["config"])
+        target = await self._comparison_target(domain, data)
         current = await handler.fetch(self._client, target) if target else None
         if domain == "dashboard":
             _stored, legacy = dashboard_snapshot(data)
@@ -1692,6 +1718,11 @@ class BackupManager:
             # A snapshot from before registry icons were recorded: its restore
             # leaves the registry alone, so the icon is no difference.
             current.pop("registry_icon", None)
+        if domain == "todo_item" and isinstance(data["config"], dict):
+            current = todo_snapshot_item(data["config"], current)
+            # Older snapshots carry the list's completion time, which the
+            # fetch now leaves out.
+            data["config"].pop("completed", None)
         if _is_flow_helper_domain(domain) and current is not None:
             # Both MCP and Settings preview this comparison. Registry metadata
             # is recreation-only; an existing-entry restore applies options.
@@ -1991,9 +2022,8 @@ async def _ws_send(client: Any, message: dict[str, Any]) -> Any:
         client.base_url, client.token, verify_ssl=client.verify_ssl
     )
     if error or ws_client is None:
-        # ``error`` is a structured-error envelope; the message can live
-        # under either error.error.message (nested) or error.message
-        # (flat, as ``create_error_response`` actually produces).
+        # ``error`` is get_connected_ws_client's nested envelope; the flat
+        # ``error["message"]`` read is a defensive fallback.
         if isinstance(error, dict):
             err_obj = error.get("error", error)
             msg = (
@@ -2001,11 +2031,10 @@ async def _ws_send(client: Any, message: dict[str, Any]) -> Any:
             ) or error.get("message", "WS connect failed")
         else:
             msg = "WS connect failed"
-        # Typed connection error so the outer ``_CAPTURE_TRANSIENT_ERRORS``
-        # tuple catches it; a bare ``RuntimeError`` would propagate past
-        # ``maybe_snapshot``'s catch and break the wrapped write — exactly
-        # what the best-effort contract on the decorator forbids.
-        raise HomeAssistantConnectionError(msg)
+        # Typed so ``_CAPTURE_TRANSIENT_ERRORS`` catches it (a bare ``RuntimeError``
+        # would break the best-effort write); a rejected token reports AUTH_*.
+        auth = str(get_error_code(error or {})).startswith("AUTH_")
+        raise (HomeAssistantAuthError if auth else HomeAssistantConnectionError)(msg)
     try:
         cmd_type = message.pop("type")
         envelope = await ws_client.send_command(cmd_type, **message)
@@ -2023,8 +2052,8 @@ async def _ws_send(client: Any, message: dict[str, Any]) -> Any:
             )
     # ``send_command`` returns ``{"success": True, "result": <inner>}``
     # — unwrap so fetch / restore handlers downstream see the inner
-    # shape directly (list for ``<type>/list`` calls, dict for
-    # ``execute_script`` calls, etc.). Without the unwrap the
+    # shape directly (a list for the registry ``<type>/list`` calls, a dict
+    # for others such as ``todo/item/list``). Without the unwrap the
     # ``_require_list`` checks in every fetch handler would see the
     # envelope as a non-list and raise a spurious degraded-fetch error.
     if isinstance(envelope, dict) and "result" in envelope:
@@ -2041,25 +2070,13 @@ async def _ws_send(client: Any, message: dict[str, Any]) -> Any:
 
 
 async def _fetch_automation(client: Any, entity_id: str) -> Any:
-    """Fetch an automation through the same path the get tool uses.
-
-    Applies ``_normalize_config_for_roundtrip`` so the snapshot matches
-    what ``ha_config_get_automation`` returns and round-trips cleanly
-    back through ``ha_config_set_automation`` on restore. Imported lazily
-    to keep the manager import-cycle-free.
-    """
-    # Lazy import to avoid backup_manager → tools → backup_manager cycle.
-    from .tools.tools_config_automations import _normalize_config_for_roundtrip
-
+    """Fetch the stored body verbatim."""
     try:
-        raw = await client.get_automation_config(entity_id)
+        return await client.get_automation_config(entity_id)
     except HomeAssistantError as err:
         if getattr(err, "status_code", None) == 404:
             return None
         raise
-    if not isinstance(raw, dict):
-        return raw
-    return _normalize_config_for_roundtrip(raw)
 
 
 async def _restore_automation(client: Any, entity_id: str, config: Any) -> Any:
@@ -2118,15 +2135,12 @@ def _require_list(value: Any, endpoint: str) -> list[Any]:
 def _require_dict(value: Any, endpoint: str) -> dict[str, Any]:
     """Return ``value`` if it's a dict, else raise.
 
-    Dict-shaped counterpart to :func:`_require_list` for the
-    ``execute_script``-backed fetchers (calendar / todo). Their service
-    response is a dict envelope; a non-dict body is a degraded/malformed
-    200 (auth-scope change, API drift), not a genuine miss. Raising
-    funnels it through the diff tool's ``exception_to_structured_error``
-    and the capture pipeline's ``_CAPTURE_TRANSIENT_ERRORS`` warning,
-    instead of collapsing to ``None`` — which callers read as
-    ``entity_missing``. The genuine-miss signal stays the nested ``uid``
-    lookup returning ``None``.
+    Dict-shaped counterpart to :func:`_require_list` for replies and rows
+    that are dicts. A non-dict body is a degraded/malformed reply
+    (auth-scope change, API drift), not a genuine miss. Raising funnels it
+    through the diff tool's ``exception_to_structured_error`` and the
+    capture pipeline's ``_CAPTURE_TRANSIENT_ERRORS`` warning, instead of
+    collapsing to ``None`` — which callers read as ``entity_missing``.
     """
     if not isinstance(value, dict):
         raise HomeAssistantError(
@@ -2165,16 +2179,16 @@ async def _dashboard_resource_like(client: Any, config: dict[str, Any]) -> Any:
 
 
 async def _restore_dashboard_resource(client: Any, entity_id: str, config: Any) -> Any:
-    # Core imported old ``resources:`` entries without a type (RESOURCE_FIELDS).
     payload = _strip_readonly(config, "id", "type")
-    if "type" in config:
+    if "type" in config:  # Core imported old ``resources:`` entries without one
         payload["res_type"] = config["type"]
     update = {"type": "lovelace/resources/update", "resource_id": entity_id}
-    try:
-        return await _ws_send(client, {**update, **payload})
-    except HomeAssistantCommandError as err:
-        if err.code != "not_found":  # not_found: deleted since the snapshot
-            raise
+    async with registry_update_lock("dashboard_resource", entity_id):  # the tool's lock
+        try:
+            return await _ws_send(client, {**update, **payload})
+        except HomeAssistantCommandError as err:
+            if err.code != "not_found":  # not_found: deleted since the snapshot
+                raise
     live = await _dashboard_resource_like(client, config)
     if live is not None:  # an earlier restore re-created it
         return live
@@ -2622,59 +2636,6 @@ async def _restore_area_or_floor(client: Any, entity_id: str, config: Any) -> An
         return await _ws_send(client, payload)
 
 
-# Todo items — entity_id is "<todo.entity>::<item_uid>"
-
-
-async def _fetch_todo_item(client: Any, entity_id: str) -> Any:
-    # The second segment is whatever the tool's ``item`` param carried.
-    # ha_set_todo_item / ha_remove_todo_item accept EITHER the item uid OR
-    # its exact summary/name, so this can be either form.
-    cal, _, item_ref = entity_id.partition("::")
-    if not cal or not item_ref:
-        return None
-    payload = {
-        "type": "execute_script",
-        "sequence": [
-            {
-                "service": "todo.get_items",
-                "target": {"entity_id": cal},
-                "response_variable": "items",
-            },
-            {"stop": "", "response_variable": "items"},
-        ],
-    }
-    try:
-        result = await _ws_send(client, payload)
-    except HomeAssistantError as err:
-        # Same narrow-to-404 rule as the calendar fetcher: only treat
-        # "todo entity not present" as a clean skip; let auth/transport
-        # errors propagate to the WARNING log via the manager's outer
-        # _CAPTURE_TRANSIENT_ERRORS catch.
-        if getattr(err, "status_code", None) == 404:
-            return None
-        raise
-    result = _require_dict(result, "execute_script")
-    items = result.get("response", {}).get("items", {}).get(cal, {}).get("items", [])
-    for item in items:
-        # Match either form. Matching only on uid silently skipped the
-        # snapshot whenever the caller passed the human-readable summary
-        # (the documented/common case, e.g. ha_remove_todo_item(list, "Buy
-        # milk")) — uid != summary, so the loop found nothing -> None.
-        if item.get("uid") == item_ref or item.get("summary") == item_ref:
-            return {"todo_entity_id": cal, **item}
-    return None
-
-
-async def _restore_todo_item(client: Any, entity_id: str, config: Any) -> Any:
-    cal = config.get("todo_entity_id") or entity_id.split("::", 1)[0]
-    data = {k: v for k, v in config.items() if k != "todo_entity_id"}
-    return await _rest_post(
-        client,
-        "services/todo/add_item",
-        {"entity_id": cal, **data},
-    )
-
-
 # Devices — config/device_registry/{list,update}. ``ha_set_device`` mutates
 # the user-editable registry fields (name_by_user / area_id / disabled_by /
 # labels); restore re-applies exactly those. A device deleted by
@@ -2730,20 +2691,7 @@ async def _restore_device(client: Any, entity_id: str, config: Any) -> Any:
 # endpoints (fetch: backup_helper_target.py). The decorator
 # constructs the domain key as ``helper_<type>`` so files group naturally.
 
-_HELPER_LIST_TYPES = {
-    "input_boolean",
-    "input_text",
-    "input_number",
-    "input_select",
-    "input_datetime",
-    "input_button",
-    "counter",
-    "timer",
-    "schedule",
-    "zone",
-    "person",
-    "tag",
-}
+_HELPER_LIST_TYPES = SIMPLE_HELPER_TYPES
 
 
 async def _restore_helper(
@@ -2799,6 +2747,7 @@ async def _fetch_file(client: Any, entity_id: str) -> Any:
     skips it instead of blocking the write or delete. Other read failures
     raise so the capture pipeline logs them at WARNING.
     """
+    from .tools.auto_backup import PathNotAllowedError
     from .tools.tools_filesystem import call_mcp_tools_service
     from .tools.util_helpers import unwrap_service_response
 
@@ -2810,12 +2759,11 @@ async def _fetch_file(client: Any, entity_id: str) -> Any:
         content = result.get("content")
         return content if isinstance(content, str) else None
     error = str(result.get("error", ""))
-    if (
-        "does not exist" in error
-        or "not a file" in error
-        or "Cannot read binary file" in error
-    ):
+    skips = ("does not exist", "not a file", "Cannot read binary file")
+    if any(marker in error for marker in skips):
         return None
+    if error.startswith("Path not allowed"):
+        raise PathNotAllowedError(entity_id, error)
     raise HomeAssistantError(f"read_file failed for {entity_id!r}: {error}")
 
 
@@ -3919,7 +3867,7 @@ def register_default_handlers(mgr: BackupManager, _client: Any) -> None:
     mgr.register(
         DomainHandler("area_or_floor", _fetch_area_or_floor, _restore_area_or_floor)
     )
-    mgr.register(DomainHandler("todo_item", _fetch_todo_item, _restore_todo_item))
+    mgr.register(DomainHandler("todo_item", fetch_todo_item, restore_todo_item))
     mgr.register(DomainHandler("entity", fetch_entity, restore_entity))
     mgr.register(DomainHandler("device", _fetch_device, _restore_device))
     mgr.register(DomainHandler("integration", fetch_integration, restore_integration))

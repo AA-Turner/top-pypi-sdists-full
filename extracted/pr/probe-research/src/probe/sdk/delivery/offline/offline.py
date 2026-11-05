@@ -157,8 +157,9 @@ class OfflineRun(Run):
 
     def finish(
         self,
-        status: str = "completed",
+        status: str | None = None,
         *,
+        exit_code: int | None = None,
         summary_metrics: dict | None = None,
         summary: dict | None = None,
         flush_timeout: float | None = None,
@@ -174,6 +175,9 @@ class OfflineRun(Run):
         10 s, a SIGTERM close's grace -- as `Run._close_finalize` bounds it) and queued
         ahead of the close; a Ctrl-C there leaves those lists for a later recovery, queues
         the close `canceled`, and is raised after."""
+        if status is None:
+            # As `Run.finish`: ``completed``, or what a wrapper's exit code maps to.
+            status = "completed" if exit_code is None else self._map_exit_code(exit_code)
         previous = getattr(self, "_finish_result", _UNSET)
         if previous is not _UNSET:
             return previous

@@ -10,6 +10,7 @@ Usage::
     ```python
     from boto3.session import Session
     from mypy_boto3_dynamodb import (
+        BulkOperationCompletedWaiter,
         Client,
         ContributorInsightsEnabledWaiter,
         DynamoDBClient,
@@ -18,6 +19,7 @@ Usage::
         ImportCompletedWaiter,
         KinesisStreamingDestinationActiveWaiter,
         ListBackupsPaginator,
+        ListBulkOperationsPaginator,
         ListTablesPaginator,
         ListTagsOfResourcePaginator,
         QueryPaginator,
@@ -32,6 +34,7 @@ Usage::
 
     resource: DynamoDBServiceResource = session.resource("dynamodb")
 
+    bulk_operation_completed_waiter: BulkOperationCompletedWaiter = client.get_waiter("bulk_operation_completed")
     contributor_insights_enabled_waiter: ContributorInsightsEnabledWaiter = client.get_waiter("contributor_insights_enabled")
     export_completed_waiter: ExportCompletedWaiter = client.get_waiter("export_completed")
     import_completed_waiter: ImportCompletedWaiter = client.get_waiter("import_completed")
@@ -40,6 +43,7 @@ Usage::
     table_not_exists_waiter: TableNotExistsWaiter = client.get_waiter("table_not_exists")
 
     list_backups_paginator: ListBackupsPaginator = client.get_paginator("list_backups")
+    list_bulk_operations_paginator: ListBulkOperationsPaginator = client.get_paginator("list_bulk_operations")
     list_tables_paginator: ListTablesPaginator = client.get_paginator("list_tables")
     list_tags_of_resource_paginator: ListTagsOfResourcePaginator = client.get_paginator("list_tags_of_resource")
     query_paginator: QueryPaginator = client.get_paginator("query")
@@ -50,12 +54,14 @@ Usage::
 from .client import DynamoDBClient
 from .paginator import (
     ListBackupsPaginator,
+    ListBulkOperationsPaginator,
     ListTablesPaginator,
     ListTagsOfResourcePaginator,
     QueryPaginator,
     ScanPaginator,
 )
 from .waiter import (
+    BulkOperationCompletedWaiter,
     ContributorInsightsEnabledWaiter,
     ExportCompletedWaiter,
     ImportCompletedWaiter,
@@ -74,6 +80,7 @@ Client = DynamoDBClient
 ServiceResource = DynamoDBServiceResource
 
 __all__ = (
+    "BulkOperationCompletedWaiter",
     "Client",
     "ContributorInsightsEnabledWaiter",
     "DynamoDBClient",
@@ -82,6 +89,7 @@ __all__ = (
     "ImportCompletedWaiter",
     "KinesisStreamingDestinationActiveWaiter",
     "ListBackupsPaginator",
+    "ListBulkOperationsPaginator",
     "ListTablesPaginator",
     "ListTagsOfResourcePaginator",
     "QueryPaginator",

@@ -33,10 +33,13 @@ from ..backup_manager import (
     MandatoryBackupError,
     SnapshotInUseError,
     get_backup_manager,
+    restore_error_code,
 )
+from ..backup_todo import TodoListNotLoaded
 from ..client.rest_client import HomeAssistantClient
 from ..config import get_global_settings
 from ..errors import ErrorCode, create_error_response
+from .auto_backup import raise_if_snapshot_path_refused
 from .backup_access import (
     gate_backup_combo as _gate_combo,
 )
@@ -542,7 +545,16 @@ async def _edits_diff(
                 context={"backup_name": bname},
             )
         )
-    except ToolError:
+    except TodoListNotLoaded as err:
+        raise_tool_error(
+            create_error_response(
+                ErrorCode.ENTITY_UNAVAILABLE,
+                str(err),
+                context={"backup_name": bname},
+            )
+        )
+    except ToolError as err:
+        raise_if_snapshot_path_refused(err, "diff", bname)
         raise
     except Exception as err:  # noqa: BLE001
         # Fetching the live config for diff goes through the
@@ -619,13 +631,7 @@ async def _edits_restore(
             )
         )
     except BackupRestoreError as err:
-        code = {
-            "snapshot_not_found": ErrorCode.RESOURCE_NOT_FOUND,
-            "invalid_snapshot": ErrorCode.VALIDATION_INVALID_PARAMETER,
-            "unsupported_domain": ErrorCode.VALIDATION_INVALID_PARAMETER,
-            "backup_capture_failed": ErrorCode.BACKUP_CAPTURE_FAILED,
-            "entry_deleted": ErrorCode.RESOURCE_NOT_FOUND,
-        }.get(err.outcome.get("reason") or "", ErrorCode.SERVICE_CALL_FAILED)
+        code = restore_error_code(err)
         hint = "Inspect the current configuration and restore outcome before retrying"
         suggestions = list(err.outcome.get("suggestions") or [hint])
         if err.outcome.get("safety_backup"):
@@ -645,26 +651,28 @@ async def _edits_restore(
         # failed — the overwrite was blocked, nothing changed. Same
         # fail-closed contract + error code as the @with_auto_backup write
         # path (#1579), so callers see one consistent failure mode.
+        not_applied = {
+            "restored_from": bname,
+            "safety_backup": None,
+            "apply_status": "not_applied",
+            "verification_status": "not_run",
+        }
+        # Its live file's path is no longer allowed: retrying can't help.
+        raise_if_snapshot_path_refused(err, "restore", bname, not_applied)
         logger.warning("Restore of %s blocked: %s", bname, err.safe_cause)
         raise_tool_error(
             create_error_response(
                 ErrorCode.BACKUP_CAPTURE_FAILED,
                 "Restore blocked: the pre-restore safety snapshot could not be "
                 f"captured ({err.safe_cause}). Nothing was changed.",
-                context={
-                    "backup_name": bname,
-                    "data": {
-                        "restored_from": bname,
-                        "safety_backup": None,
-                        "apply_status": "not_applied",
-                        "verification_status": "not_run",
-                    },
-                },
+                context={"backup_name": bname, "data": not_applied},
                 suggestions=err.suggestions
                 or ["Retry once the underlying issue is resolved"],
             )
         )
-    except ToolError:
+    except ToolError as err:
+        outcome = getattr(err, "restore_outcome", None)
+        raise_if_snapshot_path_refused(err, "restore", bname, outcome)
         raise
     except Exception as err:  # noqa: BLE001
         # ``handler.restore`` is domain-specific and can surface HA-side

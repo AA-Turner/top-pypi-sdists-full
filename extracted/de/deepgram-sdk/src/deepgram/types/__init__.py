@@ -52,6 +52,9 @@ if typing.TYPE_CHECKING:
     from .deepgram_listen_provider_v2 import DeepgramListenProviderV2
     from .deepgram_model import DeepgramModel
     from .deepgram_think_live_provider_v1 import DeepgramThinkLiveProviderV1
+    from .deepgram_think_provider import DeepgramThinkProvider
+    from .deepgram_think_provider_model import DeepgramThinkProviderModel
+    from .deepgram_think_provider_reasoning_mode import DeepgramThinkProviderReasoningMode
     from .delete_agent_configuration_v1response import DeleteAgentConfigurationV1Response
     from .delete_agent_variable_v1response import DeleteAgentVariableV1Response
     from .delete_project_invite_v1response import DeleteProjectInviteV1Response
@@ -276,6 +279,7 @@ if typing.TYPE_CHECKING:
         ThinkSettingsV1Provider,
         ThinkSettingsV1Provider_Anthropic,
         ThinkSettingsV1Provider_AwsBedrock,
+        ThinkSettingsV1Provider_Deepgram,
         ThinkSettingsV1Provider_Google,
         ThinkSettingsV1Provider_Groq,
         ThinkSettingsV1Provider_OpenAi,
@@ -333,6 +337,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DeepgramListenProviderV2": ".deepgram_listen_provider_v2",
     "DeepgramModel": ".deepgram_model",
     "DeepgramThinkLiveProviderV1": ".deepgram_think_live_provider_v1",
+    "DeepgramThinkProvider": ".deepgram_think_provider",
+    "DeepgramThinkProviderModel": ".deepgram_think_provider_model",
+    "DeepgramThinkProviderReasoningMode": ".deepgram_think_provider_reasoning_mode",
     "DeleteAgentConfigurationV1Response": ".delete_agent_configuration_v1response",
     "DeleteAgentVariableV1Response": ".delete_agent_variable_v1response",
     "DeleteProjectInviteV1Response": ".delete_project_invite_v1response",
@@ -526,6 +533,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ThinkSettingsV1Provider": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_Anthropic": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_AwsBedrock": ".think_settings_v1provider",
+    "ThinkSettingsV1Provider_Deepgram": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_Google": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_Groq": ".think_settings_v1provider",
     "ThinkSettingsV1Provider_OpenAi": ".think_settings_v1provider",
@@ -562,6 +570,7 @@ _dynamic_imports.update(
         "GroqThinkProviderReasoningMode": ".groq_think_provider_reasoning_mode",
     }
 )
+
 
 def __getattr__(attr_name: str) -> typing.Any:
     module_name = _dynamic_imports.get(attr_name)
@@ -627,6 +636,9 @@ __all__ = [
     "DeepgramListenProviderV2",
     "DeepgramModel",
     "DeepgramThinkLiveProviderV1",
+    "DeepgramThinkProvider",
+    "DeepgramThinkProviderModel",
+    "DeepgramThinkProviderReasoningMode",
     "DeleteAgentConfigurationV1Response",
     "DeleteAgentVariableV1Response",
     "DeleteProjectInviteV1Response",
@@ -820,6 +832,7 @@ __all__ = [
     "ThinkSettingsV1Provider",
     "ThinkSettingsV1Provider_Anthropic",
     "ThinkSettingsV1Provider_AwsBedrock",
+    "ThinkSettingsV1Provider_Deepgram",
     "ThinkSettingsV1Provider_Google",
     "ThinkSettingsV1Provider_Groq",
     "ThinkSettingsV1Provider_OpenAi",

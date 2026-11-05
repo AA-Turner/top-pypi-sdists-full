@@ -34,8 +34,9 @@ use super::request::{
 };
 use super::resolve::{ProviderSurface, ProviderSurfaceDescriptor};
 use super::response::{
-    AnnotatedLlmResponse, ApiSpecificResponse, FinishReason, RawUsageCost, ResponseToolCall, Usage,
-    estimate_cost_for_provider, infer_model_provider, provider_reported_cost,
+    AnnotatedLlmResponse, ApiSpecificResponse, FinishReason, RawProviderUsageCost,
+    ResponseToolCall, Usage, estimate_cost_for_provider, infer_model_provider,
+    provider_reported_cost,
 };
 use super::traits::{LlmCodec, LlmResponseCodec};
 
@@ -91,7 +92,7 @@ struct RawResponsesUsage {
     output_tokens_details: Option<RawOutputTokensDetails>,
     #[serde(rename = "cost_usd")]
     provider_cost: Option<f64>,
-    cost: Option<RawUsageCost>,
+    cost: Option<RawProviderUsageCost>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -1278,6 +1279,7 @@ impl LlmResponseCodec for OpenAIResponsesCodec {
                 total_tokens: u.total_tokens,
                 cache_read_tokens,
                 cache_write_tokens: None,
+                cache_write_1h_tokens: None,
                 uncached_input_tokens: u
                     .input_tokens
                     .zip(cache_read_tokens)

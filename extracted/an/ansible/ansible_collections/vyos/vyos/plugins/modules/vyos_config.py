@@ -38,6 +38,9 @@ notes:
 - This module works with connection C(ansible.netcommon.network_cli). See L(the VyOS OS Platform Options,../network/user_guide/platform_vyos.html).
 - To ensure idempotency and correct diff the configuration lines in the relevant module options should be similar to how they
   appear if present in the running configuration on device including the indentation.
+- C(replace=config) currently has no way to scope its effect to part of the
+  configuration; it always operates against the entire device configuration.
+  There is no C(path) parameter to constrain it to a subtree.
 options:
   lines:
     description:
@@ -46,6 +49,7 @@ options:
       device running-config to ensure idempotency and correct diff. Be sure
       to note the configuration command syntax as some commands are automatically
       modified by the device config parser.
+    - Not supported when C(replace) is set to C(config) -- see C(replace) below.
     type: list
     elements: str
   src:
@@ -55,18 +59,38 @@ options:
       file can include Jinja2 template variables. The configuration lines in the source
       file should be similar to how it will appear if present in the running-configuration
       of the device including indentation to ensure idempotency and correct diff.
+    - When C(replace) is set to C(config), C(src) is required and must contain a
+      complete configuration in hierarchical/bracket format -- the same format
+      produced by C(show configuration) or found in C(/config/config.boot). Flat
+      C(set)/C(delete) command format (as produced by C(show configuration
+      commands)) is not accepted in that mode; VyOS's native C(load) command
+      rejects it with a parse error.
     type: path
   match:
     description:
     - The C(match) argument controls the method used to match against the current
       active configuration.  By default, the desired config is matched against the
       active config and the deltas are loaded.  If the C(match) argument is set to
-      C(none) the active configuration is ignored and the configuration is always
-      loaded.
+      C(none), the active configuration is ignored and the configuration is always
+      loaded.  If the C(match) argument is set to C(enforce), the supplied C(lines)
+      or C(src) are treated as the complete desired end-state of the configuration,
+      rather than a set of deltas to apply.
+      C(enforce) enforces only the top-level configuration
+      sections present in the supplied candidate as complete end-states;
+      existing configuration within those sections but not mentioned in the
+      candidate is removed, so C(enforce) can generate C(delete) commands for
+      configuration the candidate does not mention. Top-level sections the
+      candidate does not reference at all are left completely untouched.
+      C(enforce) is intended for candidates made up of C(set) commands only;
+      supplying C(delete) lines alongside C(match=enforce) is not supported
+      and will raise an error.
+    - Ignored when C(replace) is set to C(config), since no line-level diff is
+      computed in that mode.
     type: str
     default: line
     choices:
     - line
+    - enforce
     - none
   backup:
     description:
@@ -84,6 +108,28 @@ options:
       is ignored.
     default: configured by vyos_config
     type: str
+  confirm:
+    description:
+    - The C(confirm) argument will tell vyos to revert to the previous configuration
+      if not explicitly confirmed after applying the new config. When set to C(automatic)
+      this module will automatically confirm the configuration, if the current session
+      remains working with the new config. When set to C(manual), this module does
+      not issue the confirmation itself.
+    - Defaults to C(automatic) when C(match) is set to C(enforce), since C(enforce)
+      can generate C(delete) commands for configuration not mentioned in the
+      candidate and a bad commit should self-revert rather than leave the device
+      unreachable. Defaults to C(none) for all other C(match) values.
+    type: str
+    choices:
+    - automatic
+    - manual
+    - none
+  confirm_timeout:
+    description:
+    - Minutes to wait for confirmation before reverting the configuration. Does
+      not apply when C(confirm) is set to C(none) .
+    type: int
+    default: 10
   config:
     description:
     - The C(config) argument specifies the base configuration to use to compare against
@@ -92,12 +138,13 @@ options:
       The configuration lines in the option value should be similar to how it
       will appear if present in the running-configuration of the device including indentation
       to ensure idempotency and correct diff.
+    - Ignored when C(replace) is set to C(config).
     type: str
   save:
     description:
     - The C(save) argument controls whether or not changes made to the active configuration
       are saved to disk.  This is independent of committing the config.  When set
-      to True, the active configuration is saved.
+      to C(True), the active configuration is saved.
     type: bool
     default: no
   backup_options:
@@ -123,6 +170,79 @@ options:
           in C(filename) within I(backup) directory.
         type: path
     type: dict
+  replace:
+    description:
+    - Controls how the module applies configuration to the device.
+    - When set to C(line) (default), the module computes a set/delete command
+      diff and pushes only the changed lines -- this is the existing behavior,
+      unchanged.
+    - When set to C(config), the module uploads the full candidate configuration
+      (C(src)) to the device and issues VyOS's native C(load) command in
+      configuration mode, which replaces the running configuration wholesale
+      with the candidate's exact contents. VyOS's own configuration engine
+      performs the reconciliation, rather than the module computing per-line
+      deltas. This mirrors the mechanism offered by C(cisco.iosxr.iosxr_config)'s
+      C(replace=config).
+    - C(replace=config) requires C(src) and does not accept C(lines) -- there is
+      no way to convert flat set/delete commands into the hierarchical form
+      C(load) requires without re-implementing VyOS's own config-tree builder.
+    - As with C(src) in the default C(line) mode, the module does not validate
+      the candidate's contents or format under C(replace=config) -- supplying a
+      well-formed, complete configuration is the caller's responsibility.
+    - C(replace=config) requires the device to accept file transfer (SCP) over
+      the same C(network_cli) SSH session used for configuration commands.
+    - C(replace=config) writes the candidate to a fixed path on the device
+      (overwritten on each run, matching C(cisco.iosxr.iosxr_config)'s own
+      C(replace=config) precedent). Running C(replace=config) concurrently
+      against the same host is not supported.
+    - Any configuration present on the device but omitted from the candidate
+      will be removed, including management interfaces, SSH access, and login
+      users if they are omitted. Always supply a complete configuration, never
+      a partial one.
+    - When capturing a candidate from the device's own output (for example
+      via C(show configuration)) rather than from a trusted, separately
+      maintained source, be aware that VyOS may return masked placeholder
+      values (for example a run of literal asterisks) in place of local
+      users' C(encrypted-password)/C(plaintext-password) values when queried
+      through automation, even though the identical command returns the real
+      value when typed interactively at a terminal. Pushing a masked capture
+      back through C(replace=config) sends the literal placeholder as the new
+      password value; VyOS's own commit-time validation is expected to reject
+      an obviously malformed hash, but a masked value that happens to pass
+      basic format validation could apply silently. Prefer sourcing
+      C(replace=config) candidates from a trusted, version-controlled
+      artifact rather than a live automated capture whenever the
+      configuration contains local password-based users.
+    - Even under C(check_mode), the candidate is written to a temporary file on
+      the device so that VyOS's own C(compare) can produce an accurate preview
+      diff. No C(commit) occurs in check mode.
+    - When combined with C(backup=yes), the value of C(changed) reflects
+      whether the backup file's content changed on the Ansible control node,
+      not whether the device configuration changed -- this is existing
+      behavior in the shared netcommon action plugin backing config-family
+      modules across collections, not specific to C(replace=config).
+    type: str
+    default: line
+    choices:
+    - line
+    - config
+  allow_password_change:
+    description:
+    - The C(allow_password_change) argument specifies whether any configuration lines which
+      would change a user's password should be filtered out.  By default only plaintext
+      password changes are allowed and any encrypted-password keys are filtered out. In
+      order to allow all password updates, both plaintext and encrypted, set this argument
+      to C(all).
+    - Not applied when C(replace) is set to C(config); the candidate is loaded
+      as-is via VyOS's native C(load), which has no equivalent filtering
+      mechanism.
+    type: str
+    default: plaintext
+    choices:
+    - all
+    - plaintext
+    - encrypted
+    - none
 """
 
 EXAMPLES = """
@@ -140,7 +260,13 @@ EXAMPLES = """
 
 - name: render a Jinja2 template onto the VyOS router
   vyos.vyos.vyos_config:
+    match: enforce
     src: vyos_template.j2
+
+- name: revert after ten minutes, if connection is lost
+  vyos.vyos.vyos_config:
+    src: vyos_template.j2
+    confirm: automatic
 
 - name: for idempotency, use full-form commands
   vyos.vyos.vyos_config:
@@ -154,16 +280,40 @@ EXAMPLES = """
     backup_options:
       filename: backup.cfg
       dir_path: /home/user
+
+- name: capture the complete hierarchical configuration for editing
+  # replace=config requires the complete desired configuration in
+  # hierarchical/bracket format -- never a partial one, and never flat
+  # set-command format. `backup: true` alone won't work here: it captures
+  # flat set-command output (via `show configuration commands`), which
+  # replace=config's underlying `load` command rejects. Capture the
+  # hierarchical form directly instead, edit it, then replace with the
+  # edited whole, as shown here.
+  vyos.vyos.vyos_command:
+    commands: "show configuration"
+  register: current_config
+
+- name: (edit current_config.stdout[0] as needed, save it locally, then)
+  vyos.vyos.vyos_config:
+    src: /home/user/edited_config.cfg
+    replace: config
 """
 
 RETURN = """
 commands:
-  description: The list of configuration commands sent to the device
+  description:
+  - In C(replace=line) mode (default), the list of set/delete commands sent to
+    the device.
+  - In C(replace=config) mode, contains only the single C(load <path>) command
+    actually issued to the device -- not an itemized diff. See C(diff) for the
+    actual change content, sourced from VyOS's own C(compare) output.
   returned: always
   type: list
   sample: ['...', '...']
 filtered:
-  description: The list of configuration commands removed to avoid a load failure
+  description:
+  - The list of configuration commands removed to avoid a load failure.
+  - Not populated when C(replace) is set to C(config).
   returned: always
   type: list
   sample: ['...', '...']
@@ -193,13 +343,16 @@ time:
   type: str
   sample: "22:28:34"
 """
+import os
 import re
+import tempfile
 
-from ansible.module_utils._text import to_text
+from ansible.module_utils._text import to_bytes, to_text
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.connection import ConnectionError
 
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.vyos import (
+    copy_file,
     get_config,
     get_connection,
     load_config,
@@ -209,9 +362,48 @@ from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.vyos import
 
 DEFAULT_COMMENT = "configured by vyos_config"
 
-CONFIG_FILTERS = [
-    re.compile(r"set system login user \S+ authentication encrypted-password"),
-]
+PASSWORD_NEEDLE = re.compile(
+    r"(?:set|delete) system login user \S+ authentication (encrypted|plaintext)-password",
+)
+
+# diff_match=enforce's scoping can collapse an entire untouched subtree into
+# a single parent delete (e.g. "delete system login" when a candidate
+# touches system without restating login, or "delete system login user
+# admin" without a specific authentication line). PASSWORD_NEEDLE can't see
+# into a collapsed delete to know whether it removes a password -- since
+# real users almost always have one configured, treat any subtree-level
+# login deletion as password-bearing by default, same conservative stance
+# as PASSWORD_NEEDLE itself.
+LOGIN_SUBTREE_DELETE_NEEDLE = re.compile(
+    r"^delete system login(?:\s+user\s+\S+(?:\s+authentication)?)?\s*$",
+)
+
+
+def sanitize_config(config, result, allow):
+    result["filtered"] = list()
+
+    if allow == "all":
+        return
+
+    index_to_filter = list()
+
+    for index, line in enumerate(list(config)):
+        found = PASSWORD_NEEDLE.search(line)
+
+        if found is not None:
+            if allow == found[1]:
+                continue
+            result["filtered"].append(line)
+            index_to_filter.append(index)
+            continue
+
+        if LOGIN_SUBTREE_DELETE_NEEDLE.match(line.strip()):
+            result["filtered"].append(line)
+            index_to_filter.append(index)
+
+    # Delete all filtered configs
+    for filter_index in sorted(index_to_filter, reverse=True):
+        del config[filter_index]
 
 
 def get_candidate(module):
@@ -270,19 +462,6 @@ def diff_config(commands, config):
     return list(updates)
 
 
-def sanitize_config(config, result):
-    result["filtered"] = list()
-    index_to_filter = list()
-    for regex in CONFIG_FILTERS:
-        for index, line in enumerate(list(config)):
-            if regex.search(line):
-                result["filtered"].append(line)
-                index_to_filter.append(index)
-    # Delete all filtered configs
-    for filter_index in sorted(index_to_filter, reverse=True):
-        del config[filter_index]
-
-
 def run(module, result):
     # get the current active config from the node or passed in via
     # the config param
@@ -304,16 +483,27 @@ def run(module, result):
         module.fail_json(msg=to_text(exc, errors="surrogate_then_replace"))
 
     commands = response.get("config_diff")
-    sanitize_config(commands, result)
+
+    allow_password_change = module.params["allow_password_change"]
+    sanitize_config(commands, result, allow=allow_password_change)
 
     result["commands"] = commands
 
+    confirm_param = module.params["confirm"]
+    if confirm_param is None:
+        confirm_param = "automatic" if module.params["match"] == "enforce" else "none"
+
     commit = not module.check_mode
     comment = module.params["comment"]
+    confirm = None
+    if confirm_param in ("automatic", "manual"):
+        confirm = module.params["confirm_timeout"]
 
     diff = None
     if commands:
-        diff = load_config(module, commands, commit=commit, comment=comment)
+        diff = load_config(module, commands, commit=commit, comment=comment, confirm=confirm)
+        if confirm_param == "automatic" and not module.check_mode:
+            run_commands(module, ["configure", "confirm", "exit"])
 
         if result.get("filtered"):
             result["warnings"].append(
@@ -326,24 +516,105 @@ def run(module, result):
         result["diff"] = {"prepared": diff}
 
 
+def run_replace_config(module, result):
+    # replace=config: push the full candidate to the device and let VyOS's
+    # own `load` command perform the replacement natively, rather than
+    # computing a set/delete diff in Python.
+    #
+    # Deliberately smaller than cisco.iosxr's equivalent implementation:
+    # - No bidirectional pre-diff to decide whether anything changed --
+    #   confirmed on real VyOS 1.5 hardware that `load` of an
+    #   already-applied file, followed by `compare`, natively reports
+    #   "No changes between working and active configurations" with no
+    #   Python-side pre-check needed.
+    # - No special `replace=<path>` argument threaded through load_config()/
+    #   edit_config() -- confirmed that `load <path>` behaves as an ordinary
+    #   configuration command through the existing configure/compare/commit
+    #   flow already implemented in Cliconf.edit_config(), unmodified.
+    #
+    # Candidate format requirement (hierarchical/bracket, not flat
+    # set/delete) is enforced by VyOS's own `load` parser, not by this
+    # module -- confirmed empirically: flat set-command input produces
+    # "ValueError: Failed to parse config: Syntax error...".
+    # module.params["src"] is already the rendered file *content* by this
+    # point, not a path -- netcommon's generic action plugin for src-based
+    # network config modules reads the local file and substitutes its
+    # (Jinja2-rendered) content into this param before the module runs. Same
+    # assumption get_candidate() already relies on elsewhere in this file.
+    candidate = to_bytes(module.params["src"], errors="surrogate_or_strict")
+
+    tmp = tempfile.NamedTemporaryFile(delete=False)
+    local_path = tmp.name
+    try:
+        tmp.write(candidate)
+        tmp.close()
+
+        # Fixed remote filename, always overwritten -- same precedent as
+        # cisco.iosxr.iosxr_config's copy_file_to_node(), which always
+        # writes to the same "/harddisk:/ansible_config.txt". Avoids
+        # per-run temp-file accumulation on the device, at the accepted
+        # cost (shared with iosxr_config) that two concurrent replace=config
+        # runs against the same host could race on this path.
+        remote_path = "/tmp/ansible_vyos_replace.cfg"
+        copy_file(module, local_path, remote_path, "scp")
+    finally:
+        os.unlink(local_path)
+
+    confirm_param = module.params["confirm"]
+    if confirm_param is None:
+        confirm_param = "none"
+
+    commit = not module.check_mode
+    comment = module.params["comment"]
+    confirm = None
+    if confirm_param in ("automatic", "manual"):
+        confirm = module.params["confirm_timeout"]
+
+    diff = load_config(
+        module,
+        ["load %s" % remote_path],
+        commit=commit,
+        comment=comment,
+        confirm=confirm,
+    )
+    if confirm_param == "automatic" and diff and not module.check_mode:
+        run_commands(module, ["configure", "confirm", "exit"])
+
+    result["commands"] = ["load %s" % remote_path]
+    result["filtered"] = []
+    result["changed"] = bool(diff)
+
+    if module._diff:
+        result["diff"] = {"prepared": diff}
+
+
 def main():
     backup_spec = dict(filename=dict(), dir_path=dict(type="path"))
     argument_spec = dict(
         src=dict(type="path"),
         lines=dict(type="list", elements="str"),
-        match=dict(default="line", choices=["line", "none"]),
+        match=dict(default="line", choices=["line", "enforce", "none"]),
         comment=dict(default=DEFAULT_COMMENT),
+        confirm=dict(choices=["automatic", "manual", "none"], default=None),
+        confirm_timeout=dict(type="int", default=10),
         config=dict(),
         backup=dict(type="bool", default=False),
         backup_options=dict(type="dict", options=backup_spec),
         save=dict(type="bool", default=False),
+        replace=dict(type="str", default="line", choices=["line", "config"]),
+        allow_password_change=dict(
+            default="plaintext",
+            choices=["all", "encrypted", "plaintext", "none"],
+        ),
     )
 
     mutually_exclusive = [("lines", "src")]
+    required_if = [("replace", "config", ["src"])]
 
     module = AnsibleModule(
         argument_spec=argument_spec,
         mutually_exclusive=mutually_exclusive,
+        required_if=required_if,
         supports_check_mode=True,
     )
 
@@ -354,7 +625,9 @@ def main():
     if module.params["backup"]:
         result["__backup__"] = get_config(module=module)
 
-    if any((module.params["src"], module.params["lines"])):
+    if module.params["replace"] == "config":
+        run_replace_config(module, result)
+    elif any((module.params["src"], module.params["lines"])):
         run(module, result)
 
     if module.params["save"]:
@@ -368,7 +641,11 @@ def main():
             result["changed"] = True
         run_commands(module, commands=["exit"])
 
-    if result.get("changed") and any((module.params["src"], module.params["lines"])):
+    if (
+        result.get("changed")
+        and module.params["replace"] != "config"
+        and any((module.params["src"], module.params["lines"]))
+    ):
         msg = (
             "To ensure idempotency and correct diff the input configuration lines should be"
             " similar to how they appear if present in"

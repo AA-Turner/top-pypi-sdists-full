@@ -4,6 +4,7 @@ from __future__ import annotations
 from probe.analytics import core as core
 from probe.analytics.analytics import TelemetryContext
 from probe.analytics.events import EVENT_EXCEPTION
+from probe.analytics.generated import ProductSurface
 from probe.analytics.outcomes import Via
 from probe.analytics import sender  # call through the module: one binding for tests to patch
 
@@ -89,7 +90,7 @@ def _contract_safe(report: dict) -> dict:
 def report_crash(
     exc: BaseException,
     *,
-    surface: str,
+    surface: ProductSurface,
     report: dict,
     base_url: str | None = None,
     handled: bool = False,
@@ -107,6 +108,7 @@ def report_crash(
 
     `base_url` must be the RESOLVED one, not the --base-url flag (None when not passed),
     or a self-hoster configured the ordinary way falls through to hosted and emits.
+    `surface`: the program that crashed, the context's (S5), so no payload carries it.
     """
     try:
         if base_url is None:
@@ -114,7 +116,7 @@ def report_crash(
                 base_url = core.effective_base_url(core.read_cli_config())
             except Exception:
                 return  # unknown backend: fail CLOSED, never guess hosted
-        context = TelemetryContext.start(via=Via.NONE, interactive=False, base_url=base_url)
+        context = TelemetryContext.start(via=Via.NONE, interactive=False, base_url=base_url, surface=surface)
         if not context.enabled:
             return
         head = (report.get("exception") or [{}])[0]
@@ -122,7 +124,6 @@ def report_crash(
         context.emit(
             # PostHog Error Tracking groups on `$exception_list` (the Sentry shape).
             EVENT_EXCEPTION,
-            surface=surface,
             # The swallow LOCATION, the grouping key; once only a local throttle key, so
             # every swallow site arrived as one indistinguishable `surface="sdk"` report.
             site=site,

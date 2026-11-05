@@ -52,7 +52,7 @@ def parse_roster_artifact(
             "Invalid roster artifact: expected an object with a 'members' list."
         )
 
-    members = data["members"]
+    members = data["members"]  # ty: ignore[invalid-argument-type]
     if not members:
         raise RuntimeError("Invalid roster artifact: 'members' must not be empty.")
 
@@ -83,7 +83,7 @@ def parse_roster_artifact(
             f"Roster artifact generated_at {generated_at!r} is too old (age: {age})."
         )
 
-    return members
+    return members  # ty: ignore[invalid-return-type]
 
 
 def _fetch_slack_members(token: str) -> list[dict[str, str | None]]:
@@ -107,7 +107,7 @@ def _fetch_slack_members(token: str) -> list[dict[str, str | None]]:
         if cursor:
             kwargs["cursor"] = cursor
 
-        response = client.users_list(**kwargs)
+        response = client.users_list(**kwargs)  # ty: ignore[invalid-argument-type]
 
         for member in response.get("members", []):
             if (
@@ -561,7 +561,7 @@ def generate_roster(
         else:
             tier = 3
 
-        name = (r.get("slack_display_name") or r.get("github_handle") or "").lower()
+        name = (r.get("slack_display_name") or r.get("github_handle") or "").lower()  # ty: ignore[unresolved-attribute]
         return (tier, name)
 
     roster.sort(key=_sort_key)

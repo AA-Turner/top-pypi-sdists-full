@@ -424,8 +424,8 @@ def _register_entity_and_metrics(mcp, svc):
         - `dataset:`, `source:`, `checkpoint:` - forms in `refs`
 
         ### FYI:
-        `overview` = full saved project/experiment page: generated content, authored edits and chart data. Null HTML means unavailable. Follow `next_cursor`; content changes require restarting.
-        `summary` = `document`, authored Markdown INSIDE a project's or experiment's Overview page; the AI may not rewrite it. Whole-document, last-write-wins; read back is RENDERED, not byte-identical. `notes` = hidden operational notes.
+        `summary` = the dashboard's Summary tab (a project/experiment Overview page) as Markdown: person blocks quoted (the AI may not rewrite them), charts as placeholders; read back is RENDERED, not byte-identical. `markdown: null` = withheld from you, not empty.
+        `overview` = that page as saved HTML + chart data. Null HTML = unavailable. Follow `next_cursor`; a content change means restart. `notes` = hidden operational notes.
         """
         if filters is not None:
             # Bound so it is never silently DROPPED: FastMCP builds its argument
@@ -698,7 +698,9 @@ def main() -> None:
     except Exception as exc:
         from probe.sdk import diagnostics
 
-        diagnostics.report_crash(exc, surface="mcp_stdio")
+        from probe.analytics import ProductSurface
+
+        diagnostics.report_crash(exc, surface=ProductSurface.MCP_STDIO)
         raise
 
 

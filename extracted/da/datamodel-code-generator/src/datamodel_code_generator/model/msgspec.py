@@ -17,7 +17,7 @@ from datamodel_code_generator import Error
 from datamodel_code_generator import _constraint_applicability as _applicability
 from datamodel_code_generator._container_kinds import MAPPINGS
 from datamodel_code_generator._document_reader import as_mapping
-from datamodel_code_generator._graph_links import clear_parents
+from datamodel_code_generator._graph_links import clear_parents, link_members
 from datamodel_code_generator._mro import resolve_members
 from datamodel_code_generator._python_syntax import call_text, keyword_argument, subscript_text
 from datamodel_code_generator._records import record
@@ -95,6 +95,7 @@ from datamodel_code_generator.python_literal import (
     _normalized_safe_python_name,
     represent_python_value,
     represent_untrusted_python_value,
+    stable_repr,
 )
 from datamodel_code_generator.reference import FieldNameResolver, ModelType
 from datamodel_code_generator.types import (
@@ -561,8 +562,8 @@ class Struct(DataModel):
         if conflict := self._find_layout_conflict(self._generated_layout_bases()):
             other, base = conflict
             msg = (
-                f"msgspec.Struct model {self.class_name!r} has incompatible layouts from generated bases "
-                f"{other.class_name!r} and {base.class_name!r}."
+                f"msgspec.Struct model {stable_repr(self.class_name)} has incompatible layouts from generated bases "
+                f"{stable_repr(other.class_name)} and {stable_repr(base.class_name)}."
             )
             raise Error(msg)
 
@@ -577,7 +578,7 @@ class Struct(DataModel):
         template_data = super()._builtin_template_data()
         base_class_kwargs: dict[str, str] = {}
         for key, value in _user_struct_options(self).items():
-            if (normalized_key := _normalized_safe_python_name(key)) is not None:
+            if (normalized_key := _normalized_safe_python_name(key, self.target_python_version)) is not None:
                 base_class_kwargs[normalized_key] = represent_untrusted_python_value(value)
         base_class_kwargs.update(self._internal_template_data["base_class_kwargs"])
         return {**template_data, "base_class_kwargs": base_class_kwargs}
@@ -603,8 +604,8 @@ class Struct(DataModel):
         """
         if struct_tag_refused(value):
             return False
-        self.add_base_class_kwarg("tag_field", repr(field_name))
-        self.add_base_class_kwarg("tag", repr(value))
+        self.add_base_class_kwarg("tag_field", stable_repr(field_name))
+        self.add_base_class_kwarg("tag", stable_repr(value))
         return True
 
     @override
@@ -1392,8 +1393,7 @@ class DataModelField(_FieldCallWriter, DataModelFieldBase):
             copied = self._copy_data_type(member)
             for nested in copied.all_data_types:
                 nested.register_reference()
-                for child in nested.data_types:
-                    child.parent = nested
+                link_members(nested)
             return [copied]
         members = [
             unconstrained

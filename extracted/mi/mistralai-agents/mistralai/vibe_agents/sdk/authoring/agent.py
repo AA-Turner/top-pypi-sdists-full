@@ -49,7 +49,7 @@ from mistralai.vibe_agents.session_workflow import SessionAgentCustomization, Su
 from mistralai.vibe_agents.session_workflow.skills import RequestedSkillInput
 from mistralai.vibe_agents.sessions_client import IdempotencyKey
 
-from . import contracts, mcp_sources
+from . import builtin_declarations, contracts, mcp_sources
 from . import tool as tool_authoring
 from . import types as authoring_types
 from .errors import SdkError, UnsupportedAgentFeatureError, public_errors
@@ -287,6 +287,9 @@ class AgentAuthoring(BaseModel):
             subagent_policy=subagent_policy,
             tool_errors=tool_errors,
         )
+        builtin_declarations.refuse_subagents_without_their_builtins(
+            self.name, self.builtins, self.subagents, self.subagent_policy
+        )
         if (
             self.subagents
             and self.permission_policy is not None
@@ -436,6 +439,7 @@ class Agent(AgentAuthoring):
             )
             if mcps is not None:
                 _check_mcp_sources(harness, builtins)
+            builtin_declarations.refuse_skills_without_their_builtin(self.name, self.builtins, harness)
             self._bundle.harness = harness
         if redaction is not None:
             self._bundle.redaction = resolve_redaction(redaction)
@@ -528,10 +532,11 @@ class Agent(AgentAuthoring):
 
         ``on_approval``, a plain or async function, answers the approvals of the run's session and
         its subagents with ``AllowApproval`` or ``DenyApproval`` (see ``Session``). Without it, or
-        when it returns ``None``, the run returns ``Blocked`` while the turn waits for the answer.
-        Answer each of its callbacks, a subagent's too, on the run's turn:
-        ``agent.session(state.session_id).turn(state.turn_id).answer(cb.id, ...)``. A
-        handler that raises makes the run raise its error; the turn goes on.
+        when it returns ``KeepCallbackOpen()``, the run returns ``Blocked`` while the turn waits for
+        the answer. Answer each of its callbacks, a subagent's too, on the run's turn:
+        ``agent.session(state.session_id).turn(state.turn_id).answer(cb.id, ...)``. A handler that
+        raises makes the run raise its error, and one that returns anything else, ``None`` included,
+        makes it raise ``SdkError``; the approval stays open and the turn goes on.
 
         ``on_sign_in`` answers the sign-ins of the run's session and its subagents the same way: it
         gets an ``OpenSignIn``, the sources the agent asks the user to connect, and returns a
@@ -842,10 +847,11 @@ class Agent(AgentAuthoring):
         fixed for the session's lifetime and delivered only to the tools, hooks and sandbox hooks
         that declare them with ``agents.Depends()``.
 
-        ``agent`` customizes this Agent for this session only: ``additional_instructions`` append
-        to its instructions, and ``model`` and ``reasoning_effort`` override its completion
-        defaults. A deployment keeps its saved Agent unchanged. Permissions are not customized per
-        session: set ``permission_mode=`` or ``permission_policy=`` on the Agent.
+        ``agent`` (an ``agents.SessionAgentCustomization`` or the same keys as a dict) customizes this
+        Agent for this session only: ``additional_instructions`` append to its instructions, and
+        ``model`` and ``reasoning_effort`` override its completion defaults. A deployment keeps its
+        saved Agent unchanged. Permissions are not customized per session: set ``permission_mode=``
+        or ``permission_policy=`` on the Agent.
 
         ``idempotency_key`` (1 to 256 characters) makes the start safe to retry: a second call with
         the same key and the same options returns the same session, even once it is running a turn or

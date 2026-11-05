@@ -426,7 +426,8 @@ class PythonTool[**P, R]:
     """A tool that runs a Python function on the worker.
 
     It is callable like the function itself: ``tool(...)`` takes the function's parameters and
-    returns what the function returns, nothing added. ``tool_definition`` is what the model sees.
+    returns what the function returns, nothing added. ``tool_definition`` describes the tool: what the
+    model sees, and its title for people.
 
     ``name`` defaults to the function's name and ``description`` to its docstring. Without
     ``input_schema``, the input schema is built from the function's parameters and the function
@@ -434,7 +435,8 @@ class PythonTool[**P, R]:
     The output schema is built from the return annotation, unless ``output_schema`` is given.
     Both arguments are Pydantic models. ``annotations`` are the tool's hints, such as
     ``read_only_hint``: every approval of a call to the tool carries them, in
-    ``request.tool.annotations``. A tool cannot be changed after it is built.
+    ``request.tool.annotations``. ``title`` is a name for people, such as ``"Send email"``, for
+    example in an approval prompt. A tool cannot be changed after it is built.
 
     A function whose first parameter is a positional-only ``agents.ToolCallbackContext`` gets the
     context of each call. Called directly, such a tool takes the context or leaves it out:
@@ -445,7 +447,8 @@ class PythonTool[**P, R]:
     """
 
     tool_definition: ToolDefinition
-    """What the model sees of the tool: its name, description, input schema and output schema."""
+    """What the model sees of the tool: its name, description, input schema and output schema; and
+    its title, for people only."""
     handler: Callable[..., Any]
     """The function the tool calls, adapted to receive the validated arguments as ``args``."""
     input_model: type[BaseModel]
@@ -477,6 +480,7 @@ class PythonTool[**P, R]:
         model_access: ToolModelAccess | None = None,
         result_schema: type[BaseModel] | None = None,
         annotations: ToolAnnotations | None = None,
+        title: str | None = None,
     ) -> None:
         if result_schema is not None:
             if output_schema is not None:
@@ -504,6 +508,7 @@ class PythonTool[**P, R]:
         _validate_handler_signature(adapted, context_parameter=context_parameter)
         definition = ToolDefinition(
             name=name,
+            title=title,
             description=description,
             input_schema=input_schema.model_json_schema(),
             output_schema=_output_schema(function, output_schema),
@@ -560,6 +565,11 @@ class PythonTool[**P, R]:
     def title(self) -> str | None:
         """``tool_definition.title``: a name for people, for example in an approval prompt."""
         return self.tool_definition.title
+
+    @property
+    def display_title(self) -> str | None:
+        """``tool_definition.display_title``: the name to show people, as on an MCP or connector tool."""
+        return self.tool_definition.display_title
 
     @property
     def description(self) -> str:
@@ -743,6 +753,8 @@ class ClientToolDefinition[ToolInput: BaseModel](legacy_authoring.ClientToolDefi
     """The JSON Schema of the result the model reads back, from ``output_schema``."""
     annotations: ToolAnnotations
     """Hints about what the tool does, for approvals. A hint not declared takes MCP's default."""
+    title: str | None
+    """A name for people, for example in an approval prompt. None when the tool declares none."""
 
     def __init__(
         self,
@@ -755,6 +767,7 @@ class ClientToolDefinition[ToolInput: BaseModel](legacy_authoring.ClientToolDefi
         handler: ToolHandler[ToolInput, Any] | None = None,
         namespace: str = DEFAULT_TOOL_NAMESPACE,
         annotations: ToolAnnotations | None = None,
+        title: str | None = None,
     ) -> None:
         self.namespace = _checked_namespace(namespace, name)
         model_access_is_default = model_access is None
@@ -779,6 +792,7 @@ class ClientToolDefinition[ToolInput: BaseModel](legacy_authoring.ClientToolDefi
         else:
             self.output_json_schema = None
         self.annotations = ToolAnnotations() if annotations is None else annotations
+        self.title = title
         # The `ClientTool` built on this declaration, which an approval gives as the tool object.
         self._client_tool: ClientTool[..., Any] | None = None
 
@@ -806,6 +820,12 @@ class ClientToolDefinition[ToolInput: BaseModel](legacy_authoring.ClientToolDefi
     @property
     def required_input_ids(self) -> list[str]:
         return session_input.required_input_ids(self.session_inputs)
+
+    @property
+    def display_title(self) -> str | None:
+        """The name to show people, as on an MCP or connector tool: ``title``, or None."""
+
+        return self.title
 
 
 class _ToolDecorator(Protocol):
@@ -861,6 +881,7 @@ def tool(
     model_access: ToolModelAccess | None = None,
     result_schema: type[BaseModel] | None = None,
     annotations: ToolAnnotations | None = None,
+    title: str | None = None,
 ) -> _ToolDecorator: ...
 
 
@@ -876,14 +897,16 @@ def tool(
     model_access: ToolModelAccess | None = None,
     result_schema: type[BaseModel] | None = None,
     annotations: ToolAnnotations | None = None,
+    title: str | None = None,
 ) -> Any:
-    """Decorate a module-level function as an Agents SDK tool, a ``PythonTool``.
+    """Decorate a module-level function as an SDK tool, a ``PythonTool``.
 
     Use it bare, ``@agents.tool``, to take the name from the function, the description from its
     docstring, the input schema from its parameters and the output schema from its return
     annotation, or call it to override any of them. The tool stays callable like the function.
     ``annotations=agents.ToolAnnotations(read_only_hint=True)`` declares hints that every approval
-    of a call to the tool carries.
+    of a call to the tool carries. ``title="Send email"`` is a name for people, for example in an
+    approval prompt; the model does not see it.
 
     ``namespace`` groups the tool: its ID is ``<namespace>.<name>``, ``client.<name>`` by default.
     The ID is what ``ToolCall.name`` and permission rules use, and what ``run_typescript`` calls
@@ -905,6 +928,7 @@ def tool(
             model_access=model_access,
             result_schema=result_schema,
             annotations=annotations,
+            title=title,
         )
 
     if handler is not None:
@@ -965,6 +989,7 @@ class ClientTool[**P, R]:
         declaration._client_tool = self
         self._tool_definition = ToolDefinition(
             name=declaration.name,
+            title=declaration.title,
             description=declaration.description,
             input_schema=declaration.input_schema,
             output_schema=declaration.output_json_schema,
@@ -979,7 +1004,7 @@ class ClientTool[**P, R]:
     @property
     def tool_definition(self) -> ToolDefinition:
         """What the model sees of the tool: its name, description, and the JSON Schemas of its input
-        and output, as on a ``PythonTool``."""
+        and output, as on a ``PythonTool``; and its title, for people only."""
 
         return self._tool_definition
 
@@ -988,6 +1013,12 @@ class ClientTool[**P, R]:
         """The name the model calls the tool by."""
 
         return self._tool_definition.name
+
+    @property
+    def display_title(self) -> str | None:
+        """``tool_definition.display_title``: the name to show people, as on an MCP or connector tool."""
+
+        return self._tool_definition.display_title
 
     @property
     def namespace(self) -> str:
@@ -1141,6 +1172,7 @@ def _client_tool_from_function(
     description: str | None,
     model_access: ToolModelAccess | None,
     annotations: ToolAnnotations | None,
+    title: str | None,
 ) -> ClientTool[Any, Any]:
     qualname = getattr(function, "__qualname__", function)
     session_inputs = session_input.session_input_parameters_of(function)
@@ -1165,6 +1197,7 @@ def _client_tool_from_function(
         model_access=model_access,
         output_schema=None if output is None else output[1],
         annotations=annotations,
+        title=title,
     )
     return ClientTool(definition, by_name=True, output_adapter=None if output is None else output[0])
 
@@ -1214,6 +1247,7 @@ def client_tool[ToolInput: BaseModel, ToolOutput: BaseModel](
     output_schema: type[ToolOutput],
     model_access: ToolModelAccess | None = None,
     annotations: ToolAnnotations | None = None,
+    title: str | None = None,
 ) -> ClientTool[[ToolInput], ToolOutput]: ...
 
 
@@ -1227,6 +1261,7 @@ def client_tool[ToolInput: BaseModel](
     output_schema: None = None,
     model_access: ToolModelAccess | None = None,
     annotations: ToolAnnotations | None = None,
+    title: str | None = None,
 ) -> ClientTool[[ToolInput], Any]: ...
 
 
@@ -1238,6 +1273,7 @@ def client_tool(
     description: str | None = None,
     model_access: ToolModelAccess | None = None,
     annotations: ToolAnnotations | None = None,
+    title: str | None = None,
 ) -> _ClientToolDecorator: ...
 
 
@@ -1252,6 +1288,7 @@ def client_tool(
     output_schema: type[BaseModel] | None = None,
     model_access: ToolModelAccess | None = None,
     annotations: ToolAnnotations | None = None,
+    title: str | None = None,
 ) -> Any:
     """Declare a tool the model can call and the application running the agent answers.
 
@@ -1271,7 +1308,7 @@ def client_tool(
     tools and of the SDK's connector and guardrail tools raise ``SdkError``.
 
     ``annotations`` are the tool's hints, which every approval of a call to the tool carries in
-    ``request.tool.annotations``.
+    ``request.tool.annotations``. ``title`` is a name for people, for example in an approval prompt.
 
     The worker never runs a client tool: the turn waits until the application sends the result.
     Answer it with a function bound by ``@<tool>.answer``, or by hand with
@@ -1304,6 +1341,7 @@ def client_tool(
             model_access=model_access,
             output_schema=output_schema,
             annotations=annotations,
+            title=title,
         )
         return ClientTool(cast(ClientToolDefinition[BaseModel], definition), by_name=False)
 
@@ -1321,6 +1359,7 @@ def client_tool(
             description=description,
             model_access=model_access,
             annotations=annotations,
+            title=title,
         )
 
     if function is not None:

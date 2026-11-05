@@ -42,7 +42,6 @@ from ..models.rna_oligo_created_webhook_v3 import RnaOligoCreatedWebhookV3
 from ..models.rna_oligo_updated_webhook_v3 import RnaOligoUpdatedWebhookV3
 from ..models.rna_sequence_created_webhook_v3 import RnaSequenceCreatedWebhookV3
 from ..models.rna_sequence_updated_webhook_v3 import RnaSequenceUpdatedWebhookV3
-from ..models.run_created_webhook_v3 import RunCreatedWebhookV3
 from ..models.webhook_envelope_v0_app import WebhookEnvelopeV0App
 from ..models.webhook_envelope_v0_app_definition import WebhookEnvelopeV0AppDefinition
 from ..models.webhook_envelope_v0_channel import WebhookEnvelopeV0Channel
@@ -122,7 +121,6 @@ class WebhookEnvelopeV0:
         RnaOligoUpdatedWebhookV3,
         RnaSequenceCreatedWebhookV3,
         RnaSequenceUpdatedWebhookV3,
-        RunCreatedWebhookV3,
         UnknownType,
     ]
     _tenant_id: str
@@ -295,9 +293,6 @@ class WebhookEnvelopeV0:
         elif isinstance(self._message, RnaSequenceCreatedWebhookV3):
             message = self._message.to_dict()
 
-        elif isinstance(self._message, RnaSequenceUpdatedWebhookV3):
-            message = self._message.to_dict()
-
         else:
             message = self._message.to_dict()
 
@@ -429,7 +424,6 @@ class WebhookEnvelopeV0:
             RnaOligoUpdatedWebhookV3,
             RnaSequenceCreatedWebhookV3,
             RnaSequenceUpdatedWebhookV3,
-            RunCreatedWebhookV3,
             UnknownType,
         ]:
             message: Union[
@@ -482,7 +476,6 @@ class WebhookEnvelopeV0:
                 RnaOligoUpdatedWebhookV3,
                 RnaSequenceCreatedWebhookV3,
                 RnaSequenceUpdatedWebhookV3,
-                RunCreatedWebhookV3,
                 UnknownType,
             ]
             _message = d.pop("message")
@@ -587,8 +580,6 @@ class WebhookEnvelopeV0:
                     message = RnaSequenceCreatedWebhookV3.from_dict(_message)
                 elif discriminator == "v3.rnaSequence.updated":
                     message = RnaSequenceUpdatedWebhookV3.from_dict(_message)
-                elif discriminator == "v3.run.created":
-                    message = RunCreatedWebhookV3.from_dict(_message)
                 else:
                     message = UnknownType(value=_message)
 
@@ -650,7 +641,6 @@ class WebhookEnvelopeV0:
                     RnaOligoUpdatedWebhookV3,
                     RnaSequenceCreatedWebhookV3,
                     RnaSequenceUpdatedWebhookV3,
-                    RunCreatedWebhookV3,
                     UnknownType,
                 ],
                 UNSET,
@@ -810,7 +800,6 @@ class WebhookEnvelopeV0:
         RnaOligoUpdatedWebhookV3,
         RnaSequenceCreatedWebhookV3,
         RnaSequenceUpdatedWebhookV3,
-        RunCreatedWebhookV3,
         UnknownType,
     ]:
         if isinstance(self._message, Unset):
@@ -870,7 +859,6 @@ class WebhookEnvelopeV0:
             RnaOligoUpdatedWebhookV3,
             RnaSequenceCreatedWebhookV3,
             RnaSequenceUpdatedWebhookV3,
-            RunCreatedWebhookV3,
             UnknownType,
         ],
     ) -> None:

@@ -1,15 +1,17 @@
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
 
 from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 from surrealdb.data import cbor
+from surrealdb.types import Value
 
 
 # Unit tests for encoding
 def test_empty_object_encode() -> None:
     """Test encoding empty object to CBOR bytes."""
-    test_obj = {}
+    test_obj: dict[str, Any] = {}
     encoded = cbor.encode(test_obj)
     assert isinstance(encoded, bytes)
 
@@ -48,7 +50,7 @@ def test_object_with_mixed_types_encode() -> None:
 # Unit tests for decoding
 def test_empty_object_decode() -> None:
     """Test decoding CBOR bytes to empty object."""
-    test_obj = {}
+    test_obj: dict[str, Any] = {}
     encoded = cbor.encode(test_obj)
     decoded = cbor.decode(encoded)
     assert isinstance(decoded, dict)
@@ -161,11 +163,13 @@ def test_object_with_special_characters_in_keys_roundtrip() -> None:
 
 # Database fixture
 @pytest.fixture
-async def surrealdb_connection():  # type: ignore[misc]
-    url = "ws://localhost:8000/rpc"
+async def surrealdb_connection(
+    ws_url: str,
+) -> AsyncGenerator[AsyncWsSurrealConnection, None]:
+    url = ws_url
     password = "root"
     username = "root"
-    vars_params = {"username": username, "password": password}
+    vars_params: dict[str, Value] = {"username": username, "password": password}
     database_name = "test_db"
     namespace = "test_ns"
     connection = AsyncWsSurrealConnection(url)
@@ -182,12 +186,12 @@ async def surrealdb_connection():  # type: ignore[misc]
 @pytest.mark.asyncio
 async def test_empty_object_db_roundtrip(surrealdb_connection: Any) -> None:
     """Test sending empty object to SurrealDB and receiving it back."""
-    test_obj = {}
+    test_obj: dict[str, Any] = {}
     await surrealdb_connection.query(
         "CREATE object_tests:test1 SET value = $val;",
         vars={"val": test_obj},
     )
-    result = await surrealdb_connection.query("SELECT * FROM object_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM object_tests;").first()
     assert result[0]["value"] == test_obj
 
 
@@ -199,7 +203,7 @@ async def test_simple_object_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE object_tests:test2 SET value = $val;",
         vars={"val": test_obj},
     )
-    result = await surrealdb_connection.query("SELECT * FROM object_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM object_tests;").first()
     assert result[0]["value"] == test_obj
 
 
@@ -211,7 +215,7 @@ async def test_nested_object_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE object_tests:test3 SET value = $val;",
         vars={"val": test_obj},
     )
-    result = await surrealdb_connection.query("SELECT * FROM object_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM object_tests;").first()
     assert result[0]["value"] == test_obj
 
 
@@ -229,7 +233,7 @@ async def test_object_with_mixed_types_db_roundtrip(surrealdb_connection: Any) -
         "CREATE object_tests:test4 SET value = $val;",
         vars={"val": test_obj},
     )
-    result = await surrealdb_connection.query("SELECT * FROM object_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM object_tests;").first()
     assert result[0]["value"] == test_obj
 
 
@@ -249,7 +253,7 @@ async def test_object_with_arrays_and_nested_objects_db_roundtrip(
         "CREATE object_tests:test5 SET value = $val;",
         vars={"val": test_obj},
     )
-    result = await surrealdb_connection.query("SELECT * FROM object_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM object_tests;").first()
     assert result[0]["value"] == test_obj
 
 
@@ -260,7 +264,7 @@ async def test_top_level_object_fields_db_roundtrip(surrealdb_connection: Any) -
         "CREATE object_tests:test6 SET name = $name, age = $age, active = $active;",
         vars={"name": "Charlie", "age": 35, "active": True},
     )
-    result = await surrealdb_connection.query("SELECT * FROM object_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM object_tests;").first()
     assert result[0]["name"] == "Charlie"
     assert result[0]["age"] == 35
     assert result[0]["active"] is True

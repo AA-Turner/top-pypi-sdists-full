@@ -61,11 +61,20 @@ _TERMINAL = (DeploymentState.READY, DeploymentState.FAILED)
 NOTICE_HEADER = "X-Deploy-Notice"
 
 
+ADAPTERS_HEADER = "X-Adapters-Registered"
+
+
+def adapters_of(response: Any) -> list[str]:
+    """The adapters an answer says were registered with it (ADAPTERS_HEADER); [] for none."""
+    return [a.strip() for a in (response.headers.get(ADAPTERS_HEADER) or "").split(",") if a.strip()]
+
+
 class Accepted(DeploymentAccepted):
     """A deploy's 202 as this sequence-ai read it: the contract's fields, the platform's `notice` beside them, and
     whether its body could not be read at all (`unread`) - accepted all the same, the deployment named as it was sent."""
 
     notice: Optional[str] = None
+    adapters: list[str] = []
     unread: bool = False
 
 
@@ -172,15 +181,16 @@ class _GatewayDeployBackend:
 
             raise unreachable(self._base, exc) from None
         raise_for(r)
-        notice = r.headers.get(NOTICE_HEADER) or None
+        notice, adapters = r.headers.get(NOTICE_HEADER) or None, adapters_of(r)
         try:
-            return Accepted(**DeploymentAccepted.model_validate(r.json()).model_dump(), notice=notice)
+            return Accepted(**DeploymentAccepted.model_validate(r.json()).model_dump(), notice=notice,
+                            adapters=adapters)
         except Exception:
 
 
 
 
-            return Accepted(deployment_id=request.name, notice=notice, unread=True)
+            return Accepted(deployment_id=request.name, notice=notice, adapters=adapters, unread=True)
 
     def validate(self, request: DeploymentRequest, *, override: bool = False) -> Optional[dict]:
         """POST /v1/deployments/validate: what the deploy of this body would answer, without the deploy - the same

@@ -1801,6 +1801,7 @@ Instance Reduction::reduction_to_instance(
     InstanceBuilder instance_builder;
     instance_builder.set_objective(original_instance_->objective());
     instance_builder.set_parameters(original_instance_->parameters());
+    instance_builder.set_original_instance(*original_instance_);
     instance_builder.set_feasibility_callback(original_instance_->feasibility_callback());
 
     BinPos number_of_dedicated_bins = this->number_of_dedicated_bins();
@@ -1842,7 +1843,7 @@ Instance Reduction::reduction_to_instance(
             // in the reduced instance.
             continue;
         }
-        BinTypeId new_bin_type_id = instance_builder.add_bin_type(*original_instance_, bin_type_id);
+        BinTypeId new_bin_type_id = instance_builder.add_bin_type_from_original_instance(bin_type_id);
         original_to_reduced_bin_type_id[bin_type_id] = new_bin_type_id;
         reduced_to_original_bin_type_id_.push_back(bin_type_id);
         // Override to this bin's own true, possibly-shrunk dimensions (see
@@ -2041,9 +2042,14 @@ bool Reduction::compute_shrunk_bin_sizes(
         shrunk_bin_sizes.bin_height = 0;
         return false;
     }
-    const BinType& bin_type = original_instance_->bin_type(0);
-    shrunk_bin_sizes.bin_width = bin_type.rect.x;
-    shrunk_bin_sizes.bin_height = bin_type.rect.y;
+    // Once items have been pinned by 'reduce_full_span_items', the remaining
+    // items must fit in what is left of the bin, 'true_bin_rect_', not in
+    // the original bin.
+    Rectangle bin_rect = (full_span_items_.empty())?
+        original_instance_->bin_type(0).rect:
+        true_bin_rect_;
+    shrunk_bin_sizes.bin_width = bin_rect.x;
+    shrunk_bin_sizes.bin_height = bin_rect.y;
 
     for (ItemTypeId item_type_id = 0;
             item_type_id < (ItemTypeId)reduction_item_types.size();
@@ -2056,9 +2062,9 @@ bool Reduction::compute_shrunk_bin_sizes(
     // Equation (7): shrink the bin width/height to the largest achievable
     // combination of item widths/heights.
     shrunk_bin_sizes.bin_width = max_achievable_dimension_sum(
-            reduction_item_types, bin_type.rect.x, /* width_axis */ true);
+            reduction_item_types, bin_rect.x, /* width_axis */ true);
     shrunk_bin_sizes.bin_height = max_achievable_dimension_sum(
-            reduction_item_types, bin_type.rect.y, /* width_axis */ false);
+            reduction_item_types, bin_rect.y, /* width_axis */ false);
 
     return true;
 }

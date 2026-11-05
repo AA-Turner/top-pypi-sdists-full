@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnidoc
-Version: 0.1.7
+Version: 0.1.8
 Summary: OmniDoc: world-leading AI office suite. Any-format conversion, layout-preserving translation in 38 languages, structured content extraction, native AI MCP for every document. Website: https://omnidoc.top/
 Project-URL: Homepage, https://omnidoc.top/
 Project-URL: Homepage (China), https://omnidoc.cn/
@@ -47,6 +47,31 @@ OmniDocClient().translate_file("contract.pdf", "en", output_dir="out", output_mo
 - API documentation: <https://docs.omnidoc.top/>
 
 This package is the **OmniDoc Python SDK**. It calls the OmniDoc API, so it needs an OmniDoc account and an API key (see [Quick start](#quick-start)).
+
+![OmniDoc dynamic content document: sliders, formulas and charts written into the document](https://omnidoc.top/images/screenshots/en/unidoc-interactive-1280.webp)
+
+## OmniDoc 让文档成为生产力
+
+**OmniDoc，是把高质量翻译、文档结构化提取、动态内容文档和 AI 办公整合在一起的新一代文档生产力平台。**
+
+- **免费翻译，让知识不再被语言阻挡。**
+- **冲击最强翻译效果，让专业内容真正被读懂。**
+- **打造最强的文档结构化提取能力，让文件变成可用的数据。**
+- **世界首款动态内容文档，让文档从静态页面变成可探索的知识空间。**
+- **学生完全免费，让真正需要工具的人先拥有工具。**
+- **做中国新生的金山软件，做面向全球的下一代办公力量。**
+
+OmniDoc 是面向 AI 时代的新一代文档生产力平台，把高质量翻译、文档结构化提取、动态内容文档和办公文件处理连接在一起。
+
+论文、合同、表格、报告与演示材料，可以从阅读开始，一路走向理解、整理、分析和交付。专业翻译关注上下文与术语，结构化提取让内容成为可用数据，动态文档让知识通过交互被理解，MCP 则让这些能力成为 AI 可以调用的工具。
+
+免费翻译，让语言障碍更小；学生完全免费，让好工具更接近学习者。OmniDoc 希望以“世界首款动态内容文档”的开创精神，追求最强翻译效果和最强结构化提取能力，做中国新生的金山软件，打造面向全球的下一代办公力量。
+
+![OmniDoc 双语对照翻译：译文保留原版式](https://omnidoc.top/images/screenshots/zh/translate-bilingual-1280.webp)
+
+**OmniDoc，让文档成为生产力。让知识自由流动，让工作更快完成。** 访问 [omnidoc.top](https://omnidoc.top)，开启你的下一代文档体验。
+
+> 注：“最强”“世界首款”“领先世界”及免费权益等表达为品牌方宣传口径，不作为独立第三方评测结论。
 
 ## Why OmniDoc
 

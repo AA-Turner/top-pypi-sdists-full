@@ -2,6 +2,7 @@
 """
 A module for accessing remote source and observation catalogs
 """
+import math
 from functools import partial
 from datetime import datetime
 import time
@@ -13,6 +14,7 @@ from urllib.parse import urlparse, urljoin
 
 from astropy.io.votable import parse as votableparse
 
+from .exceptions import DALJobTimeoutError
 from .query import (
     DALResults, DALQuery, DALService, Record, UploadList,
     DALServiceError, DALQueryError)
@@ -30,7 +32,9 @@ import io
 
 __all__ = [
     "search", "escape", "TAPService", "TAPQuery", "AsyncTAPJob", "TAPResults",
-    "DEFAULT_JOB_POLL_TIMEOUT", "DEFAULT_JOB_WAIT_TIMEOUT"]
+    "DEFAULT_JOB_POLL_TIMEOUT", "DEFAULT_JOB_WAIT_TIMEOUT",
+    "MAX_JOB_POLL_BLOCK"
+]
 
 IVOA_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
@@ -51,6 +55,9 @@ DEFAULT_JOB_POLL_TIMEOUT = 10
 
 # Default timeout (in seconds) for overall job wait.
 DEFAULT_JOB_WAIT_TIMEOUT = 600.
+
+# Max time (in seconds) to block on a single job-status poll.
+MAX_JOB_POLL_BLOCK = 60.
 
 
 def _from_ivoa_format(datetime_str):
@@ -177,7 +184,7 @@ class TAPService(DALService, AvailabilityMixin, CapabilityMixin):
             response.raw.read = partial(response.raw.read, decode_content=True)
 
             self._tables = VOSITables(
-                vosi.parse_tables(response.raw.read), tables_url)
+                vosi.parse_tables(response.raw.read), tables_url, session=self._session)
         return self._tables
 
     def _parse_examples(self, examples_uri, *, depth=0):
@@ -255,6 +262,47 @@ class TAPService(DALService, AvailabilityMixin, CapabilityMixin):
             pass
         raise DALServiceError("Hard limit not exposed by the service")
 
+    def get_maxrec(self, mode=None):
+        """
+        The default output limit for the given mode.
+
+        Parameters
+        ----------
+        mode : str or None
+            The access mode ('sync', 'async', or None for the default limit).
+
+        Raises
+        ------
+        DALServiceError
+            if the property is not exposed by the service
+        """
+        try:
+            return self.get_tap_capability().get_outputlimit(
+                mode).default.content
+        except AttributeError:
+            pass
+        raise DALServiceError("Default limit not exposed by the service")
+
+    def get_hardlimit(self, mode=None):
+        """
+        The hard output limit for the given mode.
+
+        Parameters
+        ----------
+        mode : str or None
+            The access mode ('sync', 'async', or None for the default limit).
+
+        Raises
+        ------
+        DALServiceError
+            if the property is not exposed by the service
+        """
+        try:
+            return self.get_tap_capability().get_outputlimit(mode).hard.content
+        except AttributeError:
+            pass
+        raise DALServiceError("Hard limit not exposed by the service")
+
     @property
     def upload_methods(self):
         """
@@ -299,7 +347,7 @@ class TAPService(DALService, AvailabilityMixin, CapabilityMixin):
 
     def run_async(
             self, query, *, language="ADQL", maxrec=None, uploads=None,
-            delete=True, timeout=DEFAULT_JOB_WAIT_TIMEOUT, **keywords):
+            delete=True, timeout=None, **keywords):
         """
         runs async query and returns its result
 
@@ -316,8 +364,10 @@ class TAPService(DALService, AvailabilityMixin, CapabilityMixin):
             a mapping from table names to objects containing a votable
         delete : bool
             delete the job after fetching the results
-        timeout : float
-            maximum time to wait for job completion in seconds. Default is 600.
+        timeout : float or None
+            maximum time to wait for job completion in seconds. If None,
+            uses the service's advertised async executionDuration,
+            (if available) otherwise use ``DEFAULT_JOB_WAIT_TIMEOUT``.
 
         Returns
         -------
@@ -338,6 +388,13 @@ class TAPService(DALService, AvailabilityMixin, CapabilityMixin):
         --------
         AsyncTAPJob
         """
+        if timeout is None:
+            try:
+                limit = self.get_tap_capability().get_executionduration('async')
+                timeout = float(limit.default) if limit and limit.default else DEFAULT_JOB_WAIT_TIMEOUT
+            except DALServiceError:
+                timeout = DEFAULT_JOB_WAIT_TIMEOUT
+
         job = AsyncTAPJob.create(
             self.baseurl, query, language=language, maxrec=maxrec, uploads=uploads,
             session=self._session, **keywords)
@@ -724,9 +781,12 @@ class AsyncTAPJob:
             )
         try:
             if wait_for_statechange:
+                # Return just before our read timeout: this gives us a 200
+                # with the current phase instead of a ReadTimeout
+                wait_secs = max(1, int(timeout) - 1)
                 response = self._session.get(
                     self.url, stream=True, timeout=timeout, params={
-                        "WAIT": "-1"
+                        "WAIT": str(wait_secs)
                     }
                 )
             else:
@@ -987,11 +1047,14 @@ class AsyncTAPJob:
         phases : list
             phases to wait for
         timeout : float or None
-            maximum time to wait in seconds. If None, defaults to
-            ``DEFAULT_JOB_WAIT_TIMEOUT``.
+            total time budget to wait, in seconds. Defaults to
+            ``DEFAULT_JOB_WAIT_TIMEOUT``. If explicitly set to None,
+            waits indefinitely.
 
         Raises
         ------
+        DALJobTimeoutError
+            if the job does not reach one of ``phases`` within ``timeout`` seconds
         DALServiceError
             if the job is in a state that won't lead to an result
         """
@@ -1004,20 +1067,30 @@ class AsyncTAPJob:
         active_phases = {
             "QUEUED", "EXECUTING", "RUN", "COMPLETED", "ERROR", "UNKNOWN"}
 
+        deadline = time.monotonic() + (math.inf if timeout is None else timeout)
+
         while True:
-            self._update(wait_for_statechange=True, timeout=timeout)
-            # use the cached value
-            cur_phase = self._job.phase
-
-            if cur_phase not in active_phases:
-                raise DALServiceError(
-                    "Cannot wait for job completion. Job is not active!")
-
-            if cur_phase in phases:
-                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise DALJobTimeoutError(
+                    f"job did not reach {sorted(phases)} within {timeout}s "
+                    f"(last known phase: {self._job.phase})", url=self.url)
+            try:
+                self._update(wait_for_statechange=True, timeout=min(MAX_JOB_POLL_BLOCK, remaining))
+            except DALServiceError as ex:
+                if not isinstance(ex.cause, TRANSIENT_ERRORS):
+                    raise
+            else:
+                # use the cached value
+                cur_phase = self._job.phase
+                if cur_phase not in active_phases:
+                    raise DALServiceError(
+                        "Cannot wait for job completion. Job is not active!")
+                if cur_phase in phases:
+                    break
 
             # fallback for uws 1.0 or unsupported WAIT parameter
-            sleep(interval)
+            sleep(min(interval, max(0, deadline - time.monotonic())))
             interval = min(120, interval * increment)
 
         return self

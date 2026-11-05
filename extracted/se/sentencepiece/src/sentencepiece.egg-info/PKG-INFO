@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentencepiece
-Version: 0.2.2
+Version: 0.2.3
 Summary: Unsupervised text tokenizer and detokenizer.
 Author-email: Taku Kudo <taku@google.com>
 License-Expression: Apache-2.0
@@ -14,16 +14,16 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Provides-Extra: numpy
 Requires-Dist: numpy; extra == "numpy"
@@ -68,7 +68,7 @@ import sentencepiece as spm
 import numpy as np
 
 # Load the model
-sp = spm.SentencePieceProcessor(model_file='test/test_model.model')
+sp = spm.SentencePieceProcessor(model_file='test/botchan_en_unigram_1000.model')
 
 # Encode text to IDs (default return_type is int)
 print(sp.encode('This is a test'))
@@ -229,7 +229,7 @@ By default, using `return_type='offset_mapping'` returns **Unicode character off
 ```python
 import sentencepiece as spm
 
-sp = spm.SentencePieceProcessor(model_file='test/test_model.model')
+sp = spm.SentencePieceProcessor(model_file='test/botchan_en_unigram_1000.model')
 
 text = "吾輩は猫である。"
 
@@ -317,7 +317,7 @@ To slice the original text using these offsets, you must first encode the string
 ```python
 import sentencepiece as spm
 
-sp = spm.SentencePieceProcessor(model_file='test/test_model.model')
+sp = spm.SentencePieceProcessor(model_file='test/botchan_en_unigram_1000.model')
 
 text = "吾輩は猫である。"
 proto = sp.encode(text, return_type='proto')
@@ -344,7 +344,7 @@ To speed up batch tokenization, you can specify `num_threads=N` to parallelize p
 ```python
 import sentencepiece as spm
 
-sp = spm.SentencePieceProcessor(model_file='test/test_model.model')
+sp = spm.SentencePieceProcessor(model_file='test/botchan_en_unigram_1000.model')
 
 # A large batch of sentences
 sentences = ["This is a test sentence."] * 10000
@@ -382,7 +382,7 @@ To use it efficiently, you should create and reuse a `ThreadPool`, and specify a
 ```python
 import sentencepiece as spm
 
-sp = spm.SentencePieceProcessor(model_file='test/test_model.model')
+sp = spm.SentencePieceProcessor(model_file='test/botchan_en_unigram_1000.model')
 
 # 1. Create a ThreadPool to reuse threads (prevents thread recreation overhead)
 pool = spm.ThreadPool(num_threads=4)
@@ -403,7 +403,7 @@ You can normalize text using the normalization rules defined inside the model, o
 ```python
 import sentencepiece as spm
 
-sp = spm.SentencePieceProcessor(model_file='test/test_model.model')
+sp = spm.SentencePieceProcessor(model_file='test/botchan_en_unigram_1000.model')
 
 # Standard normalization (e.g. NFKC and space replacement)
 print(sp.normalize("Hello  World."))  # Double space
@@ -421,24 +421,33 @@ print(offsets)
 You can also use `SentencePieceNormalizer` to run normalization independently of a model, or with custom parameters:
 
 ```python
-# Replicate processor's exact normalization behavior:
+# Replicate processor's exact normalization behavior.
+# Unless given explicitly, add_dummy_prefix, escape_whitespaces and
+# remove_extra_whitespaces follow the loaded model/spec.
 normalizer = spm.SentencePieceNormalizer(
-    model_file='test/test_model.model',
-    add_dummy_prefix=True,
-    escape_whitespaces=True,
-    remove_extra_whitespaces=True
-)
+    model_file='test/botchan_en_unigram_1000.model')
 print(normalizer.normalize("Hello  World."))
 # Output: ▁Hello▁World.
 
-# Initialize from mapping list of tuples (source, target)
+# Raw normalization without whitespace handling.
+normalizer = spm.SentencePieceNormalizer(
+    model_file='test/botchan_en_unigram_1000.model',
+    add_dummy_prefix=False,
+    escape_whitespaces=False,
+    remove_extra_whitespaces=False
+)
+print(normalizer.normalize("Hello  World."))
+# Output: Hello  World.
+
+# Initialize from mapping list of tuples (source, target).
+# rule_name, rule_tsv and norm_map use the NormalizerSpec defaults (all true).
 norm_map = [
     ('foo', 'bar'),
     ('apple', 'orange'),
 ]
 normalizer = spm.SentencePieceNormalizer(norm_map=norm_map)
 print(normalizer.normalize("foo apple"))
-# Output: bar orange
+# Output: ▁bar▁orange
 
 # Decompile back to list of tuples
 print(normalizer.decompile())
@@ -634,6 +643,7 @@ This operates similarly to how [NumPy](https://numpy.org/devdocs/reference/threa
 
 The C++ library's `const` and `static` methods (such as `encode()`, `decode()`, and `train()`) are thread-safe and designed to work in a free-threaded (NoGIL) environment.
 However, non-const methods like `load()` are not thread-safe and can cause data races; ensure you implement appropriate locks when calling them from multiple threads.
+This also applies to regular (GIL-enabled) Python builds: `encode()`, `decode()` and `load()` release the GIL while they run, so do not call `load()` on a processor while another thread is using the same processor.
 
 While this limitation might be removed in the future, please note that it's not a simple fix, as it would require additional shared locks in C++.
 

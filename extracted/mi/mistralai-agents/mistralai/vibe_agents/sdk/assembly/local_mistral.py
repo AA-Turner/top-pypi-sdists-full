@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from mistralai.client import Mistral
 from mistralai.client import httpclient as mistral_httpclient
 from mistralai.client.httpclient import AsyncHttpClient
+from mistralai.vibe_agents._http import _header_api_key
 from mistralai.vibe_agents.sdk.app.config import mistral_api_url
 
 
@@ -28,9 +29,10 @@ def local_mistral_client(feature: str) -> LocalMistralClient:
     error handling and retries recognise its exceptions.
     """
 
-    api_key = os.getenv("MISTRAL_API_KEY") or os.getenv("MISTRAL_CLIENT_API_KEY")
-    if not api_key:
+    name = next((name for name in ("MISTRAL_API_KEY", "MISTRAL_CLIENT_API_KEY") if os.getenv(name, "").strip()), None)
+    if name is None:
         raise ValueError(f"{feature} require MISTRAL_API_KEY or MISTRAL_CLIENT_API_KEY")
+    api_key = _header_api_key(os.environ[name], name=name)
     http = mistral_httpclient.httpx.AsyncClient(follow_redirects=True)
     return LocalMistralClient(
         client=Mistral(api_key=api_key, server_url=mistral_api_url(), async_client=http),

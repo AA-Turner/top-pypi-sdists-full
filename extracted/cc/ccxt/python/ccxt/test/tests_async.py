@@ -1566,12 +1566,7 @@ class testMainClass:
                 call_exchange_method_dynamically_sync(exchange, method, self.sanitize_data_input(data['input']))
         except Exception as e:
             if not (isinstance(e, InvalidProxySettings)):
-                # if it's not a BadRequest, it means our request was not created succesfully
-                # so we might have an error in the request creation
-                self.request_tests_failed = True
-                creation_error_message = '[' + self.lang + '][STATIC_REQUEST]' + '[' + exchange.id + ']' + '[' + method + ']' + '[' + data['description'] + ']' + exception_message(e)
-                dump('[TEST_FAILURE]' + creation_error_message)
-                return True
+                raise e
             output = exchange.last_request_body
             request_url = exchange.last_request_url
         try:
@@ -3093,7 +3088,7 @@ class testMainClass:
         token_expires = exchange.milliseconds() + 100000
         exchange.options['v2TokenExpires'] = token_expires
         exchange.options['portfolio'] = 'random'
-        id = 'nfqkvdjp'
+        id = 'ccxt'
         assert exchange.options['brokerId'] == id, 'id not in options'
         client_order_id = None
         try:
@@ -3105,7 +3100,8 @@ class testMainClass:
             assert len(url_parts) > 1, 'last_request_url has no query string: ' + url
             query = self.urlencoded_to_dict(url_parts[1])
             client_order_id = query['label']
-        assert client_order_id is not None and client_order_id.startswith(str(id)), 'clientOrderId does not start with id'
+        # the label is built as "<brokerId>-<uuid22>", so assert the hyphenated prefix to ensure the uuid suffix was appended after the ccxt broker id
+        assert client_order_id is not None and client_order_id.startswith(id + '-'), 'clientOrderId ' + client_order_id + ' does not start with the brokerId prefix ' + id + '-'
         if not is_sync():
             await close(exchange)
         return True

@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
@@ -14,6 +15,7 @@ from surrealdb.data.types.geometry import (
     GeometryPolygon,
 )
 from surrealdb.errors import InvalidGeometryError
+from surrealdb.types import Value
 
 
 # Unit tests for encoding - GeometryPoint
@@ -304,12 +306,204 @@ def test_geometry_collection_roundtrip() -> None:
     assert isinstance(decoded, GeometryCollection)
 
 
+# Unit tests for hashability (issue #9)
+#
+# Each geometry defines __eq__, so it must define a consistent __hash__ to
+# remain usable as a dict key / set member. Coordinates are nested lists, so
+# __hash__ converts them to tuples.
+def test_geometry_point_hashable() -> None:
+    point1 = GeometryPoint(1.23, 4.56)
+    point2 = GeometryPoint(1.23, 4.56)
+    assert hash(point1) == hash(point2)
+    assert point1 in {point2}
+    assert {point1: "value"}[GeometryPoint(1.23, 4.56)] == "value"
+
+
+def test_geometry_line_hashable() -> None:
+    line1 = GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0))
+    line2 = GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0))
+    assert hash(line1) == hash(line2)
+    assert line1 in {line2}
+
+
+def test_geometry_polygon_hashable() -> None:
+    def make_polygon() -> GeometryPolygon:
+        return GeometryPolygon(
+            GeometryLine(
+                GeometryPoint(0.0, 0.0),
+                GeometryPoint(1.0, 0.0),
+                GeometryPoint(1.0, 1.0),
+                GeometryPoint(0.0, 0.0),
+            )
+        )
+
+    assert hash(make_polygon()) == hash(make_polygon())
+    assert make_polygon() in {make_polygon()}
+
+
+def test_geometry_multipoint_hashable() -> None:
+    mp1 = GeometryMultiPoint(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0))
+    mp2 = GeometryMultiPoint(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0))
+    assert hash(mp1) == hash(mp2)
+    assert mp1 in {mp2}
+
+
+def test_geometry_multiline_hashable() -> None:
+    def make_multiline() -> GeometryMultiLine:
+        return GeometryMultiLine(
+            GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0))
+        )
+
+    assert hash(make_multiline()) == hash(make_multiline())
+    assert make_multiline() in {make_multiline()}
+
+
+def test_geometry_multipolygon_hashable() -> None:
+    def make_multipolygon() -> GeometryMultiPolygon:
+        return GeometryMultiPolygon(
+            GeometryPolygon(
+                GeometryLine(
+                    GeometryPoint(0.0, 0.0),
+                    GeometryPoint(1.0, 0.0),
+                    GeometryPoint(1.0, 1.0),
+                    GeometryPoint(0.0, 0.0),
+                )
+            )
+        )
+
+    assert hash(make_multipolygon()) == hash(make_multipolygon())
+    assert make_multipolygon() in {make_multipolygon()}
+
+
+def test_geometry_collection_hashable() -> None:
+    def make_collection() -> GeometryCollection:
+        return GeometryCollection(
+            GeometryPoint(1.0, 2.0),
+            GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0)),
+        )
+
+    assert hash(make_collection()) == hash(make_collection())
+    assert make_collection() in {make_collection()}
+
+
+# Unit tests for __str__ (SurrealQL rendering)
+#
+# Point renders as a bare `(x, y)` literal; every other geometry renders as a
+# GeoJSON-shaped object literal with single-quoted `type` and recursively
+# formatted `coordinates`/`geometries` — matching the server's own
+# `Display`/`ToSql` for `Geometry` (surrealdb/types/src/value/geometry.rs).
+def test_geometry_point_str() -> None:
+    assert str(GeometryPoint(1.23, 4.56)) == "(1.23, 4.56)"
+    assert str(GeometryPoint(0.0, 0.0)) == "(0.0, 0.0)"
+
+
+def test_geometry_line_str() -> None:
+    line = GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0))
+    assert str(line) == "{ type: 'LineString', coordinates: [[0.0, 0.0], [1.0, 1.0]] }"
+
+
+def test_geometry_polygon_str() -> None:
+    exterior = GeometryLine(
+        GeometryPoint(0.0, 0.0),
+        GeometryPoint(1.0, 0.0),
+        GeometryPoint(1.0, 1.0),
+        GeometryPoint(0.0, 0.0),  # Close the ring
+    )
+    polygon = GeometryPolygon(exterior)
+    assert str(polygon) == (
+        "{ type: 'Polygon', coordinates: "
+        "[[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]] }"
+    )
+
+
+def test_geometry_polygon_with_hole_str() -> None:
+    exterior = GeometryLine(
+        GeometryPoint(0.0, 0.0),
+        GeometryPoint(10.0, 0.0),
+        GeometryPoint(10.0, 10.0),
+        GeometryPoint(0.0, 10.0),
+        GeometryPoint(0.0, 0.0),  # Close the ring
+    )
+    hole = GeometryLine(
+        GeometryPoint(2.0, 2.0),
+        GeometryPoint(4.0, 2.0),
+        GeometryPoint(4.0, 4.0),
+        GeometryPoint(2.0, 4.0),
+        GeometryPoint(2.0, 2.0),  # Close the ring
+    )
+    polygon = GeometryPolygon(exterior, hole)
+    assert str(polygon) == (
+        "{ type: 'Polygon', coordinates: "
+        "[[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]], "
+        "[[2.0, 2.0], [4.0, 2.0], [4.0, 4.0], [2.0, 4.0], [2.0, 2.0]]] }"
+    )
+
+
+def test_geometry_multipoint_str() -> None:
+    mp = GeometryMultiPoint(GeometryPoint(1.0, 2.0), GeometryPoint(3.0, 4.0))
+    assert str(mp) == "{ type: 'MultiPoint', coordinates: [[1.0, 2.0], [3.0, 4.0]] }"
+
+
+def test_geometry_multiline_str() -> None:
+    ml = GeometryMultiLine(
+        GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0)),
+        GeometryLine(GeometryPoint(2.0, 2.0), GeometryPoint(3.0, 3.0)),
+    )
+    assert str(ml) == (
+        "{ type: 'MultiLineString', coordinates: "
+        "[[[0.0, 0.0], [1.0, 1.0]], [[2.0, 2.0], [3.0, 3.0]]] }"
+    )
+
+
+def test_geometry_multipolygon_str() -> None:
+    exterior1 = GeometryLine(
+        GeometryPoint(0.0, 0.0),
+        GeometryPoint(1.0, 0.0),
+        GeometryPoint(1.0, 1.0),
+        GeometryPoint(0.0, 0.0),  # Close the ring
+    )
+    exterior2 = GeometryLine(
+        GeometryPoint(5.0, 5.0),
+        GeometryPoint(6.0, 5.0),
+        GeometryPoint(6.0, 6.0),
+        GeometryPoint(5.0, 5.0),  # Close the ring
+    )
+    mp = GeometryMultiPolygon(GeometryPolygon(exterior1), GeometryPolygon(exterior2))
+    assert str(mp) == (
+        "{ type: 'MultiPolygon', coordinates: "
+        "[[[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]]], "
+        "[[[5.0, 5.0], [6.0, 5.0], [6.0, 6.0], [5.0, 5.0]]]] }"
+    )
+
+
+def test_geometry_collection_str() -> None:
+    gc = GeometryCollection(
+        GeometryPoint(1.1, 2.2),
+        GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0)),
+    )
+    assert str(gc) == (
+        "{ type: 'GeometryCollection', geometries: "
+        "[{ type: 'Point', coordinates: [1.1, 2.2] }, "
+        "{ type: 'LineString', coordinates: [[0.0, 0.0], [1.0, 1.0]] }] }"
+    )
+
+
+def test_geometry_collection_str_point_only() -> None:
+    gc = GeometryCollection(GeometryPoint(1.0, 2.0))
+    assert str(gc) == (
+        "{ type: 'GeometryCollection', geometries: "
+        "[{ type: 'Point', coordinates: [1.0, 2.0] }] }"
+    )
+
+
 @pytest.fixture
-async def surrealdb_connection():  # type: ignore[misc]
-    url = "ws://localhost:8000/rpc"
+async def surrealdb_connection(
+    ws_url: str,
+) -> AsyncGenerator[AsyncWsSurrealConnection, None]:
+    url = ws_url
     password = "root"
     username = "root"
-    vars_params = {"username": username, "password": password}
+    vars_params: dict[str, Value] = {"username": username, "password": password}
     database_name = "test_db"
     namespace = "test_ns"
     connection = AsyncWsSurrealConnection(url)
@@ -333,7 +527,7 @@ async def test_geometry_point_class_methods() -> None:
     assert p2.latitude == -20.0
     p3 = GeometryPoint(10.0, -20.0)
     assert p2 == p3
-    assert not p2 == GeometryPoint(0.0, 0.0)
+    assert p2 != GeometryPoint(0.0, 0.0)
 
 
 @pytest.mark.asyncio
@@ -344,9 +538,11 @@ async def test_geometry_point_db_insert_and_retrieve(surrealdb_connection: Any) 
     """
     initial_result = await surrealdb_connection.query(
         create_query, vars={"geo": geometry_dict}
-    )
+    ).first()
     assert "geometry" in initial_result[0]
-    select_result = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    select_result = await surrealdb_connection.query(
+        "SELECT * FROM geometry_tests;"
+    ).first()
     stored_geo = select_result[0]["geometry"]
     assert stored_geo["type"] == "Point"
     assert stored_geo["coordinates"] == [1.23, 4.56]
@@ -356,14 +552,14 @@ async def test_geometry_point_db_insert_and_retrieve(surrealdb_connection: Any) 
 
 @pytest.mark.asyncio
 async def test_geometry_point_db_insert_and_retrieve_as_python_object(
-    surrealdb_connection,
-):
+    surrealdb_connection: Any,
+) -> None:
     my_point = GeometryPoint(1.23, 4.56)
     create_query = """
         CREATE geometry_tests:obj_point1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": my_point})
-    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;").first()
     stored_geo_obj = results[0]["geometry"]
     assert isinstance(stored_geo_obj, GeometryPoint)
     assert stored_geo_obj == my_point
@@ -388,7 +584,7 @@ async def test_geometry_point_mixed_coordinates(surrealdb_connection: Any) -> No
     """
     results = await surrealdb_connection.query(
         create_query, vars={"geo": geometry_dict}
-    )
+    ).first()
     stored_geo_obj = results[0]["geometry"]
     assert stored_geo_obj == geometry_dict
 
@@ -406,7 +602,7 @@ async def test_geometry_line_class_methods() -> None:
     line2 = GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0))
     assert line == line2
     line3 = GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(2.0, 2.0))
-    assert not line == line3
+    assert line != line3
 
 
 @pytest.mark.asyncio
@@ -419,7 +615,9 @@ async def test_geometry_line_db_insert_and_retrieve(surrealdb_connection: Any) -
         CREATE geometry_tests:line1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": geometry_dict})
-    select_result = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    select_result = await surrealdb_connection.query(
+        "SELECT * FROM geometry_tests;"
+    ).first()
     stored_geo = select_result[0]["geometry"]
     assert stored_geo["type"] == "Line"
     assert stored_geo["coordinates"] == [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]]
@@ -427,8 +625,8 @@ async def test_geometry_line_db_insert_and_retrieve(surrealdb_connection: Any) -
 
 @pytest.mark.asyncio
 async def test_geometry_line_db_insert_and_retrieve_as_python_object(
-    surrealdb_connection,
-):
+    surrealdb_connection: Any,
+) -> None:
     line = GeometryLine(
         GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0), GeometryPoint(2.0, 2.0)
     )
@@ -436,7 +634,7 @@ async def test_geometry_line_db_insert_and_retrieve_as_python_object(
         CREATE geometry_tests:obj_line1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": line})
-    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;").first()
     stored_geo_obj = results[0]["geometry"]
     assert isinstance(stored_geo_obj, GeometryLine)
     assert stored_geo_obj == line
@@ -487,7 +685,9 @@ async def test_geometry_polygon_db_insert_and_retrieve(
         CREATE geometry_tests:polygon1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": geometry_dict})
-    select_result = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    select_result = await surrealdb_connection.query(
+        "SELECT * FROM geometry_tests;"
+    ).first()
     stored_geo = select_result[0]["geometry"]
     assert stored_geo["type"] == "Polygon"
     assert stored_geo["coordinates"] == [
@@ -514,7 +714,7 @@ async def test_geometry_polygon_db_insert_and_retrieve_as_python_object(
         CREATE geometry_tests:obj_polygon1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": polygon})
-    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;").first()
     stored_geo_obj = results[0]["geometry"]
 
     assert isinstance(stored_geo_obj, GeometryPolygon)
@@ -568,7 +768,7 @@ async def test_geometry_polygon_validation() -> None:
     """Test that polygon validation catches invalid rings."""
     # Test 1: Ring not closed (first != last point)
     with pytest.raises(
-        InvalidGeometryError, match="first point.*must equal last point"
+        InvalidGeometryError, match=r"first point.*must equal last point"
     ):
         unclosed_ring = GeometryLine(
             GeometryPoint(0.0, 0.0),
@@ -596,7 +796,7 @@ async def test_geometry_polygon_validation() -> None:
         GeometryPoint(0.0, 0.0),
     )
 
-    with pytest.raises(InvalidGeometryError, match="Invalid interior.*ring"):
+    with pytest.raises(InvalidGeometryError, match=r"Invalid interior.*ring"):
         invalid_hole = GeometryLine(
             GeometryPoint(2.0, 2.0),
             GeometryPoint(4.0, 2.0),
@@ -667,7 +867,9 @@ async def test_geometry_multipoint_db_insert_and_retrieve(
         CREATE geometry_tests:multipoint1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": geometry_dict})
-    select_result = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    select_result = await surrealdb_connection.query(
+        "SELECT * FROM geometry_tests;"
+    ).first()
     stored_geo = select_result[0]["geometry"]
     assert stored_geo["type"] == "MultiPoint"
     assert stored_geo["coordinates"] == [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]
@@ -675,8 +877,8 @@ async def test_geometry_multipoint_db_insert_and_retrieve(
 
 @pytest.mark.asyncio
 async def test_geometry_multipoint_db_insert_and_retrieve_as_python_object(
-    surrealdb_connection,
-):
+    surrealdb_connection: Any,
+) -> None:
     mp = GeometryMultiPoint(
         GeometryPoint(1.0, 2.0),
         GeometryPoint(3.0, 4.0),
@@ -686,7 +888,7 @@ async def test_geometry_multipoint_db_insert_and_retrieve_as_python_object(
         CREATE geometry_tests:obj_multipoint1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": mp})
-    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;").first()
     stored_geo_obj = results[0]["geometry"]
     assert isinstance(stored_geo_obj, GeometryMultiPoint)
     assert stored_geo_obj == mp
@@ -719,7 +921,9 @@ async def test_geometry_multiline_db_insert_and_retrieve(
         CREATE geometry_tests:multiline1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": geometry_dict})
-    select_result = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    select_result = await surrealdb_connection.query(
+        "SELECT * FROM geometry_tests;"
+    ).first()
     stored_geo = select_result[0]["geometry"]
     assert stored_geo["type"] == "MultiLineString"
     assert stored_geo["coordinates"] == [
@@ -730,8 +934,8 @@ async def test_geometry_multiline_db_insert_and_retrieve(
 
 @pytest.mark.asyncio
 async def test_geometry_multiline_db_insert_and_retrieve_as_python_object(
-    surrealdb_connection,
-):
+    surrealdb_connection: Any,
+) -> None:
     line1 = GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0))
     line2 = GeometryLine(GeometryPoint(2.0, 2.0), GeometryPoint(3.0, 3.0))
     ml = GeometryMultiLine(line1, line2)
@@ -739,7 +943,7 @@ async def test_geometry_multiline_db_insert_and_retrieve_as_python_object(
         CREATE geometry_tests:obj_multiline1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": ml})
-    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;").first()
     stored_geo_obj = results[0]["geometry"]
     assert isinstance(stored_geo_obj, GeometryMultiLine)
     assert stored_geo_obj == ml
@@ -792,7 +996,9 @@ async def test_geometry_multipolygon_db_insert_and_retrieve(
         CREATE geometry_tests:multipolygon1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": geometry_dict})
-    select_result = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    select_result = await surrealdb_connection.query(
+        "SELECT * FROM geometry_tests;"
+    ).first()
     stored_geo = select_result[0]["geometry"]
     assert stored_geo["type"] == "MultiPolygon"
     assert stored_geo["coordinates"] == [
@@ -833,7 +1039,7 @@ async def test_geometry_multipolygon_db_insert_and_retrieve_as_python_object(
         CREATE geometry_tests:obj_multipolygon1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": multipolygon})
-    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;").first()
     stored_geo_obj = results[0]["geometry"]
 
     assert isinstance(stored_geo_obj, GeometryMultiPolygon)
@@ -866,7 +1072,9 @@ async def test_geometry_collection_db_insert_and_retrieve(
         CREATE geometry_tests:collection1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": geometry_dict})
-    select_result = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    select_result = await surrealdb_connection.query(
+        "SELECT * FROM geometry_tests;"
+    ).first()
     stored_geo = select_result[0]["geometry"]
     assert stored_geo["type"] == "GeometryCollection"
     assert len(stored_geo["geometries"]) == 2
@@ -874,8 +1082,8 @@ async def test_geometry_collection_db_insert_and_retrieve(
 
 @pytest.mark.asyncio
 async def test_geometry_collection_db_insert_and_retrieve_as_python_object(
-    surrealdb_connection,
-):
+    surrealdb_connection: Any,
+) -> None:
     pt = GeometryPoint(1.1, 2.2)
     ln = GeometryLine(GeometryPoint(0.0, 0.0), GeometryPoint(1.0, 1.0))
     gc = GeometryCollection(pt, ln)
@@ -883,7 +1091,7 @@ async def test_geometry_collection_db_insert_and_retrieve_as_python_object(
         CREATE geometry_tests:obj_collection1 SET geometry = $geo;
     """
     await surrealdb_connection.query(create_query, vars={"geo": gc})
-    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;")
+    results = await surrealdb_connection.query("SELECT * FROM geometry_tests;").first()
     stored_geo_obj = results[0]["geometry"]
     assert isinstance(stored_geo_obj, GeometryCollection)
     assert stored_geo_obj == gc

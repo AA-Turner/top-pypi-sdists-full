@@ -1,7 +1,8 @@
 Metadata-Version: 2.4
 Name: tox-toml-fmt
-Version: 1.11.1
-Classifier: License :: OSI Approved :: MIT License
+Version: 1.11.3
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -11,15 +12,19 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Utilities
 License-File: LICENSE.txt
 Summary: Format tox.toml files
-Keywords: format,pyproject
+Keywords: formatter,toml,tox
 Author-email: Bernat Gabor <gaborjbernat@gmail.com>
+License-Expression: MIT
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 Project-URL: Bug Tracker, https://github.com/tox-dev/toml-fmt/issues
-Project-URL: Changelog, https://github.com/tox-dev/toml-fmt/releases?q=tox-toml-fmt
+Project-URL: Changelog, https://github.com/tox-dev/toml-fmt/blob/main/CHANGELOG.md#tox-toml-fmt
 Project-URL: Documentation, https://tox-toml-fmt.readthedocs.io/en/latest/
+Project-URL: Homepage, https://github.com/tox-dev/toml-fmt
 Project-URL: Source Code, https://github.com/tox-dev/toml-fmt/tree/main/tox-toml-fmt
 
 tox-toml-fmt

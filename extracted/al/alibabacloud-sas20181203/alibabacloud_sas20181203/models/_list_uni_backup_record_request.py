@@ -13,20 +13,20 @@ class ListUniBackupRecordRequest(DaraModel):
         page_size: int = None,
         state: str = None,
     ):
-        # The region where the anti-ransomware backup service is located.
+        # The region where the anti-ransomware backup service is deployed.
         # 
         # This parameter is required.
         self.backup_region_id = backup_region_id
-        # When performing a paginated query, set the page number for the current page. The default value is **1**.
+        # The Settings of the paging page number for the paged query. Default value: **1**.
         self.current_page = current_page
-        # The identification information of the server protected by the anti-ransomware policy. You can enter the IP address or instance ID of the server.
+        # The identification information of the server protected by the anti-ransomware policy that you want to query. You can enter the IP address or instance ID of the server.
         self.machine_remark = machine_remark
-        # The maximum number of data entries to display per page in a paginated query.
+        # The maximum number of entries to return on each page for the paged query. This paging parameter defines the page size.
         self.page_size = page_size
-        # Backup status. Values:
-        # - **completed**: Success
-        # - **error**: Failure
-        # - **canceled**: Closed
+        # The backup status. Valid values:
+        # - **completed**: Successful.
+        # - **error**: Failed.
+        # - **canceled**: Canceled.
         self.state = state
 
     def validate(self):

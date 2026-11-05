@@ -40,7 +40,6 @@ from ..models.rna_oligo_created_webhook_v3 import RnaOligoCreatedWebhookV3
 from ..models.rna_oligo_updated_webhook_v3 import RnaOligoUpdatedWebhookV3
 from ..models.rna_sequence_created_webhook_v3 import RnaSequenceCreatedWebhookV3
 from ..models.rna_sequence_updated_webhook_v3 import RnaSequenceUpdatedWebhookV3
-from ..models.run_created_webhook_v3 import RunCreatedWebhookV3
 from ..models.workflow_output_created_webhook_v2 import WorkflowOutputCreatedWebhookV2
 from ..models.workflow_output_updated_fields_webhook_v2 import WorkflowOutputUpdatedFieldsWebhookV2
 from ..models.workflow_task_created_webhook_v2 import WorkflowTaskCreatedWebhookV2
@@ -104,6 +103,5 @@ WebhookMessageV0 = Union[
     RnaOligoUpdatedWebhookV3,
     RnaSequenceCreatedWebhookV3,
     RnaSequenceUpdatedWebhookV3,
-    RunCreatedWebhookV3,
     UnknownType,
 ]

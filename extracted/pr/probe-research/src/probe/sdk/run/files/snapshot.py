@@ -143,7 +143,13 @@ class SnapshotMixin:
         # abort the whole capture (no code, deps or argv). Now the tree is
         # captured regardless -- as a plain directory when git cannot read it --
         # and why git failed rides in `meta.git_error`.
-        git, git_error = _snapshot.git_provenance(cwd or os.getcwd())
+        # A fenced caller's command (D25): no git at all (it runs what the repository's config names,
+        # outside the fence). The rest is recorded: the files, dependencies, launch, env_ref.
+        is_fenced = is_caller_fenced()
+        if is_fenced:
+            git, git_error = None, FENCED_GIT_SKIPPED
+        else:
+            git, git_error = _snapshot.git_provenance(cwd or os.getcwd())
         manifest = _snapshot.capture_manifest(
             cwd,
             include=include,
@@ -157,7 +163,8 @@ class SnapshotMixin:
             # `.probeignore` (plan (n)): excluded after the safety stops, and
             # never over an explicit `include=`.
             ignore=self._ignore_rules(cwd),
-            probe_remote=probe_remote,
+            probe_remote=probe_remote and not is_fenced,
+            should_use_git=not is_fenced,
         )
         _warn_credential_skips(manifest)
         # Identity is hashed into the execution record; provenance is NOT --
@@ -384,7 +391,9 @@ class SnapshotMixin:
         settles it first (`_settle_open_snapshot`).
         """
         client = self._client
-        if not getattr(client, "async_writes", False) or not client.fail_open:
+        if is_caller_fenced() or not getattr(client, "async_writes", False) or not client.fail_open:
+            # (A fenced caller's: the synchronous snapshot, which runs no git; the open's
+            # thread would ask the remote with git.)
             self.snapshot()
             return
         cap = self._capture_snapshot(
@@ -485,3 +494,14 @@ class SnapshotMixin:
 
 from probe.sdk.run.files.snapshot_queue import PendingSnapshot  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.files.code_upload import CODE_STORAGE_ARCHIVE, CODE_STORAGE_ARTIFACTS, _warn_credential_skips  # noqa: E402 -- pieces need each other; the front door loads this one first
+
+
+#: The code snapshot's `git_error` for a fenced caller's run: git was not run, on purpose.
+FENCED_GIT_SKIPPED = "skipped: fenced"
+
+
+def is_caller_fenced() -> bool:
+    """Does this command run for a fenced caller (`env.CALLER_FENCED_ENV`, set by the service)?"""
+    from ....foundation.service_api.env import CALLER_FENCED_ENV
+
+    return os.environ.get(CALLER_FENCED_ENV) == "1"

@@ -76,6 +76,47 @@ class WriterLeaseMixin:
             strict=strict,
         )
 
+    def _release_dead_writer(self, status: str) -> None:
+        """A child this launcher ran was stopped on purpose (`execute`), and its own writer lease
+        is still open: release it with that verdict, before this machine's watcher reports it gone
+        (counted `crashed`, worse than `canceled`). The child is the watcher registry's entry for
+        this run naming a process that is gone and whose parent was this one: never another
+        rank's lease, whose own death may be a real crash. Never raises."""
+        try:
+            import os
+
+            from ..watcher import registry
+
+            for entry in registry.entries():
+                writer = entry.get("writer") or {}
+                session = writer.get("session_id")
+                if (
+                    entry.get("run_id") != self.id
+                    or not registry.is_local(entry)
+                    or entry.get("ppid") != os.getpid()
+                    or not session
+                    or session == getattr(self, "session_id", None)
+                    or writer.get("write_epoch") is None
+                    or registry.process_is_alive(entry)
+                ):
+                    continue
+                body = {"write_epoch": int(writer["write_epoch"]), "exit_status": status}
+                try:
+                    # A refusal (no such lease) is not worth a dead letter; a blip is journaled.
+                    self._client.write(
+                        "POST",
+                        f"/v1/runs/{self.id}/writers/{session}/release",
+                        body,
+                        sync=True,
+                        strict=False,
+                        raise_permanent=True,
+                    )
+                except Exception:  # noqa: BLE001
+                    continue
+                registry.deregister(self.id)
+        except Exception:  # noqa: BLE001 -- the watcher's report and the reaper still end the run
+            pass
+
     def _release_lease(
         self,
         status: str,

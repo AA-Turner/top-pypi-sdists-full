@@ -47,6 +47,7 @@ from ._typing import (
 from .api_helpers import experiment_asset_download
 from .api_objects import model
 from .api_objects.model import ModelStatusConfiguration
+from .api_objects.panel_zip import create_panel_zip
 from .api_objects.view import View
 from .common_experiment import CommonExperiment
 from .config import get_api_key, get_check_tls_certificate, get_config
@@ -66,6 +67,7 @@ from .exceptions import (
     NotFound,
     QueryException,
     ValidationError,
+    ViewNameTakenError,
 )
 from .file_utils import expand_user_home_path
 from .flatten_dict import exclusions, flattener
@@ -169,6 +171,7 @@ from .utils import (
 )
 from .validation.curve_data_validator import CurveDataValidator
 from .validation.tag_validator import TagsValidator, TagValidator
+from .views import _inline_python_panel_code
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -1546,22 +1549,105 @@ class APIExperiment(CommonExperiment):
             View or None: The created View, or None on failure.
 
         Raises:
-            ValueError: If the view name is empty.
+            ValueError: If the view name is empty, or if the view holds
+                project-view sections (from ``comet_ml.views.build_view``),
+                which would render with no panels here.
+            ViewNameTakenError: If the name is taken. Experiment view names
+                must be unique across all your projects, though `get_views()`
+                lists only this project's;
+                `get_views(include_workspace_project_views=True)` shows the
+                rest. It subclasses both `CometRestApiException` and
+                `ValueError`.
 
         Example:
             ```python linenums="1"
             import comet_ml
-            from comet_ml.api_objects.view import View
+            from comet_ml.views import Section, build_experiment_view, line_panel
 
             comet_ml.login()
             experiment = comet_ml.APIExperiment(
                 previous_experiment="EXPERIMENT-KEY"
             )
-            view = View(name="My Dashboard")
+            view = build_experiment_view(
+                "Run layout",
+                sections=[Section("Curves", [line_panel(["loss", "val_loss"])])],
+            )
             created = experiment.create_view(view)
             ```
         """
-        view = view.as_portable()
+        view.check_layout_scope("experiment")
+        view = API._inline_library_python_panels(self._api, view.as_portable())
+        view.experiment_key = self.id
+        try:
+            result = self._api._client.upsert_chart_template_view(self.project_id, view)
+        except CometRestApiException as error:
+            if error.safe_msg != "View name already used.":
+                raise
+            raise ViewNameTakenError(
+                error,
+                "An experiment view named %r already exists. Experiment view "
+                "names must be unique across all your projects, so it may be "
+                "in another project: get_views(include_workspace_project_views="
+                "True) lists it. Use another name, or update_view() to replace "
+                "one in this project." % view.name,
+            ) from error
+        if result:
+            return View.from_payload_dict(result)
+        return None
+
+    def update_view(self, view: View) -> Optional[View]:
+        """
+        Overwrite an existing experiment-scoped view in place.
+
+        Unlike `create_view`, this keeps the view's `template_id`, so the
+        saved view is replaced rather than a new one added.
+
+        Args:
+            view (View): A View with `template_id` set, typically one returned
+                by `get_views()` or `create_view()` and then modified. Its
+                layout replaces the saved one entirely.
+
+        Returns:
+            View or None: The updated View, or None on failure.
+
+        Raises:
+            ValueError: If the view has no template_id, no view of this
+                experiment has that template_id, or the view holds
+                project-view sections.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+            from comet_ml.views import Section, build_experiment_view, line_panel
+
+            comet_ml.login()
+            experiment = comet_ml.APIExperiment(
+                previous_experiment="EXPERIMENT-KEY"
+            )
+            existing = next(
+                v for v in experiment.get_views() if v.name == "Run layout"
+            )
+            view = build_experiment_view(
+                "Run layout",
+                sections=[Section("Curves", [line_panel("accuracy")])],
+            )
+            view.template_id = existing.template_id
+            experiment.update_view(view)
+            ```
+        """
+        if not view.template_id:
+            raise ValueError(
+                "update_view requires a view with template_id set; "
+                "use create_view to add a new view"
+            )
+        view.check_layout_scope("experiment")
+        # The backend would create a view for an unknown id, not update one.
+        if not any(v.template_id == view.template_id for v in self.get_views()):
+            raise ValueError(
+                "this experiment has no view with template_id %r; use "
+                "create_view to add a new view" % view.template_id
+            )
+        view = API._inline_library_python_panels(self._api, view)
         view.experiment_key = self.id
         result = self._api._client.upsert_chart_template_view(self.project_id, view)
         if result:
@@ -5745,30 +5831,347 @@ class API(object):
             View or None: The created View, or None on failure.
 
         Raises:
-            ValueError: If the view name is empty or the project is not found.
+            ValueError: If the view name is empty, the project is not found,
+                or the view holds experiment-view sections (from
+                ``comet_ml.views.build_experiment_view``), which would render
+                with no panels here.
+            ViewNameTakenError: If the project already has a view with this
+                name. It subclasses both `CometRestApiException` and
+                `ValueError`.
 
         Example:
             ```python linenums="1"
             import comet_ml
-            from comet_ml.api_objects.view import View
+            from comet_ml.views import Section, build_view, scalar_panel
 
             comet_ml.login()
             api = comet_ml.API()
-            view = View(name="My Dashboard")
+            view = build_view(
+                "My View",
+                sections=[Section("At a glance", [scalar_panel("accuracy")])],
+            )
             created = api.create_view("my-workspace", "my-project", view)
             ```
         """
+        view.check_layout_scope("project")
+        project_id = self._get_project_id_or_raise(workspace, project_name)
+        view = self._inline_library_python_panels(view.as_portable())
+        try:
+            result = self._client.upsert_view(project_id, view)
+        except CometRestApiException as error:
+            if error.safe_msg != "View name already used.":
+                raise
+            raise ViewNameTakenError(
+                error,
+                "Project %s/%s already has a view named %r. Use another name, "
+                "or set that view's template_id on this one and call "
+                "update_view() to replace it." % (workspace, project_name, view.name),
+            ) from error
+        if result:
+            return View.from_payload_dict(result)
+        return None
+
+    def update_view(
+        self, workspace: str, project_name: str, view: View
+    ) -> Optional[View]:
+        """
+        Overwrite an existing project-level view in place.
+
+        Unlike `create_view`, this keeps the view's `template_id`, so the
+        saved view is replaced rather than a new one added.
+
+        Args:
+            workspace (str): The name of the workspace.
+            project_name (str): The name of the project.
+            view (View): A View with `template_id` set, typically one returned
+                by `get_views()` or `create_view()` and then modified. Its
+                layout replaces the saved one entirely.
+
+        Returns:
+            View or None: The updated View, or None on failure.
+
+        Raises:
+            ValueError: If the view has no template_id, the project is not
+                found or has no view with that template_id, or the view holds
+                experiment-view sections.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+            from comet_ml.views import Section, build_view, scalar_panel
+
+            comet_ml.login()
+            api = comet_ml.API()
+            existing = next(
+                v
+                for v in api.get_views("my-workspace", "my-project")
+                if v.name == "My View"
+            )
+            view = build_view(
+                "My View",
+                sections=[Section("At a glance", [scalar_panel("loss")])],
+            )
+            view.template_id = existing.template_id
+            api.update_view("my-workspace", "my-project", view)
+            ```
+        """
+        if not view.template_id:
+            raise ValueError(
+                "update_view requires a view with template_id set; "
+                "use create_view to add a new view"
+            )
+        view.check_layout_scope("project")
+        project_id = self._get_project_id_or_raise(workspace, project_name)
+        # The backend would create a view for an unknown id, not update one.
+        if not any(
+            v.template_id == view.template_id
+            for v in self.get_views(workspace, project_name)
+        ):
+            raise ValueError(
+                "project %s/%s has no view with template_id %r; use create_view "
+                "to add a new view" % (workspace, project_name, view.template_id)
+            )
+        view = self._inline_library_python_panels(view)
+        result = self._client.upsert_view(project_id, view)
+        if result:
+            return View.from_payload_dict(result)
+        return None
+
+    def _get_project_id_or_raise(self, workspace, project_name):
         project_json = self.get_project(workspace, project_name)
-        if project_json:
-            project_id = project_json["projectId"]
-            result = self._client.upsert_view(project_id, view.as_portable())
-            if result:
-                return View.from_payload_dict(result)
-            return None
-        else:
+        if not project_json:
             raise ValueError(
                 "unknown project %r in workspace %r" % (project_name, workspace)
             )
+        return project_json["projectId"]
+
+    def _inline_library_python_panels(self, view: View) -> View:
+        """
+        Copy the code of Panel library panels into a view's Python panels.
+
+        A `python` panel on a view runs code stored in the view, or code from a
+        panel made in the UI's Python panel editor, named by its `templateId`
+        and `revisionId`. Panel library panels, such as those uploaded with
+        `upload_code_panel`, are neither, so for a Python panel with a
+        `templateId` and no `revisionId` this looks the id up in the Panel
+        library and, if found, stores the panel's code in the view. Panels with
+        a `revisionId` are left untouched. An id the library does not know
+        raises `ValueError`, since it is almost always a typo or an id from
+        another workspace. The given view is not changed; a copy is returned.
+        """
+
+        def fetch_code(template_id: str) -> Optional[str]:
+            try:
+                panel = self.get_code_panel(template_id)
+            except CometRestApiException as exc:
+                # The backend answers 400 "Could not retrieve template" for an
+                # id the Panel library doesn't have. Other errors, such as 403,
+                # pass through.
+                if getattr(exc.response, "status_code", None) in (400, 404):
+                    raise ValueError(
+                        "%r is not a panel in the Panel library; python_panel "
+                        "needs a library panel id, or a template_id with its "
+                        "revision_id for a panel made in the UI" % template_id
+                    ) from exc
+                raise
+            code = panel.get("code") or {}
+            if code.get("type") != "py":
+                raise ValueError(
+                    "panel %r is a JavaScript panel, which python_panel cannot "
+                    "show; use comet_ml.views.javascript_panel with its code "
+                    "instead" % template_id
+                )
+            return code.get("pyCode") or ""
+
+        return _inline_python_panel_code(view, fetch_code)
+
+    def get_code_panels(self, workspace: str) -> List[Dict[str, Any]]:
+        """
+        Get the metadata of all code panels in a workspace's Panel library.
+
+        Args:
+            workspace (str): The name of the workspace.
+
+        Returns:
+            list: A list of dicts, one per panel, with keys such as
+                `templateId`, `templateName`, `owner`, `scopeType`,
+                `revisionId` and `createdAt`.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+            for panel in api.get_code_panels("my-workspace"):
+                print(panel["templateId"], panel["templateName"])
+            ```
+        """
+        return self._client.get_code_panels(workspace)
+
+    def get_code_panel(self, panel_id: str) -> Dict[str, Any]:
+        """
+        Get a code panel's metadata and code.
+
+        Args:
+            panel_id (str): The panel's id (its `templateId`).
+
+        Returns:
+            dict: The panel data; its code is under the `code` key.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+            panel = api.get_code_panel("PANEL-ID")
+            ```
+        """
+        return self._client.get_code_panel(panel_id)
+
+    def get_code_panel_source(self, panel_id: str) -> str:
+        """
+        Get the source code of a code panel.
+
+        Args:
+            panel_id (str): The panel's id (its `templateId`).
+
+        Returns:
+            str: The panel's Python code for a Python panel, otherwise its
+                JavaScript code.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+            print(api.get_code_panel_source("PANEL-ID"))
+            ```
+        """
+        code = self.get_code_panel(panel_id)["code"]
+        if code["type"] == "py":
+            return code["pyCode"]
+        return code["code"]
+
+    def download_code_panel_zip(
+        self, panel_id: str, filename: Optional[str] = None
+    ) -> str:
+        """
+        Download a code panel as a zip file.
+
+        Args:
+            panel_id (str): The panel's id (its `templateId`).
+            filename (str, optional): Where to save the zip. Defaults to
+                `panel-PANEL-ID.zip` in the current directory.
+
+        Returns:
+            str: The path of the saved zip file.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+            path = api.download_code_panel_zip("PANEL-ID")
+            ```
+        """
+        contents = self._client.download_code_panel_zip(panel_id)
+        filename = filename or "panel-%s.zip" % panel_id
+        with open(filename, "wb") as fp:
+            fp.write(contents)
+        return filename
+
+    def upload_code_panel_zip(
+        self, workspace: str, filename: str, template_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Upload a code panel zip file to a workspace's Panel library.
+
+        Args:
+            workspace (str): The workspace to add the panel to.
+            filename (str): The path of the panel zip, such as one saved by
+                `download_code_panel_zip`.
+            template_id (str, optional): If given, overwrite this existing panel
+                in place instead of creating a new one. Views that show it as
+                a library panel pick up the new code after a browser refresh;
+                views that show it through `python_panel` hold a copy of the
+                code, so save them again with `update_view`.
+
+        Returns:
+            dict: The upload result, including the panel's `templateId`.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+            result = api.upload_code_panel_zip("my-workspace", "panel-PANEL-ID.zip")
+            ```
+        """
+        with open(filename, "rb") as fp:
+            return self._client.upload_code_panel_zip(
+                workspace, fp, os.path.basename(filename), template_id=template_id
+            )
+
+    def upload_code_panel(
+        self,
+        workspace: str,
+        panel_name: str,
+        code: str,
+        template_id: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Upload Python code as a code panel in a workspace's Panel library.
+
+        Args:
+            workspace (str): The workspace to add the panel to.
+            panel_name (str): The panel's display name.
+            code (str): The panel's Python source. A block indented to match
+                the surrounding code, such as a triple-quoted string inside a
+                function, is dedented first.
+            template_id (str, optional): If given, overwrite this existing panel
+                in place instead of creating a new one. Views that show it
+                through `python_panel` hold a copy of the code; save them again
+                with `update_view` to pick up the new code.
+            description (str, optional): The panel's description in the Panel
+                library. When overwriting with `template_id`, None keeps the
+                panel's current description and "" clears it.
+
+        Returns:
+            dict: The upload result, including the panel's `templateId`. To
+                show the panel on a view, pass that id to
+                `comet_ml.views.python_panel`; `create_view` and `update_view`
+                copy the panel's code into the view when they save it.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+
+            comet_ml.login()
+            api = comet_ml.API()
+            code = '''
+            from comet_ml import ui
+            ui.display("Hello, world!")
+            '''
+            result = api.upload_code_panel(
+                "my-workspace", "Hello", code, description="Says hello"
+            )
+            panel_id = result["templateId"]
+            ```
+        """
+        if description is None and template_id is not None:
+            # Keep the panel's description when only the code changes.
+            existing = self.get_code_panel(template_id).get("code") or {}
+            description = existing.get("description", "")
+        contents = create_panel_zip(panel_name, code, description=description or "")
+        return self._client.upload_code_panel_zip(
+            workspace, contents, "panel.zip", template_id=template_id
+        )
 
     def update_project(
         self,

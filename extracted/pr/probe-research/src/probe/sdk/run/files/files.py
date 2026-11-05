@@ -132,35 +132,13 @@ class FilesMixin:
         such as ``benchmark`` as its kind) and keeps the word in
         ``meta.kind_label`` (``artifact_kinds``).
 
-        A path a ``.probe.config`` excludes records nothing, except at ``hash``:
-        there a reference (``reference=True``, or a ``uri`` alone) is recorded
-        by identity only -- location, size and, for a path, its sha256 or
-        fingerprint in ``meta`` (`catalog.identity_meta`) -- and an upload is
-        refused.
-
         ``notes`` is accepted and ignored with a DeprecationWarning, never sent:
         files no longer carry notes, so what a file IS (and where it lives) goes
         in the run's notes."""
-        from ... import probe_config as _pc_uri
         from ...reads.notes_cap import FILE_NOTES_REMOVED, warn_notes_ignored
 
         warn_notes_ignored(notes, FILE_NOTES_REMOVED)
 
-        local = path if path is not None else _pc_uri.local_path_of(uri)
-        identity_only = False
-        if local is not None:
-            # A researcher's `.probe.config` excludes the file (or folder): nothing
-            # is recorded about it, named explicitly or not -- but at `hash` its
-            # identity is what the level allows, so a reference still records.
-            from ...recording_rules import recording_rules as _exclusions
-            from ... import probe_config as _probe_config
-
-            verdict = _exclusions.excluded(local)
-            if verdict.excluded:
-                if not (verdict.identity_only and (reference or path is None)):
-                    _exclusions.warn(_exclusions.say(_probe_config.ARTIFACT_EXCLUDED, local, verdict))
-                    return None
-                identity_only = True
         self._progress.bump()  # 2.8: a checkpoint or output upload is work done
         # Before anything branches on it: every branch below stores `name`, and the
         # preview route reads its extension. `log_artifact("ckpt", path="ckpt-4000.pt")`
@@ -201,14 +179,6 @@ class FilesMixin:
                 size_bytes = fields.get("size_bytes")
             for key, value in fields["meta"].items():
                 meta.setdefault(key, value)
-            if identity_only:
-                # In `meta`, never `content_hash`: the row stays a hashless
-                # reference, which the server refreshes in place (a checkpoint's
-                # best / deleted flags).
-                from ...catalog.identity import identity_meta
-
-                for key, value in identity_meta(path, self.id).items():
-                    meta.setdefault(key, value)
             is_reference = True
         elif path is not None and uri is None:
             # A REFUSAL by the credential gate -- over the 64 MiB inspection

@@ -8,7 +8,6 @@
 
 use discord_markdown::Options;
 use gungraun::prelude::*;
-use nom::error::Error;
 use std::fs;
 use std::hint::black_box;
 
@@ -17,7 +16,7 @@ use std::hint::black_box;
 const MESSAGE_LIMIT: usize = 4_000;
 
 fn run(text: &str) {
-	let _ = black_box(discord_markdown::parse::<(), Error<_>>(
+	let _ = black_box(discord_markdown::parse::<()>(
 		black_box(text),
 		Options::default(),
 	));
@@ -42,7 +41,7 @@ fn corpus(name: &str) -> String {
 #[bench::http_repeat("http", 1_000)]
 #[bench::dev_repeat("dev", 1_333)]
 #[bench::discord_repeat("discord", 571)]
-// Scheme-shaped with a `:`, so every offset costs a full link-char scan and URL parse.
+// Scheme-shaped with a `:` but no `//`, which the start gate turns away before any scan.
 #[bench::dev_colon_repeat("dev:", 1_000)]
 #[bench::http_colon_repeat("http:", 800)]
 #[bench::https_colon_repeat("https:", 666)]
@@ -83,8 +82,8 @@ fn no_guard(text: String) {
 	run(&text);
 }
 
-// Doubling the body length should roughly quadruple the instruction count, confirming the guard
-// stays quadratic and has not become something worse.
+// The start gate turns these candidates away in constant time, so doubling the body length should
+// roughly double the instruction count. Quadrupling means the guard is scanning per candidate again.
 #[library_benchmark(setup = masked)]
 #[bench::dev_colon_500("dev:", 500)]
 #[bench::dev_colon_1000("dev:", 1_000)]

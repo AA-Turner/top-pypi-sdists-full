@@ -1,0 +1,1470 @@
+"""Daemon loop — `python -m tap watch ...`.
+
+Spawned by hooks/session-start.sh. Reads new transcript content, batches +
+enqueues, drains the outbox, sleeps, repeats.
+
+Adaptive cadence: ticks at the active interval (default 60s) while the
+transcript is advancing; after IDLE_THRESHOLD_TICKS consecutive empty ticks
+falls back to the idle interval (default 300s). A user typing in CC gets
+near-real-time ingestion; an idle session stops generating backend traffic.
+Set sync_interval_seconds in .config for a flat cadence that disables
+adaptive switching.
+
+Exits cleanly on:
+  - SIGTERM/SIGINT
+  - shutdown sentinel /tmp/probe-research-tap-watcher-<sid>.shutdown
+  - killswitch ~/.claude/plugins/probe-research-tap/.disabled
+  - cwd matching .disabled_paths
+  - 401 halt from the server
+  - transcript file missing for 5 ticks (file deleted / session torn down)
+  - the agent process that owns the session is gone (tap/owner.py) —
+    happens when the agent is hard-killed (SIGKILL / OS reboot / force-quit)
+    and SessionEnd never fires; touches the shutdown sentinel so the wrapper
+    exits too instead of respawning a doomed daemon. A quiet session whose
+    agent is still running is never ended: silence is not an ending.
+  - the Probe service took the session over (tap/handback.py): it started
+    here only because the service could not take it at SessionStart; exit
+    EXIT_HANDED_OVER, no FINALIZE (the session goes on in the service), and
+    the wrapper ends instead of respawning.
+
+Probe off (`tap/capture_gate.py`, tap 0.10.19): no pass stages, pins or asks
+the server anything about a session whose switch reads `off` (or whose off
+stretch is still open), its own or another's in the journal; this session's
+own switch is looked at each pass and each second between passes, and its off
+stretches are written to its gap file (unless a Probe service that gates hosts
+this loop: it records them itself). A session off from before anything of it
+was staged here is not even claimed until it reads on. One that ends while off
+is finalized with its off stretch read past as nothing.
+
+On the way out (every path except the killswitch, whose contract is "ship
+nothing", and the hand-over) the daemon reads one last transcript tail and
+enqueues a FINALIZE for the session. That finalize is what tells the engine the
+session is over, and completion is the only thing that triggers its
+knowledge-unit extraction — qa, code_change, decision, file_ref. Without it a
+session is captured as a live transcript and never mined. Protocol 2 requires a pinned client completion;
+another local daemon recovers quiet orphans after their process ownership ends.
+"""
+
+from __future__ import annotations
+
+import argparse
+import contextlib
+import json
+import logging
+import os
+import signal
+import sqlite3
+import subprocess
+import sys
+import time
+import uuid
+from collections.abc import Callable
+from pathlib import Path
+
+from tap import (
+    capture_gate,
+    handback,
+    killswitch,
+    outbox,
+    reconcile,
+    record_client,
+    service_link,
+    sources,
+)
+from tap import config as cfg
+from tap import owner as session_owner
+from tap.companion_supervisor import Supervisor
+from tap.outbox import HaltError
+from tap.server_messages import forward_refusal
+from tap.transcripts.session_identity import IdentityMismatch, validate_identity
+from tap.transcripts.journal import (
+    DeliveryPending,
+    Journal,
+    ProtocolRestarted,
+    RebaseCooling,
+    ReconciliationRequired,
+    SessionDeleted,
+    SourceRewritten,
+    Wire,
+    recoverable,
+)
+from tap.storage import FileOffset, Storage
+from tap.transcripts import pinned
+from tap.transcripts.transcripts import read_new, validate_json
+
+log = logging.getLogger("probe-research-tap")
+
+# Drain budget per tick — keep ticking responsive even if many batches are due.
+MAX_DRAIN_PER_TICK = 64
+
+# Switch to idle cadence after this many consecutive empty ticks (no new
+# transcript bytes). 2 means: a single empty tick stays on active in case
+# the user is mid-sentence; two in a row means they've stopped typing.
+IDLE_THRESHOLD_TICKS = 2
+
+# Run the lsof reader check every N ticks. At the active interval, 12 ticks ≈
+# 12 minutes; at idle, ≈ 1 hour. It can only end a session after it has SEEN a
+# reader and then lost it (Codex holds its rollout open; Claude Code never holds
+# its transcript open, so "no reader" alone proves nothing).
+ORPHAN_CHECK_EVERY_TICKS = 12
+
+# A daemon that cannot name its session's owner process (pi, or an agent whose
+# ancestry could not be read) ends the session after this much quiet: the same
+# window the server's idle sweep uses (`--idle-minutes 1440`), so it adds no
+# ending the server would not make anyway, and the daemon does not outlive a
+# hard-killed agent forever.
+UNKNOWN_OWNER_QUIET_SECONDS = 24 * 60 * 60
+#: How often, inside a tick's sleep, the daemon worker's supervisor looks at the
+#: session's switch -- the delay between `/probe on` (or `read`) in a daemon
+#: session and the worker starting.
+COMPANION_POLL_SECONDS = 5
+
+# Hard cap on how long we'll wait for lsof to return; if it hangs, we'd
+# rather assume "alive" and skip than block the tick.
+ORPHAN_LSOF_TIMEOUT_S = 5
+
+# Another session whose daemon is gone recovers through a frozen, quiet source
+# prefix, unless its owner process is known to be alive. Completion attests
+# that prefix only; it never claims the producer cannot append again.
+ORPHAN_QUIET_SECONDS = 10 * 60
+
+# After a 401 halt, a daemon start older than this cooldown clears the latch and
+# re-probes instead of staying wedged forever. A transient 401 (member removed
+# then re-added with the SAME still-valid token) leaves no fingerprint change to
+# self-clear on, so the cooldown is the only path back — a periodic re-probe that
+# self-heals. 1h keeps the re-POST rate on a genuinely-dead token negligible.
+HALT_RETRY_AFTER_SECONDS = 3600
+
+_shutdown_requested = False
+
+
+def _batch_seq_meta_key(session_id: str) -> str:
+    return f"last_batch_seq:{session_id}"
+
+
+def _read_int_meta(storage: Storage, key: str, *, default: int) -> int:
+    """Read a meta value as int, returning `default` for missing/malformed."""
+    raw = storage.get_meta(key)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        log.warning("meta[%s]=%r is not an int; treating as %d", key, raw, default)
+        return default
+
+
+def _install_signal_handlers() -> None:
+    def _handler(sig: int, _frame: object) -> None:
+        global _shutdown_requested
+        _shutdown_requested = True
+        # The dying side's half of killer-side attribution: `probe`'s
+        # _stop_daemon() journals every SIGTERM it sends (its pid + argv + the
+        # target pid), and this line is the arrival timestamp it correlates
+        # against. A TERM logged here with NO matching stop-daemon journal
+        # entry means something else killed the daemon — which is exactly the
+        # open question this anchor exists to answer. Best-effort: a logging
+        # failure must never disturb shutdown. (Safe in CPython: handlers run
+        # in the main thread between bytecodes, and logging's lock is an RLock,
+        # so re-entering a log call the signal interrupted cannot deadlock.)
+        with contextlib.suppress(Exception):
+            log.info(
+                "signal %s received (unix=%.3f pid=%d); shutting down",
+                signal.Signals(sig).name,
+                time.time(),
+                os.getpid(),
+            )
+
+    signal.signal(signal.SIGTERM, _handler)
+    signal.signal(signal.SIGINT, _handler)
+
+
+def _shutdown_observed(c: cfg.WatchConfig) -> bool:
+    # Hosted (`tap.hosted`), this session's own `stop` too. The flag is only
+    # ever set by `tap watch`'s signal handlers, which a hosted loop never
+    # installs: the process's signals are the service's.
+    stop = getattr(c, "stop", None)
+    if stop is not None and not stop.is_set() and c.shutdown_sentinel.exists():
+        # Hosted, the session's end seen: this recorder finishes now, whatever
+        # happens to the sentinel next. Set on its own `stop`, so the service
+        # sees it: a resume right after (pi `--continue` after a quit) clears
+        # the sentinel and asks the service again, which starts a fresh
+        # recorder for it that takes over once this one lets go (D39), instead
+        # of keeping this finishing one (`RecorderHost.record`).
+        stop.set()
+    return (
+        _shutdown_requested
+        or (stop is not None and stop.is_set())
+        or c.shutdown_sentinel.exists()
+        or cfg.killswitch_active()
+    )
+
+
+def _paused(c: cfg.WatchConfig) -> bool:
+    """Hosted, and told to leave without finishing (the service restarts)."""
+    pause = getattr(c, "pause", None)
+    return pause is not None and pause.is_set()
+
+
+def _beat(c: cfg.WatchConfig) -> None:
+    """Hosted: the loop makes progress (`hosted.Controls.beat`). Never raises."""
+    beat = getattr(c, "beat", None)
+    if beat is not None:
+        with contextlib.suppress(Exception):
+            beat()
+
+
+def _transcript_has_active_reader(path: Path) -> bool | None:
+    """True/False if lsof can determine; None if lsof is unavailable.
+
+    `lsof -t -- <path>` lists PIDs that hold an open fd on `path`. The daemon
+    itself opens the transcript only briefly inside _tick_read, so when this
+    function runs (after the tick's read+enqueue completed) the daemon's own
+    fd is closed and won't show up. CC keeps the transcript fd open for the
+    session's lifetime, so an empty result means CC is dead.
+
+    Returning None (lsof not installed, weird container, timeout) is treated
+    by the caller as "can't tell, assume alive" — we never orphan-exit on
+    ambiguous signal.
+    """
+    try:
+        result = subprocess.run(
+            ["lsof", "-t", "--", str(path)],
+            capture_output=True,
+            timeout=ORPHAN_LSOF_TIMEOUT_S,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    return bool(result.stdout.strip())
+
+
+def _identity_ready(path: Path, source: str, session_id: str) -> bool:
+    """Can a pass now settle whose transcript this is (it proves it is this
+    session's, or another's)? False while it cannot (no file, no line yet).
+    Logs nothing: an expected absence, looked at again shortly."""
+    try:
+        validate_identity(path, source, session_id)
+    except IdentityMismatch:
+        return True  # the pass lets go of the session
+    except Exception:  # noqa: BLE001 -- not yet
+        return False
+    return True
+
+
+def _quiet_for(path: Path) -> float:
+    """Seconds since the transcript last changed; 0 when it cannot be read."""
+    try:
+        return time.time() - path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def _resolve_codex_transcript(transcript_dir: Path, session_id: str) -> Path | None:
+    """Find Codex's date-partitioned rollout for one session id."""
+    if not transcript_dir.is_dir():
+        return None
+    matches = sorted(transcript_dir.rglob(f"*{session_id}.jsonl"))
+    return matches[0] if matches else None
+
+
+def _wait_for_codex_transcript(
+    transcript_dir: Path,
+    session_id: str,
+    *,
+    poll_interval_s: float = 2.0,
+    max_wait_s: int = 1800,
+    stop: object = None,
+) -> Path | None:
+    """Wait because Codex may fire SessionStart before creating its rollout."""
+    deadline = time.time() + max_wait_s
+    while time.time() < deadline:
+        if _shutdown_requested or cfg.killswitch_active() or (stop is not None and stop.is_set()):
+            return None
+        path = _resolve_codex_transcript(transcript_dir, session_id)
+        if path is not None:
+            return path
+        time.sleep(poll_interval_s)
+    return None
+
+
+#: The pinned transcript became a link or another file (`transcripts.pinned`): recording stopped for good.
+EXIT_TRANSCRIPT_SWAPPED = 13
+
+
+def main(argv: list[str] | None = None, *, hosted: object = None) -> int:
+    """`tap watch`. `hosted`: run as one session's thread of the Probe service
+    (`tap.hosted`, plan A2): an object with `stop` and `pause` events; then
+    no logging setup (the service routes this thread's records to the
+    session's log) and no signal handlers (the process's are the service's)."""
+    parser = argparse.ArgumentParser(prog="tap watch")
+    parser.add_argument("--session-id", required=True)
+    parser.add_argument("--transcript", type=Path)
+    parser.add_argument("--transcript-dir", type=Path)
+    parser.add_argument("--cwd", required=True, type=Path)
+    # Optional on purpose: nothing in tap/ reads plugin_root, and a future hook
+    # change that stops passing it must not argparse-exit the daemon into a
+    # silent capture outage. session-start.sh still passes it (harmless).
+    parser.add_argument("--plugin-root", required=False, default=None, type=Path)
+    # The file the Probe service accepted for a fenced caller (`dev:ino`): every read is pinned to it.
+    parser.add_argument("--transcript-identity", default=None)
+    args = parser.parse_args(argv)
+    if args.transcript is None and args.transcript_dir is None:
+        parser.error("--transcript or --transcript-dir is required")
+    identity = pinned.parse_identity(args.transcript_identity) if args.transcript_identity else None
+    if args.transcript_identity and (identity is None or args.transcript is None):
+        parser.error("--transcript-identity takes dev:ino, with --transcript")
+    if sources.harness(cfg.current_source()).transcripts.get("watch") != "dir" and args.transcript is None:
+        # A harness whose row says `watch: dir` (Codex) resolves its transcript
+        # by scanning --transcript-dir. Every other one is required to pass
+        # --transcript directly (pi's extension already knows its own session
+        # file). The message names whichever source that actually is.
+        parser.error(f"--transcript is required for {cfg.current_source().display_name} capture")
+
+    log_dir = cfg.log_dir()
+    log_dir.mkdir(parents=True, exist_ok=True)
+    if hosted is None:
+        # FileHandler only — the wrapper bash already redirects this python
+        # process's stdout+stderr into the same log file via `>>"$LOG" 2>&1`.
+        # Adding a StreamHandler too would double every line in the log.
+        logging.basicConfig(
+            level="INFO",
+            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+            handlers=[logging.FileHandler(log_dir / f"{args.session_id}.log")],
+        )
+        _install_signal_handlers()
+
+    if cfg.killswitch_active():
+        log.info("killswitch active, exiting")
+        return 0
+    if cfg.cwd_disabled(args.cwd):
+        log.info("cwd %s matched .disabled_paths, exiting", args.cwd)
+        return 0
+
+    token = cfg.load_token()
+    if not token:
+        log.info(
+            "no ingest token configured (PROBE_INGEST_TOKEN or ingest_token in %s); "
+            "%s — skipping",
+            cfg.probe_config_path(),
+            cfg.WIZARD_HINT,
+        )
+        return 0
+
+    # Resolve the backend host once up front. No hardcoded fallback: if it's
+    # unset, there's nothing to ship to, so stop cleanly instead of crash-
+    # looping against a host that doesn't exist. The wrapper respawns on any
+    # exit code, so we touch the shutdown sentinel (same mechanism the orphan-
+    # exit path uses) to actually stop it for this session.
+    try:
+        cfg.api_base_url()
+    except cfg.APIBaseURLUnset as exc:
+        log.error("%s; not starting daemon", exc)
+        with contextlib.suppress(OSError):
+            cfg.shutdown_sentinel(args.session_id).touch()
+        return 0
+
+    if hosted is None and handback.recorded_by_service(args.session_id):
+        # The service records it already, its claim held (a hand-off this
+        # session made, then a wrapper that respawned us): nothing to do here.
+        log.info("the Probe service records this session; this tap watch leaves it to it")
+        return handback.EXIT_HANDED_OVER
+
+    transcript_path = args.transcript
+    if transcript_path is None:
+        assert args.transcript_dir is not None
+        transcript_path = _wait_for_codex_transcript(
+            args.transcript_dir, args.session_id, stop=getattr(hosted, "stop", None)
+        )
+        if transcript_path is None:
+            log.info("Codex rollout did not appear before shutdown/timeout")
+            with contextlib.suppress(OSError):
+                cfg.shutdown_sentinel(args.session_id).touch()
+            return 0
+
+    active_s, idle_s = cfg.intervals()
+    config = cfg.WatchConfig(
+        session_id=args.session_id,
+        transcript_path=transcript_path,
+        cwd=args.cwd,
+        plugin_root=args.plugin_root,
+        token=token,
+        active_interval_s=active_s,
+        idle_interval_s=idle_s,
+        stop=getattr(hosted, "stop", None),
+        pause=getattr(hosted, "pause", None),
+        workers=getattr(hosted, "workers", None),
+        claimed=getattr(hosted, "claim", None),
+        beat=getattr(hosted, "beat", None),
+    )
+
+    storage = Storage(cfg.state_db_path())
+    # The machine-wide Probe service: this session registers on its own thread
+    # and ends its registration on the way out. Hosted by the service, the same
+    # link runs, under this session's environment, over the service's socket.
+    link = service_link.start(args.session_id, env=dict(os.environ) if hosted is not None else None)
+    # `tap watch` only: offered to the service once it can record the session.
+    offer = None
+    if hosted is None and record_client.enabled():
+        offer = handback.HandBack(
+            args.session_id, cwd=args.cwd, transcript=transcript_path, plugin_root=args.plugin_root, link=link
+        )
+
+    code = None
+    if identity is not None:
+        pinned.set_pin(transcript_path, identity)
+    try:
+        try:
+            code = _run_durable_loop(config, storage, **({"offer": offer} if offer is not None else {}))
+        except pinned.TranscriptSwapped as exc:
+            # A fenced caller's file swapped after the service accepted it: nothing more of it is read.
+            log.error("transcript swapped: %s; recording stopped", exc)
+            code = EXIT_TRANSCRIPT_SWAPPED
+        return code
+    finally:
+        if identity is not None:
+            pinned.clear_pin(transcript_path)
+        if offer is not None:
+            link = offer.link  # a newer one, after a take-back
+        if link is not None:
+            # Handed over: the service's own registration goes on.
+            link.stop(end=code != handback.EXIT_HANDED_OVER)
+        storage.close()
+        log.info("tap exited")
+
+
+def _prove_source(state: dict, source: str, proven: dict) -> None:
+    """A recovered session's source is that session's own transcript, or
+    nothing of it is pinned, staged or sent (`validate_identity`'s errors, the
+    session's retry).
+
+    Its reservation was proven when it was made, and every pass checks the
+    acknowledged prefix's hash (`Journal._validate_source`); an empty prefix
+    proves nothing, so a file that now holds another session's transcript went
+    up under the reserved id, finalized too (Codex on 33d27365e; as on main).
+    Proven once per process and file, then the prefix carries it; proven again
+    on every pass while nothing of it is acknowledged."""
+    path = Path(state["path"])
+    stat = path.stat()
+    key = (stat.st_dev, stat.st_ino)
+    if proven.get(state["session_id"]) == key and state.get("source_byte_end", 0) > 0:
+        return
+    proven.pop(state["session_id"], None)
+    validate_identity(path, source, state["session_id"])
+    proven[state["session_id"]] = key
+
+
+def _reservation_cwd(journal: Journal, state: dict, storage: Storage) -> Path:
+    """Recover eligibility metadata from source evidence, never its disk layout."""
+    cwd = state.get("cwd")
+    pending = journal.pending(state["session_id"])
+    pending_cwd = json.loads(pending).get("cwd") if pending else None
+    if cwd and pending_cwd and cwd != pending_cwd:
+        raise ReconciliationRequired("pending source folder differs from its reservation")
+    if not cwd:
+        cwd = pending_cwd
+    if not cwd:
+        previous = storage.get_offset(state["path"])
+        if previous and previous.session_id == state["session_id"]:
+            cwd = previous.cwd
+    if not cwd:
+        cwd = validate_identity(Path(state["path"]), journal.source, state["session_id"]).get(
+            "source_cwd"
+        )
+    if not isinstance(cwd, str) or not Path(cwd).is_absolute():
+        raise DeliveryPending("source working directory is unverified; capture retained")
+    if not state.get("cwd"):
+        journal.update(state["session_id"], cwd=cwd)
+    return Path(cwd)
+
+
+class _NothingToDrain(Exception):
+    """Ends one tick's capture pass early; not an error."""
+
+
+def _settle_deleted(
+    journal: Journal | None,
+    exc: SessionDeleted,
+    noted: set[str],
+    path: Path | None = None,
+) -> None:
+    """The server deleted a session at its customer's request: final.
+
+    Records it in the journal (idempotent: pending batch dropped, session marked
+    done, never staged again) and logs it once: not again in this process, and
+    not after a restart that finds the deletion already recorded. Before this
+    the refusal was "retained for retry" and re-sent every tick for good.
+    """
+    try:
+        changed = journal.mark_deleted(exc.session_id, path) if journal is not None else True
+    except (sqlite3.Error, OSError) as err:
+        # Called from an `except` clause, where a second error would escape the
+        # loop and end the daemon. The journal already refuses the session
+        # (`ensure`/`deliver` marked it); a failed re-mark is retried next time.
+        log.warning("session %s: could not record its deletion yet: %s", exc.session_id, err)
+        changed = False
+    if exc.session_id in noted:
+        return
+    noted.add(exc.session_id)
+    if exc.newly or changed:
+        log.info(
+            "session %s was deleted at your team's request; dropped what was waiting to "
+            "upload and will not send it again",
+            exc.session_id,
+        )
+
+
+#: What a rewritten session's journal row says, once logged: a restarted
+#: daemon finds it and stays quiet.
+REWRITTEN_ERROR = "transcript rewritten in place; capture stopped, nothing re-uploaded"
+
+
+def _note_rewritten(journal: Journal | None, session_id: str, noted: set[str]) -> None:
+    """A transcript rewritten under its cursor (`SourceRewritten`): one line.
+
+    The journal already refuses the session on every pass, so nothing is ever
+    re-uploaded; what was missing was a reason anyone could read. Before this
+    the refusal was logged as "retained for retry" on every tick, forever,
+    naming neither the file nor the rewrite.
+    """
+    if session_id in noted or journal is None:
+        return
+    noted.add(session_id)
+    try:
+        state = journal.get(session_id) or {}
+        if state.get("error") == REWRITTEN_ERROR:
+            return  # an earlier process said it
+        journal.update(session_id, error=REWRITTEN_ERROR)
+    except (sqlite3.Error, OSError):
+        # Called from an `except` clause: a second error would end the daemon.
+        # The journal still refuses the session; only the note waits.
+        state = {}
+    log.warning(
+        "session %s: its transcript %s was rewritten in place (bytes already uploaded "
+        "changed); capture of this session stopped and nothing will be re-uploaded",
+        session_id,
+        state.get("path"),
+    )
+
+
+def _defer_conflict(journal: Journal, session_id: str, exc: ReconciliationRequired) -> None:
+    """A 409 that reconciliation left standing: the batch waits before it goes again.
+
+    Only a 409 from the upload door gets here, after `Journal.reconcile_pending`
+    had its chance this run, so re-sending the same bytes gets the same answer.
+    Before this the batch went again every tick, from every daemon on the
+    machine; one machine re-sent six refused sessions every ~10 s for good. The
+    wait is this session's alone, and lasts only while that batch is pending
+    (`Journal.defer_conflict`); a protocol restart or a deletion never gets here.
+    """
+    try:
+        delay = journal.defer_conflict(session_id, exc.body_sha256)
+    except (ReconciliationRequired, OSError, sqlite3.Error) as err:
+        # Called from an `except` clause: a second error would end the daemon.
+        # Unrecorded, the batch only goes again on the next tick, as before.
+        log.warning(
+            "session %s retained for retry: %s (wait not recorded: %s)", session_id, exc, err
+        )
+        return
+    log.warning("session %s retained for retry in %ds: %s", session_id, round(delay), exc)
+
+
+def _require_capture_eligible(cwd: Path) -> None:
+    if cfg.killswitch_active() or cfg.cwd_disabled(cwd):
+        raise DeliveryPending("capture disabled for this source folder; pending bytes retained")
+
+
+def _run_durable_loop(c: cfg.WatchConfig, storage: Storage, *, offer: handback.HandBack | None = None) -> int:
+    """Protocol negotiation precedes source reservation. No legacy downgrade.
+
+    The old outbox is a different namespace. Old processes cannot clear or
+    evict durable pending bytes; the server fences their writes to v2 streams.
+    Every compatible producer uses the same atomic session reservation.
+
+    `offer` (`tap watch` only): between two passes, the session is offered to
+    the Probe service (`tap/handback.py`); EXIT_HANDED_OVER once its recorder
+    holds the session's claim.
+    """
+    wire = Wire(cfg.api_base_url(), c.token, cfg.capture_source())
+    # A refusal the server's message registry wrote reaches the session's agent (R12). Set, not
+    # passed: the constructor's shape stays the one every caller and stand-in knows.
+    wire.on_refusal = forward_refusal
+    journal = None
+    tick = 0
+    seen_reader = False
+    # (session, batch_seq) pairs a 409 already sent to reconciliation this run:
+    # one receipts lookup per batch, not one per tick for a lasting conflict.
+    reconciled_conflicts: set[tuple[str, int]] = set()
+    # Sessions the server deleted at the customer's request, logged once each.
+    # Also the only record of one when the refusal came before a journal
+    # existed to hold it (a 410 on this daemon's very first receipts read).
+    deleted: set[str] = set()
+    # Sessions whose transcript was rewritten under the cursor, said once each.
+    rewritten: set[str] = set()
+    # Recovered sessions whose source proved, in this process, that it is
+    # theirs: {session: the file's (device, inode)} (`_prove_source`).
+    proven: dict[str, tuple[int, int]] = {}
+    empty_ticks = 0
+    # The Probe daemon worker rides this process's lifecycle as a child; see
+    # companion_supervisor.py. Polled every tick and every few seconds of the
+    # sleep, so switching to `daemon` mid-session starts it within seconds.
+    # Hosted by a service that supervises workers itself, it is handed to it.
+    companion = Supervisor(
+        session_id=c.session_id, transcript=c.transcript_path, cwd=c.cwd, service=getattr(c, "workers", None)
+    )
+    looped = False
+    handed_over = False
+    # Probe off: this session's own recorder of its off stretches, unless a
+    # host (the Probe service) records them itself (`capture_gate.host`).
+    recorder = None if capture_gate.host_records() else capture_gate.Recorder(c.session_id, c.transcript_path, log.info)
+    # The transcript proved, in this process, that it is this session's
+    # (`validate_identity`): nothing is staged, uploaded or finalized before,
+    # whatever reservation the journal already holds for it.
+    identity_ok = False
+    # It proved it is another session's: the claim waits for the check again.
+    mismatched = False
+    try:
+        while True:
+            _beat(c)
+            if _paused(c):
+                return 0
+            # A pinned transcript (a fenced caller's) is still the file the service accepted.
+            pinned.check_pinned(c.transcript_path)
+            stopping = _shutdown_observed(c)
+            if looped:
+                # Still here a pass later (ingestion off, the server unreachable):
+                # this recorder did not step back for another one.
+                companion.claimed()
+            looped = True
+            if not stopping:
+                companion.poll()
+            if recorder is not None:
+                recorder.look()
+            if cfg.killswitch_active() or cfg.cwd_disabled(c.cwd):
+                return 0
+            enabled, _reason = killswitch.is_ingestion_enabled(
+                token=c.token, base_url=wire.base_url
+            )
+            if not enabled:
+                if stopping:
+                    return 0
+                time.sleep(min(c.active_interval_s, 60))
+                continue
+            try:
+                sent_bytes = 0
+                own_blocked = capture_gate.verdict(c.session_id).blocked
+                # Ended while off, its off stretch recorded: finalized with
+                # that stretch read past as nothing (`capture_gate.settling`).
+                # Off before anything of it was staged here: nothing at all is
+                # asked of the server about it, not even its claim.
+                ending_off = (
+                    stopping and own_blocked and recorder is not None and journal is not None
+                    and recorder.recorded()
+                )
+                if not (own_blocked and journal is None) and c.session_id not in deleted and (
+                    not identity_ok or journal.get(c.session_id) is None
+                ):
+                    remote = None
+                    if not mismatched and (journal is None or not journal.holds_live(c.session_id)):
+                        # The claim first, on the first pass: the journal's account
+                        # needs only the server's receipts, not the transcript's
+                        # identity, which a session just started cannot prove yet (no
+                        # line). It waited for that before: a sync interval of a
+                        # recorder that held nothing and said so (`recording: false`).
+                        # Nothing is staged before the identity is proven, below.
+                        remote = wire.receipts(c.session_id)
+                        journal = journal or Journal(wire.base_url, remote["customer_id"], wire.source)
+                        if not journal.claim_live(c.session_id):
+                            return 0  # another compatible daemon owns this session
+                        companion.claimed()
+                        _publish_claim(c, str(journal.directory))
+                    try:
+                        provenance = validate_identity(c.transcript_path, wire.source, c.session_id)
+                    except IdentityMismatch:
+                        # Another session's transcript: never this recorder's to
+                        # hold, so the right one can take the session. Checked
+                        # before any claim from now on, as before the early claim.
+                        if journal is not None and journal.holds_live(c.session_id):
+                            journal.release_live(c.session_id)
+                            _publish_claim(c, None)
+                            log.warning("session %s: its transcript %s is another session's; "
+                                        "let go of the session", c.session_id, c.transcript_path)
+                        mismatched = True
+                        raise
+                    if journal is None or not journal.holds_live(c.session_id):
+                        remote = wire.receipts(c.session_id)
+                        journal = journal or Journal(wire.base_url, remote["customer_id"], wire.source)
+                        if not journal.claim_live(c.session_id):
+                            return 0  # another compatible daemon owns this session
+                        companion.claimed()
+                        _publish_claim(c, str(journal.directory))
+                    identity_ok, mismatched = True, False
+                    journal.ensure(
+                        c.session_id,
+                        c.transcript_path,
+                        remote or wire.receipts(c.session_id),
+                        historical=False,
+                        provenance=provenance,
+                        cwd=str(c.cwd),
+                    )
+                if journal is None:
+                    # Only after the server refused this daemon's own session
+                    # before any journal existed: nothing here to drain.
+                    raise _NothingToDrain
+                if journal.is_deleted(c.session_id):
+                    deleted.add(c.session_id)
+                if (
+                    stopping and c.session_id not in deleted and c.session_id not in rewritten
+                    and (not own_blocked or ending_off)
+                ):
+                    journal.ensure(
+                        c.session_id,
+                        c.transcript_path,
+                        wire.receipts(c.session_id),
+                        historical=True,
+                        cwd=str(c.cwd),
+                        complete_lines_only=True,
+                        continue_server_stream=True,
+                    )
+                    journal.update(c.session_id, finalize_requested=True)
+                # Recover only sessions with durable consent/capture ownership.
+                # A session the server deleted is done: it never takes a slot.
+                states = [
+                    state
+                    for state in journal.sessions()
+                    if not state.get("deleted") and state["session_id"] not in rewritten
+                ]
+                current = [state for state in states if state["session_id"] == c.session_id]
+                # Stopping drains this session only: SessionEnd waits for this
+                # pass, and the other sessions' backlog is not the agent's exit.
+                others = (
+                    []
+                    if stopping
+                    else [state for state in states if state["session_id"] != c.session_id]
+                )
+                start = (tick * (MAX_DRAIN_PER_TICK - 1)) % len(others) if others else 0
+                states = current + others[start:] + others[:start]
+                for state in states[:MAX_DRAIN_PER_TICK]:
+                    # Per session and per batch (each behind HTTP timeouts): a
+                    # pass over 64 sessions on a slow server is progress, not a
+                    # stall (the Probe service reads the beat).
+                    _beat(c)
+                    if sent_bytes >= reconcile.MAX_BACKFILL_BYTES_PER_SWEEP:
+                        break
+                    settle_own = ending_off and state["session_id"] == c.session_id
+                    try:
+                        if journal.conflict_retry_in(state["session_id"]) > 0:
+                            # Its batch still waits out a lasting 409
+                            # (`_defer_conflict`); the others keep going.
+                            continue
+                        if (
+                            not settle_own
+                            and capture_gate.verdict(state["session_id"]).blocked
+                            and journal.pending(state["session_id"]) is None
+                        ):
+                            # Probe is off for it: nothing staged, pinned or
+                            # asked of the server (a batch staged before the
+                            # switch moved still goes, below).
+                            continue
+                        if state["session_id"] != c.session_id:
+                            # Recovered: its source proves it is that session's
+                            # (the recorder's own did, above) before anything of
+                            # it is pinned, staged or sent.
+                            _prove_source(state, wire.source, proven)
+                        source_cwd = _reservation_cwd(journal, state, storage)
+                        _require_capture_eligible(source_cwd)
+                        if (
+                            state["session_id"] != c.session_id
+                            and state.get("live_enabled")
+                            and not reconcile.has_live_daemon(state["session_id"])
+                            and session_owner.state(state["session_id"])
+                            is not session_owner.OwnerState.ALIVE
+                        ):
+                            source_stat = Path(state["path"]).stat()
+                            if time.time() - source_stat.st_mtime >= ORPHAN_QUIET_SECONDS and (
+                                not state["finalized"]
+                                or source_stat.st_size > state["source_byte_end"]
+                            ):
+                                journal.pin_orphan(
+                                    state["session_id"], wire.receipts(state["session_id"])
+                                )
+                        for _ in range(4):
+                            _beat(c)
+                            _require_capture_eligible(source_cwd)
+                            try:
+                                with (
+                                    capture_gate.settling(c.session_id, recorder.gaps)
+                                    if settle_own else contextlib.nullcontext()
+                                ):
+                                    body = journal.stage(
+                                        state["session_id"],
+                                        cwd=str(source_cwd),
+                                        finalize=bool(state.get("finalize_requested")),
+                                        historical_only=not state.get("live_enabled", False),
+                                        # Read each pass: the Settings toggle
+                                        # takes effect on the next batch.
+                                        pasted_images=cfg.pasted_images_on(),
+                                    )
+                                if body is None:
+                                    if capture_gate.verdict(state["session_id"]).blocked:
+                                        break  # off: not even its title
+                                    try:
+                                        # Nothing left to send: a title refused
+                                        # after the last batch gets no other try.
+                                        journal.send_title(state["session_id"], wire, idle=True)
+                                    except Exception:
+                                        log.debug("session title not sent", exc_info=True)
+                                    break
+                                _require_capture_eligible(source_cwd)
+                                _beat(c)
+                                journal.deliver(state["session_id"], wire)
+                                _beat(c)
+                            except ProtocolRestarted as exc:
+                                # Batch 0 refused on its protocol and dropped
+                                # (3 not enabled, or 2 retired): stage it
+                                # again on the other one in this pass.
+                                log.warning("session %s: %s", state["session_id"], exc)
+                                continue
+                            except ReconciliationRequired as exc:
+                                if not recoverable(exc):
+                                    raise
+                                pending = journal.pending(state["session_id"])
+                                conflict = (
+                                    state["session_id"],
+                                    json.loads(pending)["batch_seq"] if pending else -1,
+                                )
+                                if exc.status_code == 409:
+                                    if conflict in reconciled_conflicts:
+                                        raise
+                                    reconciled_conflicts.add(conflict)
+                                # Settle it against the server's receipt, then
+                                # stage again. Raises when it cannot be settled;
+                                # None leaves the original error standing.
+                                try:
+                                    outcome = journal.reconcile_pending(state["session_id"], wire)
+                                except RebaseCooling:
+                                    # Asked again once its wait is over: the
+                                    # racing producer may be gone by then.
+                                    reconciled_conflicts.discard(conflict)
+                                    raise
+                                if outcome is None:
+                                    raise
+                                log.warning("session %s: %s", state["session_id"], outcome)
+                                continue
+                            sent_bytes += len(body)
+                        journal.release_snapshot(state["session_id"])
+                        if (
+                            recorder is not None
+                            and state["session_id"] == c.session_id
+                            and journal.pending(c.session_id) is None
+                        ):
+                            # Its off stretches the server's cursor is past go
+                            # from its gap file (`capture_gate.Recorder.settled`).
+                            recorder.settled(int((journal.get(c.session_id) or {}).get("source_byte_end") or 0))
+                    except SessionDeleted as exc:
+                        _settle_deleted(journal, exc, deleted)
+                    except SourceRewritten:
+                        _note_rewritten(journal, state["session_id"], rewritten)
+                    except (DeliveryPending, ReconciliationRequired, OSError, sqlite3.Error) as exc:
+                        journal.update(state["session_id"], error=str(exc))
+                        if isinstance(exc, ReconciliationRequired) and exc.status_code == 409:
+                            _defer_conflict(journal, state["session_id"], exc)
+                        else:
+                            log.warning(
+                                "session %s retained for retry: %s", state["session_id"], exc
+                            )
+                # Existing eligibility remains authoritative for late files: the
+                # session has a daemon log or old cursor, never just a directory.
+                if tick % reconcile.RECONCILE_EVERY_TICKS == 0 and not stopping:
+                    gaps = [
+                        gap
+                        for gap in reconcile.find_gaps(storage, now=int(time.time()))
+                        if journal.get(gap.session_id) is None and gap.session_id not in deleted
+                    ]
+                    limit = reconcile.MAX_BACKFILL_FILES_PER_SWEEP
+                    start = (
+                        (tick // reconcile.RECONCILE_EVERY_TICKS * limit) % len(gaps) if gaps else 0
+                    )
+                    for gap in (gaps[start:] + gaps[:start])[:limit]:
+                        try:
+                            provenance = validate_identity(gap.path, wire.source, gap.session_id)
+                            previous = storage.get_offset(str(gap.path))
+                            source_cwd = (
+                                previous.cwd
+                                if previous and previous.session_id == gap.session_id
+                                else provenance.get("source_cwd")
+                            )
+                            if not source_cwd or not Path(source_cwd).is_absolute():
+                                raise DeliveryPending(
+                                    "source working directory is unverified; capture retained"
+                                )
+                            _require_capture_eligible(Path(source_cwd))
+                            journal.ensure(
+                                gap.session_id,
+                                gap.path,
+                                wire.receipts(gap.session_id),
+                                historical=False,
+                                provenance=provenance,
+                                cwd=source_cwd,
+                            )
+                        except SessionDeleted as exc:
+                            _settle_deleted(journal, exc, deleted, gap.path)
+                        except (
+                            DeliveryPending,
+                            ReconciliationRequired,
+                            OSError,
+                            sqlite3.Error,
+                        ) as exc:
+                            log.warning("reconcile %s pending: %s", gap.session_id, exc)
+            except _NothingToDrain:
+                pass
+            except SessionDeleted as exc:
+                _settle_deleted(journal, exc, deleted, c.transcript_path)
+            except SourceRewritten:
+                _note_rewritten(journal, c.session_id, rewritten)
+            except (DeliveryPending, ReconciliationRequired, OSError, sqlite3.Error) as exc:
+                log.warning("capture pending; source and queue retained: %s", exc)
+            if stopping:
+                return 0
+            companion.claimed()  # a pass done: this recorder keeps the session
+            tick += 1
+            owner = session_owner.state(c.session_id)
+            if owner is session_owner.OwnerState.GONE:
+                log.info("session %s: its agent process is gone; finalizing", c.session_id)
+                c.shutdown_sentinel.touch()
+                continue
+            if owner is session_owner.OwnerState.ALIVE:
+                session_owner.keep(c.session_id)
+            elif _quiet_for(c.transcript_path) >= UNKNOWN_OWNER_QUIET_SECONDS:
+                log.info("session %s: owner unknown and quiet for a day; finalizing", c.session_id)
+                c.shutdown_sentinel.touch()
+                continue
+            if tick % ORPHAN_CHECK_EVERY_TICKS == 0:
+                reader = _transcript_has_active_reader(c.transcript_path)
+                if reader:
+                    seen_reader = True
+                elif reader is False and seen_reader:
+                    c.shutdown_sentinel.touch()
+                    continue
+            empty_ticks = 0 if sent_bytes else empty_ticks + 1
+            cadence = (
+                c.idle_interval_s if empty_ticks >= IDLE_THRESHOLD_TICKS else c.active_interval_s
+            )
+            # Nothing is offered to the service before the transcript proves
+            # whose it is, and a session just started has no line yet: while
+            # the watcher is young its transcript is looked at every SOON_S,
+            # and a pass comes as soon as it can prove it, not a whole cadence
+            # later (live run 40004468897: each late session's first offer
+            # came 60 s after its first pass). The look is the pass's own
+            # identity check, silent; the pass keeps its cadence otherwise.
+            probe_every = max(1, round(handback.SOON_S))
+            slept = 0
+            while slept < cadence and not _shutdown_observed(c) and not _paused(c):
+                if (
+                    slept
+                    and slept % probe_every == 0
+                    and offer is not None
+                    and journal is not None
+                    and not identity_ok
+                    and not mismatched
+                    and c.session_id not in deleted
+                    and offer.young()
+                    and _identity_ready(c.transcript_path, wire.source, c.session_id)
+                ):
+                    break
+                # Probe off before this watcher ever claimed it: nothing to
+                # hand over but the session (`handback`, tap 0.10.19).
+                unclaimed_off = journal is None and recorder is not None and recorder.off
+                if (
+                    offer is not None
+                    and ((journal is not None and identity_ok) or unclaimed_off)
+                    and c.session_id not in deleted
+                    and c.session_id not in rewritten
+                    and offer.due()
+                ):
+                    # Between two passes: this one's batch is delivered, or
+                    # pending in the journal for whichever recorder is next.
+                    outcome = offer.attempt(journal, stopping=lambda: _shutdown_observed(c), tick=companion.poll,
+                                            unclaimed_off=unclaimed_off)
+                    if outcome == handback.Outcome.HANDED_OVER:
+                        handed_over = True
+                        return handback.EXIT_HANDED_OVER
+                    if outcome == handback.Outcome.LOST:
+                        return 0  # as when the claim is found taken at the start
+                    if outcome == handback.Outcome.TAKEN_BACK:
+                        break  # a pass now: what was written while it waited
+                time.sleep(1)
+                slept += 1
+                _beat(c)
+                if recorder is not None:
+                    # Each second: an off stretch starts where the switch was
+                    # last seen on (`capture_gate.Recorder.look`).
+                    recorder.look()
+                if slept % COMPANION_POLL_SECONDS == 0:
+                    companion.poll()
+    finally:
+        # Ask the daemon worker to finish. It runs its own bounded final cycle in
+        # its own process group; FINALIZE below never waits on it. Paused (the
+        # service restarts), it is left running: the next copy's worker asks it
+        # to hand over and carries the same conversation on. Handed to the
+        # service's recorder, the same: that recorder's worker carries it on,
+        # unless the session ends now (no worker comes next: it finishes).
+        if handed_over and not _shutdown_observed(c):
+            companion.hand_over()
+        elif not _paused(c):
+            companion.stop()
+        _publish_claim(c, None)
+        if journal is not None:
+            journal.close()
+
+
+def _publish_claim(c: cfg.WatchConfig, folder: str | None) -> None:
+    """Hosted: tell the Probe service which journal this loop holds the
+    session's live claim in (None: it lets go). Never raises."""
+    claimed = getattr(c, "claimed", None)
+    if claimed is None:
+        return
+    try:
+        claimed(folder)
+    except Exception:  # noqa: BLE001 -- only the service's receipts are at stake
+        log.debug("could not publish the journal claim", exc_info=True)
+
+
+def _run_loop(c: cfg.WatchConfig, storage: Storage) -> int:
+    base_url = cfg.api_base_url()
+
+    # Device identity: nothing mints one server-side anymore (no pairing), so
+    # the daemon owns it — generate once, persist in meta, send in every batch
+    # body. The backend passes it through to the engine, which uses it as the
+    # device external id.
+    #
+    # Mint atomically: a fresh install with two CC sessions in the same minute
+    # would otherwise have both daemons read device_id="" and write DIFFERENT
+    # uuids (last-writer-wins), forking machine identity. insert_meta_if_absent
+    # is a single atomic INSERT ... ON CONFLICT DO NOTHING + re-read, so both
+    # converge on the first writer's id. We generate unconditionally (cheap) and
+    # let the atomic insert decide the winner.
+    minted = uuid.uuid4().hex
+    device_id = storage.insert_meta_if_absent("device_id", minted)
+    if device_id == minted:
+        log.info("generated device_id=%s", device_id)
+
+    # Resume batch_seq across daemon restarts.
+    #
+    # batch_seq must stay monotonic/unique because the R2 storage key the
+    # upstream writes is "<session>:<batch_seq>". Per prbe-knowledge origin/main
+    # (post-migration-0026) the ingest queue COALESCES on the bare session_id —
+    # it does NOT dedup on source_event_id — so a reset seq would not be dropped
+    # at the queue; instead it would re-derive an EARLIER storage key and
+    # overwrite that batch's blob in R2 (last-write-wins), losing data. Keeping
+    # the seq durable and always-increasing keeps every batch's R2 key distinct.
+    #
+    # max_batch_seq(outbox) only knows about batches still queued locally;
+    # successful drains delete those rows, so it returns -1 after the daemon
+    # catches up and restarts. We keep a durable high-water mark in `meta`
+    # under "last_batch_seq:<session>" and bump it after every enqueue, so a
+    # restart picks up at last_seq+1 instead of 0.
+    seq_meta_key = _batch_seq_meta_key(c.session_id)
+    batch_seq = (
+        max(
+            storage.max_batch_seq(c.session_id),
+            _read_int_meta(storage, seq_meta_key, default=-1),
+        )
+        + 1
+    )
+
+    missing_ticks = 0
+    tick_count = 0
+    empty_ticks = 0
+    in_idle_mode = False
+    in_killswitch_mode = False
+    ingestion_globally_enabled = True
+
+    # Track whether we ever saw a process holding the transcript fd. Without
+    # this gate, an early lsof miss (e.g. before CC has fully opened the file)
+    # would orphan-exit a healthy daemon. We only treat "no reader" as orphan
+    # if we previously observed a reader.
+    seen_active_reader = False
+
+    while not _shutdown_observed(c):
+        tick_count += 1
+
+        # Ingestion killswitch poll (fetched + cached for 5min). This is the
+        # SEAM for a future customer-level pause: the status endpoint is static
+        # ({"ingest_enabled": true}) today, so this never trips in production
+        # yet. If it ever reports paused we skip the entire tick — no tail, no
+        # enqueue, no drain — and byte_offset stays put so the next enabled tick
+        # catches up automatically. On poll error we fail OPEN inside
+        # is_ingestion_enabled itself; here we just consume the (enabled, reason)
+        # tuple.
+        ks_enabled, ks_reason = killswitch.is_ingestion_enabled(token=c.token, base_url=base_url)
+        ingestion_globally_enabled = ks_enabled
+        if not ks_enabled:
+            if not in_killswitch_mode:
+                log.info(
+                    "ingestion paused via global killswitch (reason=%s)",
+                    ks_reason or "no reason given",
+                )
+                in_killswitch_mode = True
+            time.sleep(c.idle_interval_s)
+            continue
+        elif in_killswitch_mode:
+            log.info("ingestion resumed; global killswitch released")
+            in_killswitch_mode = False
+
+        try:
+            read = _tick_read(c, storage)
+        except FileNotFoundError:
+            missing_ticks += 1
+            log.warning("transcript missing (tick %d): %s", missing_ticks, c.transcript_path)
+            if missing_ticks >= 5:
+                log.warning("transcript missing for %d ticks, exiting", missing_ticks)
+                return 0
+            read = None
+        else:
+            missing_ticks = 0
+
+        if read is not None:
+            batch_seq = _enqueue_read(c, storage, device_id, seq_meta_key, batch_seq, read)
+
+        # Drain a bounded number of rows.
+        try:
+            _drain_pending(c, storage, base_url)
+        except HaltError as e:
+            log.error("halt: %s", e)
+            return 1
+        except Exception:
+            log.exception("drain raised; will retry next tick")
+
+        # Reconciliation sweep. Every live daemon periodically checks EVERY
+        # local transcript against its stored cursor and drains EVERY due outbox
+        # row, so a session whose daemon never attached (a resume that spawned
+        # nothing, a fork whose file appeared after we gave up) is recovered by
+        # whichever daemon is running next. Runs on the first tick so a single
+        # new session is enough to start recovering, then on a slow cadence.
+        #
+        # A lease keeps concurrent daemons from sweeping at once. Failures are
+        # swallowed by design: this is a safety net, and a net that can stop
+        # capture is worse than no net. HaltError still propagates — a dead
+        # token means the same thing here as anywhere else.
+        if tick_count == 1 or tick_count % reconcile.RECONCILE_EVERY_TICKS == 0:
+            try:
+                res = reconcile.sweep(
+                    storage,
+                    token=c.token,
+                    base_url=base_url,
+                    device_id=device_id,
+                )
+                if res.files_backfilled or res.rows_drained:
+                    log.info(
+                        "reconcile: %d gap(s) found, %d file(s) backfilled (%d bytes, "
+                        "%d batches), %d orphan row(s) drained",
+                        res.gaps_found,
+                        res.files_backfilled,
+                        res.bytes_backfilled,
+                        res.batches_enqueued,
+                        res.rows_drained,
+                    )
+            except HaltError as e:
+                log.error("halt during reconcile: %s", e)
+                return 1
+            except Exception:
+                log.exception("reconcile sweep raised; continuing")
+
+        # Orphan-session detection. CC keeps the transcript fd open for the
+        # session's lifetime; if no process holds it, the session is gone.
+        # Only trips after we've previously observed a reader, so a startup
+        # race or a system without lsof can't false-positive us into exit.
+        if tick_count % ORPHAN_CHECK_EVERY_TICKS == 0:
+            has_reader = _transcript_has_active_reader(c.transcript_path)
+            if has_reader is True:
+                seen_active_reader = True
+            elif has_reader is False and seen_active_reader:
+                log.info(
+                    "no process holds %s open; CC session ended without SessionEnd, exiting",
+                    c.transcript_path,
+                )
+                # Touch the sentinel so the wrapper exits instead of respawning
+                # us into the same dead-session state.
+                with contextlib.suppress(OSError):
+                    c.shutdown_sentinel.touch()
+                # BREAK, not return: this is a session that ended WITHOUT a
+                # SessionEnd hook — force-quit, SIGKILL, OS reboot — which is
+                # precisely the case with no other way to say goodbye. Returning
+                # here skipped both the final transcript tail and the finalize,
+                # so a hard-killed session lost its last bytes and waited on the
+                # server-side idle sweep to be mined at all. Falling through to
+                # the shutdown path gives it the same ending a clean exit gets.
+                break
+
+        # Adaptive cadence: a tick that produced new lines resets to active;
+        # IDLE_THRESHOLD_TICKS empty ticks in a row promotes to idle. We
+        # treat "transcript missing" the same as empty since there's nothing
+        # to ship either way.
+        had_lines = read is not None and bool(read[0])
+        if had_lines:
+            empty_ticks = 0
+            if in_idle_mode:
+                log.info("activity resumed; switching to active cadence (%ds)", c.active_interval_s)
+                in_idle_mode = False
+        else:
+            empty_ticks += 1
+            if empty_ticks == IDLE_THRESHOLD_TICKS and not in_idle_mode:
+                log.info(
+                    "idle for %d ticks; switching to idle cadence (%ds)",
+                    empty_ticks,
+                    c.idle_interval_s,
+                )
+                in_idle_mode = True
+        sleep_s = c.idle_interval_s if in_idle_mode else c.active_interval_s
+
+        # Sleep in 1s slices so SIGTERM/sentinel/killswitch are responsive.
+        slept = 0
+        while slept < sleep_s and not _shutdown_observed(c):
+            time.sleep(1)
+            slept += 1
+
+    # SessionEnd/SIGTERM commonly lands during the cadence sleep. Codex writes
+    # the final response before firing the hook, so stopping here without one
+    # last tail loses everything written since the previous tick (up to five
+    # minutes in idle mode). Enqueue first so a transient network failure is
+    # durable in SQLite; then make one bounded best-effort drain.
+    #
+    # A local killswitch is different from an ordinary shutdown: its contract
+    # is "ship nothing", so do not read or drain after it becomes active.
+    if not cfg.killswitch_active() and ingestion_globally_enabled:
+        log.info("shutdown observed; capturing final transcript tail")
+        try:
+            final_read = _tick_read(c, storage)
+        except FileNotFoundError:
+            final_read = None
+            # A fork/compaction leg gets a SessionStart for a NEW session id
+            # whose file CC has not written yet (and may never write, if it
+            # keeps appending to the original). Shutting down here used to be
+            # the end of it — the file would appear afterwards, at megabytes,
+            # with nothing left to notice. It is now recoverable: this daemon's
+            # log file is what marks the session as one capture was live for,
+            # so the reconciler adopts the file whenever it shows up. WARNING,
+            # not INFO, because a run that captured nothing at all should be
+            # visible in the log rather than read as a clean exit.
+            log.warning(
+                "transcript never materialised for this session; leaving it to the "
+                "reconciler to adopt if it appears: %s",
+                c.transcript_path,
+            )
+        except Exception:
+            final_read = None
+            log.exception("final transcript read failed")
+        if final_read is not None:
+            batch_seq = _enqueue_read(c, storage, device_id, seq_meta_key, batch_seq, final_read)
+
+        # Say goodbye. The engine only runs its knowledge-unit extraction
+        # (qa / code_change / decision / file_ref) on a session marked
+        # COMPLETE, and this is the only signal that says so at the moment the
+        # session actually ends — otherwise the session sits open until the
+        # server-side nightly sweep notices it has gone quiet for hours.
+        #
+        # Enqueued, not POSTed inline: it goes through the same durable outbox
+        # as every batch, so a network blip at shutdown leaves it queued for
+        # the next daemon or the reconciler's global drain instead of losing
+        # the ending. It is enqueued AFTER the final tail so it drains last
+        # (rows are claimed by ascending id) and the engine sees the whole
+        # transcript before it is told the session is over.
+        batch_seq = _enqueue_finalize(c, storage, seq_meta_key, batch_seq)
+
+        try:
+            _drain_pending(c, storage, base_url)
+        except HaltError as exc:
+            log.error("halt during final drain: %s", exc)
+            return 1
+        except Exception:
+            # The batch is already durable in the outbox and a future daemon
+            # will retry it; shutdown must not turn a network blip into loss.
+            log.exception("final drain raised; batch remains queued")
+
+    return 0
+
+
+def _enqueue_read(
+    c: cfg.WatchConfig,
+    storage: Storage,
+    device_id: str,
+    seq_meta_key: str,
+    batch_seq: int,
+    read: tuple[list[bytes], int, Callable[[int | None], None]],
+) -> int:
+    """Durably enqueue one transcript read and return the next batch sequence.
+
+    The read is SPLIT into gateway-sized batches. One tick can hold far more
+    than the gateway's 2MB body cap — the first tick against a transcript that
+    already has history, a catch-up after the 300s idle cadence, or a daemon
+    that started late — and an oversized body comes back 413, which
+    `httpclient.classify` calls POISON and the outbox DROPS. That silently lost
+    the whole tick, permanently. `reconcile.chunk_lines` is the same splitter
+    the backfill path has always used against the same cap; the live tail was
+    the one caller that never got it.
+    """
+    raw_lines, line_no_base, commit_offset = read
+    if not raw_lines:
+        # No lines this tick — still refresh last_seen_at + inode/size.
+        commit_offset(None)
+        return batch_seq
+
+    line_no = line_no_base
+    consumed = 0
+    invalid = 0
+
+    for group in reconcile.chunk_lines(raw_lines):
+        valid = [ln for ln in group if validate_json(ln)]
+        invalid += len(group) - len(valid)
+        if valid:
+            body = outbox.build_batch_body(
+                device_id=device_id,
+                session_id=c.session_id,
+                batch_seq=batch_seq,
+                cwd=str(c.cwd),
+                base_line_no=line_no,
+                lines=valid,
+            )
+            # None means the sanitizer dropped every event in this group (a
+            # chunk of pure bookkeeping). The lines were still processed, so
+            # they count as consumed rather than being re-read forever.
+            if body is not None:
+                try:
+                    outbox.enqueue(
+                        storage=storage,
+                        session_id=c.session_id,
+                        batch_seq=batch_seq,
+                        cwd=str(c.cwd),
+                        body=body,
+                        now=int(time.time()),
+                    )
+                except Exception:
+                    # Commit what DID enqueue and leave the rest for next tick.
+                    # Bailing without a partial commit would re-read the whole
+                    # tick and re-ship the already-queued groups under fresh
+                    # sequence numbers — duplicated events, not lost ones.
+                    log.exception(
+                        "enqueue failed after %d line(s); committing those and "
+                        "retrying the rest next tick",
+                        consumed,
+                    )
+                    break
+                # Persist the high-water mark BEFORE incrementing so a crash
+                # here does not reset the counter on restart.
+                storage.set_meta(seq_meta_key, str(batch_seq))
+                batch_seq += 1
+        line_no += len(group)
+        consumed += len(group)
+
+    if invalid:
+        log.warning("dropped %d malformed JSON lines this tick", invalid)
+    if consumed:
+        commit_offset(None if consumed >= len(raw_lines) else consumed)
+    return batch_seq
+
+
+def _enqueue_finalize(
+    c: cfg.WatchConfig,
+    storage: Storage,
+    seq_meta_key: str,
+    batch_seq: int,
+) -> int:
+    """Durably enqueue this session's finalize and return the next sequence.
+
+    Takes a batch_seq of its own rather than reusing the last one: the outbox
+    is UNIQUE(session_id, batch_seq), so sharing a number with a queued batch
+    would raise and lose the goodbye. The number is otherwise meaningless to
+    the server — the gateway validates a finalize against a two-field model and
+    never reads a sequence off it — it exists here purely to order the row.
+
+    Best-effort by design. A session that fails to enqueue its finalize is
+    exactly the case the server-side nightly sweep exists for, so this must
+    never escalate: shutdown continues, the last batches still drain, and the
+    session gets mined a few hours later instead of immediately.
+    """
+    try:
+        outbox.enqueue(
+            storage=storage,
+            session_id=c.session_id,
+            batch_seq=batch_seq,
+            cwd=str(c.cwd),
+            body=outbox.build_finalize_body(session_id=c.session_id),
+            now=int(time.time()),
+        )
+        storage.set_meta(seq_meta_key, str(batch_seq))
+        log.info("enqueued session finalize (batch_seq=%d)", batch_seq)
+        return batch_seq + 1
+    except Exception:
+        log.exception(
+            "could not enqueue session finalize; the server-side idle sweep "
+            "will finalize this session instead"
+        )
+        return batch_seq
+
+
+def _drain_pending(c: cfg.WatchConfig, storage: Storage, base_url: str) -> None:
+    """Drain a bounded number of rows for this session."""
+    drained = 0
+    while drained < MAX_DRAIN_PER_TICK and outbox.drain_once(
+        storage=storage,
+        token=c.token,
+        base_url=base_url,
+        session_id=c.session_id,
+    ):
+        drained += 1
+
+
+def _tick_read(
+    c: cfg.WatchConfig, storage: Storage
+) -> tuple[list[bytes], int, Callable[[int | None], None]]:
+    """Read new lines from the transcript; do NOT persist offset.
+
+    Returns (raw_lines, base_line_no_for_first_line, commit_fn).
+
+    Lines come back UNFILTERED. Validation moved to _enqueue_read, per chunk,
+    because the cursor now advances by a COUNT of lines consumed and that count
+    has to address the file: dropping malformed lines here would make "n lines
+    consumed" stop mapping to a byte position, and a partial commit would land
+    the cursor in the wrong place.
+
+    commit_fn(consumed_lines) advances the cursor by that many lines; None means
+    the whole read. Until it is called the cursor stays put, so a failed enqueue
+    re-reads the same bytes next tick.
+    """
+    path_str = str(c.transcript_path)
+    prev = storage.get_offset(path_str)
+    prev_byte = prev.byte_offset if prev else 0
+    last_line_no = prev.last_line_no if prev else 0
+
+    res = read_new(c.transcript_path, prev_byte)
+
+    def commit(consumed_lines: int | None = None) -> None:
+        if consumed_lines is None or consumed_lines >= len(res.lines):
+            byte_offset = res.new_byte_offset
+            line_no = last_line_no + len(res.lines)
+        else:
+            # Partial: keep the bytes we actually shipped and leave the rest to
+            # be re-read. Re-derived from the file rather than summed from line
+            # lengths — split_lines strips \r and skips blanks, so summed
+            # lengths are not a file position.
+            byte_offset = reconcile.byte_offset_after(c.transcript_path, prev_byte, consumed_lines)
+            line_no = last_line_no + consumed_lines
+        storage.upsert_offset(
+            FileOffset(
+                path=path_str,
+                session_id=c.session_id,
+                cwd=str(c.cwd),
+                last_line_no=line_no,
+                last_seen_at=int(time.time()),
+                inode=res.inode,
+                size=res.file_size,
+                byte_offset=byte_offset,
+            )
+        )
+
+    return res.lines, last_line_no, commit
+
+
+if __name__ == "__main__":
+    sys.exit(main())

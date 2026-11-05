@@ -1,6 +1,6 @@
 """
 `seq.Volume` — a named volume you uploaded (`seq volume put`): a policy's weights
-(`weights=seq.Volume.from_name("pi05-ft")`) or a benchmark's assets (`assets=`), each lowered to the wire
+(`weights=seq.Volume.from_name("pi05_ft_user")`) or a benchmark's assets (`assets=`), each lowered to the wire
 `vol://<name>`.
 
 WHY a handle object rather than a raw string: the name is checked and lowered in one place, and the call reads as what

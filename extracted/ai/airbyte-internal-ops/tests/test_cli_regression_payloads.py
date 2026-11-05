@@ -1068,7 +1068,7 @@ def test_a_connection_runs_config_is_never_written_inside_the_output_dir(
     monkeypatch.setattr(cloud, "_run_connector_command", _fake_run)
     monkeypatch.setattr(cloud, "should_use_secret_retriever", lambda: False)
     monkeypatch.setattr(cloud, "get_connection_residency", lambda _connection_id: "us")
-    monkeypatch.setattr(cloud, "is_running_on_eu_runner", lambda: False)
+    monkeypatch.setattr(cloud, "is_running_in_eu_region", lambda: False)
     monkeypatch.setattr(
         cloud,
         "fetch_connection_data",
@@ -1114,7 +1114,7 @@ def _connection(monkeypatch) -> None:
     """Stub a connection fetch, so `--connection-id` resolves without the API."""
     monkeypatch.setattr(cloud, "should_use_secret_retriever", lambda: False)
     monkeypatch.setattr(cloud, "get_connection_residency", lambda _connection_id: "us")
-    monkeypatch.setattr(cloud, "is_running_on_eu_runner", lambda: False)
+    monkeypatch.setattr(cloud, "is_running_in_eu_region", lambda: False)
     monkeypatch.setattr(
         cloud,
         "fetch_connection_data",
@@ -1231,7 +1231,7 @@ def test_eu_connection_run_defaults_to_masked(
     seen = stub_comparison_run(dict(_CLEAN_SIDE), dict(_CLEAN_SIDE))
     _connection(monkeypatch)
     monkeypatch.setattr(cloud, "get_connection_residency", lambda _connection_id: "eu")
-    monkeypatch.setattr(cloud, "is_running_on_eu_runner", lambda: True)
+    monkeypatch.setattr(cloud, "is_running_in_eu_region", lambda: True)
 
     cloud.regression_test(
         connection_id="c-1",

@@ -61,6 +61,7 @@ class SandboxProxyLifecycle:
         delete: Callable[[], Awaitable[None]],
         now: Callable[[], int] | None = None,
         is_cancellation: Callable[[BaseException], bool] | None = None,
+        preserve_error: Callable[[BaseException], bool] | None = None,
     ) -> None:
         if not effects:
             raise ValueError("Sandbox Proxy lifecycle requires at least one integration")
@@ -68,6 +69,7 @@ class SandboxProxyLifecycle:
         self._delete = delete
         self._now = now or (lambda: int(time.time()))
         self._is_cancellation = is_cancellation or (lambda error: isinstance(error, asyncio.CancelledError))
+        self._preserve_error = preserve_error or (lambda _error: False)
         self._lock = asyncio.Lock()
         self._setup_complete = False
         self._expiration_times: list[int | None] = [None] * len(self._effects)
@@ -86,7 +88,7 @@ class SandboxProxyLifecycle:
             except BaseException as error:
                 self._reset()
                 await _best_effort_delete(self._delete, is_cancellation=self._is_cancellation)
-                if isinstance(error, SandboxProxyLifecycleError):
+                if isinstance(error, SandboxProxyLifecycleError) or self._preserve_error(error):
                     raise
                 if self._is_cancellation(error) or not isinstance(error, Exception):
                     raise
@@ -103,7 +105,7 @@ class SandboxProxyLifecycle:
                 try:
                     self._expiration_times[index] = await effects.renew()
                 except BaseException as error:
-                    if isinstance(error, SandboxProxyLifecycleError):
+                    if isinstance(error, SandboxProxyLifecycleError) or self._preserve_error(error):
                         raise
                     if self._is_cancellation(error) or not isinstance(error, Exception):
                         raise

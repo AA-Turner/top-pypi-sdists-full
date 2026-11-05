@@ -17,6 +17,7 @@ from sagemaker_studio.utils._sql_cache import (
     ManagedConnection,
     reset_connection_state,
 )
+from sagemaker_studio.utils.spark_type_compat import resolve_schema
 
 
 class ConnectionConfig(TypedDict, total=False):
@@ -276,9 +277,7 @@ def sql_stream(
         # the error only surfaces later in IPython's display formatter where it's swallowed,
         # causing execute_reply to return OK while an error message appears on iopub.
         def _spark_executor(stmt):
-            df = spark.sql(stmt)
-            df.schema
-            return df
+            return resolve_schema(spark.sql(stmt))
 
         return _stream_and_capture_metadata(
             SqlExecutor.execute_statements(
@@ -360,9 +359,7 @@ def sql_stream(
 def _execute_irc_connection_query(query: str, resolved_dz_conn: Connection):
     spark = _ensure_glue_spark()
     try:
-        df = spark.sql(query)
-        df.schema
-        return df
+        return resolve_schema(spark.sql(query))
     except Exception as e:
         if (
             resolved_dz_conn.type in SUPPORTED_IRC_GLUE_CONNECTION_TYPES
@@ -381,9 +378,7 @@ def _execute_irc_connection_query(query: str, resolved_dz_conn: Connection):
                 spark.conf.set(f"spark.sql.catalog.{catalog_name}.token", access_token)
             # Force schema resolution like the initial attempt, so a failure of the
             # retried query surfaces here instead of later, lazily.
-            retried_df = spark.sql(query)
-            retried_df.schema
-            return retried_df
+            return resolve_schema(spark.sql(query))
         else:
             raise
 

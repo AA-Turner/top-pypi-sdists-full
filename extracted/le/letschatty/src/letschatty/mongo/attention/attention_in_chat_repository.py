@@ -2,9 +2,9 @@
 and time limits that `AtencionEnChat` of api-chatty ran (`company/…/atencion/en_chat.py` in `main`), and the only
 place that knows the stored shape (`document_of` / `attention_of`).
 
-The stored names are Spanish and never change (cintia-lambdas reads the collection). A closed value is written in the
-order `main`'s producers wrote it; a payload (`ia`, `ia.resultado`, `asignar_al_escalar`) and a `StoredAsIs` as they
-come."""
+The stored names are Spanish and never change (cintia-lambdas reads the collection). A closed value
+(`asignar_al_escalar` among them) is written in the order `main`'s producers wrote it; a payload (`ia`,
+`ia.resultado`) and a `StoredAsIs` as they come."""
 from __future__ import annotations
 
 from datetime import datetime

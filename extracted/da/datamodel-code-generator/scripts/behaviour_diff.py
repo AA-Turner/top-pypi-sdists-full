@@ -66,7 +66,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts import compare_release  # ruff: ignore[module-import-not-at-top-of-file]
-from scripts._behaviour_classify import CLASSES, Allowlist, Side, Verdict, classify_cell, diff  # ruff: ignore[module-import-not-at-top-of-file]
+from scripts._behaviour_classify import CLASSES, SIGNATURE_FAILED, Allowlist, Side, Verdict, classify_cell, diff  # ruff: ignore[module-import-not-at-top-of-file]
 from scripts._behaviour_report import compare_records, redact, summarize_gate, version_key  # ruff: ignore[module-import-not-at-top-of-file]
 
 SIGNATURE_SCRIPT = Path(__file__).with_name("_behaviour_signature.py")
@@ -568,11 +568,11 @@ def signature(gate: Gate, target: Path, backend: str, payloads: Path | None) -> 
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return {"import_error": f"signature timed out after {gate.timeout}s"}
+        return {"import_error": f"signature timed out after {gate.timeout}s", SIGNATURE_FAILED: True}
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError:
-        return {"import_error": "signature crashed: " + result.stderr.strip()[-200:]}
+        return {"import_error": "signature crashed: " + result.stderr.strip()[-200:], SIGNATURE_FAILED: True}
 
 
 def payloads_for(gate: Gate, cell: Cell) -> Path | None:
@@ -605,7 +605,11 @@ def payloads_for(gate: Gate, cell: Cell) -> Path | None:
 
 
 def run_cell(gate: Gate, cell: Cell) -> Result:
-    """Generate one cell on both sides and classify it."""
+    """Generate one cell on both sides and classify it.
+
+    The release's output is signed where the candidate refuses it too, so a refusal of an output that failed to
+    import is told from one of an output that worked.
+    """
     if (project := project_of(gate, cell)) is not None:
         try:
             project.fetch()
@@ -624,8 +628,8 @@ def run_cell(gate: Gate, cell: Cell) -> Result:
         same = base.ok and candidate.ok and base.tree == candidate.tree
         sides = [Side(base.ok, base.error), Side(candidate.ok, candidate.error)]
         valid: frozenset[str] = frozenset()
-        if base.ok and candidate.ok and not same:
-            payloads = payloads_for(gate, cell)
+        if base.ok and not same:
+            payloads = payloads_for(gate, cell) if candidate.ok else None
             if payloads is not None:
                 entries = json.loads(payloads.read_text(encoding="utf-8"))
                 valid = frozenset(e["id"] for e in entries if e.get("kind") == "valid" and e.get("expect") == "accept")
@@ -636,7 +640,9 @@ def run_cell(gate: Gate, cell: Cell) -> Result:
                         gate, _write_tree(outcome.tree | dict(cell.stubs), tmp / f"sig-{side}"), cell.backend, payloads
                     ),
                 )
-                for side, outcome in (("base", base), ("cand", candidate))
+                if outcome.ok
+                else failed
+                for (side, outcome), failed in zip((("base", base), ("cand", candidate)), sides, strict=True)
             ]
     verdict = classify_cell(
         sides[0],

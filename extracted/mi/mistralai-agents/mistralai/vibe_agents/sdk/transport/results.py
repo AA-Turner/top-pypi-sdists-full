@@ -22,6 +22,8 @@ class ToolCall:
 
     ``name`` is the tool's full ID, such as ``client.get_weather``, not the name the model calls.
     A call to a tool that does not exist keeps the model's name.
+    In the ``tool_calls`` of a ``post_llm_call`` or ``post_agent_turn`` Hook, the call is not
+    resolved yet, so ``name`` is the name the model called, such as ``get_weather``.
     A call that did not run is listed too: a permission rule denied it, a user rejected it at
     approval, its approval timed out, a Hook skipped it or failed on it, Harness Core refused it
     (``invalid_tool_call``: arguments that are not valid JSON or that the schema rejects, an unknown
@@ -43,7 +45,9 @@ def turn_text(
     ``entries`` are the Turn's own history entries, oldest first. A cancelled Turn's output is
     its latest assistant message. A Turn that a Hook skipped, or whose reply a Hook rejected, never
     reads an assistant message, which is an earlier model call's text or the rejected reply: its
-    text is the Hook's reason from its output, or ``None`` when that reason is empty.
+    text is the Hook's reason from its output, or ``None`` when that reason is empty. A Turn whose
+    last reply was cut off at the output limit has that reply as its output; when the cut came
+    before any text, its text is ``None``, never an earlier model call's text.
     """
     if termination is not None and isinstance(termination.output, list):
         try:
@@ -53,7 +57,11 @@ def turn_text(
         text = "".join(block.text for block in content if isinstance(block, TextContentBlock))
         if text:
             return text
-    if isinstance(termination, CompletedTermination) and termination.stop_reason in ("skipped", "rejected"):
+    if isinstance(termination, CompletedTermination) and termination.stop_reason in (
+        "skipped",
+        "rejected",
+        "output_limit",
+    ):
         return None
     for entry in reversed(entries):
         if isinstance(entry, MessageHistoryEntry) and entry.role == "assistant":
@@ -75,8 +83,8 @@ def turn_tool_calls(entries: Sequence[HistoryEntry]) -> tuple[ToolCall, ...]:
 def parsed_output[ModelT: BaseModel](output_type: type[ModelT], stop_reason: str | None, text: str) -> ModelT | None:
     """A Turn's text parsed into ``output_type``, or ``None`` when the Turn did not end ``"completed"``.
 
-    A Turn that reached its iteration limit, that a Hook skipped, or whose reply a Hook rejected, has
-    no final answer to parse.
+    A Turn that reached its iteration limit, that a Hook skipped, whose reply a Hook rejected, or
+    whose last reply stopped at the output token limit, has no final answer to parse.
     ``stop_reason`` ``None`` is ``"completed"``.
 
     Raises:

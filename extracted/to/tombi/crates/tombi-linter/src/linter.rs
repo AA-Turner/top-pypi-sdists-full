@@ -12,6 +12,7 @@ use crate::lint::Lint;
 pub struct Linter<'a> {
     toml_version: TomlVersion,
     options: Cow<'a, crate::LintOptions>,
+    extensions_options: tombi_config::ExtensionsLintOptions,
     source_text: &'a str,
     source_uri_or_path: Option<Either<&'a tombi_uri::Uri, &'a std::path::Path>>,
     schema_store: &'a tombi_schema_store::SchemaStore,
@@ -22,12 +23,14 @@ impl<'a> Linter<'a> {
     pub fn new(
         toml_version: TomlVersion,
         options: &'a crate::LintOptions,
+        extensions_options: tombi_config::ExtensionsLintOptions,
         source_uri_or_path: Option<Either<&'a tombi_uri::Uri, &'a std::path::Path>>,
         schema_store: &'a tombi_schema_store::SchemaStore,
     ) -> Self {
         Self {
             toml_version,
             options: Cow::Borrowed(options),
+            extensions_options,
             source_text: "",
             source_uri_or_path,
             schema_store,
@@ -125,6 +128,64 @@ impl<'a> Linter<'a> {
 
             log::trace!("document_tree: {:#?}", document_tree);
 
+            let cargo_diagnostics = if self.source_file_is_named("Cargo.toml") {
+                let source_path = self.source_path();
+                tombi_extension_cargo::validate_cargo(
+                    &document_tree,
+                    source_path.as_deref(),
+                    self.toml_version,
+                    self.extensions_options.cargo.rules.unwrap_or_default(),
+                )
+            } else {
+                Vec::new()
+            };
+
+            let pyproject_diagnostics = if self.source_file_is_named("pyproject.toml") {
+                let source_path = self.source_path();
+                tombi_extension_pyproject::validate_pyproject(
+                    &document_tree,
+                    source_path.as_deref(),
+                    &self.extensions_options.pyproject,
+                )
+            } else {
+                Vec::new()
+            };
+
+            let is_tombi_config = self.source_uri_or_path.is_some_and(|source| match source {
+                Either::Left(uri) => uri
+                    .to_file_path()
+                    .ok()
+                    .is_some_and(|path| is_tombi_config_path(&path)),
+                Either::Right(path) => is_tombi_config_path(path),
+            });
+            let tombi_diagnostics = if is_tombi_config {
+                let source_path = self.source_uri_or_path.and_then(|source| match source {
+                    Either::Left(uri) => uri.to_file_path().ok(),
+                    Either::Right(path) => Some(path.to_path_buf()),
+                });
+                tombi_extension_tombi::validate_tombi(
+                    &document_tree,
+                    source_path.as_deref(),
+                    &self.extensions_options.tombi,
+                )
+            } else {
+                Vec::new()
+            };
+
+            let nagi_sql_diagnostics = if self.source_file_is_named("nagi.toml")
+                || self.source_file_is_named(".nagi.toml")
+                || self.source_file_is_named(".config/nagi.toml")
+            {
+                let source_path = self.source_path();
+                tombi_extension_nagi_sql::validate_nagi_sql(
+                    &document_tree,
+                    source_path.as_deref(),
+                    self.extensions_options.nagi_sql.rules.unwrap_or_default(),
+                )
+            } else {
+                Vec::new()
+            };
+
             let schema_context = tombi_schema_store::SchemaContext {
                 toml_version: self.toml_version,
                 root_schema: source_schema
@@ -162,6 +223,11 @@ impl<'a> Linter<'a> {
                 let diagnostics = self.apply_lint_rules_to_diagnostics(diagnostics);
                 self.diagnostics.extend(diagnostics);
             }
+
+            self.diagnostics.extend(cargo_diagnostics);
+            self.diagnostics.extend(pyproject_diagnostics);
+            self.diagnostics.extend(tombi_diagnostics);
+            self.diagnostics.extend(nagi_sql_diagnostics);
         }
 
         if self.diagnostics.is_empty() {
@@ -173,6 +239,27 @@ impl<'a> Linter<'a> {
 
     pub fn source_text(&self) -> &str {
         self.source_text
+    }
+
+    fn source_file_is_named(&self, name: &str) -> bool {
+        self.source_uri_or_path.is_some_and(|source| match source {
+            Either::Left(uri) => {
+                uri.path_segments()
+                    .and_then(|mut segments| segments.next_back())
+                    == Some(name)
+            }
+            Either::Right(path) => path.file_name().is_some_and(|file_name| file_name == name),
+        })
+    }
+
+    fn source_path(&self) -> Option<std::path::PathBuf> {
+        self.source_uri_or_path.and_then(|source| match source {
+            Either::Left(uri) => uri.to_file_path().ok(),
+            Either::Right(path) if path.is_absolute() => Some(path.to_path_buf()),
+            Either::Right(path) => std::env::current_dir()
+                .ok()
+                .map(|current_dir| current_dir.join(path)),
+        })
     }
 
     #[inline]
@@ -226,5 +313,16 @@ impl<'a> Linter<'a> {
                 }
             })
             .collect()
+    }
+}
+
+fn is_tombi_config_path(path: &std::path::Path) -> bool {
+    match path.file_name().and_then(|name| name.to_str()) {
+        Some(tombi_config::TOMBI_TOML_FILENAME | tombi_config::DOT_TOMBI_TOML_FILENAME) => true,
+        Some(tombi_config::CONFIG_TOML_FILENAME) => path
+            .parent()
+            .and_then(|parent| parent.file_name())
+            .is_some_and(|name| name == "tombi"),
+        _ => false,
     }
 }

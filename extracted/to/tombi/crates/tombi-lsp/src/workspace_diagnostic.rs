@@ -1,5 +1,7 @@
 mod cache;
 
+use std::path::PathBuf;
+
 use tombi_glob::search_pattern_matched_paths;
 
 use crate::{
@@ -66,6 +68,70 @@ pub async fn refresh_diagnostics_after_config_change(backend: &Backend) {
     } else {
         backend.refresh_pull_diagnostics().await;
     }
+}
+
+/// Re-diagnose extension manifests when a file they reference changes.
+pub async fn refresh_extension_diagnostics_after_file_changes(
+    backend: &Backend,
+    changed_paths: &[PathBuf],
+) -> bool {
+    let manifest_documents = backend
+        .document_sources
+        .read()
+        .await
+        .iter()
+        .filter_map(|(uri, source)| {
+            let manifest_path = uri.to_file_path().ok()?;
+            let file_name = manifest_path.file_name()?;
+            let document_tree = source.document_tree();
+            let references = if file_name == "Cargo.toml" {
+                changed_paths.iter().any(|path| {
+                    tombi_extension_cargo::references_path(document_tree, &manifest_path, path)
+                })
+            } else if file_name == "pyproject.toml" {
+                changed_paths.iter().any(|path| {
+                    tombi_extension_pyproject::references_path(document_tree, &manifest_path, path)
+                })
+            } else if matches!(file_name.to_str(), Some("nagi.toml" | ".nagi.toml")) {
+                changed_paths.iter().any(|path| {
+                    tombi_extension_nagi_sql::references_path(document_tree, &manifest_path, path)
+                })
+            } else {
+                return None;
+            };
+            references.then(|| (uri.clone(), source.version.is_some()))
+        })
+        .collect::<Vec<_>>();
+
+    if manifest_documents.is_empty() {
+        return false;
+    }
+
+    {
+        let mut cache = backend.workspace_diagnostics_cache.write().await;
+        for (uri, _) in &manifest_documents {
+            cache.clear(uri);
+        }
+    }
+
+    if backend.is_diagnostic_mode_push().await {
+        for (uri, is_open) in manifest_documents {
+            if is_open {
+                backend.push_diagnostics(uri).await;
+            } else {
+                publish_workspace_diagnostics(
+                    backend,
+                    uri,
+                    &WorkspaceDiagnosticOptions {
+                        include_open_files: false,
+                    },
+                )
+                .await;
+            }
+        }
+    }
+
+    true
 }
 
 pub async fn collect_workspace_diagnostic_targets(backend: &Backend) -> Vec<tombi_uri::Uri> {

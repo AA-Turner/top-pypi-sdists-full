@@ -18,6 +18,7 @@ Python built-in exception comes back as itself, with `.remote_traceback` attache
 from __future__ import annotations
 
 import builtins
+import logging
 import re
 from typing import Any, Dict, Mapping, Optional
 
@@ -134,17 +135,10 @@ class Conflict(SequencesError):
 
 
 
-WAITING_FOR_PLAN = "waiting_for_plan"
 
-
-class WaitingForPlan(Conflict):
-    """409. This robot connected through a planner, connect("<planner>", policy="<its policy>"), and no plan for its
-    episode has come yet: its policy is told what to do by its planner alone. What it observes meanwhile is taken, and
-    reaches the planner; act again in a moment (`.retry_after_s`). `.planner` names it."""
-
-    @property
-    def planner(self) -> Optional[str]:
-        return self.details.get("planner")
+PLANNERS_GONE = ('@seq.planner is gone: planning is part of the policy now. Put a @seq.plan method in your @seq.policy '
+                 'class - def plan(self, robot), returning the next step - and connect to the policy by its name, '
+                 'connect("<policy>").')
 
 
 class Gone(SequencesError):
@@ -168,7 +162,7 @@ class Gone(SequencesError):
 
 class Unavailable(SequencesError):
     """
-    429 / 502 / 503 / 504, or a transport failure.
+    429 / 502 / 503 / 504, a transport failure, or an answer no server of ours wrote (`not_the_platform`).
 
     The one category where a retry is meaningful — an upstream provider was briefly
     unreachable, a worker was cold, or (429, `code == "busy"`) every replica was busy with
@@ -317,12 +311,31 @@ def from_response(status: int, body: Any = None, *, text: Optional[str] = None,
 
     if code == "policy_error":
         return _policy_exception(message, common)
-    if details.get("reason") == WAITING_FOR_PLAN:
-        return WaitingForPlan(message, **common)
     cls = _CLASSES.get(CODES[code].sdk_class, SequencesError)
     if cls is Unavailable:
         return Unavailable(message, warming=code == "warming", job_id=details.get("job_id"), **common)
     return cls(message, **common)
+
+
+NOT_THE_PLATFORM = "not_the_platform"
+
+
+def not_the_platform(status: int, *, text: Optional[str] = None,
+                     headers: Optional[Mapping[str, str]] = None) -> Unavailable:
+    """The error for a non-2xx from the gateway's address that no server of ours wrote - no error body of ours, no
+    request id: something between this machine and the platform answered, so the platform has not answered, and a 404
+    here says nothing of a deployment. An Unavailable, as a call that never arrived is, its status kept. What answered
+    goes in `details` and the sequence_ai logger's INFO, never the message, whose words a user reads: "HTTP <status>",
+    as from_response says a proxy's page.
+    
+"""
+    said = {name: headers.get(name) for name in ("via", "server")} if headers is not None else {}
+    details: Dict[str, Any] = {"reason": NOT_THE_PLATFORM, **{k: v for k, v in said.items() if v},
+                               **({"head": text[:80]} if text else {})}
+    logging.getLogger("sequence_ai").info("HTTP %s from no server of ours: %s", status, details)
+    return Unavailable(f"HTTP {status}", status=status, code="upstream_error", retryable=True, details=details,
+                       body=text, hint="something between this machine and the platform answered, not the platform: it "
+                                       "usually passes; if it goes on, check base_url and this network's proxy")
 
 
 

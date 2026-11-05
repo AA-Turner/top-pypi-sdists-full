@@ -1,412 +1,445 @@
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
+from contextlib import AbstractContextManager, nullcontext
+from typing import Any, overload
 from uuid import UUID
 
-from surrealdb.data.types.record_id import RecordIdType
+from surrealdb.connections.api import ApiResponse
+from surrealdb.connections.builders import (
+    _UNSET,
+    M,
+    RelateEdge,
+    RelateEnd,
+    SyncCrudBuilder,
+    SyncInsertBuilder,
+    SyncQueryBuilder,
+)
+from surrealdb.connections.import_export import (
+    ExportOptions,
+    ExportTarget,
+    ImportData,
+)
+from surrealdb.connections.live import LiveSubscription
+from surrealdb.connections.timeouts import check_timeout
+from surrealdb.data.types.null import NullType
+from surrealdb.data.types.record_id import RecordID, RecordIdType, StringRecordId
 from surrealdb.data.types.table import Table
 from surrealdb.types import Tokens, Value
 
 
 class SyncTemplate:
-    # def connect(self, url: str, options: Optional[dict[str, Any]] = None) -> None:
-    #     """Connects to a local or remote database endpoint.
-    #
-    #     Args:
-    #         url: The url of the database endpoint to connect to.
-    #         options: An object with options to initiate the connection to SurrealDB.
-    #
-    #     Example:
-    #         # Connect to a remote endpoint
-    #         db.connect('https://cloud.surrealdb.com/rpc');
-    #
-    #         # Specify a namespace and database pair to use
-    #         db.connect('https://cloud.surrealdb.com/rpc', {
-    #             namespace: 'surrealdb',
-    #             database: 'docs',
-    #         });
-    #     """
-    #     raise NotImplementedError(f"query not implemented for: {self}")
+    def timeout(self, seconds: float | None) -> AbstractContextManager[None]:
+        """Wait *seconds* for each reply to a request made inside the block.
+
+        Remote connections override this. For the embedded engine requests
+        never leave the process, so there is nothing to bound and the block
+        runs unchanged.
+        """
+        check_timeout("timeout", seconds)
+        return nullcontext()
+
+    def connect(self, url: str | None = None) -> None:
+        """Connects to a local or remote database endpoint.
+
+        Declared here so the contract is part of the template rather than
+        implemented ad hoc: a class that forgets it used to raise
+        ``AttributeError`` rather than a diagnosable ``NotImplementedError``.
+        Every concrete connection overrides this.
+        """
+        raise NotImplementedError(f"connect not implemented for: {self}")
 
     def close(self) -> None:
-        """Closes the persistent connection to the database.
-
-        Example:
-            db.close()
-        """
+        """Closes the persistent connection to the database."""
         raise NotImplementedError(f"close not implemented for: {self}")
 
-    def use(self, namespace: str, database: str) -> None:
+    def use(
+        self,
+        namespace: str | NullType | None = None,
+        database: str | NullType | None = None,
+    ) -> None:
         """Switch to a specific namespace and database.
 
         Args:
-            namespace: Switches to a specific namespace.
-            database: Switches to a specific database.
+            namespace: The namespace to select; ``None`` keeps the current
+                one and ``Null`` clears it.
+            database: The database to select; ``None`` keeps the current one
+                and ``Null`` clears it.
 
         Example:
             db.use('test', 'test')
         """
         raise NotImplementedError(f"use not implemented for: {self}")
 
-    def authenticate(self, token: str) -> None:
-        """Authenticate the current connection with a JWT token.
+    def refresh(self, tokens: Tokens | None = None) -> Tokens:
+        """Exchange a refresh token for a new access and refresh token.
 
         Args:
-            token: The JWT authentication token.
-
-        Example:
-            db.authenticate('insert token here')
+            tokens: The tokens to exchange; by default the ones this
+                connection signed in with.
         """
+        raise NotImplementedError(f"refresh not implemented for: {self}")
+
+    def revoke(self, tokens: Tokens | None = None) -> None:
+        """Revoke a refresh token so it can never be exchanged again.
+
+        Args:
+            tokens: The tokens whose refresh token to revoke; by default the
+                ones this connection signed in with.
+        """
+        raise NotImplementedError(f"revoke not implemented for: {self}")
+
+    def reset(self) -> None:
+        """Clear the namespace, database, variables and authentication."""
+        raise NotImplementedError(f"reset not implemented for: {self}")
+
+    def export(self, options: ExportOptions | None = None) -> str:
+        """Export the selected database as SurrealQL."""
+        raise NotImplementedError(f"export not implemented for: {self}")
+
+    def export_to(
+        self, target: ExportTarget, options: ExportOptions | None = None
+    ) -> None:
+        """Export the selected database as SurrealQL into a file, as it arrives."""
+        raise NotImplementedError(f"export_to not implemented for: {self}")
+
+    def import_(self, data: ImportData) -> None:
+        """Import SurrealQL into the selected database."""
+        raise NotImplementedError(f"import_ not implemented for: {self}")
+
+    def health(self) -> None:
+        """Raise unless the server reports itself healthy."""
+        raise NotImplementedError(f"health not implemented for: {self}")
+
+    def api(
+        self,
+        path: str,
+        *,
+        method: str = "get",
+        body: Value = None,
+        headers: Mapping[str, str] | None = None,
+        query: Mapping[str, str] | None = None,
+    ) -> ApiResponse:
+        """Call an endpoint defined with ``DEFINE API``."""
+        raise NotImplementedError(f"api not implemented for: {self}")
+
+    def gql(self, query: str, vars: Mapping[str, Value] | None = None) -> list[Value]:
+        """Run an ISO GQL query and return each statement's result."""
+        raise NotImplementedError(f"gql not implemented for: {self}")
+
+    def graphql(
+        self,
+        query: str,
+        variables: Mapping[str, Value] | None = None,
+        operation_name: str | None = None,
+    ) -> dict[str, Value]:
+        """Run a GraphQL query and return the server's ``{data, errors}``."""
+        raise NotImplementedError(f"graphql not implemented for: {self}")
+
+    def authenticate(self, token: str) -> None:
+        """Authenticate the current connection with a JWT token."""
         raise NotImplementedError(f"authenticate not implemented for: {self}")
 
     def invalidate(self) -> None:
-        """Invalidate the authentication for the current connection.
-
-        Example:
-            db.invalidate()
-        """
+        """Invalidate the authentication for the current connection."""
         raise NotImplementedError(f"invalidate not implemented for: {self}")
 
     def signup(self, vars: dict[str, Value]) -> Tokens:
-        """Sign this connection up to a specific authentication scope.
-        [See the docs](https://surrealdb.com/docs/sdk/python/methods/signup)
-
-        Args:
-            vars: Variables used in a signup query (namespace, database, access,
-                variables for record auth; or user/pass for system auth).
-                With TYPE RECORD and WITH REFRESH (SurrealDB v3+), the server
-                returns both access and refresh tokens.
-
-        Returns:
-            Tokens with optional access and refresh. Use access with authenticate().
-
-        Example:
-            db.signup({
-                namespace: 'surrealdb',
-                database: 'docs',
-                access: 'user',
-                variables: { email: 'info@surrealdb.com', pass: '123456' },
-            })
-        """
+        """Sign this connection up to a specific authentication scope."""
         raise NotImplementedError(f"signup not implemented for: {self}")
 
     def signin(self, vars: dict[str, Value]) -> Tokens:
-        """Sign this connection in to a specific authentication scope.
-        [See the docs](https://surrealdb.com/docs/sdk/python/methods/signin)
-
-        Args:
-            vars: Variables for signin: username/password (system), or
-                namespace, database, access, variables (record), or
-                namespace, database, access, key (bearer), or
-                namespace, database, access, refresh (refresh token).
-
-        Returns:
-            Tokens with optional access and refresh. Use access with authenticate().
-
-        Example:
-            db.signin({ username: 'root', password: 'surrealdb' })
-            db.signin({ namespace: 'ns', database: 'db', access: 'api', key: bearer_key })
-        """
+        """Sign this connection in to a specific authentication scope."""
         raise NotImplementedError(f"signin not implemented for: {self}")
 
     def let(self, key: str, value: Value) -> None:
-        """Assign a value as a variable for this connection.
-
-        Args:
-            key: Specifies the name of the variable.
-            value: Assigns the value to the variable name.
-
-        Example:
-            # Assign the variable on the connection
-            db.let('name', {
-                first: 'Tobie',
-                last: 'Morgan Hitchcock',
-            })
-
-            # Use the variable in a subsequent query
-            db.query('CREATE person SET name = $name')
-        """
+        """Assign a value as a variable for this connection."""
         raise NotImplementedError(f"let not implemented for: {self}")
+
+    def set(self, key: str, value: Value) -> None:
+        """Assign a value as a variable for this connection; ``let`` by its JS name."""
+        self.let(key, value)
 
     def unset(self, key: str) -> None:
-        """Removes a variable for this connection.
+        """Removes a variable for this connection."""
+        raise NotImplementedError(f"unset not implemented for: {self}")
 
-        Args:
-            key: Specifies the name of the variable.
+    def query(
+        self, query: str, vars: dict[str, Value] | None = None
+    ) -> SyncQueryBuilder:
+        """Run one or more SurrealQL statements against the database.
 
-        Example:
-            db.unset('name')
-        """
-        raise NotImplementedError(f"let not implemented for: {self}")
+        Returns a builder. Trigger execution explicitly:
 
-    # TODO: Query can return any Value type depending on the query
-    def query(self, query: str, vars: dict[str, Value] | None = None) -> Value:
-        """Run a set of SurrealQL statements against the database.
-
-        Args:
-            query: Specifies the SurrealQL statements.
-            vars: Assigns variables which can be used in the query.
-
-        Example:
-            db.query(
-                'CREATE person SET name = "John"; SELECT * FROM type::table($tb);',
-                { tb: 'person' }
-            )
+        - ``.execute()`` -> ``list[Value]`` (one entry per statement, always a
+          list even for a single statement - this is the v3.0 fix for issue
+          #232, earlier versions silently dropped every result after the
+          first).
+        - ``.first()`` -> the first statement's result (``None`` if no
+          statements).
+        - ``.into(MyResult)`` maps the N statement results positionally onto a
+          dataclass or any class accepting keyword arguments.
+        - ``.into(Model, rows=True)`` maps each ROW of the single statement
+          result onto ``Model``, returning ``list[Model]``.
         """
         raise NotImplementedError(f"query not implemented for: {self}")
 
-    def select(self, record: RecordIdType) -> Value:
-        """Select all records in a table (or other entity),
-        or a specific record, in the database.
+    @overload
+    def select(
+        self, record: RecordID | StringRecordId, *, into: type[M]
+    ) -> SyncCrudBuilder[M | None]: ...
+    @overload
+    def select(self, record: Table, *, into: type[M]) -> SyncCrudBuilder[list[M]]: ...
+    @overload
+    def select(
+        self, record: str, *, into: type[M]
+    ) -> SyncCrudBuilder[M | list[M] | None]: ...
+    @overload
+    def select(
+        self, record: RecordID | StringRecordId
+    ) -> SyncCrudBuilder[dict[str, Value] | None]: ...
+    @overload
+    def select(self, record: Table) -> SyncCrudBuilder[list[Value]]: ...
+    @overload
+    def select(self, record: str) -> SyncCrudBuilder[Value]: ...
+    def select(
+        self, record: RecordIdType, *, into: type[M] | None = None
+    ) -> SyncCrudBuilder[Any]:
+        """Select all records in a table or a specific record.
 
-        This function will run the following query in the database:
-        `select * from $record`
+        Returns a builder: ``.execute()`` runs it, and iterating it (or
+        ``.rows()``) reads the records as the server produces them.
 
-        Args:
-            record: The table or record ID to select.
+        A ``RecordID`` (or ``StringRecordId``) returns the record dict, or
+        ``None`` when it is absent. A ``Table`` (or bare table-name string)
+        returns the list of records.
 
-        Example:
-            db.select('person')
+        Pass ``into=Model`` to map each record onto a model class (dataclass,
+        pydantic ``BaseModel``, or any kwargs-constructible class): a single
+        record resolves to ``Model | None``, a table to ``list[Model]``.
         """
         raise NotImplementedError(f"select not implemented for: {self}")
 
+    @overload
+    def create(self, record: RecordIdType, *, into: type[M]) -> SyncCrudBuilder[M]: ...
+    @overload
+    def create(self, record: RecordIdType, data: Value, *, into: type[M]) -> M: ...
+    @overload
+    def create(self, record: RecordIdType) -> SyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def create(self, record: RecordIdType, data: Value) -> dict[str, Value]: ...
     def create(
-        self,
-        record: RecordIdType,
-        data: Value | None = None,
-    ) -> Value:
-        """Create a record in the database.
+        self, record: RecordIdType, data: Value = _UNSET, *, into: type[M] | None = None
+    ) -> Any:
+        """Create a record.
 
-        This function will run the following query in the database:
-        `create $record content $data`
+        ``db.create(record, data)`` runs ``CREATE ... CONTENT $data`` eagerly
+        and returns the created record (``data=None`` runs ``CONTENT NULL``).
+        ``db.create(record)`` (no data) returns a :class:`SyncCrudBuilder`;
+        pick a terminal clause to run it:
 
-        Args:
-            record: The table or record ID.
-            data (optional): The document / record data to insert.
+        - ``.content(data)``  -> ``CREATE ... CONTENT $data``
+        - ``.replace(data)``  -> ``CREATE ... REPLACE $data``
+        - ``.merge(data)``    -> ``CREATE ... MERGE $data``
+        - ``.patch(data)``    -> ``CREATE ... PATCH $data``
+        - ``.execute()``      -> ``CREATE ...`` (no clause)
 
-        Example:
-            db.create
+        Pass ``into=Model`` to map the created record onto ``Model`` (the eager
+        form returns ``Model``; the builder form's clause methods return ``Model``).
         """
         raise NotImplementedError(f"create not implemented for: {self}")
 
-    def update(self, record: RecordIdType, data: Value | None = None) -> Value:
-        """Update all records in a table, or a specific record, in the database.
+    @overload
+    def update(
+        self, record: RecordID | StringRecordId, *, into: type[M]
+    ) -> SyncCrudBuilder[M]: ...
+    @overload
+    def update(self, record: Table, *, into: type[M]) -> SyncCrudBuilder[list[M]]: ...
+    @overload
+    def update(self, record: str, *, into: type[M]) -> SyncCrudBuilder[M | list[M]]: ...
+    @overload
+    def update(
+        self, record: RecordID | StringRecordId, data: Value, *, into: type[M]
+    ) -> M: ...
+    @overload
+    def update(self, record: Table, data: Value, *, into: type[M]) -> list[M]: ...
+    @overload
+    def update(self, record: str, data: Value, *, into: type[M]) -> M | list[M]: ...
+    @overload
+    def update(
+        self, record: RecordID | StringRecordId
+    ) -> SyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def update(self, record: Table) -> SyncCrudBuilder[list[Value]]: ...
+    @overload
+    def update(self, record: str) -> SyncCrudBuilder[Value]: ...
+    @overload
+    def update(
+        self, record: RecordID | StringRecordId, data: Value
+    ) -> dict[str, Value]: ...
+    @overload
+    def update(self, record: Table, data: Value) -> list[Value]: ...
+    @overload
+    def update(self, record: str, data: Value) -> Value: ...
+    def update(
+        self, record: RecordIdType, data: Value = _UNSET, *, into: type[M] | None = None
+    ) -> Any:
+        """Update records (replacing the existing data by default).
 
-        This function replaces the current document / record data with the
-        specified data.
-
-        This function will run the following query in the database:
-        `update $record content $data`
-
-        Args:
-            record: The table or record ID.
-            data (optional): The document / record data to insert.
-
-        Example:
-            Update all records in a table
-                person = db.update('person')
-
-            Update a record with a specific ID
-                record = db.update('person:tobie', {
-                    'name': 'Tobie',
-                    'settings': {
-                        'active': true,
-                        'marketing': true,
-                        },
-                })
+        ``db.update(record, data)`` runs eagerly and returns the result; the
+        no-data form returns a :class:`SyncCrudBuilder` with terminal clause
+        methods (``.content`` / ``.replace`` / ``.merge`` / ``.patch`` /
+        ``.execute``). Pass ``into=Model`` to map the returned record(s) onto
+        ``Model`` (a ``RecordID`` target resolves to ``Model``, a ``Table`` to
+        ``list[Model]``).
         """
         raise NotImplementedError(f"update not implemented for: {self}")
 
-    def upsert(self, record: RecordIdType, data: Value | None = None) -> Value:
-        """Insert records into the database, or to update them if they exist.
+    @overload
+    def upsert(
+        self, record: RecordID | StringRecordId, *, into: type[M]
+    ) -> SyncCrudBuilder[M]: ...
+    @overload
+    def upsert(self, record: Table, *, into: type[M]) -> SyncCrudBuilder[list[M]]: ...
+    @overload
+    def upsert(self, record: str, *, into: type[M]) -> SyncCrudBuilder[M | list[M]]: ...
+    @overload
+    def upsert(
+        self, record: RecordID | StringRecordId, data: Value, *, into: type[M]
+    ) -> M: ...
+    @overload
+    def upsert(self, record: Table, data: Value, *, into: type[M]) -> list[M]: ...
+    @overload
+    def upsert(self, record: str, data: Value, *, into: type[M]) -> M | list[M]: ...
+    @overload
+    def upsert(
+        self, record: RecordID | StringRecordId
+    ) -> SyncCrudBuilder[dict[str, Value]]: ...
+    @overload
+    def upsert(self, record: Table) -> SyncCrudBuilder[list[Value]]: ...
+    @overload
+    def upsert(self, record: str) -> SyncCrudBuilder[Value]: ...
+    @overload
+    def upsert(
+        self, record: RecordID | StringRecordId, data: Value
+    ) -> dict[str, Value]: ...
+    @overload
+    def upsert(self, record: Table, data: Value) -> list[Value]: ...
+    @overload
+    def upsert(self, record: str, data: Value) -> Value: ...
+    def upsert(
+        self, record: RecordIdType, data: Value = _UNSET, *, into: type[M] | None = None
+    ) -> Any:
+        """Insert or update records.
 
-
-        This function will run the following query in the database:
-        `upsert $record content $data`
-
-        Args:
-            record: The table or record ID.
-            data (optional): The document / record data to insert.
-
-        Example:
-            Insert or update all records in a table
-                person = db.upsert('person')
-
-            Insert or update a record with a specific ID
-                record = db.upsert('person:tobie', {
-                    'name': 'Tobie',
-                    'settings': {
-                        'active': true,
-                        'marketing': true,
-                        },
-                })
+        ``db.upsert(record, data)`` runs eagerly and returns the result; the
+        no-data form returns a :class:`SyncCrudBuilder` with terminal clause
+        methods. Pass ``into=Model`` to map the returned record(s) onto
+        ``Model`` (a ``RecordID`` target resolves to ``Model``, a ``Table`` to
+        ``list[Model]``).
         """
         raise NotImplementedError(f"upsert not implemented for: {self}")
 
-    def merge(self, record: RecordIdType, data: Value | None = None) -> Value:
-        """Modify by deep merging all records in a table, or a specific record, in the database.
+    @overload
+    def delete(
+        self, record: RecordID | StringRecordId, *, into: type[M]
+    ) -> SyncCrudBuilder[M | None]: ...
+    @overload
+    def delete(self, record: Table, *, into: type[M]) -> SyncCrudBuilder[list[M]]: ...
+    @overload
+    def delete(
+        self, record: str, *, into: type[M]
+    ) -> SyncCrudBuilder[M | list[M] | None]: ...
+    @overload
+    def delete(
+        self, record: RecordID | StringRecordId
+    ) -> SyncCrudBuilder[dict[str, Value] | None]: ...
+    @overload
+    def delete(self, record: Table) -> SyncCrudBuilder[list[Value]]: ...
+    @overload
+    def delete(self, record: str) -> SyncCrudBuilder[Value]: ...
+    def delete(
+        self, record: RecordIdType, *, into: type[M] | None = None
+    ) -> SyncCrudBuilder[Any]:
+        """Delete records, returning a builder for the deleted record(s).
 
-        This function merges the current document / record data with the
-        specified data.
-
-        This function will run the following query in the database:
-        `update $record merge $data`
-
-        Args:
-            record: The table name or the specific record ID to change.
-            data (optional): The document / record data to insert.
-
-        Example:
-            Update all records in a table
-                people = db.merge('person', {
-                    'updated_at':  str(datetime.datetime.utcnow())
-                    })
-
-            Update a record with a specific ID
-                person = db.merge('person:tobie', {
-                    'updated_at': str(datetime.datetime.utcnow()),
-                    'settings': {
-                        'active': True,
-                        },
-                    })
-
-        """
-        raise NotImplementedError(f"merge not implemented for: {self}")
-
-    def patch(self, record: RecordIdType, data: Value | None = None) -> Value:
-        """Apply JSON Patch changes to all records, or a specific record, in the database.
-
-        This function patches the current document / record data with
-        the specified JSON Patch data.
-
-        This function will run the following query in the database:
-        `update $record patch $data`
-
-        Args:
-            record: The table or record ID.
-            data: The data to modify the record with.
-
-        Example:
-            Update all records in a table
-                people = db.patch('person', [
-                    { 'op': "replace", 'path': "/created_at", 'value': str(datetime.datetime.utcnow()) }])
-
-            Update a record with a specific ID
-            person = db.patch('person:tobie', [
-                { 'op': "replace", 'path': "/settings/active", 'value': False },
-                { 'op': "add", "path": "/tags", "value": ["developer", "engineer"] },
-                { 'op': "remove", "path": "/temp" },
-            ])
-        """
-        raise NotImplementedError(f"patch not implemented for: {self}")
-
-    def delete(self, record: RecordIdType) -> Value:
-        """Delete all records in a table, or a specific record, from the database.
-
-        This function will run the following query in the database:
-        `delete $record`
-
-        Args:
-            record: The table name or a RecordID to delete.
-
-        Example:
-            Delete a specific record from a table
-                db.delete(RecordID('person', 'h5wxrf2ewk8xjxosxtyc'))
-
-            Delete all records from a table
-                db.delete('person')
+        A ``RecordID`` (or ``StringRecordId``) returns the deleted record, or
+        ``None`` when no record was deleted (matching select); a ``Table``
+        (or bare name) returns the list of deleted records. Pass ``into=Model``
+        to map the deleted record(s) onto ``Model``.
         """
         raise NotImplementedError(f"delete not implemented for: {self}")
 
     def info(self) -> Value:
-        """This returns the record of an authenticated record user.
-
-        Example:
-            db.info()
-        """
+        """Return the record of the authenticated record user."""
         raise NotImplementedError(f"info not implemented for: {self}")
 
+    @overload
+    def insert(
+        self, table: str | Table, *, relation: bool = False
+    ) -> SyncInsertBuilder[Value]: ...
+    @overload
+    def insert(
+        self, table: str | Table, *, into: type[M], relation: bool = False
+    ) -> SyncInsertBuilder[M]: ...
+    @overload
+    def insert(
+        self, table: str | Table, data: Value, *, relation: bool = False
+    ) -> list[Value]: ...
+    @overload
+    def insert(
+        self, table: str | Table, data: Value, *, into: type[M], relation: bool = False
+    ) -> list[M]: ...
     def insert(
         self,
         table: str | Table,
-        data: Value,
-    ) -> Value:
-        """
-        Inserts one or multiple records in the database.
+        data: Value = _UNSET,
+        *,
+        into: type[M] | None = None,
+        relation: bool = False,
+    ) -> Any:
+        """Insert one or multiple records (or relations) into a table.
 
-        This function will run the following query in the database:
-        `INSERT INTO $record $data`
-
-        Args:
-            table: The table name to insert records in to
-            data: Either a single document/record or an array of documents/records to insert
-
-        Example:
-            db.insert('person', [{ name: 'Tobie'}, { name: 'Jaime'}])
-
+        ``db.insert(table, data)`` runs eagerly and returns the inserted
+        records. ``db.insert(table)`` (no data) returns a
+        :class:`SyncInsertBuilder`; pass ``relation=True`` (or chain
+        ``.relation()``) for ``INSERT RELATION INTO`` and run it with
+        ``.content(data)`` / ``.execute()``. Pass ``into=Model`` to map the
+        inserted records onto ``list[Model]``.
         """
         raise NotImplementedError(f"insert not implemented for: {self}")
 
-    def insert_relation(
+    def run(
         self,
-        table: str | Table,
-        data: Value,
+        name: str,
+        args: list[Value] | None = None,
+        version: str | None = None,
     ) -> Value:
-        """
-        Inserts one or multiple relations in the database.
+        """Run a SurrealDB function and return its result."""
+        raise NotImplementedError(f"run not implemented for: {self}")
 
-        This function will run the following query in the database:
-        `INSERT RELATION INTO $table $data`
-
-        Args:
-            table: The table name to insert records in to
-            data: Either a single document/record or an array of documents/records to insert
-
-        Example:
-            db.insert_relation('likes', { in: person:1, id: 'object', out: person:2})
-
-        """
-        raise NotImplementedError(f"insert_relation not implemented for: {self}")
-
-    def live(self, table: str | Table, diff: bool = False) -> UUID:
-        """Initiates a live query for a specified table name.
-
-        Args:
-            table: The table name to listen for changes for.
-            diff: If set to true, live notifications will include
-            an array of JSON Patch objects, rather than
-            the entire record for each notification. Defaults to false.
-
-        Returns:
-            The live query uuid
-
-        Example:
-            db.live('person')
-        """
+    def live(self, table: str | Table, diff: bool = False) -> LiveSubscription:
+        """Initiate a live query on the given table."""
         raise NotImplementedError(f"live not implemented for: {self}")
 
     def subscribe_live(
         self, query_uuid: str | UUID
     ) -> Generator[dict[str, Value], None, None]:
-        """Live notification returns a queue that receives notification messages from the back end.
-
-        Args:
-            query_uuid: The uuid for the live query
-
-        Returns:
-            the notification queue
-
-        Example:
-            db.subscribe_live(UUID)
-        """
+        """Iterate live notifications for the given live query id."""
         raise NotImplementedError(f"subscribe_live not implemented for: {self}")
 
+    def live_of(self, live_id: str | UUID) -> LiveSubscription:
+        """Attach to a live query started some other way, by its id."""
+        raise NotImplementedError(f"live_of not implemented for: {self}")
+
     def kill(self, query_uuid: str | UUID) -> None:
-        """Kills a running live query by it's UUID.
-
-        Args:
-            query_uuid: The UUID of the live query you wish to kill.
-
-        Example:
-            db.kill(UUID)
-
-        """
+        """Kill a running live query by its UUID."""
         raise NotImplementedError(f"kill not implemented for: {self}")
+
+    def relate(
+        self,
+        from_: RelateEnd,
+        edge: RelateEdge,
+        to: RelateEnd,
+        data: Value = _UNSET,
+    ) -> Any:
+        """Relate *from_* to *to* through *edge*: ``RELATE from->edge->to``."""
+        raise NotImplementedError(f"relate not implemented for: {self}")

@@ -12,85 +12,114 @@ class ChangeCheckConfigRequest(DaraModel):
         self,
         added_check: List[main_models.ChangeCheckConfigRequestAddedCheck] = None,
         client_token: str = None,
+        config_id: str = None,
         config_requirement_ids: main_models.ChangeCheckConfigRequestConfigRequirementIds = None,
         config_standard_ids: main_models.ChangeCheckConfigRequestConfigStandardIds = None,
         configure: str = None,
         cycle_days: List[int] = None,
+        days_of_month: List[int] = None,
         dry_run: bool = None,
         enable_add_check: bool = None,
         enable_auto_check: bool = None,
         end_time: int = None,
+        end_time_seconds: int = None,
+        frequency: str = None,
         region_id: str = None,
         removed_check: List[main_models.ChangeCheckConfigRequestRemovedCheck] = None,
         resource_directory_account_id: int = None,
         standard_ids: List[int] = None,
         start_time: int = None,
+        start_time_seconds: int = None,
+        strategy_name: str = None,
         system_config: bool = None,
         vendors: List[str] = None,
     ):
-        # The list of check items to add to the policy.
-        # <notice> If the ConfigStandardIds or ConfigRequirementIds parameter is specified, this parameter does not take effect.
+        # The list of check items to be added to the policy.
+        # <notice> If the ConfigStandardIds or ConfigRequirementIds parameter is configured, this parameter does not take effect. </notice>
         self.added_check = added_check
-        # The client token that is used to ensure the idempotence of the request. Use a different token for each request. Only ASCII characters are supported. The token can be up to 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Configures the check policy by specifying requirement IDs.
+        # The policy ID.
+        self.config_id = config_id
+        # Configures the check policy by using the IDs of the specified regulations.
         # 
-        # > Call the [ListCheckResult](~~ListCheckResult~~) operation to obtain requirement IDs. If the ConfigStandardIds parameter is specified, this parameter does not take effect.
+        # > You can call the [ListCheckResult](~~ListCheckResult~~) operation to obtain the regulation IDs. If the ConfigStandardIds parameter is configured, this parameter does not take effect.
         self.config_requirement_ids = config_requirement_ids
-        # Configures the check policy by specifying standard IDs.
+        # Configures the check policy by using the IDs of the specified standards.
         # 
-        # > Call the [ListCheckResult](~~ListCheckResult~~) operation to obtain standard IDs.
+        # > You can call the [ListCheckResult](~~ListCheckResult~~) operation to obtain the standard IDs.
         self.config_standard_ids = config_standard_ids
         # The field configuration. Valid values:
         # 
-        # - **all**: adds all check items.
+        # - **all**: Adds all check items.
         self.configure = configure
-        # The periodic check schedule.
+        # The periodic check time.
         self.cycle_days = cycle_days
-        # Specifies whether to perform only a dry run, without performing the actual request. Valid values: true: performs only a dry run without performing the actual operation. false: performs the actual request. Default value: false.
-        self.dry_run = dry_run
-        # Specifies whether to automatically check newly added check items in the selected requirements. Valid values:
+        # The list of days of the month when the policy cycle is monthly.
+        self.days_of_month = days_of_month
+        # Specifies whether to only precheck the request. Valid values:
         # 
-        # - **true:** Enabled.
-        # - **false:** Disabled.
+        # - true: Only checks the request without performing the actual operation.
+        # - false: Executes the request normally.
+        # 
+        # Default value: false.
+        self.dry_run = dry_run
+        # Specifies whether to check new check items by default when new check items are added to the selected regulations. Valid values:
+        # 
+        # - **true**: Enabled.
+        # - **false**: Disabled.
         self.enable_add_check = enable_add_check
         # Specifies whether to enable automatic periodic checks. Valid values:
         # 
-        # - **true:** Enabled.
-        # - **false:** Disabled.
+        # - **true**: Enabled.
+        # - **false**: Disabled.
         self.enable_auto_check = enable_auto_check
-        # The end hour of the check time window, indicating the hour of the day. The start time and end time must fall within one of the following time ranges. Valid values: 6, 12, 18, and 24.
+        # The end time of the check time period, which indicates the hour of the day. The start time and end time must be selected from the following time intervals. Valid values: 6, 12, 18, and 24.
         # 
         # - **0~6**: If the start time is 0, the end time must be set to 6 on the same day.
         # - **6~12**: If the start time is 6, the end time must be set to 12 on the same day.
         # - **12~18**: If the start time is 12, the end time must be set to 18 on the same day.
         # - **18~24**: If the start time is 18, the end time must be set to 24 on the same day.
         self.end_time = end_time
+        # The end time of the check, in seconds from 00:00:00 of the current day. Valid values: 1 to 86400, where 86400 indicates 00:00:00 of the next day. This parameter is optional. If this parameter is not provided, the current value of the policy is retained. This parameter must be paired with StartTimeSeconds. If only one of them is provided, the system returns IllegalParam (paramName=scheduleTime). If both this parameter and StartTime/EndTime are provided, the second-level parameters take precedence, and the hour-level parameters are ignored. The time window span must not be less than 60 seconds. This parameter is not accepted for the system default policy (ConfigId=default) and will be rejected if provided.
+        self.end_time_seconds = end_time_seconds
+        # The frequency type. Valid values:
+        # 
+        # - DAILY: Daily.
+        # - WEEKLY: Weekly.
+        # - MONTHLY: Monthly.
+        # - 6HOURLY: Every 6 hours.
+        self.frequency = frequency
         # The region of the Security Center instance. Valid values:
         # 
-        # - **cn-hangzhou:** China
-        # - **ap-southeast-1:** Singapore
+        # - **cn-hangzhou**: Center
+        # - **ap-southeast-1**: Singapore
         self.region_id = region_id
-        # The list of check items to remove from the policy.
-        # <notice> If the ConfigStandardIds or ConfigRequirementIds parameter is specified, this parameter does not take effect.
+        # The list of check items to be removed from the policy.
+        # <notice> If the ConfigStandardIds or ConfigRequirementIds parameter is configured, this parameter does not take effect. </notice>
         self.removed_check = removed_check
-        # The ID of the member account in the resource directory (Alibaba Cloud account).
-        # >Call the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
+        # The ID of the member accounts in the resource folder, which is an Alibaba Cloud account ID.
+        # > You can invoke the [DescribeMonitorAccounts](~~DescribeMonitorAccounts~~) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
-        # This parameter is deprecated and does not need to be specified.
+        # This parameter is deprecated and can be ignored.
         self.standard_ids = standard_ids
-        # The start hour of the check time window, indicating the hour of the day. The start time and end time must fall within one of the following time ranges. Valid values: 0, 6, 12, and 18.
+        # The start time of the check time period, which indicates the hour of the day. The start time and end time must be selected from the following time intervals. Valid values: 0, 6, 12, and 18.
         # 
         # - **0~6**: If the start time is 0, the end time must be set to 6 on the same day.
         # - **6~12**: If the start time is 6, the end time must be set to 12 on the same day.
         # - **12~18**: If the start time is 12, the end time must be set to 18 on the same day.
         # - **18~24**: If the start time is 18, the end time must be set to 24 on the same day.
         self.start_time = start_time
-        # Specifies whether to use the system-generated configuration. Valid values:
+        # The start time of the check, in seconds from 00:00:00 of the current day. Valid values: 0 to 86399, which correspond to 00:00:00 to 23:59:59. This parameter is optional. If this parameter is not provided, the current value of the policy is retained. This parameter must be paired with EndTimeSeconds. If only one of them is provided, the system returns IllegalParam (paramName=scheduleTime). If both this parameter and StartTime/EndTime are provided, the second-level parameters take precedence, and the hour-level parameters are ignored. If the two sets of parameters are inconsistent, the server records a WARN log. The time window span must not be less than 60 seconds. The frequency of the system default policy (ConfigId=default) is always 6HOURLY. This parameter is not accepted for the default policy and will be rejected if provided. Under a multi-policy frequency, the actual scan execution time is exactly the second specified by this parameter.
+        self.start_time_seconds = start_time_seconds
+        # The policy name.
+        self.strategy_name = strategy_name
+        # Specifies whether to use the automatically generated system configuration. Valid values:
+        # 
         # - **true**: Yes.
         # - **false**: No.
         self.system_config = system_config
-        # The list of cloud service providers.
+        # The list of cloud providers.
         self.vendors = vendors
 
     def validate(self):
@@ -120,6 +149,9 @@ class ChangeCheckConfigRequest(DaraModel):
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
+        if self.config_id is not None:
+            result['ConfigId'] = self.config_id
+
         if self.config_requirement_ids is not None:
             result['ConfigRequirementIds'] = self.config_requirement_ids.to_map()
 
@@ -132,6 +164,9 @@ class ChangeCheckConfigRequest(DaraModel):
         if self.cycle_days is not None:
             result['CycleDays'] = self.cycle_days
 
+        if self.days_of_month is not None:
+            result['DaysOfMonth'] = self.days_of_month
+
         if self.dry_run is not None:
             result['DryRun'] = self.dry_run
 
@@ -143,6 +178,12 @@ class ChangeCheckConfigRequest(DaraModel):
 
         if self.end_time is not None:
             result['EndTime'] = self.end_time
+
+        if self.end_time_seconds is not None:
+            result['EndTimeSeconds'] = self.end_time_seconds
+
+        if self.frequency is not None:
+            result['Frequency'] = self.frequency
 
         if self.region_id is not None:
             result['RegionId'] = self.region_id
@@ -160,6 +201,12 @@ class ChangeCheckConfigRequest(DaraModel):
 
         if self.start_time is not None:
             result['StartTime'] = self.start_time
+
+        if self.start_time_seconds is not None:
+            result['StartTimeSeconds'] = self.start_time_seconds
+
+        if self.strategy_name is not None:
+            result['StrategyName'] = self.strategy_name
 
         if self.system_config is not None:
             result['SystemConfig'] = self.system_config
@@ -180,6 +227,9 @@ class ChangeCheckConfigRequest(DaraModel):
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
 
+        if m.get('ConfigId') is not None:
+            self.config_id = m.get('ConfigId')
+
         if m.get('ConfigRequirementIds') is not None:
             temp_model = main_models.ChangeCheckConfigRequestConfigRequirementIds()
             self.config_requirement_ids = temp_model.from_map(m.get('ConfigRequirementIds'))
@@ -194,6 +244,9 @@ class ChangeCheckConfigRequest(DaraModel):
         if m.get('CycleDays') is not None:
             self.cycle_days = m.get('CycleDays')
 
+        if m.get('DaysOfMonth') is not None:
+            self.days_of_month = m.get('DaysOfMonth')
+
         if m.get('DryRun') is not None:
             self.dry_run = m.get('DryRun')
 
@@ -205,6 +258,12 @@ class ChangeCheckConfigRequest(DaraModel):
 
         if m.get('EndTime') is not None:
             self.end_time = m.get('EndTime')
+
+        if m.get('EndTimeSeconds') is not None:
+            self.end_time_seconds = m.get('EndTimeSeconds')
+
+        if m.get('Frequency') is not None:
+            self.frequency = m.get('Frequency')
 
         if m.get('RegionId') is not None:
             self.region_id = m.get('RegionId')
@@ -224,6 +283,12 @@ class ChangeCheckConfigRequest(DaraModel):
         if m.get('StartTime') is not None:
             self.start_time = m.get('StartTime')
 
+        if m.get('StartTimeSeconds') is not None:
+            self.start_time_seconds = m.get('StartTimeSeconds')
+
+        if m.get('StrategyName') is not None:
+            self.strategy_name = m.get('StrategyName')
+
         if m.get('SystemConfig') is not None:
             self.system_config = m.get('SystemConfig')
 
@@ -240,7 +305,7 @@ class ChangeCheckConfigRequestRemovedCheck(DaraModel):
     ):
         # The ID of the check item.
         # 
-        # > Call the [ListCheckResult](~~ListCheckResult~~) operation to obtain check item IDs.
+        # > You can call the [ListCheckResult](~~ListCheckResult~~) operation to obtain the check item ID.
         self.check_id = check_id
         # The section ID of the check item.
         self.section_id = section_id
@@ -277,9 +342,9 @@ class ChangeCheckConfigRequestConfigStandardIds(DaraModel):
         add_ids: List[int] = None,
         remove_ids: List[int] = None,
     ):
-        # The list of standard IDs to add to the policy.
+        # The list of standard IDs to be added to the policy.
         self.add_ids = add_ids
-        # The list of standard IDs to remove from the policy.
+        # The list of standard IDs to be removed from the policy.
         self.remove_ids = remove_ids
 
     def validate(self):
@@ -314,9 +379,9 @@ class ChangeCheckConfigRequestConfigRequirementIds(DaraModel):
         add_ids: List[int] = None,
         remove_ids: List[int] = None,
     ):
-        # The list of requirement IDs to add to the policy.
+        # The list of regulation IDs to be added to the policy.
         self.add_ids = add_ids
-        # The list of requirement IDs to remove from the policy.
+        # The list of regulation IDs to be removed from the policy.
         self.remove_ids = remove_ids
 
     def validate(self):
@@ -353,7 +418,7 @@ class ChangeCheckConfigRequestAddedCheck(DaraModel):
     ):
         # The ID of the check item.
         # 
-        # > Call the [ListCheckResult](~~ListCheckResult~~) operation to obtain check item IDs.
+        # > You can call the [ListCheckResult](~~ListCheckResult~~) operation to obtain the check item ID.
         self.check_id = check_id
         # The section ID of the check item.
         self.section_id = section_id

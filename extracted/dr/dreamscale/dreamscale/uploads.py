@@ -5,15 +5,18 @@ only for the blobs your organization doesn't already have, so a re-run of an unc
 folder sends nothing. Local state under ``~/.dreamscale/uploads/`` keeps each file's hash
 (by size and mtime, so a re-run doesn't re-read it) and, per blob, the parts already sent:
 an interrupted upload resumes where it stopped when the server hands back the same
-multipart upload.
+multipart upload. A link storage refuses (it expired, or another upload of the same blob
+finished it first: uploads in one organization resume each other's open ones) is renewed by
+registering the upload again, which keeps the parts already sent.
 
 A blob may also be a slice of a larger file (``Slice``): an ABC-VLA ``.pt`` checkpoint sends
 only the stored members its build reads, each as its own blob, never its optimizer state.
 
 A dataset's upload (``upload_dataset``) goes faster: files hash on every core and each is sent as
 soon as it's hashed, the manifest going up in batches; a blob of one part takes one signed PUT;
-parts stream from disk, eight at a time; an expired link is renewed by asking again; and the
-server lists the parts already sent, so a resume works from any machine.
+parts stream from disk, eight at a time; a refused link (expired, or its blob stored meanwhile by
+another upload) is renewed by asking again; and the server lists the parts already sent, so a
+resume works from any machine.
 """
 
 from __future__ import annotations
@@ -41,7 +44,7 @@ DOWNLOAD_CONCURRENCY = 8
 DOWNLOAD_RANGE = 64 << 20
 BATCH_FILES = 1000
 BATCH_SECONDS = 2.0
-REFRESHES = 2  # fresh links asked for one blob, when one expires (HTTP 403)
+REFRESHES = 2  # fresh links asked in a row, when storage refuses one (HTTP 403 or 404)
 DATASET_BACKOFF_S = (1.0, 2.0, 4.0, 8.0, 15.0, 30.0)
 STALL_S = 600.0  # an upload gives up when no part has landed for this long
 PART_ATTEMPTS = 5
@@ -160,6 +163,14 @@ def _tls_failed(error: ssl.SSLError) -> str:
     )
 
 
+class _Expired(Exception):
+    """Storage refused a link: it expired (HTTP 403), or the upload went away (HTTP 404), often
+    because another upload of the same blob completed it."""
+
+
+_REFUSED = frozenset({403, 404})
+
+
 async def _put(http: httpx.AsyncClient, url: str, data: bytes, path: Path) -> str:
     for attempt in range(PART_ATTEMPTS):
         try:
@@ -176,8 +187,9 @@ async def _put(http: httpx.AsyncClient, url: str, data: bytes, path: Path) -> st
             if resp.status_code < 300 and resp.headers.get("etag"):
                 return resp.headers["etag"]
             cause = f"storage answered HTTP {resp.status_code}"
+            if resp.status_code in _REFUSED:  # retrying the same URL can't help; a fresh one can
+                raise _Expired(cause)
             if resp.status_code < 300 or resp.status_code not in _RETRY_STATUS:
-                # An expired or refused link: retrying the same URL can't help.
                 raise _upload_failed(path, cause)
         if attempt + 1 < PART_ATTEMPTS:
             await asyncio.sleep(RETRY_BACKOFF_S[min(attempt, len(RETRY_BACKOFF_S) - 1)])
@@ -204,64 +216,92 @@ async def upload(
     """Send what the server is missing, then complete the upload. Returns the completed
     upload (``{id, status, files, bytes}``) with ``sent``: the bytes this call uploaded.
     ``kind``: a dataset to train on, or a ``checkpoint`` to deploy. ``slices``: as for
-    ``manifest``."""
-    created = await client.create_upload(
-        files, kind=kind, **({"base_model": base_model} if base_model is not None else {})
-    )
-    missing = [blob for blob in created.get("missing") or [] if isinstance(blob, dict)]
+    ``manifest``. A link storage refuses registers the upload again (a blob another upload
+    stored meanwhile is then not missing) and the rest goes on fresh links."""
     slices = slices or {}
     paths = {
         entry["sha256"]: (slices[entry["path"]].file, slices[entry["path"]].offset)
         if entry["path"] in slices else (root / entry["path"], 0)
         for entry in files
     }
+    # Read once: another upload on this machine saving its own parts doesn't lose ours.
     state = _load()
-    total = sum(int(blob["size"]) for blob in missing)
-    done = sent = 0
-    jobs = []
-    for blob in missing:
-        sha, part_size = blob["sha256"], int(blob["part_size"])
-        saved = state["parts"].get(sha) or {}
-        if saved.get("upload_id") != blob.get("upload_id"):
-            saved = {"upload_id": blob.get("upload_id"), "etags": {}}
-            state["parts"][sha] = saved
-        for part in blob.get("parts") or []:
-            number = int(part["number"])
-            offset = (number - 1) * part_size
-            length = max(min(part_size, int(blob["size"]) - offset), 0)
-            if str(number) in saved["etags"]:
-                done += length
-            else:
-                jobs.append((sha, number, part["url"], offset, length))
-    if progress is not None:
-        progress(done, total)
-    _save(state)
-    limit = asyncio.Semaphore(CONCURRENCY)
+    sent = 0
+    tried: set[str] = set()  # blobs of any round, whose saved parts go once complete
 
-    async def send(http: httpx.AsyncClient, sha: str, number: int, url: str, offset: int,
-                   length: int) -> None:
-        nonlocal done, sent
-        path, start = paths[sha]
-        async with limit:
-            data = await asyncio.to_thread(_read, path, start + offset, length)
-            etag = await _put(http, url, data, path)
-        state["parts"][sha]["etags"][str(number)] = etag
-        _save(state)
-        done += length
-        sent += length
+    async def send_round() -> tuple[dict, list[dict], tuple[Path, str] | None, int]:
+        """Register the upload and send its missing parts: (the upload, its missing blobs, the
+        first refused link's file and cause, how many parts landed)."""
+        nonlocal sent
+        created = await client.create_upload(
+            files, kind=kind, **({"base_model": base_model} if base_model is not None else {})
+        )
+        missing = [blob for blob in created.get("missing") or [] if isinstance(blob, dict)]
+        tried.update(blob["sha256"] for blob in missing)
+        total = sum(int(blob["size"]) for blob in missing)
+        done = landed = 0
+        refused: tuple[Path, str] | None = None
+        jobs = []
+        for blob in missing:
+            sha, part_size = blob["sha256"], int(blob["part_size"])
+            saved = state["parts"].get(sha) or {}
+            if saved.get("upload_id") != blob.get("upload_id"):
+                saved = {"upload_id": blob.get("upload_id"), "etags": {}}
+                state["parts"][sha] = saved
+            for part in blob.get("parts") or []:
+                number = int(part["number"])
+                offset = (number - 1) * part_size
+                length = max(min(part_size, int(blob["size"]) - offset), 0)
+                if str(number) in saved["etags"]:
+                    done += length
+                else:
+                    jobs.append((sha, number, part["url"], offset, length))
         if progress is not None:
             progress(done, total)
+        _save(state)
+        limit = asyncio.Semaphore(CONCURRENCY)
 
-    try:
-        async with (
-            httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0), transport=transport)
-            as http,
-            asyncio.TaskGroup() as group,
-        ):
-            for job in jobs:
-                group.create_task(send(http, *job))
-    except BaseExceptionGroup as failed:  # the first failed part says what went wrong
-        raise failed.exceptions[0] from None
+        async def send(http: httpx.AsyncClient, sha: str, number: int, url: str, offset: int,
+                       length: int) -> None:
+            nonlocal done, sent, landed, refused
+            path, start = paths[sha]
+            async with limit:
+                if refused is not None:  # its link is likely refused too: renewed next round
+                    return
+                data = await asyncio.to_thread(_read, path, start + offset, length)
+                try:
+                    etag = await _put(http, url, data, path)
+                except _Expired as error:
+                    refused = refused or (path, str(error))
+                    return
+            state["parts"][sha]["etags"][str(number)] = etag
+            _save(state)
+            done += length
+            sent += length
+            landed += 1
+            if progress is not None:
+                progress(done, total)
+
+        try:
+            async with (
+                httpx.AsyncClient(timeout=httpx.Timeout(300.0, connect=10.0),
+                                  transport=transport) as http,
+                asyncio.TaskGroup() as group,
+            ):
+                for job in jobs:
+                    group.create_task(send(http, *job))
+        except BaseExceptionGroup as failed:  # the first failed part says what went wrong
+            raise failed.exceptions[0] from None
+        return created, missing, refused, landed
+
+    quiet = 0  # rounds in a row that were refused with nothing landing
+    while True:
+        created, missing, refused, landed = await send_round()
+        if refused is None:
+            break
+        quiet = 0 if landed else quiet + 1
+        if quiet > REFRESHES:
+            raise _upload_failed(*refused)
     parts = {
         blob["sha256"]: [
             {"number": int(number), "etag": etag}
@@ -273,7 +313,7 @@ async def upload(
     }
     completed = await client.complete_upload(created["id"], parts, kind=kind)
     state = _load()
-    for sha in parts:
+    for sha in tried:
         state["parts"].pop(sha, None)
     _save(state)
     return {**completed, "id": completed.get("id") or created["id"], "sent": sent}
@@ -283,10 +323,6 @@ async def upload(
 
 
 DatasetProgress = Callable[[int, int, int], None]  # (bytes checked, bytes sent, bytes total)
-
-
-class _Expired(Exception):
-    """Storage refused a link: it expired, or the upload went away."""
 
 
 class _Throttle:
@@ -366,7 +402,7 @@ async def _put_stream(
                 throttle.landed_one()
                 return resp.headers.get("etag")
             cause = f"storage answered HTTP {resp.status_code}"
-            if resp.status_code == 403:
+            if resp.status_code in _REFUSED:
                 advance(-sent)
                 raise _Expired(cause)
             if resp.status_code not in _RETRY_STATUS:
@@ -403,6 +439,8 @@ async def upload_dataset(
     manifest: list[dict[str, Any]] = []
     pending: list[dict[str, Any]] = []
     parts: dict[str, list[dict[str, Any]]] = {}
+    multiparts: dict[str, str] = {}  # sha256 -> the multipart upload its parts went to
+    stored: set[str] = set()  # blobs another upload stored meanwhile
     seen: set[str] = set()
     flushed_at = time.monotonic()
     flushing = asyncio.Lock()
@@ -425,6 +463,8 @@ async def upload_dataset(
     async def send_one(sha: str, url: str, offset: int, length: int, number: int | None) -> None:
         path = paths[sha]
         for refresh in range(REFRESHES + 1):
+            if sha in stored:
+                return
             try:
                 etag = await _put_stream(http, url, path, offset, length, advance, throttle)
                 break
@@ -433,11 +473,21 @@ async def upload_dataset(
                 if fresh is None and refresh >= REFRESHES:
                     raise _upload_failed(path, "storage refused the upload's link") from None
                 if fresh is None:
-                    return  # stored meanwhile
+                    stored.add(sha)  # meanwhile, as another upload of it finished
+                    return
                 if number is None:
                     url = fresh["url"]
-                else:
-                    url = next(p["url"] for p in fresh["parts"] if int(p["number"]) == number)
+                    continue
+                if fresh.get("upload_id") != multiparts[sha]:
+                    # Its multipart upload went away unfinished: the parts sent there are lost.
+                    raise _upload_failed(path, "storage started this file's upload again") from None
+                listed = next((p for p in fresh.get("done") or [] if int(p["number"]) == number),
+                              None)
+                if listed is not None:  # sent meanwhile, by another upload of the same blob
+                    advance(length)
+                    parts[sha].append({"number": number, "etag": listed["etag"]})
+                    return
+                url = next(p["url"] for p in fresh["parts"] if int(p["number"]) == number)
         if number is not None:
             if not etag:
                 raise _upload_failed(path, "storage answered without an ETag")
@@ -453,6 +503,7 @@ async def upload_dataset(
             group.create_task(send_one(sha, blob["url"], 0, size, None))
             return
         part_size = int(blob["part_size"])
+        multiparts[sha] = blob.get("upload_id")
         parts[sha] = [{"number": int(p["number"]), "etag": p["etag"]}
                       for p in blob.get("done") or []]
         for done in parts[sha]:  # sent before, from any machine

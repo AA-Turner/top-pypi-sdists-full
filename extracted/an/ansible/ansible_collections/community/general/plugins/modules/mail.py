@@ -135,14 +135,15 @@ options:
     default: plain
   secure:
     description:
-      - If V(always), the connection only sends email if the connection is Encrypted. If the server does not accept the encrypted
-        connection it fails.
-      - If V(try), the connection attempts to setup a secure SSL/TLS session, before trying to send.
-      - If V(never), the connection does not attempt to setup a secure SSL/TLS session, before sending.
-      - If V(starttls), the connection tries to upgrade to a secure SSL/TLS connection, before sending. If it is unable to
-        do so it fails.
+      - Whether and how to secure the connection to the mail server.
     type: str
-    choices: [always, never, starttls, try]
+    choices:
+      always: The connection only sends email if the connection is encrypted. If the server does not accept the encrypted
+        connection it fails.
+      never: The connection does not attempt to setup a secure SSL/TLS session, before sending.
+      starttls: The connection tries to upgrade to a secure SSL/TLS connection, before sending. If it is unable to do so it
+        fails.
+      try: The connection attempts to setup a secure SSL/TLS session, before trying to send.
     default: try
   timeout:
     description:
@@ -253,7 +254,6 @@ EXAMPLES = r"""
 import mimetypes
 import os
 import smtplib
-import ssl
 import traceback
 from email import encoders
 from email.header import Header
@@ -322,7 +322,6 @@ def main():
     timeout = module.params.get("timeout")
     message_id_domain = module.params["message_id_domain"]
 
-    code = 0
     secure_state = False
     sender_phrase, sender_addr = parseaddr(sender)
 
@@ -333,51 +332,44 @@ def main():
         if secure != "never":
             try:
                 smtp = smtplib.SMTP_SSL(host=host, port=port, local_hostname=local_hostname, timeout=timeout)
-                code, smtpmessage = smtp.connect(host, port)
                 secure_state = True
-            except ssl.SSLError as e:
+            except Exception as e:
                 if secure == "always":
                     module.fail_json(
                         rc=1,
                         msg=f"Unable to start an encrypted session to {host}:{port}: {e}",
                         exception=traceback.format_exc(),
                     )
-            except Exception:
-                pass
 
         if not secure_state:
             smtp = smtplib.SMTP(host=host, port=port, local_hostname=local_hostname, timeout=timeout)
-            code, smtpmessage = smtp.connect(host, port)
 
-    except smtplib.SMTPException as e:
+    except OSError as e:
         module.fail_json(rc=1, msg=f"Unable to Connect {host}:{port}: {e}", exception=traceback.format_exc())
 
     try:
         smtp.ehlo()
-    except smtplib.SMTPException as e:
+    except OSError as e:
         module.fail_json(rc=1, msg=f"Helo failed for host {host}:{port}: {e}", exception=traceback.format_exc())
 
-    if int(code) > 0:
-        if not secure_state and secure in ("starttls", "try"):
-            if smtp.has_extn("STARTTLS"):
-                try:
-                    smtp.starttls()
-                    secure_state = True
-                except smtplib.SMTPException as e:
-                    module.fail_json(
-                        rc=1,
-                        msg=f"Unable to start an encrypted session to {host}:{port}: {e}",
-                        exception=traceback.format_exc(),
-                    )
-                try:
-                    smtp.ehlo()
-                except smtplib.SMTPException as e:
-                    module.fail_json(
-                        rc=1, msg=f"Helo failed for host {host}:{port}: {e}", exception=traceback.format_exc()
-                    )
-            else:
-                if secure == "starttls":
-                    module.fail_json(rc=1, msg=f"StartTLS is not offered on server {host}:{port}")
+    if not secure_state and secure in ("starttls", "try"):
+        if smtp.has_extn("STARTTLS"):
+            try:
+                smtp.starttls()
+                secure_state = True
+            except smtplib.SMTPException as e:
+                module.fail_json(
+                    rc=1,
+                    msg=f"Unable to start an encrypted session to {host}:{port}: {e}",
+                    exception=traceback.format_exc(),
+                )
+            try:
+                smtp.ehlo()
+            except smtplib.SMTPException as e:
+                module.fail_json(rc=1, msg=f"Helo failed for host {host}:{port}: {e}", exception=traceback.format_exc())
+        else:
+            if secure == "starttls":
+                module.fail_json(rc=1, msg=f"StartTLS is not offered on server {host}:{port}")
 
     if username and password:
         if smtp.has_extn("AUTH"):

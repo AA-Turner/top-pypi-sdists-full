@@ -117,6 +117,13 @@ pub enum TlsError {
         location: Location,
     },
 
+    #[snafu(display("{message}"))]
+    CipherPolicy {
+        message: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
+
     #[snafu(display("Failed to build proxy from {redacted_url}"))]
     ProxyBuild {
         redacted_url: RedactedUrl,

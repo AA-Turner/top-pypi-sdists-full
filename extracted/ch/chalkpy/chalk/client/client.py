@@ -3852,6 +3852,7 @@ class ChalkClient:
         input_sql: str | None = None,
         num_shards: int | None = None,
         plan_only: bool = False,
+        store_online_summaries: bool | None = None,
     ) -> AggregateBackfillResponse:
         """Trigger one or more aggregate backfill jobs.
 
@@ -3895,6 +3896,11 @@ class ChalkClient:
             estimates without creating anything. The response's `job` is `None`, and
             there is no backfill id to poll. The same validation runs as for a real
             backfill, so a request that plans cleanly will also create cleanly.
+
+        store_online_summaries : bool, optional
+            Publish compact online aggregate summaries. Requires a server that supports
+            online summaries and complete input or existing tile coverage for the summary
+            window and horizon.
 
         Returns
         -------

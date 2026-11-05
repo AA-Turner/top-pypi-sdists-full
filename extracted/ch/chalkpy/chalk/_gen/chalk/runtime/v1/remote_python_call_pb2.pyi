@@ -23,6 +23,13 @@ class RemoteCallStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     REMOTE_CALL_STATUS_COMPLETED: _ClassVar[RemoteCallStatus]
     REMOTE_CALL_STATUS_FAILED: _ClassVar[RemoteCallStatus]
     REMOTE_CALL_STATUS_EXPIRED: _ClassVar[RemoteCallStatus]
+    REMOTE_CALL_STATUS_CANCELLED: _ClassVar[RemoteCallStatus]
+
+class CancellationPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CANCELLATION_POLICY_UNSPECIFIED: _ClassVar[CancellationPolicy]
+    CANCELLATION_POLICY_CANCEL_ONLY: _ClassVar[CancellationPolicy]
+    CANCELLATION_POLICY_TERMINATE_REPLICA: _ClassVar[CancellationPolicy]
 
 REMOTE_CALL_STATUS_UNSPECIFIED: RemoteCallStatus
 REMOTE_CALL_STATUS_PENDING: RemoteCallStatus
@@ -30,6 +37,10 @@ REMOTE_CALL_STATUS_RUNNING: RemoteCallStatus
 REMOTE_CALL_STATUS_COMPLETED: RemoteCallStatus
 REMOTE_CALL_STATUS_FAILED: RemoteCallStatus
 REMOTE_CALL_STATUS_EXPIRED: RemoteCallStatus
+REMOTE_CALL_STATUS_CANCELLED: RemoteCallStatus
+CANCELLATION_POLICY_UNSPECIFIED: CancellationPolicy
+CANCELLATION_POLICY_CANCEL_ONLY: CancellationPolicy
+CANCELLATION_POLICY_TERMINATE_REPLICA: CancellationPolicy
 
 class CallFunctionRequest(_message.Message):
     __slots__ = ("name", "feather_stream")
@@ -247,6 +258,22 @@ class PollRemoteCallRequest(_message.Message):
     call_id: str
     cursor: str
     def __init__(self, call_id: _Optional[str] = ..., cursor: _Optional[str] = ...) -> None: ...
+
+class CancelRemoteCallRequest(_message.Message):
+    __slots__ = ("call_id", "policy")
+    CALL_ID_FIELD_NUMBER: _ClassVar[int]
+    POLICY_FIELD_NUMBER: _ClassVar[int]
+    call_id: str
+    policy: CancellationPolicy
+    def __init__(
+        self, call_id: _Optional[str] = ..., policy: _Optional[_Union[CancellationPolicy, str]] = ...
+    ) -> None: ...
+
+class CancelRemoteCallResponse(_message.Message):
+    __slots__ = ("status",)
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: RemoteCallStatus
+    def __init__(self, status: _Optional[_Union[RemoteCallStatus, str]] = ...) -> None: ...
 
 class PollRemoteCallResponse(_message.Message):
     __slots__ = ("status", "results", "cursor", "errors")

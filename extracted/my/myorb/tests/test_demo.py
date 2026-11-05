@@ -52,6 +52,17 @@ def test_demo_shows_a_made_up_day(demo_client: TestClient):
     assert "leave at 12:08 for lunch with Pepper" in report
 
 
+def test_the_demo_emails_open_in_myorb(public_client: TestClient):
+    unread = public_client.get("/welcome/widget/demo/unread").text
+    assert 'href="/demo/email/0"' in unread and "example.com" not in unread
+    email = public_client.get("/demo/email/0", headers={"HX-Target": "page-view"}).text
+    assert "Corrected Q4 invoice" in email and "$1.24M" in email
+    assert "Could someone check the Q4 invoice" in email
+    assert "Open in Gmail" not in email and "Mark as read" not in email
+    assert "connect this Google account" not in email
+    assert public_client.get("/demo/email/9").status_code == 404
+
+
 def test_demo_plays_the_music_of_its_screenshots(demo_client: TestClient):
     config = demo_client.get("/music/config").json()
     assert config["source"] == "youtube" and config["video"] == "0GvTE_kG1yY"

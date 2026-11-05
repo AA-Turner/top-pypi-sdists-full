@@ -245,8 +245,16 @@ class CoreMixin:
         )
         # Explicit receipt enqueue is async even when ordinary entity writes are sync.
         self._delivery_auto_drain = auto_drain
-        # Who delivers this client's queue, picked ONCE (worker, thread or none).
+        # Who delivers this client's queue, picked ONCE (the service, a thread or none).
         self._drainer = pick_drainer(self)
+        # Plan D9: a training process's service starts now, off this thread, so its first drain,
+        # relay or hash (a SIGTERM's close included) finds it up. D21: a key passed in code too.
+        if self._default_transport and surface == Surface.SDK.value:
+            from ...foundation.service_api import handoff
+
+            if not handoff.is_under_service():
+                handoff.start_soon(self.settings.base_url)
+        self._hand_key_to_service(should_wait=False)
         if (
             async_writes
             and transport is None
@@ -395,6 +403,9 @@ class CoreMixin:
                     if int(shared.get(StatusField.PENDING) or 0) or int(shared.get(StatusField.WAITING) or 0):
                         from ..delivery import outbox as outbox_worker
 
-                        outbox_worker.maybe_spawn(str(root))
+                        # Asked on a thread: a start of the service is never the training loop's wait.
+                        threading.Thread(
+                            target=outbox_worker.maybe_spawn, args=(str(root),), name="probe-outbox-ask", daemon=True,
+                        ).start()
             except Exception:  # noqa: BLE001 -- a kick is latency, never a gate
                 pass

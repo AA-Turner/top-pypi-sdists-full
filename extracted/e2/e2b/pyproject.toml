@@ -1,6 +1,6 @@
 [project]
 name = "e2b"
-version = "2.62.1"
+version = "2.63.0"
 description = "E2B SDK that give agents cloud environments"
 license = "MIT"
 readme = "README.md"

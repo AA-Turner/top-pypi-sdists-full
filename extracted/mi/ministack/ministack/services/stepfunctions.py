@@ -1819,12 +1819,14 @@ def _run_execution(exec_arn):
             ctx["State"] = {"Name": current_name, "EnteredTime": now_iso(), "RetryCount": 0}
             state_type = state_def.get("Type")
 
-            _add_event(execution, f"{state_type}StateEntered", {
+            entered = _add_event(execution, f"{state_type}StateEntered", {
                 "stateEnteredEventDetails": {
                     "name": current_name,
                     "input": json.dumps(current_input),
                 },
             })
+            if state_type == "Map":
+                _check_inline_map_fields(state_def, current_name, entered["id"])
 
             if state_type == "Succeed":
                 current_input = _apply_input_path(state_def, current_input, ctx)
@@ -1857,9 +1859,16 @@ def _run_execution(exec_arn):
             if state_type in ("Task", "Parallel", "Map"):
                 current_input, next_name = handler_fn(
                     state_def, current_input, execution, ctx)
+            elif state_type == "Wait":
+                current_input, next_name = handler_fn(
+                    state_def, current_input, ctx, execution=execution)
             else:
                 current_input, next_name = handler_fn(
                     state_def, current_input, ctx)
+
+            # AWS writes no event after ExecutionAborted, so a stopped run skips the exit event.
+            if execution["status"] != "RUNNING":
+                break
 
             _add_event(execution, f"{state_type}StateExited", {
                 "stateExitedEventDetails": {
@@ -1887,6 +1896,8 @@ def _run_execution(exec_arn):
 
 
 def _fail_execution(execution, error, cause):
+    if execution["status"] != "RUNNING":  # stopped meanwhile: AWS writes nothing after ExecutionAborted
+        return
     execution["status"] = "FAILED"
     execution["error"] = error
     execution["cause"] = cause
@@ -2442,14 +2453,14 @@ def _evaluate_rule(rule, data, ctx=None):
 # Wait state
 # ---------------------------------------------------------------------------
 
-def _execute_wait(state_def, raw_input, ctx=None):
+def _execute_wait(state_def, raw_input, ctx=None, execution=None):
     if _state_query_language(state_def, ctx) == "JSONata":
         # JSONata Wait: Seconds and Timestamp may be expressions, and Output
         # and Assign replace the JSONPath chain, as for Pass.
         if "Seconds" in state_def:
-            _scaled_sleep(_jsonata_wait_seconds(state_def, raw_input, ctx))
+            _scaled_sleep(_jsonata_wait_seconds(state_def, raw_input, ctx), execution)
         elif "Timestamp" in state_def:
-            _sleep_until(_jsonata_wait_timestamp(state_def, raw_input, ctx))
+            _sleep_until(_jsonata_wait_timestamp(state_def, raw_input, ctx), execution)
         output = _apply_jsonata_output(state_def, raw_input, ctx, default=raw_input)
         _apply_state_assign(state_def, raw_input, ctx)
         return output, _next_or_end(state_def)
@@ -2457,17 +2468,17 @@ def _execute_wait(state_def, raw_input, ctx=None):
     effective = _apply_input_path(state_def, raw_input, ctx)
 
     if "Seconds" in state_def:
-        _scaled_sleep(state_def["Seconds"])
+        _scaled_sleep(state_def["Seconds"], execution)
     elif "Timestamp" in state_def:
-        _sleep_until(state_def["Timestamp"])
+        _sleep_until(state_def["Timestamp"], execution)
     elif "SecondsPath" in state_def:
         secs = _resolve_path(state_def["SecondsPath"], effective)
         if isinstance(secs, (int, float)) and secs > 0:
-            _scaled_sleep(secs)
+            _scaled_sleep(secs, execution)
     elif "TimestampPath" in state_def:
         ts_str = _resolve_path(state_def["TimestampPath"], effective)
         if isinstance(ts_str, str):
-            _sleep_until(ts_str)
+            _sleep_until(ts_str, execution)
 
     output = _apply_output_path(state_def, effective, ctx)
     _apply_state_assign(state_def, effective, ctx)
@@ -2497,18 +2508,25 @@ def _jsonata_wait_timestamp(state_def, raw_input, ctx):
     return timestamp
 
 
-def _scaled_sleep(seconds):
+def _scaled_sleep(seconds, execution=None):
     scaled = seconds * _SFN_WAIT_SCALE
-    if scaled > 0:
+    if scaled <= 0:
+        return
+    if execution is None:
         time.sleep(scaled)
+        return
+    # A stopped execution ends its Wait at once, as on AWS.
+    deadline = time.monotonic() + scaled
+    while execution["status"] == "RUNNING" and time.monotonic() < deadline:
+        time.sleep(max(0, min(0.1, deadline - time.monotonic())))
 
 
-def _sleep_until(iso_ts):
+def _sleep_until(iso_ts, execution=None):
     try:
         target = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
         delta = (target - datetime.now(timezone.utc)).total_seconds()
         if delta > 0:
-            _scaled_sleep(delta)
+            _scaled_sleep(delta, execution)
     except (ValueError, TypeError):
         pass
 
@@ -2628,6 +2646,24 @@ def _run_parallel_branches(state_def, raw_input, execution, ctx):
 # Map state
 # ---------------------------------------------------------------------------
 
+def _check_inline_map_fields(state_def, state_name, entered_event_id):
+    """Fail an Inline Map that has a field that only a Distributed Map supports.
+
+    AWS fails the execution when it enters such a Map, and a Catch or Retry on the Map does not handle the error.
+    So the state loops call this right after they write MapStateEntered, with that event's id for the cause text,
+    and not through the Map's _with_retry_and_catch.
+    """
+    processor = state_def.get("Iterator") or state_def.get("ItemProcessor", {})
+    if (processor.get("ProcessorConfig") or {}).get("Mode") == "DISTRIBUTED":
+        return
+    if any(field in state_def for field in ("ItemReader", "ItemBatcher", "ResultWriter")):
+        raise _ExecutionError(
+            "States.Runtime",
+            f"An error occurred while executing the state '{state_name}' (entered at the event id "
+            f"#{entered_event_id}). The ItemReader, ItemBatcher and ResultWriter fields are not supported for "
+            "INLINE maps")
+
+
 def _execute_map(state_def, raw_input, execution, ctx):
     return _with_retry_and_catch(
         state_def, raw_input, ctx,
@@ -2648,13 +2684,13 @@ def _run_map_items(state_def, raw_input, execution, ctx):
         items = [items]
 
     iterator = state_def.get("Iterator") or state_def.get("ItemProcessor", {})
-    if (iterator.get("ProcessorConfig") or {}).get("Mode") == "DISTRIBUTED":
-        return _run_distributed_map(state_def, raw_input, effective, iterator, execution, ctx)
     iter_states = iterator.get("States", {})
     iter_start = iterator.get("StartAt")
     max_conc = state_def.get("MaxConcurrency", 0)
     if is_jsonata and "MaxConcurrency" in state_def:
         max_conc = _jsonata_state_field(state_def, "MaxConcurrency", "number", raw_input, ctx)
+    if (iterator.get("ProcessorConfig") or {}).get("Mode") == "DISTRIBUTED":
+        return _run_distributed_map(state_def, raw_input, effective, items, int(max_conc), iterator, execution, ctx)
 
     results = [None] * len(items)
     errors = [None] * len(items)
@@ -2782,22 +2818,26 @@ def _epoch_seconds(stamp):
         return 0
 
 
-def _run_distributed_map(state_def, raw_input, effective, iterator, execution, ctx):
+def _run_distributed_map(state_def, raw_input, effective, items, max_conc, iterator, execution, ctx):
     """Each item runs as a child workflow execution of a Map Run, which ListMapRuns, DescribeMapRun and
     ListExecutions(mapRunArn) report."""
     if state_def.get("ItemReader"):
         items = _read_map_items(state_def["ItemReader"], effective, ctx)
-    else:
-        items = _resolve_path_or_ctx(state_def.get("ItemsPath", "$"), effective, ctx)
     if not isinstance(items, list):
         items = [items]
+    is_jsonata = _state_query_language(state_def, ctx) == "JSONata"
 
     parent_sm = execution["stateMachineArn"].split(":")
     sm_name, region, account = parent_sm[6], parent_sm[3], parent_sm[4]
     label = state_def.get("Label") or new_uuid()
     child_sm_arn = f"arn:aws:states:{region}:{account}:stateMachine:{sm_name}/{label}"
     map_run_arn = f"arn:aws:states:{region}:{account}:mapRun:{sm_name}/{label}:{new_uuid()}"
-    max_conc = int(state_def.get("MaxConcurrency") or 0)
+    batcher = state_def.get("ItemBatcher")
+    item_selector = state_def.get("ItemSelector") or state_def.get("Parameters")
+    if batcher:
+        units = _item_batches(batcher, item_selector, items, raw_input, effective, ctx, is_jsonata)
+    else:
+        units = [(item, 1) for item in items]
     tolerated_pct = float(state_def.get("ToleratedFailurePercentage") or 0)
     tolerated_count = int(state_def.get("ToleratedFailureCount") or 0)
     zero = {k: 0 for k in ("pending", "running", "succeeded", "failed", "timedOut", "aborted", "total", "resultsWritten",
@@ -2806,19 +2846,20 @@ def _run_distributed_map(state_def, raw_input, effective, iterator, execution, c
         "mapRunArn": map_run_arn, "executionArn": execution["executionArn"], "status": "RUNNING",
         "startDate": now_iso(), "maxConcurrency": max_conc, "toleratedFailurePercentage": tolerated_pct,
         "toleratedFailureCount": tolerated_count, "itemCounts": dict(zero, total=len(items), pending=len(items)),
-        "executionCounts": dict(zero, total=len(items), pending=len(items)), "redriveCount": 0,
+        "executionCounts": dict(zero, total=len(units), pending=len(units)), "redriveCount": 0,
         "_stateMachineArn": child_sm_arn,
     }
     _map_runs[map_run_arn] = run
-    item_selector = state_def.get("ItemSelector") or state_def.get("Parameters")
-    results = [None] * len(items)
-    failures = [None] * len(items)
+    results = [None] * len(units)
+    failures = [None] * len(units)
     lock = threading.Lock()
 
-    def run_child(idx, item):
-        item_ctx = copy.deepcopy(ctx)
-        item_ctx["Map"] = {"Item": {"Index": idx, "Value": item}}
-        child_input = _resolve_params_obj(item_selector, effective, item_ctx) if item_selector else item
+    def run_child(idx, item, n_items):
+        if batcher:
+            # The item is a batch. A batched child's context has no Map key, as on AWS.
+            child_input, item_ctx = item, copy.deepcopy(ctx)
+        else:
+            child_input, item_ctx = _select_map_item(item_selector, idx, item, raw_input, effective, ctx, is_jsonata)
         name = new_uuid()
         child = {
             "executionArn": f"arn:aws:states:{region}:{account}:execution:{sm_name}/{label}:{name}",
@@ -2829,9 +2870,9 @@ def _run_distributed_map(state_def, raw_input, effective, iterator, execution, c
         }
         _executions[child["executionArn"]] = child
         with lock:
-            for counts in (run["itemCounts"], run["executionCounts"]):
-                counts["pending"] -= 1
-                counts["running"] += 1
+            for counts, n in ((run["itemCounts"], n_items), (run["executionCounts"], 1)):
+                counts["pending"] -= n
+                counts["running"] += n
         try:
             results[idx] = _run_sub_machine(iterator.get("States", {}), iterator.get("StartAt"),
                                             child_input, child, item_ctx)
@@ -2844,15 +2885,17 @@ def _run_distributed_map(state_def, raw_input, effective, iterator, execution, c
             outcome = "failed"
         child["stopDate"] = now_iso()
         with lock:
-            for counts in (run["itemCounts"], run["executionCounts"]):
-                counts["running"] -= 1
-                counts[outcome] += 1
+            for counts, n in ((run["itemCounts"], n_items), (run["executionCounts"], 1)):
+                counts["running"] -= n
+                counts[outcome] += n
 
-    workers = max_conc if max_conc > 0 else (min(len(items), 64) or 1)
+    workers = max_conc if max_conc > 0 else (min(len(units), 64) or 1)
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures_wait([pool.submit(contextvars.copy_context().run, run_child, i, item) for i, item in enumerate(items)])
+        futures_wait([pool.submit(contextvars.copy_context().run, run_child, i, unit, n)
+                      for i, (unit, n) in enumerate(units)])
 
-    failed = sum(1 for f in failures if f is not None)
+    # A failed batch counts all of its items as failed, as on AWS.
+    failed = sum(units[i][1] for i, f in enumerate(failures) if f is not None)
     limits = []
     if "ToleratedFailureCount" in state_def:
         limits.append(failed > tolerated_count)
@@ -2865,11 +2908,66 @@ def _run_distributed_map(state_def, raw_input, effective, iterator, execution, c
     if exceeded:
         raise _ExecutionError("States.ExceedToleratedFailureThreshold",
                               "The specified tolerated failure threshold was exceeded")
+    if is_jsonata:
+        output = _apply_jsonata_output(state_def, raw_input, ctx, result=results, default=results)
+        _apply_state_assign(state_def, raw_input, ctx, result=results)
+        return output, _next_or_end(state_def)
     result = _apply_result_selector(state_def, results)
     output = _apply_result_path(state_def, raw_input, result)
     output = _apply_output_path(state_def, output, ctx)
     _apply_state_assign(state_def, raw_input, ctx, result=results)
     return output, _next_or_end(state_def)
+
+
+def _select_map_item(item_selector, idx, item, raw_input, effective, ctx, is_jsonata):
+    """The child input for one Map item, and the context with $$.Map.Item that the ItemSelector reads."""
+    item_ctx = copy.deepcopy(ctx)
+    item_ctx["Map"] = {"Item": {"Index": idx, "Value": item}}
+    if not item_selector:
+        return item, item_ctx
+    if is_jsonata:
+        return _apply_jsonata_template(item_selector, raw_input, item_ctx), item_ctx
+    return _resolve_params_obj(item_selector, effective, item_ctx), item_ctx
+
+
+def _item_batches(batcher, item_selector, items, raw_input, effective, ctx, is_jsonata):
+    """The ItemBatcher batches in item order, each as (child input, number of items). A batch ends at
+    MaxItemsPerBatch items, or before the compact UTF-8 JSON of the child input passes MaxInputBytesPerBatch."""
+    selected = [_select_map_item(item_selector, i, item, raw_input, effective, ctx, is_jsonata)[0]
+                for i, item in enumerate(items)]
+    max_items = _item_batcher_limit(batcher, "MaxItemsPerBatch", raw_input, effective, ctx, is_jsonata)
+    # Without a byte limit a batch still stops at 256 KiB (AWS ItemBatcher doc).
+    max_bytes = _item_batcher_limit(batcher, "MaxInputBytesPerBatch", raw_input, effective, ctx, is_jsonata) or 262144
+    envelope = {}
+    if "BatchInput" in batcher:
+        envelope["BatchInput"] = (_apply_jsonata_template(batcher["BatchInput"], raw_input, ctx) if is_jsonata
+                                  else _resolve_params_obj(batcher["BatchInput"], effective, ctx))
+    base = _json_bytes({**envelope, "Items": []})
+    batches, current, size = [], [], base
+    for item in selected:
+        item_size = _json_bytes(item)
+        new_size = size + item_size + (1 if current else 0)
+        if current and ((max_items and len(current) == max_items) or (max_bytes and new_size > max_bytes)):
+            batches.append(current)
+            current, new_size = [], base + item_size
+        current.append(item)
+        size = new_size
+    if current:
+        batches.append(current)
+    return [({**envelope, "Items": batch}, len(batch)) for batch in batches]
+
+
+def _item_batcher_limit(batcher, field, raw_input, effective, ctx, is_jsonata):
+    """An ItemBatcher limit from a JSONata expression, a <field>Path, or a value. None when it is not set."""
+    if is_jsonata and field in batcher:
+        return _jsonata_state_field(batcher, field, "number", raw_input, ctx)
+    if f"{field}Path" in batcher:
+        return _resolve_path_or_ctx(batcher[f"{field}Path"], effective, ctx)
+    return batcher.get(field)
+
+
+def _json_bytes(value):
+    return len(json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
 
 
 # ---------------------------------------------------------------------------
@@ -2880,7 +2978,8 @@ def _run_sub_machine(states, start_at, input_data, execution, ctx):
     current_name = start_at
     current_input = copy.deepcopy(input_data)
 
-    while current_name:
+    # A stopped execution starts no more states in a Map or Parallel branch, as on AWS.
+    while current_name and execution["status"] == "RUNNING":
         state_def = states.get(current_name)
         if not state_def:
             raise _ExecutionError(
@@ -2889,12 +2988,14 @@ def _run_sub_machine(states, start_at, input_data, execution, ctx):
         state_type = state_def.get("Type")
         ctx["State"] = {"Name": current_name, "EnteredTime": now_iso(), "RetryCount": 0}
 
-        _add_event(execution, f"{state_type}StateEntered", {
+        entered = _add_event(execution, f"{state_type}StateEntered", {
             "stateEnteredEventDetails": {
                 "name": current_name,
                 "input": json.dumps(current_input),
             },
         })
+        if state_type == "Map":
+            _check_inline_map_fields(state_def, current_name, entered["id"])
 
         if state_type == "Succeed":
             current_input = _apply_input_path(state_def, current_input, ctx)
@@ -2925,9 +3026,15 @@ def _run_sub_machine(states, start_at, input_data, execution, ctx):
         if state_type in ("Task", "Parallel", "Map"):
             current_input, next_name = handler_fn(
                 state_def, current_input, execution, ctx)
+        elif state_type == "Wait":
+            current_input, next_name = handler_fn(
+                state_def, current_input, ctx, execution=execution)
         else:
             current_input, next_name = handler_fn(
                 state_def, current_input, ctx)
+
+        if execution["status"] != "RUNNING":
+            break
 
         _add_event(execution, f"{state_type}StateExited", {
             "stateExitedEventDetails": {
@@ -3886,8 +3993,9 @@ def _invoke_nested_start_execution_sync(resource, input_data):
         )
 
     if payload.get("status") != "SUCCEEDED":
-        error, cause = _nested_execution_failure(payload)
-        raise _ExecutionError(error, cause)
+        # The response has no error or cause for a stopped child, so read its record.
+        child = _executions.get(payload.get("executionArn")) or payload
+        raise _ExecutionError(*_nested_execution_failure(child))
 
     output_value = payload.get("output") or "{}"
     if resource.endswith(".sync:2") and isinstance(output_value, str):
@@ -3931,19 +4039,31 @@ def _nested_start_execution_request(input_data):
     return request
 
 
-def _nested_execution_failure(payload):
-    output = payload.get("output")
-    if isinstance(output, str):
-        try:
-            decoded = json.loads(output)
-        except json.JSONDecodeError:
-            decoded = None
-        if isinstance(decoded, dict) and decoded.get("Error"):
-            return decoded["Error"], decoded.get("Cause", "")
+def _nested_execution_failure(child):
+    """Return the error and cause that a .sync parent Task fails with when its child doesn't succeed.
 
-    execution_arn = payload.get("executionArn", "")
-    status = payload.get("status", "FAILED")
-    return "States.TaskFailed", f"Nested execution {execution_arn} ended with status {status}"
+    AWS always uses States.TaskFailed. The cause is the child's DescribeExecution
+    response as compact JSON with sorted keys.
+    """
+    describe = {
+        "ExecutionArn": child.get("executionArn"),
+        "Input": child.get("input", "{}"),
+        "InputDetails": {"Included": True},
+        "Name": child.get("name"),
+        "RedriveCount": 0,
+        # AWS reported REDRIVABLE for a FAILED, TIMED_OUT and ABORTED child.
+        "RedriveStatus": "REDRIVABLE",
+        "StartDate": _iso_to_epoch_ms(child.get("startDate")),
+        "StateMachineArn": child.get("stateMachineArn"),
+        "Status": child.get("status"),
+        "StopDate": _iso_to_epoch_ms(child.get("stopDate")),
+    }
+    # AWS leaves out both keys for a timed-out child, which has no error or cause.
+    if child.get("error"):
+        describe["Error"] = child["error"]
+    if child.get("cause"):
+        describe["Cause"] = child["cause"]
+    return "States.TaskFailed", json.dumps(describe, separators=(",", ":"), sort_keys=True)
 
 
 def _invoke_sqs_send_message(resource, input_data):

@@ -365,6 +365,7 @@ class CreateTrustAnchorRequestTypeDef(TypedDict):
     name: str
     source: SourceTypeDef
     enabled: NotRequired[bool]
+    crlDpRevocationEnabled: NotRequired[bool]
     tags: NotRequired[Sequence[TagTypeDef]]
     notificationSettings: NotRequired[Sequence[NotificationSettingTypeDef]]
 
@@ -374,6 +375,7 @@ class TrustAnchorDetailTypeDef(TypedDict):
     name: NotRequired[str]
     source: NotRequired[SourceTypeDef]
     enabled: NotRequired[bool]
+    crlDpRevocationEnabled: NotRequired[bool]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
     notificationSettings: NotRequired[list[NotificationSettingDetailTypeDef]]
@@ -382,6 +384,7 @@ class UpdateTrustAnchorRequestTypeDef(TypedDict):
     trustAnchorId: str
     name: NotRequired[str]
     source: NotRequired[SourceTypeDef]
+    crlDpRevocationEnabled: NotRequired[bool]
 
 class DeleteAttributeMappingResponseTypeDef(TypedDict):
     profile: ProfileDetailTypeDef

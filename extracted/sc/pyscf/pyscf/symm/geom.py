@@ -669,7 +669,7 @@ class SymmSys:
             r0 = self.atoms[lst,1:]
             r1 = numpy.dot(r0, op)
             # FIXME: compare whether two sets of coordinates are identical
-            yield all((_vec_in_vecs(x, r0) for x in r1))
+            yield all(_vec_in_vecs(x, r0) for x in r1)
 
     def has_icenter(self):
         return all(self.symmetric_for(-1))
@@ -735,8 +735,8 @@ class SymmSys:
                 seen[where1] = True
                 seen[where2] = True
 
-                vk = _normalize((numpy.einsum('ix->x', vecs[where1]) -
-                                 numpy.einsum('ix->x', vecs[where2])))
+                vk = _normalize(numpy.einsum('ix->x', vecs[where1]) -
+                                 numpy.einsum('ix->x', vecs[where2]))
                 for n in (set(ns[where1]) | set(ns[where2])):
                     possible_cn.append((vk,n))
         return possible_cn
@@ -930,30 +930,3 @@ def _refine(axes):
     if numpy.linalg.det(axes) < 0:
         axes[y_id] *= -1
     return axes
-
-
-if __name__ == "__main__":
-    atom = [["O" , (1. , 0.    , 0.   ,)],
-            ['H' , (0. , -.757 , 0.587,)],
-            ['H' , (0. , 0.757 , 0.587,)] ]
-    gpname, orig, axes = detect_symm(atom)
-    atom = shift_atom(atom, orig, axes)
-    print(gpname, symm_identical_atoms(gpname, atom))
-
-    atom = [['H', (0,0,0)], ['H', (0,0,-1)], ['H', (0,0,1)]]
-    gpname, orig, axes = detect_symm(atom)
-    print(gpname, orig, axes)
-    atom = shift_atom(atom, orig, axes)
-    print(gpname, symm_identical_atoms(gpname, atom))
-
-    atom = [['H', (0., 0., 0.)],
-            ['H', (0., 0., 1.)],
-            ['H', (0., 1., 0.)],
-            ['H', (1., 0., 0.)],
-            ['H', (-1, 0., 0.)],
-            ['H', (0.,-1., 0.)],
-            ['H', (0., 0.,-1.)]]
-    gpname, orig, axes = detect_symm(atom)
-    print(gpname, orig, axes)
-    atom = shift_atom(atom, orig, axes)
-    print(gpname, symm_identical_atoms(subgroup(gpname, axes)[0], atom))

@@ -3,18 +3,12 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.contrib import messages
 
-try:
-    from django.views.decorators.csrf import csrf_exempt
-except ImportError:
-    from django.contrib.csrf.middleware import csrf_exempt
-
 from .forms import BookmarkForm
 from .models import Bookmark
-from admin_tools.utils import is_xhr
+from admin_tools.utils import get_safe_next_url, is_xhr
 
 
 @staff_member_required
-@csrf_exempt
 def add_bookmark(request):
     """
     This view serves and validates a bookmark form.
@@ -27,8 +21,9 @@ def add_bookmark(request):
             bookmark = form.save()
             if not is_xhr(request):
                 messages.success(request, "Bookmark added")
-                if request.POST.get("next"):
-                    return HttpResponseRedirect(request.POST.get("next"))
+                next_url = get_safe_next_url(request)
+                if next_url:
+                    return HttpResponseRedirect(next_url)
                 return HttpResponse("Added")
             return render(
                 request,
@@ -45,9 +40,8 @@ def add_bookmark(request):
 
 
 @staff_member_required
-@csrf_exempt
 def edit_bookmark(request, id):
-    bookmark = get_object_or_404(Bookmark, id=id)
+    bookmark = get_object_or_404(Bookmark, id=id, user=request.user)
     if request.method == "POST":
         form = BookmarkForm(
             user=request.user, data=request.POST, instance=bookmark
@@ -56,8 +50,9 @@ def edit_bookmark(request, id):
             form.save()
             if not is_xhr(request):
                 messages.success(request, "Bookmark updated")
-                if request.POST.get("next"):
-                    return HttpResponseRedirect(request.POST.get("next"))
+                next_url = get_safe_next_url(request)
+                if next_url:
+                    return HttpResponseRedirect(next_url)
             return HttpResponse("Saved")
     else:
         form = BookmarkForm(user=request.user, instance=bookmark)
@@ -69,7 +64,6 @@ def edit_bookmark(request, id):
 
 
 @staff_member_required
-@csrf_exempt
 def remove_bookmark(request, id):
     """
     This view deletes a bookmark.
@@ -81,8 +75,9 @@ def remove_bookmark(request, id):
         bookmark.delete()
         if not is_xhr(request):
             messages.success(request, "Bookmark removed")
-            if request.POST.get("next"):
-                return HttpResponseRedirect(request.POST.get("next"))
+            next_url = get_safe_next_url(request)
+            if next_url:
+                return HttpResponseRedirect(next_url)
             return HttpResponse("Deleted")
         return render(
             request,

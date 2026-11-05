@@ -1,14 +1,20 @@
 import json
 from pathlib import Path
 
-from .reference_feed_keys import accept_probability, feed_keys, original_prediction_fields, stale_star_feed_key, star_feed_key
+from .reference_feed_keys import (accept_probability, content_needed_key, feed_keys, medium_feed_key, medium_key_patch, moved_content_key,
+                                  original_prediction_fields, stale_feed_keys, stale_star_feed_key, star_feed_key)
 
 VECTORS = json.loads((Path(__file__).resolve().parents[2] / "scripts" / "fixtures" / "reference-feed-key-vectors.json").read_text())
 
 
 def test_the_keys_match_the_vectors_the_typescript_twin_is_tested_against():
     for vector in VECTORS:
-        assert feed_keys(vector["reference"]) == vector["keys"], vector["name"]   # never carries the star key: callers spread it on partial patches
+        # never carries the star key: callers spread it on partial patches; the medium key is checked on its own below
+        assert {key: value for key, value in feed_keys(vector["reference"]).items() if key not in ("mediumFeedKey", "contentNeededKey")} == vector["keys"], vector["name"]
+        if "contentNeededKey" in vector:
+            assert content_needed_key(vector["reference"]) == vector["contentNeededKey"], vector["name"]
+        if "mediumFeedKey" in vector:
+            assert medium_feed_key(vector["reference"]) == vector["mediumFeedKey"], vector["name"]
         if "starFeedKey" in vector:
             reference = vector["reference"]
             assert star_feed_key(reference.get("corpusId"), reference.get("starRating")) == vector["starFeedKey"], vector["name"]
@@ -55,3 +61,57 @@ def test_the_backfill_covers_the_site_corpus_named_corpora_or_every_corpus():
     assert corpus_ids_for(Client(), site="site", corpus_keys="a", all_corpora=True) == ["knowledge-corpus-a", "knowledge-corpus-b"]
     with pytest.raises(ValueError, match="needs"):
         corpus_ids_for(Client(), site=None, corpus_keys=None, all_corpora=False)
+
+
+VIDEO = "https://youtu.be/dQw4w9WgXcQ"
+
+
+def test_the_medium_key_follows_the_vote_and_lists_each_status_apart():
+    base = {"id": "r", "corpusId": "c", "sourceUri": VIDEO, "versionState": "current"}
+    assert medium_feed_key({**base, "curationStatus": "accepted"}) == "c#video#accepted"
+    assert medium_feed_key({**base, "curationStatus": "pending"}) == "c#video#pending"
+    assert medium_feed_key({**base, "curationStatus": "rejected"}) == "c#video#rejected"
+    assert medium_feed_key({**base, "curationStatus": "archived"}) is None
+    assert medium_feed_key({**base, "curationStatus": "accepted", "versionState": "superseded"}) is None
+    assert medium_feed_key({**base, "curationStatus": "accepted", "sourceUri": "https://example.org/a"}) is None
+    assert medium_feed_key({**base, "curationStatus": "accepted", "corpusId": None}) is None
+    assert medium_feed_key({**base, "curationStatus": "accepted", "sourceUri": None, "medium": "video"}) == "c#video#accepted"
+
+
+def test_feed_keys_carry_the_medium_key_only_when_there_is_one_to_set_or_clear():
+    ordinary = feed_keys({"id": "r", "corpusId": "c", "curationStatus": "pending", "sourceUri": "https://example.org/a"})
+    assert "mediumFeedKey" not in ordinary   # an explicit null on a new row's index key is not a missing attribute
+    assert feed_keys({"id": "r", "corpusId": "c", "curationStatus": "pending", "sourceUri": VIDEO})["mediumFeedKey"] == "c#video#pending"
+    assert feed_keys({"id": "r", "corpusId": "c", "curationStatus": "archived", "sourceUri": VIDEO, "mediumFeedKey": "c#video#pending"})["mediumFeedKey"] is None
+
+
+def test_the_feed_key_backfill_leaves_the_medium_key_to_the_medium_backfill():
+    assert "mediumFeedKey" not in stale_feed_keys({"id": "r", "corpusId": "c", "curationStatus": "pending", "sourceUri": VIDEO, "versionState": "current"})
+
+
+def test_a_vote_patch_names_the_medium_key_only_for_a_reference_with_a_medium():
+    video = {"id": "r", "corpusId": "c", "sourceUri": VIDEO, "curationStatus": "pending", "versionState": "current"}
+    assert medium_key_patch(video, curationStatus="accepted") == {"mediumFeedKey": "c#video#accepted"}
+    assert medium_key_patch(video, curationStatus="archived") == {"mediumFeedKey": None}
+    assert medium_key_patch({**video, "sourceUri": "https://example.org/a"}, curationStatus="accepted") == {}
+    assert medium_key_patch({**video, "sourceUri": "https://example.org/a", "mediumFeedKey": "c#video#pending"}, curationStatus="accepted") == {"mediumFeedKey": None}
+
+
+def test_a_held_content_key_moves_with_a_vote_and_leaves_on_archive_without_reading_the_capture_state():
+    held = {"corpusId": "c", "curationStatus": "pending", "medium": "video", "mediumFeedKey": "c#video#pending", "contentNeededKey": "c#video#needs_content#pending"}
+    assert medium_key_patch(held, curationStatus="accepted") == {"mediumFeedKey": "c#video#accepted", "contentNeededKey": "c#video#needs_content#accepted"}
+    assert medium_key_patch(held, curationStatus="archived") == {"mediumFeedKey": None, "contentNeededKey": None}
+    assert medium_key_patch(held, versionState="superseded") == {"mediumFeedKey": None, "contentNeededKey": None}
+    assert moved_content_key("c#video#needs_content#pending", {**held, "curationStatus": "rejected"}) == "c#video#needs_content#rejected"
+
+
+def test_a_vote_on_a_video_that_holds_no_content_key_names_no_content_field():
+    captured = {"corpusId": "c", "curationStatus": "pending", "medium": "video", "mediumFeedKey": "c#video#pending", "captureState": "full"}
+    assert medium_key_patch(captured, curationStatus="accepted") == {"mediumFeedKey": "c#video#accepted"}
+
+
+def test_the_stale_feed_key_check_leaves_the_content_key_to_the_backfill_and_the_capture_sync():
+    video = {"id": "r", "corpusId": "c", "curationStatus": "accepted", "medium": "video", "versionState": "current", "createdAt": "2026-11-01T00:00:00Z"}
+    assert "contentNeededKey" not in stale_feed_keys(video)
+    assert feed_keys(video)["contentNeededKey"] == "c#video#needs_content#accepted"
+    assert "contentNeededKey" not in feed_keys({**video, "medium": None, "sourceUri": "https://example.org/a"})

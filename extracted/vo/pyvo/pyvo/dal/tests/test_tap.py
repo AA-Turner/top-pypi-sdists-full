@@ -19,12 +19,15 @@ import requests_mock
 
 from pyvo import dal
 from pyvo.dal.tap import escape, search, AsyncTAPJob, TAPService
-from pyvo.dal import DALQueryError, DALServiceError, DALOverflowWarning, DALRateLimitError
+from pyvo.dal import (
+    DALQueryError, DALServiceError, DALOverflowWarning, DALRateLimitError,
+    DALJobTimeoutError)
 from pyvo.io.uws import JobFile
 from pyvo.io.uws.tree import Parameter, Result, ErrorSummary, Message
 from pyvo.auth.authsession import AuthSession
 from pyvo.io.vosi.exceptions import VOSIError
 from pyvo.utils import prototype
+from pyvo.io.vosi.tapregext import TimeLimits, TableAccess
 
 from astropy.time import Time, TimeDelta
 
@@ -395,33 +398,53 @@ def async_fixture_with_timeout(mocker):
     yield from mock_server.use(mocker)
 
 
-@pytest.fixture()
-def tables(mocker):
-    def callback_tables(request, context):
-        return get_pkg_data_contents('data/tap/tables.xml')
+def make_tables_fixture(custom_auth=False):
+    """
+    Returns and registers a pytest fixture to expect tables HTTP calls.
 
-    def callback_table1(request, context):
-        return get_pkg_data_contents('data/tap/lazy-table1.xml')
+    If custom_auth is true, then an auth header will be expected in all calls.
+    """
+    kwargs = {}
+    if custom_auth:
+        kwargs['request_headers'] = {'Authorization': 'Bearer some-token'}
 
-    def callback_table2(request, context):
-        return get_pkg_data_contents('data/tap/lazy-table2.xml')
+    def fixture(mocker, request):
+        def callback_tables(request, context):
+            return get_pkg_data_contents('data/tap/tables.xml')
 
-    with ExitStack() as stack:
-        matchers = {
-            'tables': stack.enter_context(mocker.register_uri(
-                'GET', 'http://example.com/tap/tables', content=callback_tables
-            )),
-            'table1': stack.enter_context(mocker.register_uri(
-                'GET', 'http://example.com/tap/tables/test.table1',
-                content=callback_table1
-            )),
-            'table2': stack.enter_context(mocker.register_uri(
-                'GET', 'http://example.com/tap/tables/test.table2',
-                content=callback_table2
-            )),
-        }
+        def callback_table1(request, context):
+            return get_pkg_data_contents('data/tap/lazy-table1.xml')
 
-        yield matchers
+        def callback_table2(request, context):
+            return get_pkg_data_contents('data/tap/lazy-table2.xml')
+
+        with ExitStack() as stack:
+            matchers = {
+                'tables': stack.enter_context(mocker.register_uri(
+                    'GET', 'http://example.com/tap/tables', content=callback_tables,
+                    **kwargs
+                )),
+                'table1': stack.enter_context(mocker.register_uri(
+                    'GET', 'http://example.com/tap/tables/test.table1',
+                    content=callback_table1, **kwargs
+                )),
+                'table2': stack.enter_context(mocker.register_uri(
+                    'GET', 'http://example.com/tap/tables/test.table2',
+                    content=callback_table2, **kwargs
+                )),
+            }
+
+            yield matchers
+
+    return pytest.fixture(fixture)
+
+
+tables = make_tables_fixture()
+"""A fixture to expect tables HTTP requests with no auth."""
+
+
+tables_custom_auth = make_tables_fixture(custom_auth=True)
+"""A fixture to expect tables HTTP requests with auth."""
 
 
 @pytest.fixture()
@@ -517,7 +540,13 @@ class TestTAPService:
         assert service.capability_description == description
         assert str(service) == f"""TAPService(baseurl : '{url}', description : '{description}')"""
 
-    def _test_tables(self, table1, table2):
+    def _test_tables(self, vositables):
+        assert list(vositables.keys()) == ['test.table1', 'test.table2']
+
+        assert "test.table1" in vositables
+        assert "any.random.stuff" not in vositables
+
+        table1, table2 = list(vositables)
         assert table1.description == 'Lazy Test Table 1'
         assert table1.title == 'Test table 1'
 
@@ -527,15 +556,14 @@ class TestTAPService:
     @pytest.mark.usefixtures('tables')
     def test_tables(self):
         service = TAPService('http://example.com/tap')
-        vositables = service.tables
+        self._test_tables(service.tables)
 
-        assert list(vositables.keys()) == ['test.table1', 'test.table2']
-
-        assert "test.table1" in vositables
-        assert "any.random.stuff" not in vositables
-
-        table1, table2 = list(vositables)
-        self._test_tables(table1, table2)
+    @pytest.mark.usefixtures('tables_custom_auth')
+    def test_tables_custom_auth(self):
+        session = requests.Session()
+        session.headers = {'Authorization': 'Bearer some-token'}
+        service = TAPService('http://example.com/tap', session=session)
+        self._test_tables(service.tables)
 
     def _test_examples(self, parsed_examples):
         assert len(parsed_examples) == 6
@@ -562,6 +590,16 @@ class TestTAPService:
         service = TAPService('http://example.com/tap')
 
         assert service.hardlimit == 10000000
+
+    @pytest.mark.usefixtures('capabilities')
+    def test_get_maxrec_no_mode(self):
+        service = TAPService('http://example.com/tap')
+        assert service.get_maxrec() == 20000
+
+    @pytest.mark.usefixtures('capabilities')
+    def test_get_hardlimit_no_mode(self):
+        service = TAPService('http://example.com/tap')
+        assert service.get_hardlimit() == 10000000
 
     @pytest.mark.usefixtures('capabilities')
     def test_upload_methods(self):
@@ -607,6 +645,28 @@ class TestTAPService:
         _test_image_results(results)
         # make sure that delete was not called
         mock_delete.assert_not_called()
+
+    @pytest.mark.usefixtures('async_fixture')
+    @pytest.mark.filterwarnings("ignore::astropy.io.votable.exceptions.W27")
+    @pytest.mark.filterwarnings("ignore::astropy.io.votable.exceptions.W48")
+    @pytest.mark.filterwarnings("ignore::astropy.io.votable.exceptions.W06")
+    def test_run_async_uses_timeout_from_capabilities(self, monkeypatch):
+
+        service = TAPService('http://example.com/tap')
+        mock_wait = Mock(return_value=Mock(
+            phase='COMPLETED', raise_if_error=Mock(), result=Mock()))
+        monkeypatch.setattr(AsyncTAPJob, "wait", mock_wait)
+
+        async_limit = TimeLimits()
+        async_limit.for_mode = 'async'
+        async_limit._default = 7200
+
+        mock_cap = Mock(spec=TableAccess)
+        mock_cap.get_executionduration = Mock(return_value=async_limit)
+        monkeypatch.setattr(service, "get_tap_capability", Mock(return_value=mock_cap))
+
+        service.run_async("SELECT * FROM ivoa.obscore", delete=False)
+        mock_wait.assert_called_once_with(timeout=7200.0)
 
     @pytest.mark.usefixtures('async_fixture')
     @pytest.mark.filterwarnings("ignore::astropy.io.votable.exceptions.W27")
@@ -1288,6 +1348,104 @@ class TestTAPService:
 
             with pytest.raises(DALServiceError):
                 job.fetch_result()
+
+        job.delete()
+
+    @pytest.mark.usefixtures('async_fixture')
+    def test_wait_retries_transient_network_error(self, monkeypatch):
+        monkeypatch.setattr('pyvo.dal.tap.sleep', lambda seconds: None)
+
+        service = TAPService('http://example.com/tap')
+        job = service.submit_job("SELECT * FROM ivoa.obscore")
+        job.run()
+
+        with requests_mock.Mocker() as rm:
+            rm.get(job.url, [
+                {'exc': requests.exceptions.ConnectionError()},
+                {'content': get_index_job("COMPLETED")},
+            ])
+            job.wait()
+
+        assert rm.call_count == 2
+        assert job._job.phase == "COMPLETED"
+
+        job.delete()
+
+    @pytest.mark.usefixtures('async_fixture')
+    def test_wait_does_not_retry_non_transient_error(self, monkeypatch):
+        monkeypatch.setattr('pyvo.dal.tap.sleep', lambda seconds: None)
+
+        service = TAPService('http://example.com/tap')
+        job = service.submit_job("SELECT * FROM ivoa.obscore")
+        job.run()
+
+        with requests_mock.Mocker() as rm:
+            rm.get(job.url, status_code=500)
+
+            with pytest.raises(DALServiceError) as excinfo:
+                job.wait()
+
+        assert rm.call_count == 1
+        assert not isinstance(excinfo.value, DALJobTimeoutError)
+
+        job.delete()
+
+    @pytest.mark.usefixtures('async_fixture')
+    def test_wait_timeout_raises_job_timeout_error(self, monkeypatch):
+        monkeypatch.setattr('pyvo.dal.tap.sleep', lambda seconds: None)
+
+        service = TAPService('http://example.com/tap')
+        job = service.submit_job("SELECT * FROM ivoa.obscore")
+        job.run()
+
+        with requests_mock.Mocker() as rm:
+            rm.get(job.url, content=get_index_job("EXECUTING"))
+
+            with pytest.raises(DALJobTimeoutError) as excinfo:
+                job.wait(timeout=0.3)
+
+        assert rm.call_count >= 1
+        assert isinstance(excinfo.value, DALServiceError)
+        assert "EXECUTING" in str(excinfo.value)
+        assert "HTTPSConnectionPool" not in str(excinfo.value)
+
+        job.delete()
+
+    @pytest.mark.usefixtures('async_fixture')
+    def test_wait_bounds_uws_wait_parameter_below_timeout(self, monkeypatch):
+        monkeypatch.setattr('pyvo.dal.tap.sleep', lambda seconds: None)
+
+        service = TAPService('http://example.com/tap')
+        job = service.submit_job("SELECT * FROM ivoa.obscore")
+        job.run()
+
+        with requests_mock.Mocker() as rm:
+            rm.get(job.url, content=get_index_job("COMPLETED"))
+            job.wait(timeout=10)
+
+        wait_sent = int(rm.request_history[0].qs['wait'][0])
+        assert 1 <= wait_sent < 10
+
+        job.delete()
+
+    @pytest.mark.usefixtures('async_fixture')
+    def test_wait_backoff_sleep_capped_to_remaining_budget(self, monkeypatch):
+        sleep_calls = []
+        monkeypatch.setattr(
+            'pyvo.dal.tap.sleep', lambda seconds: sleep_calls.append(seconds))
+
+        service = TAPService('http://example.com/tap')
+        job = service.submit_job("SELECT * FROM ivoa.obscore")
+        job.run()
+
+        with requests_mock.Mocker() as rm:
+            rm.get(job.url, content=get_index_job("EXECUTING"))
+
+            with pytest.raises(DALJobTimeoutError):
+                job.wait(timeout=0.2)
+
+        assert sleep_calls
+        assert all(seconds <= 0.2 for seconds in sleep_calls)
 
         job.delete()
 

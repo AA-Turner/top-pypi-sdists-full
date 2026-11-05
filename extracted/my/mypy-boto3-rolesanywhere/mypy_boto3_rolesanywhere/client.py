@@ -91,6 +91,7 @@ class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
     TooManyTagsException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 

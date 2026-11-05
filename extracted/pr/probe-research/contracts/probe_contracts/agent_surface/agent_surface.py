@@ -222,13 +222,15 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
 }
 
 
-#: One agent-facing line per view (what it returns, no history), for the error a wrong view raises.
-#: `available_views` stays bare (`_views_offered`, MCP service); a view absent here prints bare. DESIGN.md.
+#: One agent-facing line per view (what it returns, no history), for the error a wrong view raises
+#: and the MCP `entity` schema. `available_views` stays bare (`_views_offered`, MCP service); a view
+#: absent here prints bare. DESIGN.md. These are the MCP reads: the page writer's own `summary`
+#: reads only the person-written block (app/generation/agent/views/readers/summaries.py).
 VIEW_PURPOSE: dict[View, str] = {
     View.CARD: "identity, status, and this kind's available_views",
     View.RECORD: "the raw source record, pageable; one field via view_options.field",
-    View.SUMMARY: "the person-written block of the Overview page (`document`)",
-    View.OVERVIEW: "the complete saved Overview page: generated content, authored edits and chart data",
+    View.SUMMARY: "the dashboard's Summary tab as text (Markdown; charts as placeholders)",
+    View.OVERVIEW: "the same Summary page as saved HTML, with its chart data",
     View.NOTES: "hidden operational notes: decisions, caveats, handoffs",
     View.ARTIFACTS: "the files the work produced at this grain",
     View.VERSIONS: "an artifact's or dataset's versions (a checkpoint: its run's saves); the reuse check",

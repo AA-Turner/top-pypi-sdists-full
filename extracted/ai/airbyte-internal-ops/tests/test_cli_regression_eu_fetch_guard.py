@@ -27,14 +27,14 @@ def cli(monkeypatch: pytest.MonkeyPatch) -> Mock:
     stubs = Mock()
     stubs.github_outputs = {}
     stubs.get_connection_residency = Mock(return_value="us")
-    stubs.is_running_on_eu_runner = Mock(return_value=False)
+    stubs.is_running_in_eu_region = Mock(return_value=False)
     stubs.fetch_connection_data = Mock(side_effect=_FetchReachedError)
 
     monkeypatch.setenv("USE_CONNECTION_SECRET_RETRIEVER", "true")
     monkeypatch.setattr(
         cloud, "get_connection_residency", stubs.get_connection_residency
     )
-    monkeypatch.setattr(cloud, "is_running_on_eu_runner", stubs.is_running_on_eu_runner)
+    monkeypatch.setattr(cloud, "is_running_in_eu_region", stubs.is_running_in_eu_region)
     monkeypatch.setattr(cloud, "fetch_connection_data", stubs.fetch_connection_data)
     monkeypatch.setattr(
         cloud,
@@ -72,14 +72,14 @@ def test_eu_connection_is_refused_before_the_fetch_off_the_eu_runner(
 
     assert exc_info.value.code == 1
     cli.get_connection_residency.assert_called_once_with(CONNECTION_ID)
-    cli.is_running_on_eu_runner.assert_called_once_with()
+    cli.is_running_in_eu_region.assert_called_once_with()
     cli.fetch_connection_data.assert_not_called()
     assert cli.github_outputs["success"] is False
     assert cli.github_outputs["error"] == (
-        f"{cloud.EU_RUNNER_REQUIRED_MESSAGE}; connection ID {CONNECTION_ID} was "
+        f"{cloud.EU_REGION_REQUIRED_MESSAGE}; connection ID {CONNECTION_ID} was "
         "refused before its config or catalog was fetched."
     )
-    assert "only permitted on the EU regression runner" in " ".join(
+    assert "only permitted in the EU region" in " ".join(
         capsys.readouterr().err.split()
     )
 
@@ -87,7 +87,7 @@ def test_eu_connection_is_refused_before_the_fetch_off_the_eu_runner(
 def test_eu_connection_on_the_eu_runner_is_fetched(tmp_path: Path, cli: Mock) -> None:
     """On the EU runner, the guard lets an EU connection through to the fetch."""
     cli.get_connection_residency.return_value = "eu"
-    cli.is_running_on_eu_runner.return_value = True
+    cli.is_running_in_eu_region.return_value = True
 
     with pytest.raises(_FetchReachedError):
         _run(tmp_path)
@@ -101,7 +101,7 @@ def test_us_connection_off_the_eu_runner_is_fetched(tmp_path: Path, cli: Mock) -
         _run(tmp_path)
 
     cli.get_connection_residency.assert_called_once_with(CONNECTION_ID)
-    cli.is_running_on_eu_runner.assert_called_once_with()
+    cli.is_running_in_eu_region.assert_called_once_with()
     cli.fetch_connection_data.assert_called_once_with(CONNECTION_ID)
 
 
@@ -111,7 +111,7 @@ def test_us_connection_is_refused_before_the_fetch_on_the_eu_runner(
     cli: Mock,
 ) -> None:
     """On the EU runner, a US connection's config and catalog are never fetched."""
-    cli.is_running_on_eu_runner.return_value = True
+    cli.is_running_in_eu_region.return_value = True
 
     with pytest.raises(SystemExit) as exc_info:
         _run(tmp_path)
@@ -120,10 +120,12 @@ def test_us_connection_is_refused_before_the_fetch_on_the_eu_runner(
     cli.fetch_connection_data.assert_not_called()
     assert cli.github_outputs["success"] is False
     assert cli.github_outputs["error"] == (
-        f"{cloud.EU_RUNNER_EU_ONLY_MESSAGE}; connection ID {CONNECTION_ID} was "
+        f"{cloud.EU_REGION_EU_ONLY_MESSAGE}; connection ID {CONNECTION_ID} was "
         "refused before its config or catalog was fetched."
     )
-    assert "only retrieves EU connections" in " ".join(capsys.readouterr().err.split())
+    assert "only permitted for EU connections" in " ".join(
+        capsys.readouterr().err.split()
+    )
 
 
 def test_failed_residency_lookup_stops_before_the_fetch(
@@ -168,7 +170,7 @@ def test_eu_raw_mode_is_refused_before_fetch_or_metadata_check(
 
     assert exc_info.value.code == 1
     cli.get_connection_residency.assert_called_once_with(CONNECTION_ID)
-    cli.is_running_on_eu_runner.assert_not_called()
+    cli.is_running_in_eu_region.assert_not_called()
     cli.fetch_connection_data.assert_not_called()
     assert cli.github_outputs == {
         "success": False,
@@ -205,5 +207,5 @@ def test_gsm_path_does_not_check_residency(
     _run(tmp_path, connection_id=None)
 
     cli.get_connection_residency.assert_not_called()
-    cli.is_running_on_eu_runner.assert_not_called()
+    cli.is_running_in_eu_region.assert_not_called()
     cli.fetch_connection_data.assert_not_called()

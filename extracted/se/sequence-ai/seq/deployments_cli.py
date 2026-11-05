@@ -168,15 +168,11 @@ def list_remote(base_url: str | None = None, echo=print, *, limit: int | None = 
         echo("no deployments yet — `seq deploy <folder> [--name <name>]`" if not cursor else "no deployments on this page")
         return out
 
-
-
-
-
-    head = ["name", "kind", "status", "ver", "gpu", "weights"]
-    cells = [[r["name"], ("production" if r.get("production") else "dev") + (" planner" if r.get("planner") else ""),
+    head = ["name", "status", "ver", "gpu", "weights"]
+    cells = [[r["name"],
               "stopped" if r.get("stopped") else r["status"], "v" + str(r.get("version") or 1),
               str(r.get("gpu") or "-"),
-              "plans for " + ", ".join(r["planner"]) if r.get("planner") else weights_cell(r)]
+              weights_cell(r)]
              for r in rows]
     widths = columns.widths([head, *cells])
     w = widths[0]
@@ -479,14 +475,8 @@ def _deletion_said(plan: dict, *, force: bool = False) -> list[str]:
     if keys is None:
         out.append("delete its keys (which ones could not be read)")
     elif keys:
-
-
-        groups: dict[str, list] = {}
-        for k in keys:
-            groups.setdefault("planner key" if k.get("kind") == "planner" else "robot key", []).append(k)
-        for noun, ks in groups.items():
-            out.append(f"delete its {noun}{'' if len(ks) == 1 else 's'}: "
-                       + ", ".join(f"{k.get('name') or 'unnamed'} ({k['key']})" for k in ks))
+        out.append(f"delete its robot key{'' if len(keys) == 1 else 's'}: "
+                   + ", ".join(f"{k.get('name') or 'unnamed'} ({k['key']})" for k in keys))
     numbers = plan.get("versions") or []
     if numbers:
         out.append(f"delete its version{'' if len(numbers) == 1 else 's'} " + ", ".join(f"v{v}" for v in numbers)
@@ -515,30 +505,6 @@ def _gb(gb: float) -> str:
     """A size as a delete's list says it: "12.4 GB", or "4.0 MB" under a tenth of a GB - one decimal there, as
     `seq volume ls` reads a size."""
     return f"{gb:.1f} GB" if gb >= 0.1 else f"{gb * 1000:.1f} MB"
-
-
-
-def promote(name: str, *, base_url: str | None = None, echo=None) -> dict:
-    """Make the dev policy `name` a production one, taking one of the account's production policies; run with a
-    production key, which reaches production policies alone. Nothing printed unless asked (`echo`), as a CI step runs
-    it.
-    The policy itself becomes production, not a copy of it: to keep one in dev, fork it first (`fork`, which copies its
-    code, settings and weights).
-
-    A planner is promoted as a policy is, from its members up, and keeps the keys it holds (the answer's `kind`); a
-    policy a dev planner names is promoted with the platform's warning that the planner plans for it no more until it
-    is promoted too (the answer's `warnings`)."""
-    out = _call("POST", f"/v1/deployments/{segment(name)}/promote", base_url)
-    if echo is not None:
-        if out.get("kind") == "planner":
-            echo(f"{name} is a production planner now: the keys it holds for its members stay as they were, a "
-                 f"production key's to manage (seq planner key list {name})")
-        else:
-            echo(f"{name} is a production policy now: give each of its robots a key of its own (seq robot add "
-                 f"--policy {name})")
-        for said in out.get("warnings") or []:
-            echo(f"warning: {said}")
-    return out
 
 
 

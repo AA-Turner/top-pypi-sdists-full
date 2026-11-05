@@ -7,14 +7,17 @@ import io
 import json
 import re
 import shutil
+import sys
 import warnings
 from contextlib import redirect_stdout
 from importlib.resources import files
+from operator import attrgetter
 from pathlib import Path
 from string import Formatter
 from typing import TYPE_CHECKING, Any
 
 import jsonschema
+import pydantic
 import pytest
 from packaging.version import Version
 
@@ -43,6 +46,7 @@ CHANGELOG = Path(__file__).parents[2] / "CHANGELOG.md"
 RECOMMEND_DOCS = Path(__file__).parents[2] / "docs" / "recommend-options.md"
 GRAPHQL_INPUT = DATA_PATH / "graphql" / "simple-star-wars.graphql"
 RULES_FILE = "src/datamodel_code_generator/resources/recommender_rules.json"
+RECOMMENDER = "datamodel_code_generator._recommend"
 REGISTRY_GUIDE = (
     f'Every option needs an entry in "options" of {RULES_FILE}: {{"rules": ["<rule id>"]}} when a rule sets it, '
     'or {"not_recommended": "<category>", "reason": "<why the schema does not decide it>"} with category io, '
@@ -195,6 +199,11 @@ def test_recommend_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
             id="redundant-constraints",
         ),
         pytest.param(
+            "redundant_root_constraint.json",
+            ["--preset", "standard-py314-20261017"],
+            id="redundant-constraint-on-root",
+        ),
+        pytest.param(
             "paths_bodies.yaml",
             ["--openapi-scopes", "paths", "webhooks", "--preset", "standard-py314-20261017"],
             id="paths-bodies-as-definitions",
@@ -229,6 +238,14 @@ def test_recommend_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
             ["--openapi-scopes", "api"],
             id="referenced-holders-api-scope",
         ),
+        pytest.param("api_operations.yaml", ["--openapi-scopes", "api"], id="api-scope-32-operations"),
+        pytest.param("api_operations_31.yaml", ["--openapi-scopes", "api"], id="api-scope-31-operations"),
+        pytest.param("api_operations.yaml", ["--openapi-scopes", "paths"], id="paths-scope-32-operations"),
+        pytest.param(
+            "api_excluded_path_invalid_operations.yaml",
+            ["--openapi-scopes", "api", "--openapi-include-paths", "/included"],
+            id="api-scope-excluded-path-operations",
+        ),
         pytest.param("integer_definition_keys.yaml", [], id="integer-definition-keys"),
         pytest.param(
             "paths_integer_schema_key.yaml",
@@ -236,6 +253,8 @@ def test_recommend_options(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
             id="paths-scope-integer-schema-key",
         ),
         pytest.param("blank_union_titles.json", [], id="blank-union-titles"),
+        pytest.param("multi_format_extension.yaml", [], id="asyncapi-multi-format-extension"),
+        pytest.param("schema_key_component.yaml", [], id="openapi-schema-key-component"),
     ],
 )
 def test_recommend_options_for_schemas(
@@ -248,7 +267,13 @@ def test_recommend_options_for_schemas(
     patternProperties map with one pattern and no other keys needs no validators. A path item, a request body and a
     response that a local ``$ref`` names, and a component that one names percent-encoded, count as the object they name,
     once. A definition under an integer key is named by its text, a schema under one that no selected scope reads is not
-    an error, and a blank title is no title of a union variant.
+    an error, and a blank title is no title of a union variant. An AsyncAPI multi-format schema object counts as its
+    schema whatever ``x-`` extensions it has, and an OpenAPI component with a ``schema`` key counts as the schema it is.
+    A constraint a const decides counts as redundant on the root schema as it does on any other. The api scope reads the
+    operations of a path item as its walk does: the ``query`` operation and ``additionalOperations`` from OpenAPI 3.2,
+    and no ``x-`` key of ``paths``; the paths scope reads the methods before OpenAPI 3.2 and an ``x-`` key that holds
+    an object. The api scope counts only the operations of the paths ``--openapi-include-paths`` selects, so an excluded
+    path whose operations generation never reads is no error.
     """
     extra = [] if "--preset" in args else ["--target-python-version", "3.14"]
     _recommend(tmp_path, capsys, ["--input", source, *extra, *args], inputs=_inputs(INPUT_PATH / source))
@@ -316,6 +341,60 @@ def test_recommend_options_rejects_keys_that_are_no_strings(
             expected_exit=Exit.ERROR,
             capsys=capsys,
             expected_stderr=expected_stderr,
+            use_builtin_default_formatter=False,
+        )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_stderr"),
+    [
+        pytest.param(
+            DATA_PATH / "malformed" / "additional_operations_list.yaml",
+            "Error at schema path '#/paths/~1pets/additionalOperations': API_INVALID_OBJECT: expected an object\n",
+            id="not-a-mapping",
+        ),
+        pytest.param(
+            DATA_PATH / "generation_platform" / "api_scope" / "reserved-additional-method.json",
+            "Error at schema path '#/paths/~1/additionalOperations/POST': "
+            "API_INVALID_OBJECT: fixed methods cannot appear in additionalOperations\n",
+            id="fixed-method",
+        ),
+    ],
+)
+def test_recommend_options_rejects_invalid_additional_operations(
+    source: Path, expected_stderr: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """End in the error generation gives for additionalOperations that are no mapping or name a fixed method."""
+    shutil.copy(source, tmp_path / source.name)
+    with chdir(tmp_path):
+        run_main_with_args(
+            ["--input", source.name, "--openapi-scopes", "api", "--recommend-options"],
+            expected_exit=Exit.ERROR,
+            capsys=capsys,
+            expected_stderr=expected_stderr,
+            use_builtin_default_formatter=False,
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("schema_alias_cycle_property.yaml", id="property"),
+        pytest.param("schema_alias_cycle_items.yaml", id="items"),
+        pytest.param("schema_alias_cycle_all_of.yaml", id="all-of"),
+    ],
+)
+def test_recommend_options_rejects_schemas_that_hold_themselves(
+    source: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """End in the error generation gives for a schema that holds itself through a YAML alias, not in a traceback."""
+    shutil.copy(DATA_PATH / "malformed" / source, tmp_path / source)
+    with chdir(tmp_path):
+        run_main_with_args(
+            ["--input", source, "--recommend-options"],
+            expected_exit=Exit.ERROR,
+            capsys=capsys,
+            expected_stderr_contains="Schema nesting is too deep to generate",
             use_builtin_default_formatter=False,
         )
 
@@ -424,6 +503,7 @@ def test_recommend_options_requires_the_remote_lock(tmp_path: Path, capsys: pyte
             id="preset-argument",
         ),
         pytest.param("project_profile", ["--profile", "api"], id="profile"),
+        pytest.param("project_changes", ["--profile", ""], id="empty-profile"),
         pytest.param("project_profile_unicode", ["--profile", "ëu"], id="unicode-profile"),
         pytest.param("project_job", ["--job", "api"], id="job"),
         pytest.param(
@@ -436,7 +516,10 @@ def test_recommend_options_requires_the_remote_lock(tmp_path: Path, capsys: pyte
 def test_recommend_options_for_projects(
     project: str, args: list[str], tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Recommend changes to the pyproject.toml table the command reads, keeping what it already sets."""
+    """Recommend changes to the pyproject.toml table the command reads, keeping what it already sets.
+
+    An empty profile name selects no profile, so its command and table are those of a run without one.
+    """
     _recommend(
         tmp_path,
         capsys,
@@ -703,6 +786,36 @@ def test_recommender_rules_match_the_option_registry(tmp_path: Path, capsys: pyt
     )
 
 
+def _missing_attribute(name: str) -> object:
+    raise AttributeError(name)
+
+
+@pytest.mark.abnormal_path("Pydantic 2.0 cannot be installed beside the Pydantic of the test environment")
+def test_recommend_options_runs_on_pydantic_2_0(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Run the recommender where ``pydantic.StringConstraints`` does not exist, as in Pydantic 2.0.
+
+    The name first appeared in Pydantic 2.1, and importing the rule models used to fail with an ImportError.
+    """
+    load = pydantic.__getattr__
+    monkeypatch.delattr(pydantic, "StringConstraints", raising=False)
+    monkeypatch.setattr(
+        pydantic, "__getattr__", lambda name: {"StringConstraints": _missing_attribute}.get(name, load)(name)
+    )
+    with pytest.raises(AttributeError):
+        attrgetter("StringConstraints")(pydantic)
+    for name in [name for name in sys.modules if name == RECOMMENDER or name.startswith(f"{RECOMMENDER}.")]:
+        monkeypatch.delitem(sys.modules, name)
+    _recommend(
+        tmp_path,
+        capsys,
+        ["--input", "titled_variants.yaml", "--target-python-version", "3.14"],
+        inputs=_inputs(INPUT_PATH / "titled_variants.yaml"),
+        mode=(),
+    )
+
+
 def test_recommend_options_small_schema_default(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Compare the candidates of a small schema without a mode; docs/recommend-options.md shows this report."""
     shutil.copy(INPUT_PATH / "titled_variants.yaml", tmp_path / "titled_variants.yaml")
@@ -813,6 +926,12 @@ def test_recommend_options_small_schema_default(tmp_path: Path, capsys: pytest.C
             id="json-data",
         ),
         pytest.param(
+            [INPUT_PATH / "definitions_and_defs.json"],
+            ["--input", "definitions_and_defs.json", "--target-python-version", "3.14"],
+            ("full",),
+            id="definitions-and-defs",
+        ),
+        pytest.param(
             [INPUT_PATH / "validation.yaml"],
             ["--input", "validation.yaml", "--target-python-version", "3.14"],
             ("full",),
@@ -845,7 +964,9 @@ def test_recommend_options_compares_candidates(
     with it and the class names it changes; the report ends with the changes from the current configuration. Each
     candidate also counts the fields dcg warns it generates without some of their constraints: per module, so
     same-named classes of different modules count apart, and only in the parse whose models the generation keeps,
-    such as the repaired single module of dotted keys written to stdout.
+    such as the repaired single module of dotted keys written to stdout. A schema that holds components under both
+    ``definitions`` and ``$defs`` measures the names of both, so a class named after a long ``$defs`` key is a
+    component and no problem name.
     """
     _recommend(tmp_path, capsys, args, inputs=_inputs(*inputs), mode=mode)
 

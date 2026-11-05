@@ -20,11 +20,12 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 from typing_extensions import override
 
 from datamodel_code_generator import Error
+from datamodel_code_generator import _constraint_applicability as _applicability
 from datamodel_code_generator._alias_generators import generate_alias as _generate_alias
 from datamodel_code_generator._container_kinds import UNHASHABLE_CONTAINERS
 from datamodel_code_generator._document_reader import as_mapping
 from datamodel_code_generator._free_names import first_free
-from datamodel_code_generator._graph import reaching
+from datamodel_code_generator._graph import reach, reaching
 from datamodel_code_generator._graph_links import clear_parents, drop_tree
 from datamodel_code_generator._message_text import for_count
 from datamodel_code_generator._model_keys import FIELDLESS_SITE_KEY, model_key_of
@@ -65,7 +66,6 @@ from datamodel_code_generator.model._render_plan import (
 )
 from datamodel_code_generator.model.base import (
     ALL_MODEL,
-    TEMPLATE_DIR,
     UNDEFINED,
     BaseClassDataType,
     DataModel,
@@ -77,6 +77,7 @@ from datamodel_code_generator.model.base import (
     _model_key_of_model,
     _ModelKeys,
     _uses_original_template_loader,
+    overrides_builtin_templates,
 )
 from datamodel_code_generator.model.field_name import PYDANTIC_BASE_MODEL_ATTRIBUTES, PydanticFieldNameResolver
 from datamodel_code_generator.model.imports import IMPORT_CLASSVAR
@@ -141,9 +142,10 @@ from datamodel_code_generator.python_literal import (
     _text_constructor_expression,
     represent_python_value,
     represent_untrusted_python_value,
+    stable_repr,
 )
-from datamodel_code_generator.reference import FieldNameResolver, ModelType
-from datamodel_code_generator.types import chain_as_tuple
+from datamodel_code_generator.reference import FieldNameResolver, ModelType, keep_node_records
+from datamodel_code_generator.types import _is_value_literal, chain_as_tuple
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -304,6 +306,8 @@ _LEGACY_CONFIG_LITERAL_STRINGS: frozenset[str] = frozenset({"False", "None", "Tr
 _COMPILED_PATTERN = Why(RuleId("D2.pydantic.compiled-pattern"), keyword="pattern")
 _CONST = Why(RuleId("D5.const.literal"), keyword="const")
 _UNIQUE_ITEMS = Why(RuleId("D2.pydantic.unique-items"), keyword="uniqueItems")
+_UNIQUE_ITEMS_ARGUMENT = "unique_items"
+"""The constraint argument ``Field()`` of Pydantic v2 cannot express."""
 _FROZEN = Why(RuleId("D11.pydantic.frozen"), keyword="readOnly", option="--use-frozen-field")
 _UNION_MODE = Why(RuleId("D6.union-mode"), keyword="union_mode")
 _ALIAS_GENERATOR = Why(RuleId("D9.alias.generator"), keyword="alias")
@@ -367,9 +371,9 @@ class _LegacyPydanticExtraTemplate:
 
     def _warn_template_update(self, status: str) -> None:
         warn(
-            f"Legacy custom template {self._template.filename!r} {status} for Pydantic typed-extra compatibility. "
-            "Update the template to declare __pydantic_extra__ in the class body and remove the post-class "
-            "annotation assignment and model_rebuild(force=True).",
+            f"Legacy custom template {stable_repr(self._template.filename)} {status} for Pydantic typed-extra "
+            "compatibility. Update the template to declare __pydantic_extra__ in the class body and remove the "
+            "post-class annotation assignment and model_rebuild(force=True).",
             stacklevel=3,
         )
 
@@ -458,11 +462,11 @@ def _decode_legacy_quoted_config_string(value: str) -> str:
     return value
 
 
-def _safe_config_dict_items(config: Any) -> list[tuple[str, str]]:
-    """Return Python-source-safe ConfigDict arguments for built-in templates."""
+def _safe_config_dict_items(config: Any, target: PythonVersion) -> list[tuple[str, str]]:
+    """Return Python-source-safe ConfigDict arguments for built-in templates, each key a name of the target Python."""
     safe_items: list[tuple[str, str]] = []
     for field_name, value in _config_dict_items(config):
-        if (normalized_field_name := _normalized_safe_python_name(field_name)) is None:
+        if (normalized_field_name := _normalized_safe_python_name(field_name, target)) is None:
             continue
         normalized_value = _normalize_string(value) if isinstance(value, str) else value
         if normalized_field_name == _ALIAS_GENERATOR_TEMPLATE_DATA_KEY and (
@@ -484,9 +488,9 @@ def _safe_config_dict_items(config: Any) -> list[tuple[str, str]]:
     return safe_items
 
 
-def _template_config_items(extra_template_data: Mapping[str, Any]) -> list[tuple[str, str]]:
-    """Return the safe items of the ``config`` template data, which the built-in templates write."""
-    return _safe_config_dict_items(config) if (config := extra_template_data.get("config")) else []
+def _template_config_items(extra_template_data: Mapping[str, Any], target: PythonVersion) -> list[tuple[str, str]]:
+    """Return the safe items of the ``config`` template data, which the built-in templates write for the target."""
+    return _safe_config_dict_items(config, target) if (config := extra_template_data.get("config")) else []
 
 
 def _config_constructs(config_items: Iterable[tuple[str, str]]) -> Iterator[tuple[PydanticConstruct, str | None]]:
@@ -633,6 +637,7 @@ def _copy_alias_data_type(
             "constrained_base": base,
         }
         copied = AnnotatedConstraintDataType.model_construct(**values)
+        keep_node_records(copied, data_type)
         field_keywords, multiple_of = annotated_constraint_metadata(base, cast("dict[str, Any]", kwargs))
         annotation_imports = (IMPORT_FIELD,) if field_keywords else ()
         if multiple_of is not None:
@@ -679,10 +684,7 @@ def _needs_model_regex_engine(fields: list[DataModelFieldBase]) -> bool:
 
 
 def _pattern_needs_holder_engine(
-    root_type: type[DataModel],
-    pattern: str,
-    target_python: PythonVersion,
-    target_pydantic: TargetPydanticVersion | None,
+    root_type: type[DataModel], pattern: str, target_pydantic: TargetPydanticVersion | None
 ) -> bool:
     """Return whether a string pattern in a model of ``root_type`` needs the ``python-re`` engine of its users.
 
@@ -693,7 +695,7 @@ def _pattern_needs_holder_engine(
 
     if not issubclass(root_type, TypeAliasBase) or pydantic_target_meets("pydantic.compiled_pattern", target_pydantic):
         return False
-    return needs_python_engine(pattern, row="model", target_python=target_python.version_key)
+    return needs_python_engine(pattern, row="model")
 
 
 def _remove_compiled_pattern_metadata(args: _FieldArguments) -> None:
@@ -709,6 +711,7 @@ class DataModelField(_PydanticBaseDataModelField):
     ANNOTATED_CONSTRAINTS_CONTEXT: ClassVar[object | None] = _ANNOTATED_CONSTRAINTS_CONTEXT
     SUPPORTS_DISCRIMINATOR: ClassVar[bool] = True
     _CONSTRAINT_ARGUMENTS: ClassVar[dict[str, str]] = _constraint_arguments(Constraints)
+    _UNWRITTEN_CONSTRAINT_ARGUMENTS: ClassVar[frozenset[str]] = frozenset({_UNIQUE_ITEMS_ARGUMENT})
     PREPARE_PYTHON_PATTERNS = staticmethod(_prepare_python_patterns)
     PREPARE_TYPE_ALIAS_FIELD = staticmethod(_prepare_type_alias_field)
     NEEDS_MODEL_REGEX_ENGINE = staticmethod(_needs_model_regex_engine)
@@ -952,7 +955,7 @@ class DataModelField(_PydanticBaseDataModelField):
         if self.const:
             args.pop("const", "consumed-by-type", _CONST)
 
-        args.pop("unique_items", "backend-cannot-express", _UNIQUE_ITEMS)
+        args.pop(_UNIQUE_ITEMS_ARGUMENT, "backend-cannot-express", _UNIQUE_ITEMS)
 
         if self.use_frozen_field and self.read_only:
             args.put("frozen", True, _FROZEN, ("read_only",))  # noqa: FBT003
@@ -1015,7 +1018,7 @@ class DataModelField(_PydanticBaseDataModelField):
         args.pop("alias", "validation-aliases", _VALIDATION_ALIASES)
         args.put(
             "validation_alias",
-            _RawRepr(call_text("AliasChoices", map(repr, unique_validation_aliases))),
+            _RawRepr(call_text("AliasChoices", map(stable_repr, unique_validation_aliases))),
             _VALIDATION_ALIASES,
             ("validation_aliases",),
         )
@@ -1154,12 +1157,14 @@ class DataModelField(_PydanticBaseDataModelField):
         return base_imports
 
 
-_STRING_PATTERN_TYPES: frozenset[str | None] = frozenset({"str", "constr", "StrictStr"})
 _BYTES_PATTERN_TYPES: frozenset[str | None] = frozenset({"bytes", "StrictBytes"})
+_STRING_PATTERN_TYPES: frozenset[str | None] = (
+    _applicability.engine_pattern_types(_applicability.PYDANTIC_OUTPUT) - _BYTES_PATTERN_TYPES
+)
 
 
 def _string_pattern_data_type(data_type: DataType, model: DataModel | None) -> DataType | None:
-    """Return the string type a pattern constrains, looking through unions of string types such as ``str | None``.
+    """Return the string type or ``Literal`` a pattern constrains, looking through unions such as ``str | None``.
 
     Pydantic compiles the patterns of plain and optional ``bytes`` fields from 2.14 on, ignores them from 2.11
     to 2.13 and rejects them at import before, so ``bytes`` counts only for an explicit target of ``model`` that
@@ -1172,10 +1177,17 @@ def _string_pattern_data_type(data_type: DataType, model: DataModel | None) -> D
 
 
 def _pattern_data_type(data_type: DataType, *, includes_bytes: bool) -> DataType | None:
-    """Return the member a ``pattern`` constrains: a string type, else, with ``includes_bytes``, a ``bytes`` type."""
+    """Return the member a ``pattern`` constrains: a string type or the ``Literal`` of a const or an enum.
+
+    The string types are those the constraint table reads a pattern on (``_applicability.engine_pattern_types``)
+    other than the raw ``bytes`` types: ``EmailStr``, ``AnyStr`` and the types that decode base64 text are among
+    them, as Pydantic compiles their pattern on every version. Pydantic compiles the pattern of a ``Literal`` as it
+    does a string's. With ``includes_bytes`` a ``bytes`` type is one too.
+    """
     if (
         (type_name := data_type.type) in _STRING_PATTERN_TYPES
         or getattr(data_type, "annotated_string", False)
+        or _is_value_literal(data_type)
         or (type_name in _BYTES_PATTERN_TYPES and includes_bytes)
     ):
         return data_type
@@ -1195,14 +1207,12 @@ def _pattern_data_type(data_type: DataType, *, includes_bytes: bool) -> DataType
 def _needs_python_regex_engine(pattern: str, data_type: DataType, field: DataModelFieldBase) -> bool:
     """Return whether a pattern emitted for ``field`` needs Python's ``re``: row ``model`` of ``needs_python_engine``.
 
-    Lookaround keeps its long-standing textual check. Other syntax counts for string patterns Pydantic compiles,
-    keyed on the target Python and Pydantic versions, so the output never depends on the installed pydantic-core or
-    on the Python running the generator. A pattern Python's ``re`` also rejects fails at import either way.
+    Lookaround keeps its long-standing textual check. Other syntax counts for the patterns of a string or a
+    ``Literal``, which Pydantic compiles, keyed on the target Pydantic version, so the output never depends on the
+    installed pydantic-core or on the Python running the generator.
     """
     string_type = _string_pattern_data_type(data_type, field.parent)
-    return needs_python_engine(
-        pattern, row="model", target_python=None if string_type is None else field.target_version_key(string_type)
-    )
+    return needs_python_engine(pattern, row="model", compiled=string_type is not None)
 
 
 if TYPE_CHECKING:
@@ -1319,27 +1329,25 @@ def _only_describes_own_named_type(field: DataModelFieldBase) -> bool:
 
 
 def has_lookaround_pattern(
-    fields: list[DataModelFieldBase],
-    *,
-    follow_references: bool = False,
-    include_compiled: bool = True,
-    _visited: set[int] | None = None,
+    fields: list[DataModelFieldBase], *, follow_references: bool = False, include_compiled: bool = True
 ) -> bool:
     """Check if any field has a regex pattern that needs pydantic's ``python-re`` regex engine.
 
-    This covers lookaround assertions and, for string patterns pydantic compiles, any other syntax
+    This covers lookaround assertions and, for string and ``Literal`` patterns pydantic compiles, any other syntax
     pydantic-core's Rust engine rejects, such as backreferences.
 
-    When ``follow_references`` is True, also inspect patterns reachable through referenced
-    models (generated type aliases/root types) -- needed for Pydantic v2 dataclasses, where
-    alias patterns are compiled with the consuming dataclass's config rather than their own.
-    A site that earlier releases wrote as a model without fields (``FIELDLESS_SITE_KEY``) is not followed where the
-    target compiles the patterns of type aliases: its patterns then need no engine of the model that uses it, whose
-    other patterns keep the engine they had.
+    When ``follow_references`` is True, also inspect the patterns of the models the fields reach
+    (``_pattern_models_followed``) -- needed for Pydantic v2 dataclasses, where alias patterns are compiled with the
+    consuming dataclass's config rather than their own.
     When ``include_compiled`` is False, patterns the parser already wrapped in ``re.compile`` are skipped.
     """
-    if _visited is None:
-        _visited = set()
+    if follow_references:
+        return has_lookaround_pattern(fields, include_compiled=include_compiled) or any(
+            has_lookaround_pattern(model.fields, include_compiled=include_compiled)
+            for model in reach(
+                _pattern_models_followed(fields), lambda model: _pattern_models_followed(model.fields), key=id
+            )
+        )
     for field in fields:
         if (
             (pattern := isinstance(field.constraints, Constraints) and field.constraints.pattern)
@@ -1353,29 +1361,40 @@ def has_lookaround_pattern(
                 pattern = str(pattern) if include_compiled else None
             if pattern and _needs_python_regex_engine(pattern, data_type, field):
                 return True
-            if not follow_references or data_type.reference is None:
-                continue
-            source = data_type.reference.source
-            if data_type.reference.__dict__.get(FIELDLESS_SITE_KEY) and model_target_meets(
-                cast("DataModel", source), "pydantic.compiled_pattern"
-            ):
-                continue
-            source_fields = getattr(source, "fields", None)
-            if source_fields is not None and id(source) not in _visited:
-                _visited.add(id(source))
-                if has_lookaround_pattern(
-                    source_fields, follow_references=True, include_compiled=include_compiled, _visited=_visited
-                ):
-                    return True
     return False
+
+
+def _pattern_models_followed(fields: Iterable[DataModelFieldBase]) -> Iterator[DataModel]:
+    """Yield the models whose patterns a Pydantic dataclass reads through the references of ``fields``.
+
+    Row ``legacy-dataclass-follows-every-reference``: every model with fields that a field's type names
+    (``_field_references``), whatever config of its own the model has, where the models that use a type alias read
+    only the aliases keeping string patterns (``models_reaching_string_pattern_aliases``). A site that earlier
+    releases wrote as a model without fields (``FIELDLESS_SITE_KEY``) is not followed where the target compiles the
+    patterns of type aliases: its patterns then need no engine of the model that uses it, whose other patterns keep
+    the engine they had.
+    """
+    for reference in _field_references(fields):
+        source = reference.source
+        if reference.__dict__.get(FIELDLESS_SITE_KEY) and model_target_meets(
+            cast("DataModel", source), "pydantic.compiled_pattern"
+        ):
+            continue
+        if getattr(source, "fields", None) is not None:
+            yield cast("DataModel", source)
+
+
+def _field_references(fields: Iterable[DataModelFieldBase]) -> Iterator[Reference]:
+    """Yield the references that the types of ``fields`` name."""
+    for field in fields:
+        for data_type in field.data_type.all_data_types:
+            if (reference := data_type.reference) is not None:
+                yield reference
 
 
 def _model_references(model: DataModel, base_classes: Iterable[BaseClassDataType]) -> Iterator[Reference]:
     """Yield the references that the fields of ``model`` and the given base classes name."""
-    for field in model.fields:
-        for data_type in field.data_type.all_data_types:
-            if (reference := data_type.reference) is not None:
-                yield reference
+    yield from _field_references(model.fields)
     for base_class in base_classes:
         if (reference := base_class.reference) is not None:
             yield reference
@@ -1573,7 +1592,7 @@ class _PydanticV2Model(DataModel):
 
     def _rendered_config_items(self) -> list[tuple[str, str]]:
         """Return the ``ConfigDict`` items the built-in template writes; imports and alias decisions read them too."""
-        return _template_config_items(self.extra_template_data)
+        return _template_config_items(self.extra_template_data, self.target_python_version)
 
     @override
     def _pydantic_constructs(self) -> Iterator[tuple[PydanticConstruct, str | None]]:
@@ -1731,8 +1750,12 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
         if not runtime_models:
             return None
 
+        first_model = runtime_models[0]
         base_class_name = (
-            _normalized_safe_python_name(runtime_models[0].extra_template_data.get("schema_validator_base_class_name"))
+            _normalized_safe_python_name(
+                first_model.extra_template_data.get("schema_validator_base_class_name"),
+                first_model.target_python_version,
+            )
             or cls.SCHEMA_RUNTIME_VALIDATION_BASE_CLASS_NAME
         )
         runtime_validation_by_model = {
@@ -1923,7 +1946,7 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
         if (
             has_local_property_count_helper
             or not cls._has_custom_schema_runtime_validation_helper(model)
-            or model.custom_template_dir == TEMPLATE_DIR
+            or (model.custom_template_dir is not None and not overrides_builtin_templates(model.custom_template_dir))
         ):
             helper_imports += (
                 Import(from_="collections.abc", import_="Mapping", alias="_Mapping", keep_unaliased=True),
@@ -2144,21 +2167,19 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
         ):
             return renderer(**context)
 
-        if (
-            (context["has_conditional_presence"] or context["has_not_required_groups"])
-            and custom_template_dir is not None
-            and custom_template_dir != TEMPLATE_DIR
-            and (custom_template_dir / cls.SCHEMA_RUNTIME_VALIDATION_HELPERS_TEMPLATE_FILE_PATH).is_file()
-        ):
-            msg = (
-                "Custom schema runtime validation helper overrides do not yet support generated presence-only "
-                "conditions or not-required groups. Remove the helper override or disable schema validators."
-            )
-            raise Error(msg)
-
-        if context["has_unique_items"] and custom_template_dir is not None:
-            custom_template_path = custom_template_dir / cls.SCHEMA_RUNTIME_VALIDATION_HELPERS_TEMPLATE_FILE_PATH
-            if custom_template_path.is_file():
+        custom_template_path = (
+            custom_template_dir / cls.SCHEMA_RUNTIME_VALIDATION_HELPERS_TEMPLATE_FILE_PATH
+            if custom_template_dir is not None and overrides_builtin_templates(custom_template_dir)
+            else None
+        )
+        if custom_template_path is not None and custom_template_path.is_file():
+            if context["has_conditional_presence"] or context["has_not_required_groups"]:
+                msg = (
+                    "Custom schema runtime validation helper overrides do not yet support generated presence-only "
+                    "conditions or not-required groups. Remove the helper override or disable schema validators."
+                )
+                raise Error(msg)
+            if context["has_unique_items"]:
                 msg = (
                     f"Custom schema runtime validation helper {custom_template_path} overrides do not yet support "
                     "generated uniqueItems validation. Remove the helper override or disable schema validators."
@@ -2203,13 +2224,14 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
         field_model: type[DataModelFieldBase],
         data_type: DataType,
     ) -> DataModelFieldBase:
-        """Create the Pydantic v2 typed extra field."""
+        """Create the Pydantic v2 typed extra field: a ``dict``, the one annotation Pydantic accepts for extras."""
         if (dict_key := data_type.dict_key) is not None and (
             (capability := cls._TYPED_EXTRA_DICT_KEY_CAPABILITY) is None or not capability(dict_key)
         ):
             drop_tree(dict_key)
             clear_parents(dict_key)
             data_type.dict_key = None
+        data_type.use_generic_container = False
 
         return field_model(
             name=cls.TYPED_EXTRA_FIELD_NAME,
@@ -2353,7 +2375,7 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
         )
 
         try:
-            validators = normalize_validators(validators)
+            validators = normalize_validators(validators, target=self.target_python_version)
         except ValidationError as e:
             msg = f"Invalid validators configuration: {format_validation_error(e)}"
             raise Error(msg) from e
@@ -2371,8 +2393,8 @@ class BaseModel(_PydanticV2Model, BaseModelBase):
             mode = validator.get("mode", "after")
 
             prepared = {
-                "fields_str": ", ".join(repr(f) for f in fields),
-                "mode_str": f"mode={mode!r}",
+                "fields_str": ", ".join(stable_repr(f) for f in fields),
+                "mode_str": f"mode={stable_repr(mode)}",
                 "method_name": f"{function_name}_validator",
                 "function_name": function_name,
                 "mode": mode,

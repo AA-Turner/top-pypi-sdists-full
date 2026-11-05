@@ -43,6 +43,9 @@ __all__ = (
     "DeleteWorkflowRequestTypeDef",
     "DeleteWorkflowResponseTypeDef",
     "EncryptionConfigurationTypeDef",
+    "EnvironmentOutputTypeDef",
+    "EnvironmentTypeDef",
+    "EnvironmentUnionTypeDef",
     "GetTaskInstanceRequestTypeDef",
     "GetTaskInstanceResponseTypeDef",
     "GetWorkflowRequestTypeDef",
@@ -124,6 +127,14 @@ class ResponseMetadataTypeDef(TypedDict):
 class DeleteWorkflowRequestTypeDef(TypedDict):
     WorkflowArn: str
     WorkflowVersion: NotRequired[str]
+
+
+class EnvironmentOutputTypeDef(TypedDict):
+    Variables: NotRequired[dict[str, str]]
+
+
+class EnvironmentTypeDef(TypedDict):
+    Variables: NotRequired[Mapping[str, str]]
 
 
 class GetTaskInstanceRequestTypeDef(TypedDict):
@@ -324,6 +335,9 @@ class UpdateWorkflowResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+EnvironmentUnionTypeDef = Union[EnvironmentTypeDef, EnvironmentOutputTypeDef]
+
+
 class WorkflowVersionSummaryTypeDef(TypedDict):
     WorkflowVersion: str
     WorkflowArn: str
@@ -408,6 +422,7 @@ class GetWorkflowResponseTypeDef(TypedDict):
     ScheduleConfiguration: ScheduleConfigurationTypeDef
     RoleArn: str
     NetworkConfiguration: NetworkConfigurationOutputTypeDef
+    Environment: EnvironmentOutputTypeDef
     TriggerMode: str
     WorkflowDefinition: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -430,6 +445,7 @@ class CreateWorkflowRequestTypeDef(TypedDict):
     LoggingConfiguration: NotRequired[LoggingConfigurationTypeDef]
     EngineVersion: NotRequired[int]
     NetworkConfiguration: NotRequired[NetworkConfigurationUnionTypeDef]
+    Environment: NotRequired[EnvironmentUnionTypeDef]
     Tags: NotRequired[Mapping[str, str]]
     TriggerMode: NotRequired[str]
 
@@ -443,6 +459,7 @@ class UpdateWorkflowRequestTypeDef(TypedDict):
     LoggingConfiguration: NotRequired[LoggingConfigurationTypeDef]
     EngineVersion: NotRequired[int]
     NetworkConfiguration: NotRequired[NetworkConfigurationUnionTypeDef]
+    Environment: NotRequired[EnvironmentUnionTypeDef]
     TriggerMode: NotRequired[str]
 
 

@@ -228,22 +228,16 @@ def _serialize_completion(completion: CompletionConfig) -> dict[str, JsonValue]:
     return serialize_completion_config(completion)
 
 
-def build_completion_http_headers(
-    principal: wire.Principal,
-    *,
-    org_tier: wire.OrgTier | None,
-    correlation_id: str | None = None,
-) -> dict[str, str]:
+def build_completion_http_headers(principal: wire.Principal, *, correlation_id: str | None = None) -> dict[str, str]:
     """Map a caller Principal to the completion gateway's identity headers.
 
-    `org_tier` is a required argument even though it accepts None: the gateway schedules on
-    the header, and a request that omits it is not throttled conservatively but placed above
-    every banded caller. A caller must state the band, or state that it has none.
+    The band is always the lowest: the gateway places a request without one above every banded
+    caller, and each completion replaces it with the customer's band from Albe.
     """
 
     headers = {
         "x-internal-key-scope": "vibe",
-        "x-internal-org-tier": org_tier or wire.DEFAULT_ORG_TIER,
+        "x-internal-org-tier": wire.DEFAULT_ORG_TIER,
         "x-consumer-custom-id": str(principal.customer_id),
         "x-organization-id": str(principal.organization_id),
         "x-workspace-id": str(principal.workspace_id),
@@ -981,6 +975,8 @@ def _build_tool_registration(
         result_schema = tool._output_model if isinstance(tool, tool_authoring.PythonTool) else tool.output_schema
         try:
             return tool_results.to_provided_tool_result(result, result_schema=result_schema)
+        except tool_results.OutputSchemaMismatch as mismatch:
+            return _output_schema_mismatch(mismatch, tool_name=definition.name, tool_errors=tool_errors)
         except Exception as error:  # noqa: BLE001 - a returned value that cannot be sent follows tool_errors
             return _tool_raised(error, tool_name=definition.name, tool_errors=tool_errors)
 
@@ -1012,6 +1008,26 @@ def _tool_raised(
         )
     failed = failed_tool_result(error, tool_errors=tool_errors, tool_id=tool_name)
     return tool_results.to_provided_tool_result(failed, result_schema=None)
+
+
+def _output_schema_mismatch(
+    mismatch: tool_results.OutputSchemaMismatch, *, tool_name: str, tool_errors: ToolErrors
+) -> tool_results.ProvidedToolResult | CapabilityInvocationFailed:
+    """A Python tool's result that does not match its ``output_schema=``. Always logged; with ``"raise"``
+    the turn fails, with ``"hide"`` and ``"show"`` the call fails and the model reads why."""
+
+    logger.warning("Tool %s: %s", tool_name, mismatch.summary)
+    if tool_errors != "raise":
+        return mismatch.result
+    return CapabilityInvocationFailed(
+        error=core_protocol.ProtocolError(
+            code="tool_output_schema_mismatch",
+            message=f"Tool {tool_name!r}: {mismatch.summary}",
+            retryable=False,
+            details=None,
+        ),
+        fail_turn=True,
+    )
 
 
 class _CompiledHook(NamedTuple):
@@ -1115,16 +1131,20 @@ async def _invoke_hook(
     # ``None`` continues unchanged, as the base class does, and a decision becomes the point's result
     # of that kind. Each point names its result apart, so each keeps its own type.
     if point == "pre_agent_turn" and isinstance(invocation, PreAgentTurnHookInvocation):
-        match turn_start := await hook.pre_agent_turn(context, invocation, **session_inputs):
+        request = hook_authoring.pre_agent_turn_view(invocation)
+        match turn_start := await hook.pre_agent_turn(context, request, **session_inputs):
             case None:
-                return PreAgentTurnHookContinue(user_content=invocation.user_content)
+                # From the view, not the invocation: a Hook may have edited it in place. Blocks it
+                # did not change come back as the originals.
+                return PreAgentTurnHookContinue(user_content=request.user_content)
             case hook_authoring.HookDecision(kind="skip", message=message):
                 return PreAgentTurnHookSkip(reason=_text(message))
             case PreAgentTurnHookContinue() | PreAgentTurnHookSkip():
                 return turn_start
         raise _unexpected_result(hook, point, turn_start, accepted=("skip",))
     if point == "pre_llm_call" and isinstance(invocation, PreLlmCallHookInvocation):
-        match llm_start := await hook.pre_llm_call(context, invocation, **session_inputs):
+        llm_call = hook_authoring.pre_llm_call_view(invocation)
+        match llm_start := await hook.pre_llm_call(context, llm_call, **session_inputs):
             case None:
                 return PreLlmCallHookContinue()
             case hook_authoring.HookDecision(kind="skip", message=message):
@@ -1133,7 +1153,8 @@ async def _invoke_hook(
                 return llm_start
         raise _unexpected_result(hook, point, llm_start, accepted=("skip",))
     if point == "post_llm_call" and isinstance(invocation, PostLlmCallHookInvocation):
-        match llm_end := await hook.post_llm_call(context, invocation, **session_inputs):
+        reply = hook_authoring.model_reply_view(hook_authoring.PostLlmCall, invocation)
+        match llm_end := await hook.post_llm_call(context, reply, **session_inputs):
             case None:
                 return PostLlmCallHookAccept()
             case hook_authoring.HookDecision(kind="retry", message=message):
@@ -1144,14 +1165,15 @@ async def _invoke_hook(
                 return llm_end
         raise _unexpected_result(hook, point, llm_end, accepted=("retry", "reject"))
     if point == "post_agent_turn" and isinstance(invocation, PostAgentTurnHookInvocation):
-        match turn_end := await hook.post_agent_turn(context, invocation, **session_inputs):
+        answer = hook_authoring.model_reply_view(hook_authoring.PostAgentTurn, invocation)
+        match turn_end := await hook.post_agent_turn(context, answer, **session_inputs):
             case None:
                 return PostAgentTurnHookAccept()
             case PostAgentTurnHookAccept():
                 return turn_end
         raise _unexpected_result(hook, point, turn_end, accepted=())
     if point == "pre_tool_call" and isinstance(invocation, PreToolCallHookInvocation):
-        pre_call = hook_authoring.PreToolCall.model_validate(invocation, from_attributes=True)
+        pre_call = hook_authoring.pre_tool_call_view(invocation)
         match tool_start := await hook.pre_tool_call(context, pre_call, **session_inputs):
             case None:
                 return PreToolCallHookContinue(effective_arguments=invocation.tool_call.call.arguments)
@@ -1161,11 +1183,19 @@ async def _invoke_hook(
                 return tool_start
         raise _unexpected_result(hook, point, tool_start, accepted=("skip",))
     if point == "post_tool_call" and isinstance(invocation, PostToolCallHookInvocation):
-        post_call = hook_authoring.PostToolCall.model_validate(invocation, from_attributes=True)
+        post_call = hook_authoring.post_tool_call_view(invocation)
         match tool_end := await hook.post_tool_call(context, post_call, **session_inputs):
             case None:
-                return PostToolCallHookContinue(tool_result=invocation.tool_result)
+                # From the view, as for ``pre_agent_turn``; an unchanged result is the original.
+                return PostToolCallHookContinue(
+                    tool_result=hook_authoring.to_core_tool_result(post_call.tool_result, invocation.tool_result)
+                )
+            case hook_authoring.PostToolCallHookContinue(tool_result=tool_result):
+                return PostToolCallHookContinue(
+                    tool_result=hook_authoring.to_core_tool_result(tool_result, invocation.tool_result)
+                )
             case PostToolCallHookContinue():
+                # The Runtime's own result, with Runtime content: kept for code written against it.
                 return tool_end
         raise _unexpected_result(hook, point, tool_end, accepted=())
     return _unsupported_hook_invocation(hook, invocation)

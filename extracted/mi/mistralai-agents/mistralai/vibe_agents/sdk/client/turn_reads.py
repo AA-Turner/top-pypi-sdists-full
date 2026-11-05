@@ -50,15 +50,18 @@ async def read_turn(
     turn_id: str,
     *,
     tools: Mapping[str, _Tool] = NO_TOOLS,
+    confirmed: bool = False,
 ) -> TurnState[str]:
     """Return the turn's state as of the session's last event id, read first.
 
     ``tools`` are the agent's tool objects by tool id, for the requests of its open approvals.
+    ``confirmed`` says that the host confirmed the turn, as a start's or a send's answer does: a
+    session that does not list it yet reads it ``Running``.
 
     Raises:
-        TurnNotFoundError: The session has no turn with this id.
+        TurnNotFoundError: The session has no turn with this id, and it is not ``confirmed``.
     """
-    state, _start = await read_turn_and_start(raw, session_id, turn_id, tools=tools)
+    state, _start = await read_turn_and_start(raw, session_id, turn_id, tools=tools, confirmed=confirmed)
     return state
 
 
@@ -68,14 +71,21 @@ async def read_turn_and_start(
     turn_id: str,
     *,
     tools: Mapping[str, _Tool] = NO_TOOLS,
+    confirmed: bool = False,
 ) -> tuple[TurnState[str], str | None]:
-    """Return what ``read_turn`` does, and the event id just before the turn's start.
+    """Return what ``read_turn`` does, and the event id the turn's events are read after.
 
-    Reading the session's events after that id gives the turn's events from its start. It is
-    ``None`` when the host does not record it, or has not reported the turn yet.
+    It is the previous turn's start, which the host records: the events that name no turn
+    since the previous turn's end are this turn's too. It is ``None`` for the session's first turn, and
+    when the host does not record it, or has not reported the turn yet: the events are then read
+    from the session's start.
+
+    A deployment answers a start or a send before its session read lists the turn: the read is
+    rebuilt from the events the control plane has projected so far. A ``confirmed`` turn it does
+    not list yet reads ``Running`` at the session's last event id; its events come after it.
 
     Raises:
-        TurnNotFoundError: The session has no turn with this id.
+        TurnNotFoundError: The session has no turn with this id, and it is not ``confirmed``.
     """
     read = await raw.request(
         "app_server/session/read",
@@ -89,14 +99,20 @@ async def read_turn_and_start(
     )
     state = read.state
     session = state.session
-    turn = next((found for found in state.turns.items if found.id == turn_id), None) if state.turns else None
-    if turn is None and state.active_turn_id != turn_id:
-        if state.turns is not None and state.turns.next_cursor is None:
+    # Newest first: the turn before this one comes after it, on this page or a later one.
+    listed, more = (state.turns.items, state.turns.next_cursor is not None) if state.turns is not None else ([], True)
+    index = next((index for index, found in enumerate(listed) if found.id == turn_id), None)
+    turn = previous = None
+    if index is not None and (index + 1 < len(listed) or not more):
+        turn, previous = listed[index], listed[index + 1] if index + 1 < len(listed) else None
+    elif index is not None or state.active_turn_id != turn_id:
+        if index is not None or more:
+            turn, previous = await _find_turn(raw, session_id, turn_id)
+        if turn is None and not confirmed:
             raise TurnNotFoundError(session_id, turn_id)
-        turn = await _find_turn(raw, session_id, turn_id)
     entries = await _turn_entries(raw, session_id, turn_id)
     base = {"session_id": session_id, "turn_id": turn_id, "cursor": read.last_event_id}
-    start = None if turn is None else turn.started_after_event_id
+    start = None if previous is None else previous.started_after_event_id
 
     if turn is not None and turn.status == "terminated" and turn.termination is not None:
         termination = turn.termination
@@ -123,7 +139,7 @@ async def read_turn_and_start(
                 **base,
                 text=text,
                 output=text or "",
-                stop_reason=termination.stop_reason,
+                stop_reason=None if termination.stop_reason is None else str(termination.stop_reason),
                 tool_calls=turn_tool_calls(entries),
             ), start
         case harness_session.CancelledTermination():
@@ -153,7 +169,8 @@ def typed[M: BaseModel](state: TurnState[str], output_type: type[M]) -> TurnStat
     """Return the record with a ``Completed`` output validated as JSON against ``output_type``.
 
     The rule is ``agent.run``'s: the output is ``None`` when the turn did not end ``"completed"``
-    (its iteration limit, a skip by a hook, or a reply a hook rejected). An output that does not validate becomes
+    (its iteration limit, a skip by a hook, a reply a hook rejected, or a reply cut off at the output
+    token limit). An output that does not validate becomes
     ``InvalidOutput``, with the text in ``raw``. Other records have no output and are returned as
     they are.
     """
@@ -178,7 +195,11 @@ def typed[M: BaseModel](state: TurnState[str], output_type: type[M]) -> TurnStat
     )
 
 
-async def _find_turn(raw: _RawSession, session_id: str, turn_id: str) -> harness_session.TurnState:
+async def _find_turn(
+    raw: _RawSession, session_id: str, turn_id: str
+) -> tuple[harness_session.TurnState | None, harness_session.TurnState | None]:
+    """The turn, and the one before it, if any; ``(None, None)`` when the session does not list the turn."""
+    turn: harness_session.TurnState | None = None
     cursor: str | None = None
     while True:
         page = (
@@ -191,11 +212,13 @@ async def _find_turn(raw: _RawSession, session_id: str, turn_id: str) -> harness
                 harness_session.SessionTurnsListResponse,
             )
         ).page
-        for turn in page.items:
-            if turn.id == turn_id:
-                return turn
+        for found in page.items:
+            if turn is not None:
+                return turn, found
+            if found.id == turn_id:
+                turn = found
         if page.next_cursor is None:
-            raise TurnNotFoundError(session_id, turn_id)
+            return turn, None
         cursor = page.next_cursor
 
 

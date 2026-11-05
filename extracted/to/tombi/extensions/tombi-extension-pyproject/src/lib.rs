@@ -2,6 +2,7 @@ mod accessors;
 mod code_action;
 mod completion;
 mod dependency;
+mod diagnostics;
 mod did_open;
 mod document_link;
 mod goto_declaration;
@@ -15,6 +16,7 @@ mod workspace;
 
 pub use code_action::{CodeActionRefactorRewriteName, code_action};
 pub use completion::completion;
+pub use diagnostics::{references_path, validate as validate_pyproject};
 pub use did_open::did_open;
 pub use document_link::document_link;
 pub use goto_declaration::get_current_declaration;
@@ -32,8 +34,8 @@ pub(crate) use dependency::{
     DependencyRequirement, UV_DEPENDENCY_KEYS,
     collect_all_dependency_requirements_from_document_tree,
     collect_dependency_requirements_from_document_tree, find_dependency_group_key,
-    get_dependency_accessors, include_group_locations, parse_dependency_requirement,
-    parse_requirement,
+    get_dependency_accessors, include_group_locations, normalize_pep503_name,
+    parse_dependency_requirement, parse_requirement,
 };
 pub(crate) use goto_definition::{
     collect_workspace_project_dependency_definitions, get_workspace_member_dependency_definitions,

@@ -1,106 +1,63 @@
 //! Inline code parsing.
 
-use nom::{
-	Parser,
-	branch::alt,
-	bytes::complete::{tag, take_until1},
-	error::ParseError,
-};
-
 use crate::{
 	Input,
+	error::PResult,
 	lossless::TokenKind,
-	span::{Span, Syntax, WithToken},
+	span::{Span, Syntax},
 };
 
 pub const SINGLE_DELIMITER: &str = "`";
 pub const DOUBLE_DELIMITER: &str = "``";
 
-/// Unparse inline code back to markdown.
-///
-/// # Errors
-/// If formatting fails
-pub fn unparse(code: &str, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-	if code.contains('`') {
-		write!(f, "{DOUBLE_DELIMITER}{code}{DOUBLE_DELIMITER}")
-	} else {
-		write!(f, "{SINGLE_DELIMITER}{code}{SINGLE_DELIMITER}")
-	}
-}
-
 /// Parse inline code in either syntax.
 ///
 /// # Errors
 /// If the content does not begin with inline code.
-#[must_use]
-pub fn code<'data, S, E>()
--> impl Parser<Input<'data>, Output = (Input<'data>, S::Syntax), Error = E>
-where
-	S: Span,
-	E: ParseError<Input<'data>>,
-{
-	alt((single::<S, E>(), double::<S, E>()))
+pub fn code<'data, S: Span>(input: &mut Input<'data>) -> PResult<(&'data str, S::Syntax)> {
+	match input.attempt(single::<S>)? {
+		Some(code) => Ok(code),
+		None => double::<S>(input),
+	}
 }
 
 /// Parse inline code delimited by [`SINGLE_DELIMITER`].
 ///
 /// # Errors
 /// If the content does not begin with such code.
-#[must_use]
-pub fn single<'data, S, E>()
--> impl Parser<Input<'data>, Output = (Input<'data>, S::Syntax), Error = E>
-where
-	S: Span,
-	E: ParseError<Input<'data>>,
-{
-	delimited_by::<S, E>(SINGLE_DELIMITER)
+pub fn single<'data, S: Span>(input: &mut Input<'data>) -> PResult<(&'data str, S::Syntax)> {
+	delimited_by::<S>(input, SINGLE_DELIMITER)
 }
 
 /// Parse inline code delimited by [`DOUBLE_DELIMITER`], which can hold a single backtick.
 ///
 /// # Errors
 /// If the content does not begin with such code.
-#[must_use]
-pub fn double<'data, S, E>()
--> impl Parser<Input<'data>, Output = (Input<'data>, S::Syntax), Error = E>
-where
-	S: Span,
-	E: ParseError<Input<'data>>,
-{
-	delimited_by::<S, E>(DOUBLE_DELIMITER)
+pub fn double<'data, S: Span>(input: &mut Input<'data>) -> PResult<(&'data str, S::Syntax)> {
+	delimited_by::<S>(input, DOUBLE_DELIMITER)
 }
 
-fn delimited_by<'data, S, E>(
-	delimiter: &'static str,
-) -> impl Parser<Input<'data>, Output = (Input<'data>, S::Syntax), Error = E>
-where
-	S: Span,
-	E: ParseError<Input<'data>>,
-{
-	(
-		tag(delimiter).token::<S>(TokenKind::CodeDelimiter),
-		take_until1(delimiter).with_token::<S>(TokenKind::CodeContent),
-		tag(delimiter).token::<S>(TokenKind::CodeDelimiter),
-	)
-		.map(|(open, (content, syntax), close)| (content, open.join(syntax).join(close)))
+fn delimited_by<'data, S: Span>(
+	input: &mut Input<'data>,
+	delimiter: &str,
+) -> PResult<(&'data str, S::Syntax)> {
+	let open = input.token::<S, _>(TokenKind::CodeDelimiter, |input| input.tag(delimiter))?;
+	let (content, syntax) =
+		input.with_token::<S, _>(TokenKind::CodeContent, |input| input.take_until1(delimiter))?;
+	let close = input.token::<S, _>(TokenKind::CodeDelimiter, |input| input.tag(delimiter))?;
+	Ok((content, open.join(syntax).join(close)))
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
-	use crate::test_utils::handle_nom_err;
+	use crate::test_utils::run;
 
 	use super::code;
 
 	#[test]
 	fn simple_code() {
 		let s = "`foo`";
-		let (rem, (res, ())) = code::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code::<()>).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, "foo");
 	}
@@ -108,21 +65,13 @@ mod test {
 	#[test]
 	fn empty_code() {
 		let s = "``";
-		code::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect_err("able to parse");
+		run(s, code::<()>).expect_err("able to parse");
 	}
 
 	#[test]
 	fn escaped_code() {
 		let s = r"`foo\`bar`";
-		let (rem, (res, ())) = code::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code::<()>).expect("unable to parse");
 		assert_eq!(rem, "bar`");
 		assert_eq!(res, "foo\\");
 	}
@@ -130,11 +79,7 @@ mod test {
 	#[test]
 	fn code_with_italic() {
 		let s = r"`_foobar_`";
-		let (rem, (res, ())) = code::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code::<()>).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, "_foobar_");
 	}
@@ -142,11 +87,7 @@ mod test {
 	#[test]
 	fn code_with_link() {
 		let s = r"`foo\nbar`";
-		let (rem, (res, ())) = code::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code::<()>).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, "foo\\nbar");
 	}
@@ -154,11 +95,7 @@ mod test {
 	#[test]
 	fn double_delimiter_contains_single_delimiter() {
 		let s = r"``foo`bar``";
-		let (rem, (res, ())) = code::<(), _>()
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = run(s, code::<()>).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(res, "foo`bar");
 	}

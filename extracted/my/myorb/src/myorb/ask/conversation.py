@@ -32,6 +32,8 @@ class Conversation:
     links: dict[str, str] = field(default_factory=dict)
     # Done actions that can be undone: id -> undo.
     undo: dict[str, Callable[[WidgetContext], Awaitable[str]]] = field(default_factory=dict)
+    # Whose text Claude has read in it, e.g. emails (ActionResult.read_from).
+    read_from: list[str] = field(default_factory=list)
 
 
 def tool_name(plugin: Plugin, action: AskAction) -> str:

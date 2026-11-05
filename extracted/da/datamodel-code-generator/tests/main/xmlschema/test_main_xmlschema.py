@@ -6,6 +6,7 @@ import codecs
 import json
 import warnings
 from contextlib import nullcontext
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import msgspec
@@ -148,6 +149,21 @@ def test_main_xmlschema_purchase_order_from_normalized_external_path(tmp_path: P
             (XML_SCHEMA_DATA_PATH / "common.xsd", tmp_path / "common.xsd"),
         ],
     )
+
+
+def test_main_xmlschema_directory_input_ignores_its_own_output(tmp_path: Path) -> None:
+    """Generate twice from an XML Schema directory that holds the output, which the second run does not read."""
+    input_path = tmp_path / "schemas"
+    input_path.mkdir()
+    for name in ("purchase_order.xsd", "common.xsd"):
+        (input_path / name).write_bytes((XML_SCHEMA_DATA_PATH / name).read_bytes())
+    for _ in range(2):
+        run_main_and_assert(
+            input_path=input_path,
+            output_path=input_path / "generated",
+            input_file_type="xmlschema",
+            extra_args=["--disable-timestamp", "--formatters", "builtin"],
+        )
 
 
 def test_main_xmlschema_infer_input_file_type(output_file: Path) -> None:
@@ -363,6 +379,30 @@ def test_main_xmlschema_temporal_default_import_alias(output_file: Path) -> None
         force_exec_validation=True,
         importable_module_name="generated_xml_temporal_default_import_alias",
         importable_module_attribute="Root",
+    )
+
+
+def test_main_xmlschema_temporal_default_moves_to_parentheses_when_its_head_overflows(output_file: Path) -> None:
+    """Put a temporal default in parentheses when the line up to the bracket of its call is over the line length.
+
+    The call used to be split at its own bracket, which left a head of 95 columns.
+    """
+    run_main_and_assert(
+        input_path=XML_SCHEMA_DATA_PATH / "temporal_default_long_names.xsd",
+        output_path=output_file,
+        input_file_type="xmlschema",
+        extra_args=["--formatters", "builtin", "--disable-timestamp", "--target-python-version", "3.11"],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="generated_xml_temporal_default_long_names",
+        model_name="Root",
+        valid_json="{}",
+        invalid_json='{"aVeryLongEventTimestampFieldName":"x"}',
+        expected_error_type="datetime_from_date_parsing",
+        expected_attribute_path=("aVeryLongEventTimestampFieldName",),
+        expected_attribute_value=datetime(2026, 6, 4, 12, 34, 56, tzinfo=timezone.utc),
     )
 
 

@@ -1,7 +1,7 @@
 [project]
 name = "capt-hook"
 # Inert sentinel — the real version is stamped from the release tag (uv version --frozen).
-version = "12.121.19"
+version = "12.121.33"
 description = "Stop repeating yourself to Claude."
 readme = "README.md"
 license = "PolyForm-Noncommercial-1.0.0"
@@ -29,7 +29,7 @@ classifiers = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "cc-transcript[judge]==14.46.15",
+    "cc-transcript[judge]==14.46.16",
     "pydantic>=2.0",
     "jsonschema>=4.26",
     "pydantic-settings>=2.0",

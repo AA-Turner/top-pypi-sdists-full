@@ -15,8 +15,11 @@ from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from importlib import import_module
+from types import SimpleNamespace
 from typing import Any
 
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -31,6 +34,8 @@ from myorb.crypto import SecretBox
 from myorb.plugins.base import Link, Plugin, Row, Stat, Widget, WidgetContext, WidgetData
 from myorb.plugins.calendar import CalendarPlugin
 from myorb.plugins.calendar.commute import plan
+from myorb.plugins.gmail import GmailPlugin
+from myorb.plugins.gmail.message import frame_document, size_label
 from myorb.plugins.google_data import AccountData
 from myorb.plugins.uptime import history as uptime_history
 from myorb.plugins.uptime.models import Incident, Monitor
@@ -93,27 +98,120 @@ def _rows(items: list[tuple[str, str, str, str]], **row: Any) -> list[Row]:
     ]
 
 
+# The unread emails, newest first, each a conversation of (sender, address, subject, sent,
+# text): the sender's name, or None for Tony's own; when, as a time today or (day before, time).
+EMAILS = [
+    (
+        "warn",
+        [
+            (
+                None,
+                "tony@example.com",
+                "Q4 invoice",
+                (1, (18, 40)),
+                "Pepper,\n\nCould someone check the Q4 invoice for the Malibu workshop again? "
+                "The lab equipment looks high to me.\n\nT.",
+            ),
+            (
+                "Pepper Potts",
+                "pepper@example.com",
+                "Corrected Q4 invoice",
+                (0, (8, 12)),
+                "Tony,\n\nYou were right: the invoice billed the new lab equipment twice. "
+                "Accounting corrected it, and the total is now $1.24M instead of $1.81M.\n\n"
+                "I need your OK before it goes to the board on Thursday. A quick yes is "
+                "enough.\n\nSee you at lunch,\nPepper",
+            ),
+        ],
+    ),
+    (
+        "neutral",
+        [
+            (
+                "Happy Hogan",
+                "happy@example.com",
+                "Agenda for our 1:1",
+                (0, (7, 55)),
+                "Boss,\n\nFor our 1:1 at 13:45:\n\n1. Security for the Expo\n"
+                "2. The new car: delivery moved to Friday\n3. My leave in December\n\n"
+                "Fifteen minutes should do it. I'll call you on Meet.\n\nHappy",
+            ),
+        ],
+    ),
+    (
+        "neutral",
+        [
+            (
+                "Rhodey",
+                "rhodey@example.com",
+                "Saturday at the track?",
+                (0, (7, 31)),
+                "Tony,\n\nTrack day this Saturday at 9:00. I booked two slots. Bring the "
+                "car, leave the suit at home.\n\nRhodey",
+            ),
+        ],
+    ),
+    (
+        "neutral",
+        [
+            (
+                "Stark Industries Legal",
+                "legal@example.com",
+                "Contract renewal: signature needed",
+                (1, (16, 5)),
+                "Mr. Stark,\n\nThe three-year supply agreement for reactor components ends "
+                "on 30 November. The renewal keeps the current terms, with prices up 4 %.\n\n"
+                "Please sign it by Friday, so it can be countersigned in time.\n\n"
+                "Stark Industries Legal",
+            ),
+        ],
+    ),
+    (
+        "fail",
+        [
+            (
+                "GitHub",
+                "notifications@example.com",
+                "[app] PR #318: 2 checks failed",
+                (1, (21, 12)),
+                "2 of 14 checks failed on pull request #318, Refresh tokens before they "
+                "expire:\n\n✕ test (3.12): tests/test_auth.py::test_refresh_keeps_the_session\n"
+                "✕ test (3.13): tests/test_auth.py::test_refresh_keeps_the_session\n\n"
+                "12 checks passed.",
+            ),
+        ],
+    ),
+]
+
+
+def _received(now: datetime, sent: tuple[int, tuple[int, int]]) -> datetime:
+    days, (hour, minute) = sent
+    return now.replace(hour=hour, minute=minute, second=0, microsecond=0) - timedelta(days=days)
+
+
 def _unread() -> WidgetData:
+    # The badge as the Gmail plugin shows it: the time today, Yesterday before.
+    def badge(sent: tuple[int, tuple[int, int]]) -> str:
+        days, (hour, minute) = sent
+        return f"{hour:02d}:{minute:02d}" if days == 0 else "Yesterday"
+
     return WidgetData(
         value=12,
         summary="unread · 5 new today",
         stats=[Stat(12, "Unread"), Stat(5, "New today"), Stat(2, "From customers")],
         list_title="Unread",
-        rows=_rows(
-            [
-                ("Pepper Potts", "Corrected Q4 invoice", "08:12", "warn"),
-                ("Happy Hogan", "Agenda for our 1:1", "07:55", "neutral"),
-                ("Rhodey", "Saturday at the track?", "07:31", "neutral"),
-                (
-                    "Stark Industries Legal",
-                    "Contract renewal: signature needed",
-                    "Yesterday",
-                    "neutral",
-                ),
-                ("GitHub", "[app] PR #318: 2 checks failed", "Yesterday", "fail"),
-            ],
-            open_row=True,
-        ),
+        rows=[
+            Row(
+                title=thread[-1][0] or "Tony Stark",
+                subtitle=thread[-1][2],
+                badge=badge(thread[-1][3]),
+                tone=tone,
+                url=f"/demo/email/{index}",
+                open_row=True,
+                search=thread[-1][4],
+            )
+            for index, (tone, thread) in enumerate(EMAILS)
+        ],
     )
 
 
@@ -381,9 +479,67 @@ class DemoWeather(WeatherPlugin):
         }
 
 
+class DemoMail(Plugin):
+    """The unread emails, opened as the Gmail plugin opens them: its page, with its id so its
+    templates are found, and the made-up conversations instead of Gmail's."""
+
+    id = "gmail"
+    name = "Gmail"
+    templates_dir = GmailPlugin.templates_dir
+
+    def router(self) -> APIRouter:
+        router = APIRouter()
+        router.add_api_route("/demo/email/{index}", read_email, response_class=HTMLResponse)
+        return router
+
+
+async def read_email(request: Request, index: int) -> Response:
+    from myorb.web.routes import widget_context
+
+    if not 0 <= index < len(EMAILS):
+        raise HTTPException(status_code=404, detail="This email was not found.")
+    now = widget_context(request).now
+    messages = [
+        {
+            "id": f"{index}-{n}",
+            "sender": sender or "Tony Stark",
+            "address": address,
+            "to": "Tony Stark" if sender else EMAILS[index][1][-1][0],
+            "cc": "",
+            "subject": subject,
+            "received": _received(now, sent),
+            "unread": sender is not None,
+            "starred": False,
+            "html": "",
+            "text": text,
+            "attachments": [],
+        }
+        for n, (sender, address, subject, sent, text) in enumerate(EMAILS[index][1])
+    ]
+    context = {
+        "account": SimpleNamespace(id=0, email="tony@example.com"),
+        "thread_id": str(index),
+        "gmail_url": "",
+        "can_mark_read": False,
+        "can_draft": False,
+        "images": False,
+        "marked_read": False,
+        "in_view": request.headers.get("HX-Target") == "page-view",
+        "frame_document": frame_document,
+        "size_label": size_label,
+        "messages": messages,
+        "blocked_domains": [],
+        "allowed_domains": [],
+        "unsubscribe": "",
+        "invitation": None,
+    }
+    return request.app.state.templates.TemplateResponse(request, "gmail/email.html", context)
+
+
 def plugins() -> dict[str, Plugin]:
     return {
         "demo": DemoSources(),
+        "gmail": DemoMail(),
         "calendar": DemoCalendar(),
         "tasks": TasksPlugin(),
         "brief": BriefPlugin(),

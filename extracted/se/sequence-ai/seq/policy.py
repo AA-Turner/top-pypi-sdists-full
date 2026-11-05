@@ -165,7 +165,7 @@ def concurrent(fn: Any = None, *, sizes: Any = None, collate: Any = True) -> Cal
 
 
 
-    A copy seats as many robots as the largest listed size whose batch
+    A copy seats as many robots, 64 at most, as the largest listed size whose batch
     answers within the time its robots can wait for an answer - the steps from action_chunk_replan_at to
     action_chunk_valid_len, at hz (@seq.policy) - and holds an early act within that time, so they fall into one batch;
     acts that fill no listed size go as the sizes that fit them (3 of [1, 2, 4] as 2, then 1); a policy that asks at

@@ -49,11 +49,13 @@ import re
 from ansible.errors import AnsibleConnectionFailure
 from ansible.module_utils._text import to_text
 from ansible.module_utils.common._collections_compat import Mapping
+from ansible.plugins.cliconf import CliconfBase
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.config import (
     NetworkConfig,
 )
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils import to_list
-from ansible_collections.ansible.netcommon.plugins.plugin_utils.cliconf_base import CliconfBase
+
+from ansible_collections.vyos.vyos.plugins.cliconf_utils.vyosconf import VyosConf
 
 
 class Cliconf(CliconfBase):
@@ -122,7 +124,15 @@ class Cliconf(CliconfBase):
         out = self.send_command(command)
         return out
 
-    def edit_config(self, candidate=None, commit=True, replace=None, comment=None):
+    def edit_config(
+        self,
+        candidate=None,
+        commit=True,
+        replace=None,
+        diff=False,
+        comment=None,
+        confirm=None,
+    ):
         resp = {}
         operations = self.get_device_operations()
         self.check_edit_config_capability(operations, candidate, commit, replace, comment)
@@ -143,7 +153,7 @@ class Cliconf(CliconfBase):
         if diff_config:
             if commit:
                 try:
-                    self.commit(comment)
+                    self.commit(comment, confirm)
                 except AnsibleConnectionFailure as e:
                     msg = "commit failed: %s" % e.message
                     self.discard_changes()
@@ -191,12 +201,19 @@ class Cliconf(CliconfBase):
             check_all=check_all,
         )
 
-    def commit(self, comment=None):
-        if comment:
-            command = 'commit comment "{0}"'.format(comment)
+    def commit(self, comment=None, confirm=None):
+        if confirm:
+            if comment:
+                command = 'commit-confirm {0} comment "{1}"'.format(confirm, comment)
+            else:
+                command = "commit-confirm {0}".format(confirm)
+            self.send_command(command, "Proceed?", "\n")
         else:
-            command = "commit"
-        self.send_command(command)
+            if comment:
+                command = 'commit comment "{0}"'.format(comment)
+            else:
+                command = "commit"
+            self.send_command(command)
 
     def discard_changes(self):
         self.send_command("exit discard")
@@ -232,12 +249,21 @@ class Cliconf(CliconfBase):
         if path:
             raise ValueError("'path' in diff is not supported")
 
-        set_format = candidate.startswith("set") or candidate.startswith("delete")
+        first_line = next(
+            (
+                stripped
+                for stripped in (line.strip() for line in candidate.splitlines())
+                if stripped and not stripped.startswith("#")
+            ),
+            "",
+        )
+        set_format = first_line.startswith("set") or first_line.startswith("delete")
         candidate_obj = NetworkConfig(indent=4, contents=candidate)
+
         if not set_format:
+
             config = [c.line for c in candidate_obj.items]
             commands = list()
-            # this filters out less specific lines
             for item in config:
                 for index, entry in enumerate(commands):
                     if item.startswith(entry):
@@ -248,10 +274,65 @@ class Cliconf(CliconfBase):
             candidate_commands = ["set %s" % cmd.replace(" {", "") for cmd in commands]
 
         else:
-            candidate_commands = str(candidate).strip().split("\n")
+
+            candidate_commands = [
+                line.strip()
+                for line in str(candidate).splitlines()
+                if line.strip() and not line.lstrip().startswith("#")
+            ]
 
         if diff_match == "none":
             diff["config_diff"] = list(candidate_commands)
+            return diff
+        if diff_match == "enforce":
+            if running is None:
+                raise ValueError(
+                    "diff_match=enforce requires a running configuration to diff against",
+                )
+
+            enforce_candidate_lines = list(candidate_commands)
+
+            if not enforce_candidate_lines:
+                raise ValueError(
+                    "diff_match=enforce received an empty candidate (after stripping blank/"
+                    "comment lines); refusing to treat that as a desired end-state of "
+                    "'delete everything'. Provide 'set' commands describing the desired "
+                    "configuration.",
+                )
+
+            for line in enforce_candidate_lines:
+                tokens = line.strip().split()
+                if tokens[0] != "set":
+                    raise ValueError(
+                        "diff_match=enforce treats the candidate as the complete desired "
+                        "configuration end-state and only supports 'set' commands; "
+                        "line does not start with 'set' (found: {0!r})".format(
+                            line.strip(),
+                        ),
+                    )
+                if len(VyosConf().parse_line(line)[1]) < 1:
+                    raise ValueError(
+                        "diff_match=enforce only supports complete 'set' commands with at least "
+                        "a path and a leaf; got: {0!r}".format(line.strip()),
+                    )
+            running_conf = VyosConf(
+                [
+                    line
+                    for line in running.splitlines()
+                    if line.strip() and not line.lstrip().startswith("#")
+                ],
+            )
+
+            candidate_conf = VyosConf(enforce_candidate_lines)
+            diff["config_diff"] = running_conf.diff_commands_to(candidate_conf)
+            for cmd in diff["config_diff"]:
+                if re.match(r"^delete\s+service\s+ssh\b", cmd):
+                    raise ValueError(
+                        "diff_match=enforce refuses to generate 'delete service ssh ...' "
+                        "commands, since this could sever the management connection. "
+                        "Remove SSH configuration explicitly with a separate match=line "
+                        "or match=none task instead.",
+                    )
             return diff
 
         running_commands = [str(c).replace("'", "") for c in running.splitlines()]
@@ -269,12 +350,14 @@ class Cliconf(CliconfBase):
                 updates.append(line)
 
             elif item.startswith("delete"):
+
                 if not running_commands:
                     updates.append(line)
                 else:
                     item = re.sub(r"delete", "set", item)
+
                     for entry in running_commands:
-                        if entry.startswith(item) and line not in visited:
+                        if re.match(rf"^{re.escape(item)}\b", entry) and line not in visited:
                             updates.append(line)
                             visited.add(line)
 
@@ -323,7 +406,7 @@ class Cliconf(CliconfBase):
     def get_option_values(self):
         return {
             "format": ["text", "set"],
-            "diff_match": ["line", "none"],
+            "diff_match": ["line", "enforce", "none"],
             "diff_replace": [],
             "output": [],
         }

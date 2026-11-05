@@ -5,10 +5,17 @@ from __future__ import annotations
 import json
 
 from river_client.renderers.base import Renderer, TrainingExample, TrainOnWhat
+from river_client.renderers.tool_arguments import protect_value_ends
 
 
 class CheckpointTextRenderer(Renderer):
     """Shared normalization and SFT masking; subclasses own model syntax."""
+
+    # Whether the template renders an empty ``reasoning_content`` field as an
+    # empty think block; every template renders a non-empty one.
+    empty_reasoning_field = False
+    # The tags that end an argument value, or its call, in the template's calls.
+    value_ends: tuple[str, ...] = ()
 
     def __init__(self, tokenizer, *, thinking=True, strip_thinking_from_history=True):
         super().__init__(tokenizer)
@@ -16,40 +23,87 @@ class CheckpointTextRenderer(Renderer):
         self.strip_thinking_from_history = strip_thinking_from_history
 
     def _messages(self, messages):
-        result = []
-        for message in messages:
-            m = dict(message)
-            content = m.get("content") or ""
-            if not isinstance(content, str):
-                parts = []
-                for part in content:
-                    if part["type"] == "text":
-                        parts.append(part["text"])
-                    elif part["type"] == "thinking":
-                        if not isinstance(m.get("reasoning_content"), str):
-                            parts.append(f"<think>{part['thinking']}</think>")
-                    else:
-                        raise ValueError(
-                            f"{type(self).__name__} supports text only; got {part['type']}"
-                        )
-                content = "".join(parts)
-            m["content"] = content + "".join(
-                c["raw_text"] for c in m.pop("unparsed_tool_calls", [])
-            )
-            if m.get("tool_calls"):
-                calls = []
-                for call in m["tool_calls"]:
-                    function = dict(call["function"])
-                    args = function.get("arguments", {})
-                    if isinstance(args, str):
-                        args = json.loads(args)
-                    if not isinstance(args, dict):
-                        raise ValueError("Tool arguments must be a JSON object")  # noqa: TRY004 - malformed configuration/tool value
-                    function["arguments"] = args
-                    calls.append({**call, "function": function})
-                m["tool_calls"] = calls
-            result.append(m)
-        return result
+        last_user = max(
+            (i for i, m in enumerate(messages) if m.get("role") == "user"), default=-1
+        )
+        return [
+            self._message(message, history=index < last_user)
+            for index, message in enumerate(messages)
+        ]
+
+    def _message(self, message, *, history):
+        """One message as the template takes it.
+
+        ``history`` marks a turn before the last user turn, whose reasoning a
+        template may strip.
+        """
+        m = dict(message)
+        content = m.get("content") or ""
+        # A caller's string may carry its reasoning inline, which the template
+        # extracts. Parts, or an empty string beside calls, carry it
+        # structurally, so it is written explicitly, even when empty: the
+        # template then never searches the text or a rejected block, where a
+        # </think> is the model's own text, for reasoning.
+        structured = m.get("role") == "assistant" and not (
+            isinstance(content, str) and content
+        )
+        # A template that strips reasoning from earlier turns finds it by
+        # cutting at </think>. Writing none into such a turn, which it would
+        # drop anyway, leaves it nothing of ours to cut at.
+        stripped = (
+            structured
+            and not self.empty_reasoning_field
+            and self.strip_thinking_from_history
+            and history
+        )
+        explicit = structured and not stripped
+        reasoning = m.get("reasoning_content")
+        thinking = []
+        if not isinstance(content, str):
+            parts = []
+            for part in content:
+                if part["type"] == "text":
+                    parts.append(part["text"])
+                elif part["type"] == "thinking":
+                    thinking.append(part["thinking"])
+                else:
+                    raise ValueError(
+                        f"{type(self).__name__} supports text only; got {part['type']}"
+                    )
+            content = "".join(parts)
+        if isinstance(reasoning, str):
+            thinking = [reasoning]
+        joined = "".join(thinking)
+        if explicit and (self.empty_reasoning_field or joined.strip()):
+            m["reasoning_content"] = joined
+        elif explicit:
+            # This template ignores an empty field, so the empty block goes in
+            # the content, where it finds one and adds no other.
+            m.pop("reasoning_content", None)
+            content = f"<think>{joined}</think>{content}"
+        elif stripped:
+            m.pop("reasoning_content", None)
+        elif thinking and not isinstance(reasoning, str):
+            content = "".join(f"<think>{t}</think>" for t in thinking) + content
+        m["content"] = content + "".join(
+            c["raw_text"] for c in m.pop("unparsed_tool_calls", [])
+        )
+        if m.get("tool_calls"):
+            calls = []
+            for call in m["tool_calls"]:
+                function = dict(call["function"])
+                args = function.get("arguments", {})
+                if isinstance(args, str):
+                    args = json.loads(args)
+                if not isinstance(args, dict):
+                    raise ValueError("Tool arguments must be a JSON object")  # noqa: TRY004 - malformed configuration/tool value
+                function["arguments"] = {
+                    key: protect_value_ends(value, self.value_ends)
+                    for key, value in args.items()
+                }
+                calls.append({**call, "function": function})
+            m["tool_calls"] = calls
+        return m
 
     def _template_kwargs(self):
         raise NotImplementedError

@@ -2,12 +2,20 @@
 
 Import path: ``mistralai.vibe_agents.session_workflow.*``
 
-Boundary types between the vibe_agents control plane and any compliant
-runtime. This package includes both the workflow envelope/command contract and
+Internal: no compatibility promise; agent code imports ``mistralai.agents``.
+
+Boundary types between the vibe_agents control plane and the Mistral
+runtimes. This package includes both the workflow envelope/command contract and
 the pure Pydantic Task Protocol history-entry models emitted through that
 envelope. It deliberately avoids importing ``mistralai.workflows``.
 """
 
+from mistralai.vibe_agents.session_workflow.child_verification import (
+    VERIFY_CHILD_SESSION_PROCEDURE,
+    ChildSessionVerdict,
+    VerifyChildSessionRequest,
+    VerifyChildSessionResult,
+)
 from mistralai.vibe_agents.session_workflow.commands import (
     AGENTS_SDK_COMMAND_SOURCE,
     MESSAGE_CONTEXT_MAX_LENGTH,
@@ -214,6 +222,10 @@ from mistralai.vibe_agents.session_workflow.toolsets import (
 )
 
 __all__ = [
+    "VERIFY_CHILD_SESSION_PROCEDURE",
+    "ChildSessionVerdict",
+    "VerifyChildSessionRequest",
+    "VerifyChildSessionResult",
     "AGENTS_SDK_COMMAND_SOURCE",
     "DEFAULT_CONCURRENT_CHILD_TURN_LIMIT",
     "DEFAULT_MAX_SUBAGENT_DEPTH",

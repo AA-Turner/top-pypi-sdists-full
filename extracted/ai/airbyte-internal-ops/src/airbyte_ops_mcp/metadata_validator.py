@@ -296,7 +296,7 @@ def check_is_release_candidate_version(version: str) -> bool:
     return parsed_version.prerelease is not None and "rc" in parsed_version.prerelease
 
 
-def check_is_major_release_candidate_version(version: str) -> bool:
+def check_is_major_release_candidate_version(version: str) -> bool | None:
     """Check whether the version is a major release candidate version.
     Example: 2.0.0-rc.1
     """
@@ -397,7 +397,7 @@ def validate_and_load(
     file_path: pathlib.Path,
     validators_to_run: List[Validator],
     validator_opts: ValidatorOptions,
-) -> Tuple[Optional[ConnectorMetadataDefinitionV0], Optional[ValidationError]]:
+) -> Tuple[Optional[ConnectorMetadataDefinitionV0], Optional[str]]:
     """Load a metadata file from a path (runs jsonschema validation) and run optional extra validators.
 
     Returns a tuple of (metadata_model, error_message).
@@ -412,7 +412,7 @@ def validate_and_load(
         return None, f"Validation error: {e}"
 
     for validator in validators_to_run:
-        print(f"Running validator: {validator.__name__}")
+        print(f"Running validator: {validator.__name__}")  # ty: ignore[unresolved-attribute]
         is_valid, error = validator(metadata_model, validator_opts)
         if not is_valid:
             return None, f"Validation error: {error}"

@@ -252,7 +252,7 @@ class RunCacheConfig:
     )
     disable_telemetry: bool = field(default_factory=lambda: DISABLE_TELEMETRY)
     dbt_project_id: t.Optional[str] = None
-    ignore_external_modifications: bool = False
+    ignore_external_modifications: bool = True
 
     @classmethod
     def from_runtime_config(cls, config: RuntimeConfig) -> RunCacheConfig:

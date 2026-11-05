@@ -18,7 +18,6 @@
 # Make coding more python3-ish
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 from unittest.mock import patch
@@ -109,7 +108,7 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                         ),
                         dict(
                             afi="ipv6",
-                            ip_src_route=True,
+                            ip_src_route=False,
                             icmp_redirects=dict(receive=False),
                         ),
                     ],
@@ -159,6 +158,31 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                             ),
                         ],
                     ),
+                    zone=[
+                        dict(
+                            name="FZP-2",
+                            default_action="reject",
+                            default_log=True,
+                            description="This is the Firewall zone fzp2",
+                            interfaces=[
+                                "eth2",
+                                "lo0",
+                            ],
+                            local_zone=True,
+                            sources=[
+                                dict(
+                                    zone="fzp5",
+                                    firewall=dict(
+                                        name="fzp1",
+                                        ipv6_name="fzp1-v6",
+                                    ),
+                                ),
+                            ],
+                            intra_zone_filtering=dict(
+                                action="accept",
+                            ),
+                        ),
+                    ],
                 ),
                 state="merged",
             ),
@@ -185,6 +209,7 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
             "set firewall global-options ip-src-route 'enable'",
             "set firewall global-options receive-redirects 'disable'",
             "set firewall global-options config-trap 'enable'",
+            "set firewall global-options ipv6-src-route 'disable'",
             "set firewall global-options ipv6-receive-redirects 'disable'",
             "set firewall global-options state-policy established action 'accept'",
             "set firewall global-options state-policy established log",
@@ -195,6 +220,15 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
             "set firewall global-options twa-hazards-protection 'enable'",
             "set firewall global-options syn-cookies 'enable'",
             "set firewall global-options source-validation 'strict'",
+            "set firewall zone FZP-2 default-action 'reject'",
+            "set firewall zone FZP-2 default-log",
+            "set firewall zone FZP-2 description 'This is the Firewall zone fzp2'",
+            "set firewall zone FZP-2 from fzp5 firewall ipv6-name fzp1-v6",
+            "set firewall zone FZP-2 from fzp5 firewall name fzp1",
+            "set firewall zone FZP-2 interface eth2",
+            "set firewall zone FZP-2 interface lo0",
+            "set firewall zone FZP-2 intra-zone-filtering action accept",
+            "set firewall zone FZP-2 local-zone",
         ]
         self.execute_module(changed=True, commands=commands)
 
@@ -204,6 +238,10 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                 config=dict(
                     group=dict(
                         address_group=[
+                            dict(
+                                afi="ipv4",
+                                name="A-EMPTY",
+                            ),
                             dict(
                                 afi="ipv4",
                                 name="RND-HOSTS",
@@ -286,6 +324,14 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                                     dict(address="fdec:2503:89d6:59b3::2"),
                                 ],
                             ),
+                            dict(
+                                afi="ipv4",
+                                name="ZONE-TEST",
+                                members=[
+                                    dict(address="1.2.3.4"),
+                                ],
+                                description="This is a new description for a address group name that is also in a zone",
+                            ),
                         ],
                         network_group=[
                             dict(
@@ -309,11 +355,37 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                             ),
                         ],
                     ),
+                    zone=[
+                        dict(
+                            name="FZP-2",
+                            default_action="drop",
+                            default_log=True,
+                            description="This is the Firewall zone fzp2",
+                            interfaces=[
+                                "eth2",
+                                "lo0",
+                            ],
+                            local_zone=True,
+                            sources=[
+                                dict(
+                                    zone="fzp5",
+                                    firewall=dict(
+                                        name="fzp1",
+                                        ipv6_name="fzp1-v6",
+                                    ),
+                                ),
+                            ],
+                            intra_zone_filtering=dict(
+                                action="accept",
+                            ),
+                        ),
+                    ],
                 ),
                 state="replaced",
             ),
         )
         commands = [
+            "delete firewall group address-group A-EMPTY",
             "delete firewall group address-group RND-HOSTS address 192.0.2.3",
             "delete firewall group address-group RND-HOSTS address 192.0.2.5",
             "delete firewall group address-group DELETE-HOSTS address",
@@ -321,14 +393,26 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
             "delete firewall global-options state-policy related",
             "delete firewall global-options ipv6-src-route",
             "delete firewall global-options send-redirects",
+            "delete firewall zone ZONE-IZF",
             "set firewall global-options state-policy invalid action 'reject'",
             "set firewall group address-group RND-HOSTS address 192.0.2.7",
             "set firewall group address-group RND-HOSTS address 192.0.2.9",
+            "set firewall group address-group ZONE-TEST description 'This is a new description for a address group name that is also in a zone'",
+            "delete firewall zone ZONE-TEST",
             "delete firewall group network-group RND description",
             "delete firewall group ipv6-address-group LOCAL-v6 address fdec:2503:89d6:59b3::1",
             "set firewall group ipv6-address-group LOCAL-v6 address fdec:2503:89d6:59b3::2",
             "delete firewall group port-group SSH port 22",
             "set firewall group port-group SSH port 2222",
+            "set firewall zone FZP-2 default-action 'drop'",
+            "set firewall zone FZP-2 default-log",
+            "set firewall zone FZP-2 description 'This is the Firewall zone fzp2'",
+            "set firewall zone FZP-2 from fzp5 firewall ipv6-name fzp1-v6",
+            "set firewall zone FZP-2 from fzp5 firewall name fzp1",
+            "set firewall zone FZP-2 interface eth2",
+            "set firewall zone FZP-2 interface lo0",
+            "set firewall zone FZP-2 intra-zone-filtering action accept",
+            "set firewall zone FZP-2 local-zone",
         ]
         self.execute_module(changed=True, commands=commands)
 
@@ -348,6 +432,10 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                         address_group=[
                             dict(
                                 afi="ipv4",
+                                name="A-EMPTY",
+                            ),
+                            dict(
+                                afi="ipv4",
                                 name="RND-HOSTS",
                                 description="This group has the Management hosts address lists",
                                 members=[
@@ -361,8 +449,15 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                                 name="DELETE-HOSTS",
                                 description="The (single) last address from this group will be deleted in the tests",
                                 members=[
-                                    dict(address='1.2.3.4'),
-                                ]
+                                    dict(address="1.2.3.4"),
+                                ],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="ZONE-TEST",
+                                members=[
+                                    dict(address="1.2.3.4"),
+                                ],
                             ),
                             dict(
                                 afi="ipv6",
@@ -396,6 +491,24 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                             ),
                         ],
                     ),
+                    zone=[
+                        dict(
+                            name="ZONE-TEST",
+                            description="zone-test test description",
+                            interfaces=["eth0.1234"],
+                        ),
+                        dict(
+                            name="ZONE-IZF",
+                            description="zone for izf and sources delete path testing",
+                            intra_zone_filtering=dict(action="drop"),
+                            sources=[
+                                dict(
+                                    zone="zone-src",
+                                    firewall=dict(name="existing-ruleset"),
+                                ),
+                            ],
+                        ),
+                    ],
                 ),
                 state="replaced",
             ),
@@ -431,6 +544,14 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                                     dict(address="fdec:2503:89d6:59b3::2"),
                                 ],
                             ),
+                            dict(
+                                afi="ipv4",
+                                name="ZONE-TEST",
+                                members=[
+                                    dict(address="4.3.2.1"),
+                                ],
+                                description="This is a new description for a address group name that is also in a zone",
+                            ),
                         ],
                         network_group=[
                             dict(
@@ -454,13 +575,25 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
                             ),
                         ],
                     ),
+                    zone=[
+                        dict(
+                            name="ZONE-TEST",
+                            description="zone-test test description",
+                            interfaces=[
+                                "lo",
+                            ],
+                        ),
+                    ],
                 ),
                 state="replaced",
             ),
         )
         commands = [
+            "delete firewall group address-group A-EMPTY",
             "delete firewall group address-group RND-HOSTS address 192.0.2.3",
             "delete firewall group address-group RND-HOSTS address 192.0.2.5",
+            "delete firewall group address-group ZONE-TEST address 1.2.3.4",
+            "delete firewall zone ZONE-IZF",
             "delete firewall global-options all-ping",
             "delete firewall global-options ipv6-src-route",
             "delete firewall global-options send-redirects",
@@ -470,6 +603,10 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
             "set firewall global-options state-policy invalid action 'reject'",
             "set firewall group address-group RND-HOSTS address 192.0.2.7",
             "set firewall group address-group RND-HOSTS address 192.0.2.9",
+            "set firewall group address-group ZONE-TEST address 4.3.2.1",
+            "delete firewall zone ZONE-TEST interface eth0.1234",
+            "set firewall zone ZONE-TEST interface lo",
+            "set firewall group address-group ZONE-TEST description 'This is a new description for a address group name that is also in a zone'",
             "delete firewall group ipv6-address-group LOCAL-v6 address fdec:2503:89d6:59b3::1",
             "set firewall group ipv6-address-group LOCAL-v6 address fdec:2503:89d6:59b3::2",
             "delete firewall group port-group SSH port 22",
@@ -481,3 +618,401 @@ class TestVyosFirewallRulesModule14(TestVyosModule):
         set_module_args(dict(config=dict(), state="deleted"))
         commands = ["delete firewall"]
         self.execute_module(changed=True, commands=commands)
+
+    def test_vyos_firewall_global_set_03_replaced_izf_action_change(self):
+        set_module_args(
+            dict(
+                config=dict(
+                    ping=dict(all=True),
+                    route_redirects=[
+                        dict(ip_src_route=True, afi="ipv6"),
+                        dict(icmp_redirects=dict(send=True), afi="ipv4"),
+                    ],
+                    state_policy=[
+                        dict(connection_type="related", action="accept", log_level="alert"),
+                    ],
+                    group=dict(
+                        address_group=[
+                            dict(afi="ipv4", name="A-EMPTY"),
+                            dict(
+                                afi="ipv4",
+                                name="RND-HOSTS",
+                                description="This group has the Management hosts address lists",
+                                members=[
+                                    dict(address="192.0.2.1"),
+                                    dict(address="192.0.2.3"),
+                                    dict(address="192.0.2.5"),
+                                ],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="DELETE-HOSTS",
+                                description="The (single) last address from this group will be deleted in the tests",
+                                members=[dict(address="1.2.3.4")],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="ZONE-TEST",
+                                members=[dict(address="1.2.3.4")],
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="LOCAL-v6",
+                                description="This group has the hosts address lists of this machine",
+                                members=[
+                                    dict(address="::1"),
+                                    dict(address="fdec:2503:89d6:59b3::1"),
+                                ],
+                            ),
+                        ],
+                        network_group=[
+                            dict(
+                                afi="ipv4",
+                                name="RND",
+                                description="This group has the Management network addresses",
+                                members=[dict(address="192.0.2.0/24")],
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="UNIQUE-LOCAL-v6",
+                                description="This group encompasses the ULA address space in IPv6",
+                                members=[dict(address="fc00::/7")],
+                            ),
+                        ],
+                        port_group=[
+                            dict(
+                                name="SSH",
+                                description="This group has the ssh ports",
+                                members=[dict(port="22")],
+                            ),
+                        ],
+                    ),
+                    zone=[
+                        dict(
+                            name="ZONE-TEST",
+                            description="zone-test test description",
+                            interfaces=["eth0.1234"],
+                        ),
+                        dict(
+                            name="ZONE-IZF",
+                            description="zone for izf and sources delete path testing",
+                            intra_zone_filtering=dict(action="accept"),  # was 'drop'
+                            sources=[
+                                dict(
+                                    zone="zone-src",
+                                    firewall=dict(name="existing-ruleset"),
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                state="replaced",
+            ),
+        )
+        commands = [
+            "delete firewall zone ZONE-IZF intra-zone-filtering action",
+            "set firewall zone ZONE-IZF intra-zone-filtering action accept",
+        ]
+        self.execute_module(changed=True, commands=commands)
+
+    def test_vyos_firewall_global_set_04_replaced_sources_value_change(self):
+        # ZONE-IZF.sources[0].firewall.name changes from 'existing-ruleset'
+        # (fixture) to 'new-ruleset'. Exercises _render_sources' `not opr
+        # and hfw` (delete) branch. Pre-fix this leaked the old value into
+        # the delete command.
+        set_module_args(
+            dict(
+                config=dict(
+                    ping=dict(all=True),
+                    route_redirects=[
+                        dict(ip_src_route=True, afi="ipv6"),
+                        dict(icmp_redirects=dict(send=True), afi="ipv4"),
+                    ],
+                    state_policy=[
+                        dict(connection_type="related", action="accept", log_level="alert"),
+                    ],
+                    group=dict(
+                        address_group=[
+                            dict(afi="ipv4", name="A-EMPTY"),
+                            dict(
+                                afi="ipv4",
+                                name="RND-HOSTS",
+                                description="This group has the Management hosts address lists",
+                                members=[
+                                    dict(address="192.0.2.1"),
+                                    dict(address="192.0.2.3"),
+                                    dict(address="192.0.2.5"),
+                                ],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="DELETE-HOSTS",
+                                description="The (single) last address from this group will be deleted in the tests",
+                                members=[dict(address="1.2.3.4")],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="ZONE-TEST",
+                                members=[dict(address="1.2.3.4")],
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="LOCAL-v6",
+                                description="This group has the hosts address lists of this machine",
+                                members=[
+                                    dict(address="::1"),
+                                    dict(address="fdec:2503:89d6:59b3::1"),
+                                ],
+                            ),
+                        ],
+                        network_group=[
+                            dict(
+                                afi="ipv4",
+                                name="RND",
+                                description="This group has the Management network addresses",
+                                members=[dict(address="192.0.2.0/24")],
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="UNIQUE-LOCAL-v6",
+                                description="This group encompasses the ULA address space in IPv6",
+                                members=[dict(address="fc00::/7")],
+                            ),
+                        ],
+                        port_group=[
+                            dict(
+                                name="SSH",
+                                description="This group has the ssh ports",
+                                members=[dict(port="22")],
+                            ),
+                        ],
+                    ),
+                    zone=[
+                        dict(
+                            name="ZONE-TEST",
+                            description="zone-test test description",
+                            interfaces=["eth0.1234"],
+                        ),
+                        dict(
+                            name="ZONE-IZF",
+                            description="zone for izf and sources delete path testing",
+                            intra_zone_filtering=dict(action="drop"),
+                            sources=[
+                                dict(
+                                    zone="zone-src",
+                                    firewall=dict(name="new-ruleset"),  # was 'existing-ruleset'
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+                state="replaced",
+            ),
+        )
+        commands = [
+            "delete firewall zone ZONE-IZF from zone-src firewall name",
+            "set firewall zone ZONE-IZF from zone-src firewall name new-ruleset",
+        ]
+        self.execute_module(changed=True, commands=commands)
+
+    def test_vyos_firewall_global_set_05_replaced_sources_firewall_cleared(self):
+        # ZONE-IZF.sources[0] keeps the 'zone-src' key but drops the
+        # 'firewall' sub-dict entirely. Exercises _render_sources' `not opr
+        # and not hfw` branch -- unreachable before the fix, since it was
+        # guarded by `not have` instead of `not hfw`, and `have` can never
+        # be empty here (we're already inside `if zone in have_index`).
+        set_module_args(
+            dict(
+                config=dict(
+                    ping=dict(all=True),
+                    route_redirects=[
+                        dict(ip_src_route=True, afi="ipv6"),
+                        dict(icmp_redirects=dict(send=True), afi="ipv4"),
+                    ],
+                    state_policy=[
+                        dict(connection_type="related", action="accept", log_level="alert"),
+                    ],
+                    group=dict(
+                        address_group=[
+                            dict(afi="ipv4", name="A-EMPTY"),
+                            dict(
+                                afi="ipv4",
+                                name="RND-HOSTS",
+                                description="This group has the Management hosts address lists",
+                                members=[
+                                    dict(address="192.0.2.1"),
+                                    dict(address="192.0.2.3"),
+                                    dict(address="192.0.2.5"),
+                                ],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="DELETE-HOSTS",
+                                description="The (single) last address from this group will be deleted in the tests",
+                                members=[dict(address="1.2.3.4")],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="ZONE-TEST",
+                                members=[dict(address="1.2.3.4")],
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="LOCAL-v6",
+                                description="This group has the hosts address lists of this machine",
+                                members=[
+                                    dict(address="::1"),
+                                    dict(address="fdec:2503:89d6:59b3::1"),
+                                ],
+                            ),
+                        ],
+                        network_group=[
+                            dict(
+                                afi="ipv4",
+                                name="RND",
+                                description="This group has the Management network addresses",
+                                members=[dict(address="192.0.2.0/24")],
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="UNIQUE-LOCAL-v6",
+                                description="This group encompasses the ULA address space in IPv6",
+                                members=[dict(address="fc00::/7")],
+                            ),
+                        ],
+                        port_group=[
+                            dict(
+                                name="SSH",
+                                description="This group has the ssh ports",
+                                members=[dict(port="22")],
+                            ),
+                        ],
+                    ),
+                    zone=[
+                        dict(
+                            name="ZONE-TEST",
+                            description="zone-test test description",
+                            interfaces=["eth0.1234"],
+                        ),
+                        dict(
+                            name="ZONE-IZF",
+                            description="zone for izf and sources delete path testing",
+                            intra_zone_filtering=dict(action="drop"),
+                            sources=[
+                                dict(zone="zone-src"),  # firewall dropped entirely
+                            ],
+                        ),
+                    ],
+                ),
+                state="replaced",
+            ),
+        )
+        commands = [
+            "delete firewall zone ZONE-IZF from zone-src",
+        ]
+        self.execute_module(changed=True, commands=commands)
+
+    def test_vyos_firewall_global_set_06_replaced_sources_entry_removed(self):
+        # ZONE-IZF's sources list drops the 'zone-src' entry entirely (not
+        # just its firewall sub-dict). Exercises the new `elif not opr:`
+        # branch -- previously this case emitted nothing at all.
+        set_module_args(
+            dict(
+                config=dict(
+                    ping=dict(all=True),
+                    route_redirects=[
+                        dict(ip_src_route=True, afi="ipv6"),
+                        dict(icmp_redirects=dict(send=True), afi="ipv4"),
+                    ],
+                    state_policy=[
+                        dict(connection_type="related", action="accept", log_level="alert"),
+                    ],
+                    group=dict(
+                        address_group=[
+                            dict(afi="ipv4", name="A-EMPTY"),
+                            dict(
+                                afi="ipv4",
+                                name="RND-HOSTS",
+                                description="This group has the Management hosts address lists",
+                                members=[
+                                    dict(address="192.0.2.1"),
+                                    dict(address="192.0.2.3"),
+                                    dict(address="192.0.2.5"),
+                                ],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="DELETE-HOSTS",
+                                description="The (single) last address from this group will be deleted in the tests",
+                                members=[dict(address="1.2.3.4")],
+                            ),
+                            dict(
+                                afi="ipv4",
+                                name="ZONE-TEST",
+                                members=[dict(address="1.2.3.4")],
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="LOCAL-v6",
+                                description="This group has the hosts address lists of this machine",
+                                members=[
+                                    dict(address="::1"),
+                                    dict(address="fdec:2503:89d6:59b3::1"),
+                                ],
+                            ),
+                        ],
+                        network_group=[
+                            dict(
+                                afi="ipv4",
+                                name="RND",
+                                description="This group has the Management network addresses",
+                                members=[dict(address="192.0.2.0/24")],
+                            ),
+                            dict(
+                                afi="ipv6",
+                                name="UNIQUE-LOCAL-v6",
+                                description="This group encompasses the ULA address space in IPv6",
+                                members=[dict(address="fc00::/7")],
+                            ),
+                        ],
+                        port_group=[
+                            dict(
+                                name="SSH",
+                                description="This group has the ssh ports",
+                                members=[dict(port="22")],
+                            ),
+                        ],
+                    ),
+                    zone=[
+                        dict(
+                            name="ZONE-TEST",
+                            description="zone-test test description",
+                            interfaces=["eth0.1234"],
+                        ),
+                        dict(
+                            name="ZONE-IZF",
+                            description="zone for izf and sources delete path testing",
+                            intra_zone_filtering=dict(action="drop"),
+                            # sources omitted entirely
+                        ),
+                    ],
+                ),
+                state="replaced",
+            ),
+        )
+        commands = [
+            "delete firewall zone ZONE-IZF from zone-src",
+        ]
+        self.execute_module(changed=True, commands=commands)
+
+    def test_vyos_firewall_global_ruleset_lines_filtered_from_facts(self):
+        # Confirms render_config's pre-filter strips all three ruleset-line
+        # prefixes (IPv4 name, legacy hyphenated ipv6-name, and 1.4+
+        # space-separated "ipv6 name") before zone/global-options parsing
+        # runs, on a real 1.4.x-shaped fixture alongside existing zone data.
+        set_module_args(dict(config=dict(), state="gathered"))
+        result = self.execute_module(changed=False)
+        facts = result["gathered"]
+        self.assertNotIn("TESTRULESET-V4", str(facts))
+        self.assertNotIn("TESTRULESET-V6-LEGACY", str(facts))
+        self.assertNotIn("TESTRULESET-V6-1_4PLUS", str(facts))

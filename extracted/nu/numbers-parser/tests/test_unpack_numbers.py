@@ -1,6 +1,8 @@
 import json
+import plistlib
 import runpy
 import sys
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -8,6 +10,8 @@ import magic
 import pytest
 
 from numbers_parser import __version__
+from numbers_parser._unpack_numbers import NumbersUnpacker
+from numbers_parser.exceptions import FileFormatError
 
 
 def test_version(script_runner):
@@ -195,8 +199,11 @@ def test_pretty_storage(script_runner, tmp_path):
     with open(str(output_dir / "Index/Tables/Tile-875165.json")) as f:
         data = json.load(f)
     objects = data["chunks"][0]["archives"][0]["objects"][0]
-    assert objects["rowInfos"][0]["cell_offsets"] == "-1,0,24,48,72,96,[...]"
-    assert objects["rowInfos"][0]["cell_storage_buffer"][0:26] == "05:03:00:00:00:00:00:00:08"
+    rowinfo = objects["rowInfos"][0]
+    assert rowinfo["cell_offsets"] == "-1,0,24,48,72,96,[...]"
+    assert rowinfo["cell_offsets_pre_bnc"] == "-1,0,20,40,60,80,[...]"
+    assert rowinfo["cell_storage_buffer"][0:26] == "05:03:00:00:00:00:00:00:08"
+    assert rowinfo["cell_storage_buffer_pre_bnc"][0:26] == "04:03:00:00:14:00:00:00:00"
 
 
 def test_compact_json(script_runner, tmp_path):
@@ -287,3 +294,25 @@ def test_default_output_dir(script_runner, tmp_path):
     assert ret.stdout == ""
     assert ret.stderr == ""
     assert Path.exists(tmp_path / "test-1/Metadata/Properties.plist")
+
+
+def test_unpack_path_traversal_prevention(tmp_path):
+    evil_file = tmp_path / "evil.numbers"
+    with zipfile.ZipFile(evil_file, "w") as z:
+        z.writestr("Metadata/Properties.plist", plistlib.dumps({}))
+        z.writestr("Metadata/BuildVersionHistory.plist", plistlib.dumps([]))
+        z.writestr("../escape_target/PWNED", b"marker")
+
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    escape_target_dir = tmp_path / "escape_target"
+
+    unpacker = NumbersUnpacker(output_dir=str(output_dir))
+
+    with pytest.raises(FileFormatError, match="Path traversal attempt detected"):  # noqa: PT012, SIM117
+        with zipfile.ZipFile(evil_file, "r") as z:
+            for filename in z.namelist():
+                blob = z.read(filename)
+                unpacker.store_file(filename, blob)
+
+    assert not (escape_target_dir / "PWNED").exists()

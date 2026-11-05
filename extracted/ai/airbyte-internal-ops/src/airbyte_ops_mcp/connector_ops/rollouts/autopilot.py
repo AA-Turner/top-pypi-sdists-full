@@ -1868,7 +1868,7 @@ def run_auto_promote(
                         success=False,
                         message=(
                             f"Skipped: eligibility estimate unavailable for "
-                            f"{next_t.value} — deferring promotion"
+                            f"{next_t.value} — deferring promotion"  # ty: ignore[unresolved-attribute]
                         ),
                         tier=rollout.tier,
                     )
@@ -1994,10 +1994,10 @@ def run_auto_promote(
                         action="promote",
                         success=True,
                         message=(
-                            f"Proceeding to {next_t.value} despite low eligibility: "
+                            f"Proceeding to {next_t.value} despite low eligibility: "  # ty: ignore[unresolved-attribute]
                             f"{next_estimate.reason}"
                         ),
-                        tier=next_t.value,
+                        tier=next_t.value,  # ty: ignore[unresolved-attribute]
                     )
                 )
 
@@ -2005,7 +2005,7 @@ def run_auto_promote(
             # exists in ANY active state (not just in_progress). A prior pass may
             # have started it; auto-advance will recover or complete it.
             next_tier_exists = any(
-                r.tier == next_t.value
+                r.tier == next_t.value  # ty: ignore[unresolved-attribute]
                 and r.actor_definition_id == rollout.actor_definition_id
                 and r.rc_docker_image_tag == rc_version
                 for r in rollouts
@@ -2021,7 +2021,7 @@ def run_auto_promote(
                         action="promote",
                         success=False,
                         message=(
-                            f"Skipped: {next_t.value} rollout already exists "
+                            f"Skipped: {next_t.value} rollout already exists "  # ty: ignore[unresolved-attribute]
                             f"for {rollout.connector_name} {rc_version}"
                         ),
                         tier=rollout.tier,
@@ -2039,7 +2039,7 @@ def run_auto_promote(
                         action="promote",
                         success=True,
                         message=(
-                            f"Would promote {current_tier} -> {next_t.value} "
+                            f"Would promote {current_tier} -> {next_t.value} "  # ty: ignore[unresolved-attribute]
                             f"(start new rollout at {step_pct}%). "
                             f"Health: {gate.reason}"
                         ),
@@ -2062,7 +2062,7 @@ def run_auto_promote(
                     client_id=auth.client_id,
                     client_secret=auth.client_secret,
                     bearer_token=auth.bearer_token,
-                    customer_tier=next_t.value,
+                    customer_tier=next_t.value,  # ty: ignore[unresolved-attribute]
                 )
             except Exception as e:
                 result.errors.append(
@@ -2073,7 +2073,7 @@ def run_auto_promote(
                         rc_version=rc_version,
                         action="promote",
                         success=False,
-                        message=(f"Failed to start {next_t.value} rollout: {e}"),
+                        message=(f"Failed to start {next_t.value} rollout: {e}"),  # ty: ignore[unresolved-attribute]
                         tier=rollout.tier,
                     )
                 )
@@ -2090,7 +2090,7 @@ def run_auto_promote(
                         action="promote",
                         success=False,
                         message=(
-                            f"Started {next_t.value} rollout but response "
+                            f"Started {next_t.value} rollout but response "  # ty: ignore[unresolved-attribute]
                             f"missing rollout ID: {start_resp}"
                         ),
                         tier=rollout.tier,
@@ -2119,7 +2119,7 @@ def run_auto_promote(
                             f"(last state: {started_state or 'unknown'}); "
                             "auto-advance will progress it"
                         ),
-                        tier=next_t.value,
+                        tier=next_t.value,  # ty: ignore[unresolved-attribute]
                     )
                 )
                 continue
@@ -2193,10 +2193,10 @@ def run_auto_promote(
                             action="promote",
                             success=False,
                             message=(
-                                f"{next_t.value} tier is empty (0 eligible actors) but "
+                                f"{next_t.value} tier is empty (0 eligible actors) but "  # ty: ignore[unresolved-attribute]
                                 f"failed to cancel the empty rollout: {e}"
                             ),
-                            tier=next_t.value,
+                            tier=next_t.value,  # ty: ignore[unresolved-attribute]
                         )
                     )
                 if cancel_failed:
@@ -2231,7 +2231,7 @@ def run_auto_promote(
                             action="promote",
                             success=False,
                             message=(
-                                f"Canceled empty {next_t.value} rollout but failed to "
+                                f"Canceled empty {next_t.value} rollout but failed to "  # ty: ignore[unresolved-attribute]
                                 f"finalize current tier {current_tier} as GA: {e}"
                             ),
                             tier=rollout.tier,
@@ -2248,7 +2248,7 @@ def run_auto_promote(
                             action="promote",
                             success=True,
                             message=(
-                                f"Skipped empty {next_t.value} tier (0 eligible actors); "
+                                f"Skipped empty {next_t.value} tier (0 eligible actors); "  # ty: ignore[unresolved-attribute]
                                 f"canceled empty rollout {new_rollout_id} "
                                 f"(pins retained) and finalized {current_tier} as "
                                 f"succeeded (promoted to GA)"
@@ -2282,10 +2282,10 @@ def run_auto_promote(
                         action="promote",
                         success=False,
                         message=(
-                            f"Started {next_t.value} rollout ({new_rollout_id}) but "
+                            f"Started {next_t.value} rollout ({new_rollout_id}) but "  # ty: ignore[unresolved-attribute]
                             f"failed to set initial percentage: {e}"
                         ),
-                        tier=next_t.value,
+                        tier=next_t.value,  # ty: ignore[unresolved-attribute]
                     )
                 )
             else:
@@ -2295,7 +2295,7 @@ def run_auto_promote(
                     auth=auth,
                 )
                 progress_message = (
-                    f"Promoted {current_tier} -> {next_t.value}: "
+                    f"Promoted {current_tier} -> {next_t.value}: "  # ty: ignore[unresolved-attribute]
                     f"started new rollout {new_rollout_id} at {step_pct}%"
                 )
                 if progress_state == "in_progress":
@@ -2323,7 +2323,7 @@ def run_auto_promote(
                         action="promote",
                         success=True,
                         message=progress_message,
-                        tier=next_t.value,
+                        tier=next_t.value,  # ty: ignore[unresolved-attribute]
                     )
                 )
 

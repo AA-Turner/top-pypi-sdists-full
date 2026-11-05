@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 import pytest
 
 from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 from surrealdb.data import cbor
-from surrealdb.data.types.record_id import RecordID
-from surrealdb.errors import InvalidRecordIdError
+from surrealdb.data.models import table_or_record_id
+from surrealdb.data.types.record_id import RecordID, escape_identifier
+from surrealdb.data.types.table import Table
+from surrealdb.errors import InvalidRecordIdError, InvalidTableError
+from surrealdb.types import Value
 
 
 # Unit tests for RecordID class
@@ -48,7 +52,8 @@ def test_record_id_parse() -> None:
 
 def test_record_id_pydantic_model_validate_from_dict() -> None:
     """RecordID should be parsed from string on model_validate (python dict input)."""
-    pydantic = pytest.importorskip("pydantic")
+    pytest.importorskip("pydantic")
+    import pydantic
 
     class Person(pydantic.BaseModel):
         id: RecordID | None = None
@@ -62,7 +67,8 @@ def test_record_id_pydantic_model_validate_from_dict() -> None:
 
 def test_record_id_pydantic_model_validate_json() -> None:
     """RecordID should be parsed from string on model_validate_json (JSON input)."""
-    pydantic = pytest.importorskip("pydantic")
+    pytest.importorskip("pydantic")
+    import pydantic
 
     class Person(pydantic.BaseModel):
         id: RecordID | None = None
@@ -76,7 +82,8 @@ def test_record_id_pydantic_model_validate_json() -> None:
 
 def test_record_id_pydantic_model_dump_python_keeps_instance() -> None:
     """model_dump() should keep RecordID instances in python mode."""
-    pydantic = pytest.importorskip("pydantic")
+    pytest.importorskip("pydantic")
+    import pydantic
 
     class Person(pydantic.BaseModel):
         id: RecordID | None = None
@@ -90,7 +97,8 @@ def test_record_id_pydantic_model_dump_python_keeps_instance() -> None:
 
 def test_record_id_pydantic_model_dump_json_stringifies() -> None:
     """model_dump(mode='json') should serialize RecordID to its string form."""
-    pydantic = pytest.importorskip("pydantic")
+    pytest.importorskip("pydantic")
+    import pydantic
 
     class Person(pydantic.BaseModel):
         id: RecordID | None = None
@@ -101,10 +109,74 @@ def test_record_id_pydantic_model_dump_json_stringifies() -> None:
     assert dumped["id"] == "person:abc"
 
 
+def test_record_id_parse_with_colons_in_id() -> None:
+    """RecordID.parse splits on the first colon only, so an id that itself
+    contains colons is preserved intact (issue #13)."""
+    record_id = RecordID.parse("user:complex:id:here")
+    assert record_id.table_name == "user"
+    assert record_id.id == "complex:id:here"
+
+
+def test_record_id_parse_always_yields_string_id() -> None:
+    """RecordID.parse always yields a string id, even for all-digit ids."""
+    record_id = RecordID.parse("user:123")
+    assert record_id.table_name == "user"
+    assert record_id.id == "123"
+    assert isinstance(record_id.id, str)
+
+
 def test_record_id_parse_invalid() -> None:
     """Test RecordID.parse with invalid string."""
     with pytest.raises(InvalidRecordIdError, match="invalid string provided for parse"):
         RecordID.parse("invalid_string")
+
+
+def test_record_id_hashable() -> None:
+    """RecordID defines __eq__, so it must define a consistent __hash__ to
+    remain usable as a dict key / set member (issue #9)."""
+    record_id1 = RecordID("users", "john")
+    record_id2 = RecordID("users", "john")
+
+    # Equal objects hash equally.
+    assert record_id1 == record_id2
+    assert hash(record_id1) == hash(record_id2)
+
+    # Usable as a set member and dict key.
+    assert record_id1 in {record_id2}
+    mapping = {record_id1: "value"}
+    assert mapping[RecordID("users", "john")] == "value"
+
+
+def test_record_id_hashable_with_unhashable_id() -> None:
+    """RecordID stays hashable even when its id is an unhashable value such
+    as a dict or list (hashed via its string form)."""
+    dict_id = RecordID("person", {"name": "Tobie", "location": "London"})
+    list_id = RecordID("events", [1, 2, 3])
+
+    assert dict_id in {RecordID("person", {"name": "Tobie", "location": "London"})}
+    assert list_id in {RecordID("events", [1, 2, 3])}
+    assert hash(dict_id) == hash(
+        RecordID("person", {"name": "Tobie", "location": "London"})
+    )
+
+
+def test_record_ids_that_are_equal_hash_alike() -> None:
+    """Equal ids hash alike however they print.
+
+    The server sorts an object id's keys, so the id read back of a record
+    written as ``{"b": 1, "a": 2}`` prints differently from the one written,
+    and ``[1]`` equals ``[1.0]``: hashing the printed form put them in
+    different buckets, so ``created["id"] in {written}`` was False.
+    """
+    pairs = [
+        (RecordID("t", {"b": 1, "a": 2}), RecordID("t", {"a": 2, "b": 1})),
+        (RecordID("t", [1]), RecordID("t", [1.0])),
+        (RecordID("t", [{"y": [1], "x": 2}]), RecordID("t", [{"x": 2, "y": [1.0]}])),
+    ]
+    for written, read_back in pairs:
+        assert written == read_back
+        assert hash(written) == hash(read_back)
+        assert read_back in {written}
 
 
 def test_record_id_str() -> None:
@@ -174,9 +246,38 @@ def test_record_id_str_with_integer_id() -> None:
 
 
 def test_record_id_str_with_angle_bracket_escape() -> None:
-    """Test RecordID string representation with angle bracket in identifier."""
+    """A ``⟩`` in the id moves that half to backtick delimiters.
+
+    Previously ``test:⟨foo\⟩bar⟩``, which SurrealDB 3.x refuses to parse.
+    """
     record_id = RecordID("test", "foo⟩bar")
-    assert str(record_id) == "test:⟨foo\\⟩bar⟩"
+    assert str(record_id) == "test:`foo⟩bar`"
+
+
+def test_record_id_direct_id_interpolation_is_unsafe() -> None:
+    """Pin the exact footgun reported in issue #265: ``.id`` is the raw,
+    unescaped identifier — interpolating it directly into a hand-built query
+    string silently changes its meaning for id values that need quoting
+    (e.g. an all-digit string id, which is otherwise indistinguishable from
+    a numeric id). The recommended fix is to bind the whole ``RecordID`` as
+    a query variable (no query-text composition at all — see
+    ``test_relate_with_bound_record_id_vars``); when text must be composed,
+    ``str(record_id)`` (or ``escape_identifier`` on just the id part) is
+    the safe rendering. This test exists so nobody "fixes" this by silently
+    changing ``.id`` itself, which would break the documented, tested
+    contract that ``.id`` returns the identifier's plain Python value.
+    """
+    record_id = RecordID("company", "231")
+
+    # The unsafe pattern from #265: f"...company:{record_id.id}..."
+    # .id is typed as Value (which includes bytes); interpolating it raw is the
+    # exact footgun this test pins, so the str-bytes-safe warning is intentional.
+    unsafe = f"company:{record_id.id}"  # type: ignore[str-bytes-safe]
+    assert unsafe == "company:231"  # indistinguishable from the numeric id 231
+
+    # The safe text renderings, for when binding isn't possible:
+    assert str(record_id) == "company:⟨231⟩"
+    assert f"company:{escape_identifier(str(record_id.id))}" == "company:⟨231⟩"
 
 
 def test_record_id_equality() -> None:
@@ -190,6 +291,39 @@ def test_record_id_equality() -> None:
     assert record_id1 != record_id3
     assert record_id1 != record_id4
     assert record_id1 != "not a record id"
+
+
+# Unit tests for table_or_record_id (surrealdb.data.models)
+def test_table_or_record_id_plain_table() -> None:
+    """A string without a colon resolves to a Table."""
+    resource = table_or_record_id("users")
+    assert isinstance(resource, Table)
+    assert resource.table_name == "users"
+
+
+def test_table_or_record_id_simple() -> None:
+    """A ``table:id`` string resolves to a RecordID."""
+    resource = table_or_record_id("users:john")
+    assert isinstance(resource, RecordID)
+    assert resource.table_name == "users"
+    assert resource.id == "john"
+
+
+def test_table_or_record_id_with_colons_in_id() -> None:
+    """table_or_record_id splits on the first colon only, preserving an id
+    that itself contains colons (issue #13)."""
+    resource = table_or_record_id("user:complex:id:here")
+    assert isinstance(resource, RecordID)
+    assert resource.table_name == "user"
+    assert resource.id == "complex:id:here"
+
+
+def test_table_or_record_id_empty_parts_invalid() -> None:
+    """An empty table or id part is rejected."""
+    with pytest.raises(InvalidTableError):
+        table_or_record_id("users:")
+    with pytest.raises(InvalidTableError):
+        table_or_record_id(":john")
 
 
 # Unit tests for encoding
@@ -314,11 +448,13 @@ def test_record_id_in_array_roundtrip() -> None:
 
 # Database fixture
 @pytest.fixture
-async def surrealdb_connection():  # type: ignore[misc]
-    url = "ws://localhost:8000/rpc"
+async def surrealdb_connection(
+    ws_url: str,
+) -> AsyncGenerator[AsyncWsSurrealConnection, None]:
+    url = ws_url
     password = "root"
     username = "root"
-    vars_params = {"username": username, "password": password}
+    vars_params: dict[str, Value] = {"username": username, "password": password}
     database_name = "test_db"
     namespace = "test_ns"
     connection = AsyncWsSurrealConnection(url)
@@ -340,7 +476,7 @@ async def test_record_id_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE record_id_tests:test1 SET user_ref = $val;",
         vars={"val": record_id},
     )
-    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;").first()
     assert result[0]["user_ref"] == record_id
 
 
@@ -352,7 +488,7 @@ async def test_record_id_with_int_db_roundtrip(surrealdb_connection: Any) -> Non
         "CREATE record_id_tests:test2 SET user_ref = $val;",
         vars={"val": record_id},
     )
-    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;").first()
     assert result[0]["user_ref"] == record_id
 
 
@@ -364,7 +500,7 @@ async def test_record_id_with_array_db_roundtrip(surrealdb_connection: Any) -> N
         "CREATE record_id_tests:test3 SET event_ref = $val;",
         vars={"val": record_id},
     )
-    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;").first()
     assert result[0]["event_ref"] == record_id
 
 
@@ -389,7 +525,7 @@ async def test_multiple_record_ids_db_roundtrip(surrealdb_connection: Any) -> No
         "CREATE record_id_tests:test4 SET user_ref = $user, post_ref = $post, comment_ref = $comment;",
         vars=record_ids,
     )
-    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;").first()
     assert result[0]["user_ref"] == record_ids["user"]
     assert result[0]["post_ref"] == record_ids["post"]
     assert result[0]["comment_ref"] == record_ids["comment"]
@@ -403,7 +539,7 @@ async def test_record_id_with_object_db_roundtrip(surrealdb_connection: Any) -> 
         "CREATE record_id_tests:test5 SET person_ref = $val;",
         vars={"val": record_id},
     )
-    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM record_id_tests;").first()
     assert result[0]["person_ref"] == record_id
 
 
@@ -446,3 +582,197 @@ async def test_create_with_object_record_id(surrealdb_connection: Any) -> None:
     assert result["id"] == record_id
     assert result["settings"]["active"] is True
     assert result["settings"]["marketing"] is True
+
+
+@pytest.mark.asyncio
+async def test_relate_with_bound_record_id_vars(
+    surrealdb_connection: Any,
+) -> None:
+    """Regression test for issue #265 — the recommended pattern: bind the
+    whole ``RecordID`` as a query variable. The value travels as a typed
+    CBOR record id, never as query text, so quoting/escaping cannot be
+    dropped and injection is impossible by construction. Note SurrealQL
+    only accepts a variable as the *whole* record id — a variable as just
+    the id part of a literal (``record_id_tests:$id``) is a parse error,
+    which is why the fallback text patterns below exist at all.
+    """
+    await surrealdb_connection.query(
+        "DEFINE TABLE IF NOT EXISTS owns TYPE RELATION IN record_id_tests OUT record_id_tests;"
+    )
+    await surrealdb_connection.query("DELETE owns;")
+    await surrealdb_connection.query("CREATE record_id_tests:alice SET name = 'Alice';")
+    await surrealdb_connection.query(
+        "CREATE record_id_tests:`231` SET name = 'Quoted Company';"
+    )
+
+    quoted_res = await surrealdb_connection.query(
+        "SELECT * FROM record_id_tests:`231`;"
+    ).first()
+    quoted_id = quoted_res[0]["id"]
+    assert quoted_id.id == "231"  # the raw id is the plain string "231"
+
+    await surrealdb_connection.query(
+        "RELATE $a->owns->$b;",
+        vars={"a": RecordID("record_id_tests", "alice"), "b": quoted_id},
+    )
+
+    result = await surrealdb_connection.query(
+        "SELECT ->owns->record_id_tests.* AS companies FROM record_id_tests:alice;"
+    ).first()
+    companies = result[0]["companies"]
+    assert len(companies) == 1
+    assert companies[0]["name"] == "Quoted Company"
+
+
+@pytest.mark.asyncio
+async def test_bound_record_id_var_treats_hostile_id_as_inert_data(
+    surrealdb_connection: Any,
+) -> None:
+    """A RecordID whose id contains SurrealQL syntax is inert when bound as
+    a variable — it stays a plain string id and cannot alter the statement.
+    (With interpolation this exact value would need careful escaping to not
+    change the query's meaning; with binding the question never arises.)
+    """
+    await surrealdb_connection.query(
+        "DEFINE TABLE IF NOT EXISTS owns TYPE RELATION IN record_id_tests OUT record_id_tests;"
+    )
+    await surrealdb_connection.query("DELETE owns;")
+    await surrealdb_connection.query("CREATE record_id_tests:alice SET name = 'Alice';")
+
+    hostile = RecordID("record_id_tests", "x; REMOVE TABLE record_id_tests; --")
+    res = await surrealdb_connection.query(
+        "RELATE $a->owns->$b;",
+        vars={"a": RecordID("record_id_tests", "alice"), "b": hostile},
+    ).first()
+    assert res[0]["out"] == hostile  # edge points at the literal string id
+
+    # The table (and alice) survived: the hostile id was data, not syntax.
+    alive = await surrealdb_connection.query(
+        "SELECT * FROM record_id_tests:alice;"
+    ).first()
+    assert alive[0]["name"] == "Alice"
+
+
+@pytest.mark.asyncio
+async def test_relate_with_manually_quoted_numeric_string_id(
+    surrealdb_connection: Any,
+) -> None:
+    """Regression test for issue #265 — the fallback pattern, for contexts
+    where the query *text* itself must be composed and binding is not an
+    option: relating to a record whose id is a backtick-quoted numeric
+    string (e.g. ``company:`231` ``, a *string* id "231", distinct from the
+    *numeric* id 231) must target that exact record when the relation is
+    built with ``escape_identifier`` on the id part (or ``str(record_id)``
+    for the full target) — not by interpolating ``record_id.id`` directly,
+    which silently drops the quoting and targets the wrong (non-existent)
+    numeric-id record instead. Prefer binding the whole RecordID as a var
+    (see ``test_relate_with_bound_record_id_vars``) whenever possible.
+    """
+    await surrealdb_connection.query(
+        "DEFINE TABLE IF NOT EXISTS owns TYPE RELATION IN record_id_tests OUT record_id_tests;"
+    )
+    await surrealdb_connection.query("DELETE owns;")
+    await surrealdb_connection.query("CREATE record_id_tests:alice SET name = 'Alice';")
+    await surrealdb_connection.query(
+        "CREATE record_id_tests:`231` SET name = 'Quoted Company';"
+    )
+
+    quoted_res = await surrealdb_connection.query(
+        "SELECT * FROM record_id_tests:`231`;"
+    ).first()
+    quoted_id = quoted_res[0]["id"]
+    assert quoted_id.id == "231"  # the raw id is the plain string "231"
+
+    # The fallback text pattern: escape just the id part before
+    # interpolating it next to a literal table name.
+    safe_query = f"RELATE record_id_tests:alice->owns->record_id_tests:{escape_identifier(str(quoted_id.id))};"
+    await surrealdb_connection.query(safe_query)
+
+    result = await surrealdb_connection.query(
+        "SELECT ->owns->record_id_tests.* AS companies FROM record_id_tests:alice;"
+    ).first()
+    companies = result[0]["companies"]
+    assert len(companies) == 1
+    assert companies[0]["name"] == "Quoted Company"
+
+
+class TestEscapeIdentifierTopLevelExport:
+    """escape_identifier is exported from the top-level ``surrealdb``
+    package (not just ``surrealdb.data.types.record_id``) for the cases
+    where query *text* must be composed and parameter binding is not
+    available — most notably ``INSERT`` targets, which the server refuses
+    to accept as a bound parameter (the SDK's own insert builder uses this
+    same helper for exactly that), plus logs/codegen/migration files.
+    For live queries, prefer binding the whole ``RecordID`` as a variable
+    instead of interpolating anything (see
+    ``test_relate_with_bound_record_id_vars``).
+    """
+
+    def test_importable_from_top_level_package(self) -> None:
+        import surrealdb
+
+        assert surrealdb.escape_identifier is escape_identifier
+        assert surrealdb.escape_identifier("231") == "⟨231⟩"
+
+
+# ---------------------------------------------------------------------------
+# escape_identifier — module-level public helper used by RecordID.__str__
+# and the v3 INSERT builder. Pin its input/output contract so callers can
+# reason about what gets concatenated into SurrealQL.
+# ---------------------------------------------------------------------------
+
+
+class TestEscapeIdentifier:
+    """Pin the input/output contract of ``escape_identifier``.
+
+    These tests document what the function does on the inputs the SDK
+    actually generates (alphanumerics, hyphens, spaces, ``⟨/⟩`` from
+    pathological ``Table(...)`` names). Anything that changes the output
+    here breaks ``RecordID.__str__`` and the INSERT-target rendering.
+    """
+
+    def test_plain_identifier_unchanged(self) -> None:
+        assert escape_identifier("users") == "users"
+        assert escape_identifier("user_table") == "user_table"
+
+    def test_empty_string_wrapped(self) -> None:
+        assert escape_identifier("") == "⟨⟩"
+
+    def test_hyphen_wrapped(self) -> None:
+        assert escape_identifier("hyphen-table") == "⟨hyphen-table⟩"
+
+    def test_space_wrapped(self) -> None:
+        assert escape_identifier("with space") == "⟨with space⟩"
+
+    def test_all_digits_wrapped(self) -> None:
+        # All-digit names must be escaped to disambiguate from numeric
+        # ids in SurrealQL's record-id literal grammar.
+        assert escape_identifier("123") == "⟨123⟩"
+
+    def test_digits_and_underscores_only_wrapped(self) -> None:
+        assert escape_identifier("_") == "⟨_⟩"
+        assert escape_identifier("123_456") == "⟨123_456⟩"
+
+    def test_a_closing_bracket_switches_to_backtick_delimiters(self) -> None:
+        # This used to assert ``⟨foo\⟩bar⟩``, which was right about the intent -
+        # ``⟩`` must not close the wrapper early - and wrong about the server.
+        # SurrealDB 3.x answers ``Parse error: Invalid escape sequence`` for
+        # ``\⟩`` inside ``⟨...⟩``; 2.3.10 accepts it. Backticks are read the same
+        # by both, so a name holding ``⟩`` is delimited with those instead.
+        assert escape_identifier("foo⟩bar") == "`foo⟩bar`"
+
+    def test_opening_bracket_inside_is_left_unescaped(self) -> None:
+        # ``⟨`` inside a name is not escaped; SurrealQL's parser
+        # matches the first unescaped ``⟩`` so this round-trips, but
+        # only because there's no nested-bracket interpretation. Pin
+        # the current behaviour so callers know what we emit.
+        assert escape_identifier("foo⟨bar") == "⟨foo⟨bar⟩"
+
+    def test_a_backslash_is_doubled_inside_backtick_delimiters(self) -> None:
+        # This used to assert that backslashes were passed through untouched,
+        # and told callers to "pre-validate or escape before constructing
+        # Table". They cannot: the emitted ``⟨foo\bar⟩`` is an invalid escape
+        # on 3.x and an internal error on 2.3.10, and a *trailing* backslash
+        # escaped the closing delimiter so the identifier never terminated.
+        assert escape_identifier("foo\\bar") == "`foo\\\\bar`"
+        assert escape_identifier("trailing\\") == "`trailing\\\\`"

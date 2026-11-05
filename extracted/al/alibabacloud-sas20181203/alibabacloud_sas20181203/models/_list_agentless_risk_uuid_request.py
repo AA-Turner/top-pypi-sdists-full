@@ -19,7 +19,7 @@ class ListAgentlessRiskUuidRequest(DaraModel):
         target_name: str = None,
         target_type: int = None,
     ):
-        # The page number of the current page when using paging.
+        # The page number of the current page for paging in a paged query.
         self.current_page = current_page
         # The ID of the asset instance.
         self.instance_id = instance_id
@@ -29,25 +29,30 @@ class ListAgentlessRiskUuidRequest(DaraModel):
         self.internet_ip = internet_ip
         # The private IP address of the asset to query.
         self.intranet_ip = intranet_ip
-        # 报告语言。取值：zh（中文）、en（英文）。不传或为空时使用 zh。
+        # The language of the report. Valid values:
+        # 
+        # - `zh`: Chinese.
+        # - `en`: English.
+        # 
+        # If this parameter is not specified or is left empty, a Chinese report is returned by default.
         self.lang = lang
-        # The instance name.
+        # The name of the instance.
         self.machine_name = machine_name
-        # The maximum number of entries to return per page when using paging.
+        # The maximum number of entries to return on each page for paging in a paged query.
         self.page_size = page_size
-        # Specifies whether risks exist. Valid values:
+        # Specifies whether a risk exists. Valid values:
         # 
-        # - **true**: Risks exist.
-        # - **false**: Risks do not exist.
+        # - **true**: A risk exists.
+        # - **false**: No risk exists.
         self.risk = risk
-        # The name of the detection target.
+        # The name of the scan target.
         self.target_name = target_name
-        # The object type of the detection target. Valid values:
+        # The object type of the scan target. Valid values:
         # 
-        # - **1**: host snapshot
-        # - **2**: host image
+        # - **1**: server snapshot
+        # - **2**: server image
         # - **3**: user snapshot
-        # - **4**: user custom image
+        # - **4**: custom image
         self.target_type = target_type
 
     def validate(self):

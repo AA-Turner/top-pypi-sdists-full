@@ -1,4 +1,4 @@
-"""which paths are never a run's input or output: system and tool caches, Probe's own folders, credentials, .probeignore and .probe.config."""
+"""which paths are never a run's input or output: system and tool caches, Probe's own folders, credentials and .probeignore."""
 
 from __future__ import annotations
 import functools
@@ -19,10 +19,6 @@ _WRITE_ONLY_PARTS = ("/.cache/",)
 #: Longest path sent. The server keys reads on the path, and a btree entry has
 #: a hard size limit; one over it would fail the whole batch it rides in.
 MAX_PATH_BYTES = 2048
-#: Below this, a `.probe.config` `hash` path is sent with its path and size
-#: only (F30): no sha256, fingerprint or rows. The server's 64-byte floor
-#: (`MIN_MATCH_BYTES`) is a MATCH floor; this one keeps the hash off the wire.
-HASH_LEVEL_MIN_BYTES = 64
 
 _CODE_SUFFIXES = (".py", ".pyc", ".pyo", ".pyd", ".so", ".dylib", ".dll", ".pth", ".pyi")
 #: Operating-system trees. `/usr` by its system parts only: `/usr/src/app` is
@@ -153,44 +149,8 @@ def _ignored(rules: Any, path: str) -> bool:
     after :func:`excluded`, so it only ever removes. A path outside the rules'
     root is matched by the unanchored patterns only, and a read is matched as
     opened AND as resolved, since ``open()`` follows symlinks (see
-    :mod:`probe.sdk.recording_rules.ignore`)."""
+    :mod:`probe.sdk.recording_rules.recording_rules`)."""
     return rules is not None and rules.ignored(path, follow=True)
-
-
-def _config_verdict(path: str, *, resolve: bool = True) -> Any:
-    """A researcher's `.probe.config` verdict on ``path`` (`probe_config.Verdict`)."""
-    from ...recording_rules import recording_rules as _exclusions
-
-    return _exclusions.excluded(path, is_dir=False, hot=True, resolve=resolve)
-
-
-def _not_recorded(verdict: Any) -> bool:
-    """`read` and `off` record nothing; `hash` records the identity (C9)."""
-    return bool(verdict.excluded) and not verdict.identity_only
-
-
-def _config_excluded(path: str, *, resolve: bool = True) -> bool:
-    """Excluded by a researcher's `.probe.config` (paths Probe never records:
-    `read` and `off`; a `hash` path IS recorded, identity only). Judged once
-    per path where a read or write is recorded (the recorder's own stat
-    happened; this adds only `lstat`s of `.probe.config` files, cached per
-    folder for a second), and again where reads are hashed and sent (a `probe
-    exec` child's spool is collected by its launcher). Never noted, counted or
-    hashed."""
-    return _not_recorded(_config_verdict(path, resolve=resolve))
-
-
-def _hash_level(path: str) -> bool:
-    """Is ``path`` at `.probe.config` `hash`: recorded by identity only, and
-    below `HASH_LEVEL_MIN_BYTES` with no hash at all (F30)?"""
-    return bool(_config_verdict(path).identity_only)
-
-
-def _below_floor(path: str, size: Any) -> bool:
-    """A `hash`-level file too small to send a hash of (F30): its path and size
-    go, never its sha256, fingerprint or rows. A hash of a tiny file names its
-    content to anyone who can guess it."""
-    return isinstance(size, int) and size < HASH_LEVEL_MIN_BYTES and _hash_level(path)
 
 
 def _sendable(path: str) -> bool:
@@ -244,17 +204,6 @@ def _resolved(path: str) -> str:
     return os.path.realpath(candidate) if os.path.islink(candidate) else candidate
 
 
-def _write_config_excluded(path: str, real: str) -> bool:
-    """`.probe.config` on a write, as opened AND as resolved: the stricter of
-    the two decides (a `hash` link to a `read` file is `off`)."""
-    verdict = _config_verdict(path, resolve=False)
-    if real != path and not verdict.hidden:
-        from ... import probe_config as _pc
-
-        verdict = _pc.stricter(verdict, _config_verdict(real, resolve=False))
-    return _not_recorded(verdict)
-
-
 def _write_skip(target: "_RunReads", path: str) -> bool:
     """Whether a write-open of ``path`` is never noted: :func:`excluded`, the
     run's ``.probeignore``, a cache -- as opened AND as resolved, so a link
@@ -268,7 +217,6 @@ def _write_skip(target: "_RunReads", path: str) -> bool:
         or write_excluded(path)
         or _ignored(target.ignore, path)
         or (real != path and (excluded(real) or write_excluded(real)))
-        or _write_config_excluded(path, real)
     ):
         if len(target.write_skipped) < MAX_PATHS:
             target.write_skipped.add(path)

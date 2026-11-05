@@ -15,7 +15,6 @@
 #
 # Author: Yang Gao <younggao1994@gmail.com>
 
-#
 '''
 Non-relativistic analytical nuclear gradients for restricted Kohn Sham with kpoints sampling
 '''
@@ -51,7 +50,7 @@ def get_veff(ks_grad, dm=None, kpts=None):
         vxc = get_vxc(ni, cell, grids, mf.xc, dm, kpts,
                            max_memory=max_memory, verbose=ks_grad.verbose)
     t0 = logger.timer(ks_grad, 'vxc', *t0)
-    if not ni.libxc.is_hybrid_xc(mf.xc):
+    if not ni.is_hybrid_xc(mf.xc):
         vj = ks_grad.get_j(dm, kpts)
         vxc += vj
     else:

@@ -5,8 +5,9 @@ chat's active ones, `find_one`s (the active one by chat, one by id, the projecte
 sweep. An id that is not an `ObjectId` reads and writes nothing.
 
 The stored shape is known only here: the Spanish keys of `STORED_NAMES`, `_id` as an `ObjectId`, the stored values
-untouched. A document is written with its fields in the order of `STORED_NAMES` (the order `main` built them in), then
-the ones the model does not name.
+untouched. A request read from a document (or built from the classifier's dict) gives its keys back in that document's
+order, as `main` handed them to its callers; one built without a document, in the order of `STORED_NAMES`, then the
+ones the model does not name.
 """
 from __future__ import annotations
 
@@ -41,6 +42,7 @@ STORED_NAMES: Dict[str, str] = {
     "correction": "correccion",
 }
 _FIELD_OF = {stored: field for field, stored in STORED_NAMES.items()}
+_READ_ORDER = "_mongo_read_order"
 
 
 def _oid(request_id: Any) -> Optional[ObjectId]:
@@ -65,7 +67,10 @@ def request_of(document: Mapping[str, Any]) -> ClassificationRequest:
             fields[name] = str(value) if name == "id" else value
     while True:
         try:
-            return ClassificationRequest(**fields, **({"other_fields": other} if other else {}))
+            request = ClassificationRequest(**fields, **({"other_fields": other} if other else {}))
+            # The order of the document, for `document_of`: a storage detail, so it is not a field of the model.
+            object.__setattr__(request, _READ_ORDER, tuple(document))
+            return request
         except ValidationError as error:
             # A stored value of another type (none in prod) is carried untouched by its stored name, as `main`
             # passed it through: one odd document never breaks a read (the sweep reads a batch).
@@ -78,9 +83,9 @@ def request_of(document: Mapping[str, Any]) -> ClassificationRequest:
 
 
 def document_of(request: ClassificationRequest) -> Dict[str, Any]:
-    """The stored shape of the fields the request was built with (`_id` back to an `ObjectId`), each in the place
-    `STORED_NAMES` gives it, also a value carried in `other_fields` under a name of `STORED_NAMES`; the keys the model
-    does not name go last, in their order."""
+    """The stored shape of the fields the request was built with (`_id` back to an `ObjectId`). In the order of the
+    document it was read from, if any; otherwise each in the place `STORED_NAMES` gives it, also a value carried in
+    `other_fields` under a name of `STORED_NAMES`, and the keys the model does not name go last, in their order."""
     built = request.model_fields_set
     other = request.other_fields
     document: Dict[str, Any] = {}
@@ -91,7 +96,8 @@ def document_of(request: ClassificationRequest) -> Dict[str, Any]:
         elif stored in other:
             document[stored] = other[stored]
     document.update({key: value for key, value in other.items() if key not in document})
-    return document
+    order = [key for key in getattr(request, _READ_ORDER, ()) if key in document]
+    return {**{key: document[key] for key in order}, **{k: v for k, v in document.items() if k not in order}}
 
 
 class MongoClassificationRequestRepository:

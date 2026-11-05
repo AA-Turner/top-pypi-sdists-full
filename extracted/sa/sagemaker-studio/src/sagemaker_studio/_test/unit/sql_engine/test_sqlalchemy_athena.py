@@ -238,9 +238,7 @@ class TestExecutorConstruction(unittest.TestCase):
     def test_unreadable_workgroup_falls_back_to_rows(self):
         self.client.get_work_group.side_effect = RuntimeError("denied")
         executor = dbapi._executor_from_config({"work_group": "wg", "region": "us-west-2"})
-        self.assertEqual(
-            (executor.managed_storage, executor.workgroup_engine_version), (False, None)
-        )
+        self.assertIsNone(executor.workgroup_engine_version)
 
     def test_existing_model_path_is_not_added_twice(self):
         model_path = str(

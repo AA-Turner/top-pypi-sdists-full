@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: capt-hook
-Version: 12.121.19
+Version: 12.121.33
 Summary: Stop repeating yourself to Claude.
 Project-URL: Homepage, https://github.com/yasyf/captain-hook
 Project-URL: Documentation, https://yasyf.github.io/captain-hook/
@@ -22,7 +22,7 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Typing :: Typed
 Requires-Python: >=3.13
 Requires-Dist: ast-grep-py<0.45,>=0.44
-Requires-Dist: cc-transcript[judge]==14.46.15
+Requires-Dist: cc-transcript[judge]==14.46.16
 Requires-Dist: click>=8
 Requires-Dist: filelock>=3.24.0
 Requires-Dist: funcy>=2.0

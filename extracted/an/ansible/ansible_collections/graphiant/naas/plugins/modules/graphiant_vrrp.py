@@ -22,16 +22,18 @@ description:
   - >-
     Supports VRRP configuration, deconfiguration, and enable operations on both main interfaces and
     subinterfaces (VLANs).
-  - All operations use Jinja2 templates for consistent configuration deployment.
   - Configuration files support Jinja2 templating for dynamic generation.
-  - All operations are idempotent - safe to run multiple times without causing errors or unintended changes.
+  - "V(configure)/V(enable)/V(deconfigure) are all idempotent - see Idempotency Details below."
 version_added: "26.1.0"
 notes:
   - "Check mode (C(--check)): No config is pushed; payloads that would be pushed are logged with C([check_mode])."
+  - "Diff mode (C(--diff)): Shows a per-device before/after of the VRRP groups that would change."
   - "VRRP Operations:"
   - >
     - configure: Configure VRRP groups on interfaces and subinterfaces.
-      Creates new VRRP configurations with specified virtual router IDs and IP addresses.
+      Creates/updates VRRP configurations with specified virtual router IDs and IP addresses.
+      Idempotent - compares each interface against live state and pushes only the interfaces that
+      differ; unchanged interfaces and devices are skipped.
   - >
     - deconfigure: Disable VRRP groups from interfaces and subinterfaces.
       Idempotent - skips if VRRP is already disabled.
@@ -44,10 +46,9 @@ notes:
   - "The module automatically resolves device names to IDs."
   - "Idempotency Details:"
   - >
-    The module queries existing VRRP state before making changes. For deconfigure
-    operations, it checks if VRRP is already disabled and skips if so. For enable
-    operations, it checks if VRRP is already enabled and skips if so. This ensures
-    safe repeated execution without errors.
+    V(deconfigure)/V(enable) query existing VRRP state and skip if already disabled/enabled.
+    V(configure) queries existing state and pushes only the interfaces whose desired VRRP groups
+    differ from live state (a merge PUT); unchanged interfaces and devices are skipped.
   - "Interfaces must be configured first before applying VRRP using M(graphiant.naas.graphiant_interfaces) module."
 extends_documentation_fragment:
   - graphiant.naas.graphiant_portal_auth
@@ -99,12 +100,17 @@ attributes:
     details: >
       When run with C(--check), the module logs the exact payloads that would be pushed
       with a C([check_mode]) prefix so you can see what configuration would be applied.
-      The module does not perform state comparison, so V(changed) may be V(True) even
-      when the configuration is already applied.
+      All operations compare against live state and report V(changed=False) when every
+      device is already in the desired state.
+  diff_mode:
+    description: >
+      Supports diff mode. With C(--diff), a per-device before/after of the VRRP groups
+      that would change is returned.
+    support: full
 
 requirements:
   - python >= 3.7
-  - graphiant-sdk >= 26.9.0
+  - graphiant-sdk >= 26.10.0
 
 seealso:
   - module: graphiant.naas.graphiant_interfaces
@@ -197,6 +203,9 @@ from ansible_collections.graphiant.naas.plugins.module_utils.graphiant_utils imp
     handle_graphiant_exception,
 )
 from ansible_collections.graphiant.naas.plugins.module_utils.logging_decorator import capture_library_logs  # noqa: E402
+from ansible_collections.graphiant.naas.plugins.module_utils.libs.device_config_common import (  # noqa: E402
+    apply_module_diff,
+)
 
 
 @capture_library_logs
@@ -312,7 +321,18 @@ def main():
             result_msg = result["result_msg"]
 
         # Return success
-        module.exit_json(changed=changed, msg=result_msg, operation=operation, vrrp_config_file=vrrp_config_file)
+        details = result.get("details") or {}
+        exit_payload = dict(
+            changed=changed,
+            msg=result_msg,
+            operation=operation,
+            vrrp_config_file=vrrp_config_file,
+            configured_devices=details.get("configured_devices", []),
+            skipped_devices=details.get("skipped_devices", []),
+            details=details,
+        )
+        apply_module_diff(module, exit_payload, details)
+        module.exit_json(**exit_payload)
 
     except Exception as e:
         error_msg = handle_graphiant_exception(e, operation)

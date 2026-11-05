@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Callable, Generator, Iterator, Mapping
+from collections.abc import Callable, Generator, Iterator, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache, wraps
 from inspect import iscoroutinefunction
@@ -17,8 +17,8 @@ from typing import (
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
 from schemathesis import transport
-from schemathesis.config import GenerationConfig, ProjectConfig, SanitizationConfig
-from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, Body, NotSet, media_types
+from schemathesis.config import ConfigError, GenerationConfig, ProjectConfig, SanitizationConfig
+from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, Body, NotSet, curl, media_types
 from schemathesis.core.adapter import OperationParameter, ResponsesContainer
 from schemathesis.core.errors import IncorrectUsage, InvalidSchema
 from schemathesis.core.failures import FailureGroup, ServerError
@@ -27,7 +27,18 @@ from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocatio
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.runtime import RuntimeProbeState
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
-from schemathesis.core.transport import CallOutcome, HttpMethod, HttpMethodSchema, Response, is_uninformative_status
+from schemathesis.core.transport import (
+    HTTP_STATUS_CODES_BY_CLASS,
+    CallOutcome,
+    HttpMethod,
+    HttpMethodSchema,
+    Response,
+    StatusClass,
+    expand_status_code,
+    expand_status_codes,
+    http_status_class,
+    is_uninformative_status,
+)
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
 from schemathesis.generation.coverage import GenerationSession
@@ -73,7 +84,7 @@ if TYPE_CHECKING:
     from schemathesis.engine.observations import Observations
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.generation.hypothesis.reporting import FilterCaseTracker, SlowParameter, UnsatisfiableParameter
-    from schemathesis.generation.stateful.state_machine import APIStateMachine, StepInput
+    from schemathesis.generation.stateful.state_machine import APIStateMachine, StepInput, StepOutput
     from schemathesis.python._constants.pool import ConstantsPool
     from schemathesis.resources import ExtraDataSource, ResourcePool
 
@@ -150,6 +161,30 @@ class BaseSchema(Mapping):
     ) -> str:
         """Command that reproduces `case` outside Schemathesis."""
         return case.as_curl_command(headers, verify, base_url=base_url)
+
+    def as_curl_command(
+        self, case: Case, *, headers: Mapping[str, Any] | None, verify: bool, base_url: str | None = None
+    ) -> str:
+        """Generate a curl command that reproduces `case`."""
+        request_data = prepare_request(case, headers, config=self.config.output.sanitization, base_url=base_url)
+        result = curl.generate(
+            method=str(request_data.method),
+            url=str(request_data.url),
+            body=request_data.body,
+            verify=verify,
+            headers=dict(request_data.headers),
+            known_generated_headers=dict(case.headers or {}),
+        )
+        if result.warnings:
+            warnings_text = "\n\n".join(f"⚠️  {warning}" for warning in result.warnings)
+            return f"{result.command}\n\n{warnings_text}"
+        return result.command
+
+    def as_transport_kwargs(
+        self, case: Case, *, base_url: str | None, headers: dict[str, str] | None
+    ) -> dict[str, Any]:
+        """Prepare `case` for the schema's transport."""
+        return self.transport.serialize_case(case, base_url=base_url, headers=headers)
 
     def is_security_param_negated(self, case: Case) -> bool:
         return False
@@ -661,6 +696,26 @@ class BaseSchema(Mapping):
     ) -> None:
         """Score the link a stateful step followed by how the step went; a no-op for specs without links."""
 
+    def resolve_link_value(self, definition: object, output: StepOutput, recorded: object) -> object:
+        """Take a linked value from `output` again, or `UNRESOLVABLE`; of several matches, `recorded` wins if present."""
+        raise NotImplementedError
+
+    def read_link_value(
+        self, case: Case, location: ParameterLocation, name: str, definition: object, parent_body: str
+    ) -> object:
+        """The value a link put at `name` in the recorded `case`, or `NOT_SET`; `parent_body` is the recorded parent response."""
+        container = case.get_container(location)
+        assert isinstance(container, MutableMapping)
+        return container.get(name, NOT_SET)
+
+    def write_link_value(
+        self, case: Case, location: ParameterLocation, name: str, recorded: object, value: object
+    ) -> None:
+        """Send `value` at `name` in place of `recorded`."""
+        container = case.get_container(location)
+        assert isinstance(container, MutableMapping)
+        cast("MutableMapping[str, object]", container)[name] = value
+
     def iter_schema_warnings(self) -> list[SchemaWarning]:
         """Return spec-level static-analysis warnings collected from the schema."""
         return []
@@ -725,8 +780,28 @@ class BaseSchema(Mapping):
         return None
 
     def status_name_for_code(self, status_code: int) -> str | None:
-        """Name the protocol gives the status an HTTP status code stands for, or `None` when the code alone says it."""
+        """Name the protocol gives a status code, or `None` when the code alone says it."""
         return None
+
+    def classify_status(self, status_code: int) -> StatusClass:
+        """What a response status code says about the call."""
+        return http_status_class(status_code)
+
+    def status_code_for(self, status_class: StatusClass) -> int:
+        """The status code the protocol answers with for a status class only one code stands for."""
+        return HTTP_STATUS_CODES_BY_CLASS[status_class]
+
+    def is_response_status_expected(self, response: Response, expected_statuses: list[str]) -> bool:
+        """Whether the response has a status described by one of the specification's configured status entries."""
+        invalid = [status for status in expected_statuses if not expand_status_code(status)]
+        if invalid:
+            self._raise_invalid_status_values(invalid)
+        return response.status_code in expand_status_codes(expected_statuses)
+
+    def _raise_invalid_status_values(self, invalid: list[str]) -> NoReturn:
+        label = "value" if len(invalid) == 1 else "values"
+        values = ", ".join(f"`{status}`" for status in invalid)
+        raise ConfigError(f"Invalid status {label} {values} for {self.specification.name}")
 
     def operation_label_for_display(self, operation_label: str | None) -> str | None:
         """Return the API operation label when transport method and path are only protocol framing."""

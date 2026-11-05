@@ -111,13 +111,16 @@ def _secret_arn_for_region(secret, region):
     return f"arn:{spec.partition}:secretsmanager:{region}:{spec.account_id}:{spec.resource}"
 
 
-def _resolve(secret_id, *, use_arn_scope=False):
+def _resolve(secret_id, *, use_arn_scope=False, cross_account=False):
     """Look up a secret by name or ARN.  Returns (storage_key, record) or (None, None).
 
     Supports three lookup modes (matching real AWS behaviour):
       1. By name:        "my-secret"
       2. By full ARN:    "arn:aws:secretsmanager:...:secret:my-secret-A1B2C3"
       3. By partial ARN: "arn:aws:secretsmanager:...:secret:my-secret" (no random suffix)
+
+    ``use_arn_scope`` searches the region in the ARN. ``cross_account`` also
+    lets the ARN name another account.
     """
     if not secret_id:
         return None, None
@@ -126,7 +129,7 @@ def _resolve(secret_id, *, use_arn_scope=False):
         if not scope:
             return None, None
         spec, _ = scope
-        if spec.account_id != get_account_id():
+        if spec.account_id != get_account_id() and not cross_account:
             return None, None
         if use_arn_scope:
             candidates = _secrets.items_scoped(spec.account_id, spec.region)
@@ -164,16 +167,17 @@ def _find_stage_version(secret, stage):
     return None, None
 
 
-def resolve_secret_string(secret_id, version_stage="AWSCURRENT", version_id=None):
+def resolve_secret_string(secret_id, version_stage="AWSCURRENT", version_id=None, cross_account=False):
     """Return the SecretString for *secret_id* at *version_stage* (or the
     version *version_id*), or None.
 
     Used by other services (e.g. ECS, CloudFormation dynamic references) that
     need to read a secret value in-process without going through the HTTP API.
+    With *cross_account*, an ARN is read in the account it names.
     Returns None if the secret does not exist, is scheduled for deletion, or
     has no value for the stage / version.
     """
-    _, secret = _resolve(secret_id, use_arn_scope=True)
+    _, secret = _resolve(secret_id, use_arn_scope=True, cross_account=cross_account)
     if not secret or secret.get("DeletedDate"):
         return None
     if version_id:
@@ -1377,6 +1381,42 @@ def secret_policy_for_arn(resource_arn: str) -> tuple[str, str] | None:
     if not secret or secret["ARN"] != resource_arn:
         return None
     return _resource_policies.get(resource_arn) or "", get_account_id()
+
+
+def foreign_secret_readable(secret_id: str) -> bool:
+    """Under AUTH=true, whether the caller may read a secret another account owns: an explicit Allow in its
+    resource policy, the caller's own GetSecretValue and kms:Decrypt, and a customer managed key whose policy
+    allows the caller, since the AWS managed key cannot be used across accounts (Secrets Manager guide)."""
+    from ministack.app import AUTH
+    from ministack.core.iam_evaluator import EvalContext, _verified_key, caller_arn, enforce, resource_policy_allows
+    from ministack.services import kms
+    if not AUTH:
+        return True
+    _, secret = _resolve(secret_id, use_arn_scope=True, cross_account=True)
+    if not secret:
+        return True  # not found is reported by the caller
+    spec, _ = _secret_scope_from_arn(secret["ARN"])
+    if spec.account_id == get_account_id():
+        return True
+    caller = caller_arn()
+    ctx = EvalContext(principal_arn=caller, principal_account=caller.split(":")[4],
+                      principal_type="Root" if caller.endswith(":root") else
+                      "AssumedRole" if ":assumed-role/" in caller else "User",
+                      action="secretsmanager:GetSecretValue", resource_arn=secret["ARN"], region=spec.region)
+    policy = _resource_policies.get_scoped(spec.account_id, spec.region, secret["ARN"])
+    if not resource_policy_allows(policy, ctx, same_account=False):
+        return False
+    kms_key = secret.get("KmsKeyId") or ""
+    if not kms_key or kms_key.endswith("alias/aws/secretsmanager"):
+        return False
+    if not kms_key.startswith("arn:"):
+        kms_key = f"arn:aws:kms:{spec.region}:{spec.account_id}:{'' if kms_key.startswith('alias/') else 'key/'}{kms_key}"
+    _owner, key = kms._foreign_key(kms_key)
+    if not key or not kms.key_policy_allows_caller(key, "Decrypt", caller):
+        return False
+    identity = _verified_key.get()
+    return (enforce(identity, "secretsmanager:GetSecretValue", "secretsmanager", spec.region, secret["ARN"]) is None
+            and enforce(identity, "kms:Decrypt", "kms", spec.region, kms_key) is None)
 
 
 def _put_resource_policy(data):

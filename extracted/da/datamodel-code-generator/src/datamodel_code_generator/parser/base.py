@@ -108,6 +108,7 @@ from datamodel_code_generator._user_keys import (
     first_present,
     mapped_base_class,
     model_level_type_override,
+    scoped_key,
 )
 from datamodel_code_generator._warning_control import quiet
 from datamodel_code_generator.enums import (
@@ -129,6 +130,7 @@ from datamodel_code_generator.model.base import (
     DataModel,
     DataModelFieldBase,
     _bind_builtin_names,
+    _build_for_target,
     _has_root_field_constraints,
     _model_package_class,
     _set_nested_model_default_factory_order,
@@ -222,13 +224,19 @@ from datamodel_code_generator.parser._passes._state import (
     _StructureState,
 )
 from datamodel_code_generator.parser._passes._tables import FINALIZE_SEGMENTS, MODULE_BODY, PIPELINE, STRUCTURE_BODY
-from datamodel_code_generator.parser._passes.imports import _FUTURE_IMPORTS, builtin_name_bindings
+from datamodel_code_generator.parser._passes.imports import (
+    _FUTURE_IMPORTS,
+    builtin_name_bindings,
+    reject_unimportable_imports,
+)
 from datamodel_code_generator.parser._pipeline import PARSE_CALLER, Runner, parse_caller
 from datamodel_code_generator.parser._schema_graph import SCHEMA_GRAPH
 from datamodel_code_generator.parser._stdout_repair import _TOP_LEVEL_FUTURE_IMPORT_PATTERN
 from datamodel_code_generator.parser._tag_plan import TagCapabilities, TagPlan, tag_capabilities
+from datamodel_code_generator.parser._union_constraints import OMIT_UNTAKEN_UNION_CONSTRAINTS
 from datamodel_code_generator.parser.generation import GenerationStore
 from datamodel_code_generator.parser.schema_version import SchemaFeaturesT
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import (
     _ALIAS_RESOLUTION_CLASS_NAME_KEY,
     ModelResolver,
@@ -282,6 +290,7 @@ PydanticFloors = _state.PydanticFloors
 pydantic_floors_recorded = _state.pydantic_floors_recorded
 
 ParserConfigT = TypeVar("ParserConfigT", bound="ParserConfig")
+_ModelT = TypeVar("_ModelT", bound="DataModel | None")
 
 
 _TOP_LEVEL_RELATIVE_IMPORT_PATTERN: Final = re.compile(r"(?m)^from \.")
@@ -330,6 +339,8 @@ def __getattr__(name: str) -> Any:
 
 
 DroppedConstraintFields: TypeAlias = frozenset[tuple[ModulePath, str]]
+DocumentRoles: TypeAlias = tuple[tuple[str, tuple[str, ...]], ...]
+"""The OpenAPI object roles that references held each document's root as, by document (``hold_document_root``)."""
 
 
 @dataclass(slots=True)
@@ -400,6 +411,7 @@ class ParserRunContext:
     suppress_parse_warnings: bool = False
     untyped_nullable_maps: bool = False
     yielding_names: tuple[tuple[str, tuple[str, str | None]], ...] = ()
+    document_roles: DocumentRoles = ()
 
 
 _DEFAULT_PARSER_RUN_CONTEXT = ParserRunContext()
@@ -542,7 +554,7 @@ def _format_body_safe(body: str, code_formatter: CodeFormatter, *, generated_cod
         return code_formatter._format_generated_code(body) if generated_code else code_formatter.format_code(body)  # noqa: SLF001
     except Exception as exc:  # noqa: BLE001
         warn(
-            f"Failed to format code: {exc!r}. Emitting unformatted output.",
+            f"Failed to format code: {stable_repr(exc)}. Emitting unformatted output.",
             stacklevel=1,
         )
         return body
@@ -579,7 +591,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
     _cache_local_sources_during_parse: ClassVar[bool] = False
     _cache_parsed_sources_from_path: ClassVar[bool] = False
     _collapses_list_item_root_models: ClassVar[bool] = True
-    _DECISION_PASSES: ClassVar[tuple[DecisionPass[Any], ...]] = (OMIT_HELD_NULL,)
+    _DECISION_PASSES: ClassVar[tuple[DecisionPass[Any], ...]] = (OMIT_HELD_NULL, OMIT_UNTAKEN_UNION_CONSTRAINTS)
     """The decisions of the decision phase, in registration order; ``parser/_phases.py`` says how they run."""
     _http_fetch_session: _HTTPFetchSession | None = None
     _dropped_constraint_fields: DroppedConstraintFields = frozenset()
@@ -610,6 +622,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         suppress_parse_warnings: bool = False,
         untyped_nullable_maps: bool = False,
         yielding_names: tuple[tuple[str, tuple[str, str | None]], ...] = (),
+        document_roles: DocumentRoles = (),
     ) -> None:
         """Configure parser run state without exposing implementation attributes."""
         context = ParserRunContext(
@@ -620,9 +633,20 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             suppress_parse_warnings=suppress_parse_warnings,
             untyped_nullable_maps=untyped_nullable_maps,
             yielding_names=yielding_names,
+            document_roles=document_roles,
         )
         self._run_context = None if context == _DEFAULT_PARSER_RUN_CONTEXT else context
         self.model_resolver.assigned_yielding_names = dict(yielding_names)
+        if document_roles:
+            self._seed_document_roles(document_roles)
+
+    @property
+    def document_roles_to_seed(self) -> DocumentRoles:
+        """Return the roles of documents a new attempt of a failed run starts from: none for a parser without roles."""
+        return ()
+
+    def _seed_document_roles(self, document_roles: DocumentRoles) -> None:
+        """Start the roles of documents from those an earlier attempt recorded, where the parser reads roles."""
 
     @property
     def _field_option_kwargs(self) -> dict[str, Any]:
@@ -709,8 +733,13 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         source_name: str,
         class_name: str,
         row: FieldAliasRow,
+        inherits: bool | None = None,
     ) -> None:
-        """Give a field built earlier the name ``name`` and the aliases ``_field_aliases`` derives, by ``row``."""
+        """Give a field built earlier the name ``name`` and the aliases ``_field_aliases`` derives, by ``row``.
+
+        ``inherits`` tells whether its class has a generated base class (the model that holds the field says so when
+        it is not given).
+        """
         single_alias, validation_aliases, serialization_alias = self._field_aliases(
             alias, name=name, source_name=source_name, class_name=class_name
         )
@@ -732,7 +761,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             and serialization_alias is not None
         ):
             identity["serialization_alias"] = serialization_alias
-        self._graph_builder.set_field_identity(field, identity)
+        self._graph_builder.set_field_identity(field, identity, inherits=inherits)
 
     @classmethod
     def _get_config_class(cls) -> type[ParserConfig]:
@@ -781,7 +810,14 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             frozen=self.frozen_dataclasses,
             keyword_only=self.keyword_only,
         )
-        return data_model_class(**kwargs)
+        return self._new_model(data_model_class, **kwargs)
+
+    def _new_model(self, factory: Callable[..., _ModelT], /, **kwargs: Any) -> _ModelT:
+        """Build a model with ``factory``, a model class or a model factory, for the run's target Python.
+
+        Every model the parser builds is built here; a model built from another one takes over that model's target.
+        """
+        return _build_for_target(self.target_python_version, factory, **kwargs)
 
     def __init__(  # noqa: PLR0915
         self,
@@ -839,6 +875,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self._emitting_module_names: dict[int, str] = {}
         self._emitting_module_lists: list[tuple[str, list[DataModel]]] = []
         self._collapsed_reuse_models: dict[int, list[DataModel]] = {}
+        self._merged_duplicates: dict[int, list[DataModel]] = {}
+        """The duplicates deduplication and reuse merged into each model, by the id of that model."""
         self._collapsed_reuse_users: dict[int, tuple[DataType, Reference]] = {}
         self._self_named_root_models: list[DataModel] = []
         """The root models whose root names the model itself, which the deduplication of root models dropped while
@@ -891,7 +929,19 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.imports: Imports = Imports(config.use_exact_imports)
         self.use_exact_imports: bool = config.use_exact_imports
         self.use_type_checking_imports: bool | None = config.use_type_checking_imports
-        self._append_additional_imports(additional_imports=config.additional_imports)
+        from datamodel_code_generator.base_config import (  # noqa: PLC0415
+            _check_config_named_paths,
+            _schema_validator_base_class_name_error,
+        )
+
+        if (
+            message := _schema_validator_base_class_name_error(
+                config.schema_validator_base_class_name, config.target_python_version
+            )
+        ) is not None:
+            raise Error(message)
+        self._append_additional_imports(config.additional_imports, config.target_python_version)
+        _check_config_named_paths(config, config.target_python_version)
         self.class_decorators: list[str] = config.class_decorators or []
 
         self.base_class: str | None = config.base_class
@@ -939,7 +989,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.typed_nullable_maps = False
         self.yielding_names_to_assign: tuple[tuple[str, tuple[str, str | None]], ...] = ()
         self.typed_nullable_map_reference_ids: set[ModelKey] = set()
-        self._literal_under_all_enum_reference_ids: set[int] = set()
+        self._literal_under_all_enum_reference_ids: set[ModelKey] = set()
         self._site_model_keys: set[ModelKey] = set()
         self.typed_map_values_may_move_models = False
         self.model_placement: dict[ModulePath, frozenset[str]] = {}
@@ -1017,6 +1067,9 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             self.extra_template_data,
             target_python_version=self.target_python_version,
             use_total_false=self.use_total_false_for_typed_dict,
+        )
+        self.data_model_type.configure_closed_typed_dict(
+            self.extra_template_data, use_closed_typed_dict=self.use_closed_typed_dict
         )
 
         self.use_generic_base_class: bool = config.use_generic_base_class
@@ -1250,13 +1303,16 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         return first_present(self.serialization_aliases, field_keys(class_name, original_field_name, field_name))[0]
 
     def _apply_final_class_field_aliases(
-        self, fields: list[DataModelFieldBase], class_name: str, original_class_name: str
+        self,
+        fields: list[DataModelFieldBase],
+        class_name: str,
+        original_class_name: str,
+        base_classes: list[Reference],
     ) -> None:
         """Apply final class scopes after name allocation, retaining already resolved fallback aliases."""
         if class_name == original_class_name or not (aliases := self.config.aliases):
             return
-        prefix = class_field_key(class_name, "")
-        if not any(key.startswith(prefix) for key in aliases):
+        if not any(part == class_name for key in aliases for part, _ in scoped_key(key, row="every-dot")):
             return
         scoped_aliases = {
             field.original_name
@@ -1285,6 +1341,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 source_name=original_name,
                 class_name=class_name,
                 row="final-class",
+                inherits=bool(base_classes),
             )
             field.__dict__[_ALIAS_RESOLUTION_CLASS_NAME_KEY] = class_name
 
@@ -1304,7 +1361,10 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         result: dict[tuple[str, str], str] = {}
         for mapping in type_mappings:
             if "=" not in mapping:
-                msg = f"Invalid type mapping format: {mapping!r}. Expected 'type+format=target' or 'format=target'."
+                msg = (
+                    f"Invalid type mapping format: {stable_repr(mapping)}. Expected 'type+format=target' or "
+                    "'format=target'."
+                )
                 raise ValueError(msg)
 
             source, target = mapping.split("=", 1)
@@ -1342,13 +1402,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 yield Source.from_dict(self.source)
             case Path() as path:
                 if path.is_dir():
-                    files = files_under(path, order="name")
-                    if (input_filter := self._source_context.directory_input_filter) is not None:
-                        for source_path, data in input_filter.iter_files(files, self.encoding):
-                            yield self._source_from_path(source_path, data=data)
-                        return
-                    for p in files:
-                        yield self._source_from_path(p)
+                    for source_path, data in self._directory_input_files(path):
+                        yield self._source_from_path(source_path, data=data)
                 else:
                     yield self._source_from_path(path)
             case list() as paths:  # pragma: no cover
@@ -1361,6 +1416,16 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                         self.source.geturl(), default_factory=self._get_text_from_url
                     ),
                 )
+
+    def _directory_input_files(self, directory: Path) -> Iterable[tuple[Path, bytes | None]]:
+        """Return each input file of a directory input in file-name order, with the bytes read to recognize it, if any.
+
+        The generator's own output and model metadata inside the directory are not inputs (``DirectoryInputFilter``).
+        """
+        files = files_under(directory, order="name")
+        if (input_filter := self._source_context.directory_input_filter) is None:
+            return ((path, None) for path in files)
+        return input_filter.iter_files(files, self.encoding)
 
     def _source_from_path(self, path: Path, *, data: bytes | None = None) -> Source:
         try:
@@ -1384,13 +1449,13 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             return diagnostic_source_path.as_posix()
         return "<input>"
 
-    def _append_additional_imports(self, additional_imports: list[str] | None) -> None:
+    def _append_additional_imports(self, additional_imports: list[str] | None, target: PythonVersion) -> None:
         if not additional_imports:
             return
 
         from datamodel_code_generator.base_config import _validate_additional_import_paths  # noqa: PLC0415
 
-        for additional_import_string in _validate_additional_import_paths(additional_imports) or []:
+        for additional_import_string in _validate_additional_import_paths(additional_imports, target) or []:
             new_import = Import.from_full_path(additional_import_string)
             self._import_ledger.append(self.imports, new_import, _ADDITIONAL_IMPORTS)
 
@@ -1413,6 +1478,10 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         if found:
             return normalize(mapped)
         if custom_base_path:
+            from datamodel_code_generator.validators import _validate_schema_python_import_path  # noqa: PLC0415
+
+            for path in custom_base_path if isinstance(custom_base_path, list) else (custom_base_path,):
+                _validate_schema_python_import_path(path, "customBasePath", self.target_python_version)
             return normalize(custom_base_path)
         return self.base_class or None
 
@@ -1505,22 +1574,25 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         return enum_discriminator_literal(enum_source, value)
 
     def _create_set_from_list(self, data_type: DataType) -> DataType | None:
-        """Return a set copy of a list type, or ``data_type`` after its nested lists became sets in place.
+        """Return a set copy of a list type, or ``data_type`` after the lists among its union members became sets.
 
-        A nested list is swapped for its set copy at once; the facts see the swap at the next refresh.
+        The uniqueItems array is the type itself or a member of its union, so the items of any other container, such as
+        a ``Sequence`` or a tuple, keep their types. None when no list became a set. A list member is swapped for its
+        set copy at once; the facts see the swap at the next refresh.
         """
         if data_type.is_list:
             new_data_type = data_type.model_copy(update={"is_list": False, "is_set": True})
             for data_type_ in new_data_type.data_types:
                 data_type_.parent = new_data_type
             return new_data_type
-        if data_type.data_types:  # pragma: no cover
-            for nested_data_type in data_type.data_types[:]:
-                set_data_type = self._create_set_from_list(nested_data_type)
-                if set_data_type:  # pragma: no cover
-                    self._graph_builder.swap_data_type(nested_data_type, set_data_type, refresh="deferred")
-            return data_type
-        return None  # pragma: no cover
+        if data_type in CONTAINERS:
+            return None
+        converted = None
+        for nested_data_type in data_type.data_types[:]:
+            if (set_data_type := self._create_set_from_list(nested_data_type)) is not None:
+                self._graph_builder.swap_data_type(nested_data_type, set_data_type, refresh="deferred")
+                converted = data_type
+        return converted
 
     def record_dropped_constraints(self) -> None:
         """Record this parse's dropped-constraint warnings as those of the generation that returns its models."""
@@ -1638,10 +1710,13 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
     def __postprocess_result_modules(
         cls, results: dict[tuple[str, ...], Result], *, empty_init: bool = False
     ) -> dict[tuple[str, ...], Result]:
+        """Give each package of the dotted modules an ``__init__.py``: the first written one, else an empty one.
 
+        An output without modules has no package, and stays empty.
+        """
         results = {expanded_path(k): v for k, v in results.items()}
-
-        init_result = Result(body="") if empty_init else next(v for k, v in results.items() if is_package_init(k[-1]))
+        inits = () if empty_init else (v for k, v in results.items() if is_package_init(k[-1]))
+        init_result = next(iter(inits), Result(body=""))
         folders = {t[:-1] if t[-1].endswith(".py") else t for t in results}
         for folder in folders:
             for i in range(len(folder)):
@@ -1762,7 +1837,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 collect_data_type_names(data_type)
         return names
 
-    def __generate_forwarder_content(  # noqa: PLR6301
+    def __generate_forwarder_content(
         self,
         original_module: tuple[str, ...],
         names: Sequence[tuple[tuple[str, ...], str, str]],
@@ -1792,6 +1867,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 from_ = join_module(left, right)
             imports.append(Import(from_=from_, import_=name, alias=None if bound_name == name else bound_name))
 
+        self._reject_unimportable_imports(original_module, imports, is_init=is_init)
         return f"{imports.dump()}\n\n{imports.dump_all()}\n"
 
     def __get_resolve_reference_action_parts(
@@ -1905,6 +1981,16 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             for field in model.fields
         )
 
+    def _writes_module_future_annotations(self, models: list[DataModel], config: ParseConfig) -> bool:
+        """Return whether a module writes ``from __future__ import annotations`` of its own, beside the shared imports.
+
+        Only a target with native deferred annotations leaves it to the module, which needs it for its ``models``.
+        """
+        return (
+            self.target_python_version.has_native_deferred_annotations
+            and self._requires_explicit_deferred_annotations(models, config)
+        )
+
     def _get_module_future_imports(
         self,
         ctx: ModuleContext,
@@ -1912,10 +1998,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         future_imports_str: str,
     ) -> str:
         """Return future imports required by a single generated module."""
-        if not (
-            self.target_python_version.has_native_deferred_annotations
-            and self._requires_explicit_deferred_annotations(ctx.models, config)
-        ):
+        if not self._writes_module_future_annotations(ctx.models, config):
             return future_imports_str
         self._import_ledger.append(ctx.imports, IMPORT_ANNOTATIONS, _DEFERRED_ANNOTATIONS)
         future_imports = self._import_ledger.extract_future(ctx.imports, _FUTURE_IMPORTS)
@@ -2243,6 +2326,9 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         module_to_import: dict[ModulePath, Imports],
         forwarder_modules: Collection[ModulePath],
         with_import: bool,  # noqa: FBT001
+        config: ParseConfig,
+        internal_modules: set[ModulePath],
+        model_path_to_module_name: dict[str, str],
     ) -> None:
         """Finish the render preparation of every module and collect the imports of each module.
 
@@ -2250,7 +2336,15 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         module, which ``_process_single_module`` hands over.
         """
         state = _FinalizeState(
-            contexts, unused_models, model_to_module_models, module_to_import, forwarder_modules, with_import
+            contexts,
+            unused_models,
+            model_to_module_models,
+            module_to_import,
+            forwarder_modules,
+            with_import,
+            config,
+            internal_modules,
+            model_path_to_module_name,
         )
         memo = self.generation_store._memo  # noqa: SLF001
         current = {RENDER_READY: RenderReady(type(self), memo), PARSE_MEMO: memo}
@@ -2318,10 +2412,12 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         if ctx.models:
             if config.with_import:
                 module_imports = self._import_ledger.rendered(ctx.imports)
+                self._reject_unimportable_imports(ctx.module, module_imports, is_init=ctx.is_init)
                 import_parts = [s for s in [module_future_imports_str, str(self.imports), str(module_imports)] if s]
                 result += [*import_parts, "\n"]
 
             if export_imports:
+                self._reject_unimportable_imports(ctx.module, export_imports, is_init=True)
                 result += [str(export_imports), ""]
                 for name in _init_exports.exported_names(ctx.models):
                     export_imports.add_export(name)
@@ -2368,6 +2464,16 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             source=ctx.models[0].file_path if ctx.models else None,
         )
 
+    def _reject_unimportable_imports(self, module: ModulePath, imports: Imports, *, is_init: bool) -> None:
+        """Refuse the import block of ``module`` where it names a module Python cannot import by that name."""
+        reject_unimportable_imports(
+            module,
+            imports,
+            is_init=is_init,
+            target_python_version=self.target_python_version,
+            treat_dot_as_module=self.treat_dot_as_module is True,
+        )
+
     def _generate_empty_init_exports(
         self,
         results: dict[ModulePath, Result],
@@ -2384,6 +2490,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 continue
             if (export_imports := self._init_export_imports(init_module, contexts, scope, config, set())) is None:
                 continue
+            self._reject_unimportable_imports(init_module, export_imports, is_init=True)
             import_parts = [s for s in [future_imports_str, str(self.imports)] if s] if config.with_import else []
             parts = import_parts + (["\n"] if import_parts else [])
             parts += [str(export_imports), "", export_imports.dump_all(multiline=True)]

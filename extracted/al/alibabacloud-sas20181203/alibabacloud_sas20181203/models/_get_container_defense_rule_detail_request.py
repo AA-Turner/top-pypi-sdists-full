@@ -10,7 +10,7 @@ class GetContainerDefenseRuleDetailRequest(DaraModel):
         lang: str = None,
         rule_id: int = None,
     ):
-        # Specifies the language of the request and response. Default value: **zh**. Valid values:
+        # The language of the request and response. Default value: **zh**. Valid values:
         # 
         # - **zh**: Chinese
         # - **en**: English

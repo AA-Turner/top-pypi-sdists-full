@@ -1,11 +1,18 @@
 """Nemotron checkpoint templates, XML function calls, and Super VL image spans."""
 
-from river_client.renderers.base import ParsedResponse, SamplePrompt, ToolSpec
+from river_client.renderers.base import (
+    ParsedResponse,
+    SamplePrompt,
+    ToolSpec,
+    parsed_text_content,
+)
 from river_client.renderers.checkpoint_text import CheckpointTextRenderer
-from river_client.renderers.qwen3 import parse_qwen_content_blocks
+from river_client.renderers.qwen3 import QWEN_VALUE_ENDS, parse_qwen_content_blocks
 
 
 class Nemotron35Renderer(CheckpointTextRenderer):
+    value_ends = QWEN_VALUE_ENDS
+
     def _template_kwargs(self):
         return {
             "enable_thinking": self.thinking,
@@ -31,9 +38,11 @@ class Nemotron35Renderer(CheckpointTextRenderer):
                 break
         if self.thinking and "<think>" not in text:
             text = "<think>" + text
-        parsed = parse_qwen_content_blocks(text)
+        parsed = parse_qwen_content_blocks(text, tools=tools)
         if parsed is None:
-            return ParsedResponse({"role": "assistant", "content": text}, stopped)
+            return ParsedResponse(
+                {"role": "assistant", "content": parsed_text_content(text)}, stopped
+            )
         parts, calls = parsed
         message = {"role": "assistant", "content": parts}
         valid = [c for c in calls if "function" in c]
@@ -48,28 +57,41 @@ class Nemotron35Renderer(CheckpointTextRenderer):
 class NemotronSuperVLRenderer(Nemotron35Renderer):
     """Checkpoint chat template plus RADIO image spans for inference and training."""
 
-    def _messages(self, messages):
-        normalized = []
-        for message in messages:
-            content = message.get("content")
-            if isinstance(content, list) and any(p["type"] == "image" for p in content):
-                result = super()._messages([{**message, "content": ""}])[0]
-                parts = []
-                for part in content:
-                    if part["type"] == "image":
-                        parts.append({"type": "image"})
-                    else:
-                        text = super()._messages(
-                            [{**message, "content": [part], "unparsed_tool_calls": []}]
-                        )[0]["content"]
-                        parts.append({"type": "text", "text": text})
-                if result["content"]:
-                    parts.append({"type": "text", "text": result["content"]})
-                result["content"] = parts
-                normalized.append(result)
-            else:
-                normalized.extend(super()._messages([message]))
-        return normalized
+    def _message(self, message, *, history):
+        content = message.get("content")
+        if not (
+            isinstance(content, list) and any(p["type"] == "image" for p in content)
+        ):
+            return super()._message(message, history=history)
+        # Normalized whole, each image held by a character nothing in the
+        # message contains, so reasoning and rejected blocks are written once,
+        # where the text puts them, and every image keeps its place.
+        texts = "".join(
+            [
+                *(p.get("text", "") + p.get("thinking", "") for p in content),
+                str(message.get("reasoning_content") or ""),
+                *(c["raw_text"] for c in message.get("unparsed_tool_calls", [])),
+            ]
+        )
+        marker = next(chr(c) for c in range(0xE000, 0x110000) if chr(c) not in texts)
+        result = super()._message(
+            {
+                **message,
+                "content": [
+                    {"type": "text", "text": marker} if p["type"] == "image" else p
+                    for p in content
+                ],
+            },
+            history=history,
+        )
+        parts = []
+        for index, text in enumerate(result["content"].split(marker)):
+            if index:
+                parts.append({"type": "image"})
+            if text:
+                parts.append({"type": "text", "text": text})
+        result["content"] = parts
+        return result
 
     @staticmethod
     def _images(messages):

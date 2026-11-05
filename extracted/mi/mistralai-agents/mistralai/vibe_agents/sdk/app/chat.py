@@ -9,6 +9,7 @@ The terminal is the CLI's business; this module only reads the Session's events.
 from __future__ import annotations
 
 import contextlib
+import logging
 import signal
 import threading
 from collections.abc import Iterator
@@ -130,6 +131,52 @@ async def _require_reachable(agent_name: str) -> None:
         raise ChatError(f"Agent {agent_name} is served, but no worker is running it. Start it with `agents serve`.")
 
 
+def hide_noticed_connector_logs() -> None:
+    """Leave out the warnings for a connector the Session starts without: the chat prints its notice.
+
+    Only in this process, and only those warnings: the SDK's other logs still show.
+    """
+    from mistralai.vibe_agents.sdk.assembly import connectors  # noqa: PLC0415
+
+    logging.getLogger(connectors.__name__).addFilter(_NoticedConnectorLogs())
+
+
+class _NoticedConnectorLogs(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        from mistralai.vibe_agents.sdk.assembly import connectors  # noqa: PLC0415
+
+        return connectors.SESSION_GOES_ON_WITHOUT_IT not in record.getMessage()
+
+
+async def report_startup_notices(session: harness_session.SessionClient, output: ChatOutput) -> None:
+    """Report the warnings and errors the Session recorded while it started, before any turn.
+
+    Such as a connector it could not install: they come before the first turn, so its events do not
+    carry them.
+    """
+    cursor: str | None = None
+    while True:
+        history = await session.list_history(page=harness_session.PageRequest(cursor=cursor, direction="forward"))
+        for entry in history.page.items:
+            # A turn's own notices reach the chat with that turn's events.
+            if entry.turn_id is None and (line := _notice_line(entry)) is not None:
+                output.notice(line)
+        cursor = history.page.next_cursor
+        if cursor is None:
+            return
+
+
+def _notice_line(entry: harness_session.HistoryEntry) -> str | None:
+    """The line `agents chat` prints for a warning or error notice, or None for any other entry.
+
+    Shared by the startup notices and a turn's own, so both read the same.
+    """
+    if isinstance(entry, harness_session.NoticeHistoryEntry) and entry.level != "info":
+        # str(): a level a newer host added reads as an UnknownValue.
+        return f"{str(entry.level).capitalize()}: {terminal_safe(entry.message)}"
+    return None
+
+
 async def run_turn(session: harness_session.SessionClient, text: str, output: ChatOutput) -> bool:
     """Send ``text`` as one turn, report it to ``output`` until the turn ends, and return whether it completed.
 
@@ -183,9 +230,10 @@ class _ReplyStream:
         self._finished: set[str] = set()
 
     def added(self, entry: harness_session.HistoryEntry) -> None:
-        # An entry the runtime records whole, such as a tool call, is added already complete and never
-        # gets a completed event of its own.
-        if entry.generation_status == "complete":
+        # An entry the runtime records whole, such as a tool call, is added already complete: show it
+        # now; its completed event finds it finished. Only "generating" is still written: a status a
+        # newer host added is complete too.
+        if entry.generation_status != "generating":
             self.completed(entry)
         elif _is_assistant_message(entry):
             self._show(entry.id, _message_text(entry))
@@ -223,9 +271,9 @@ class _ReplyStream:
         elif isinstance(entry, harness_session.ErrorHistoryEntry):
             self._end_reply()
             self._output.notice(f"Error: {terminal_safe(entry.error.message)}")
-        elif isinstance(entry, harness_session.NoticeHistoryEntry) and entry.level != "info":
+        elif (line := _notice_line(entry)) is not None:
             self._end_reply()
-            self._output.notice(f"{entry.level.capitalize()}: {terminal_safe(entry.message)}")
+            self._output.notice(line)
 
     def close(self) -> None:
         self._end_reply()

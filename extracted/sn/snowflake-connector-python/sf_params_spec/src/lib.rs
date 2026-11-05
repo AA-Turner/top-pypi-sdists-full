@@ -94,6 +94,7 @@ pub mod param_names {
     pub const PRIVATE_KEY: ParamKey = ParamKey("private_key");
     pub const PRIVATE_KEY_FILE: ParamKey = ParamKey("private_key_file");
     pub const PRIVATE_KEY_PASSWORD: ParamKey = ParamKey("private_key_password");
+    pub const JWT_TIMEOUT: ParamKey = ParamKey("jwt_timeout");
     pub const TOKEN: ParamKey = ParamKey("token");
     pub const TOKEN_FILE_PATH: ParamKey = ParamKey("token_file_path");
     pub const EXTERNAL_SESSION_ID: ParamKey = ParamKey("external_session_id");
@@ -150,6 +151,9 @@ pub mod param_names {
     pub const PUT_COMPRESS_LEVEL: ParamKey = ParamKey("put_compress_level");
     pub const PUT_TEMPDIR: ParamKey = ParamKey("put_tempdir");
     pub const AUTHENTICATION_TIMEOUT: ParamKey = ParamKey("authentication_timeout");
+    /// Local `EXTERNALBROWSER` callback port. `0` and omitted both bind an
+    /// ephemeral port. Node-only: other wrappers have no equivalent option.
+    pub const BROWSER_REDIRECT_PORT: ParamKey = ParamKey("browser_redirect_port");
     pub const OKTA_USERNAME: ParamKey = ParamKey("okta_username");
     pub const DISABLE_SAML_URL_CHECK: ParamKey = ParamKey("disable_saml_url_check");
     pub const DISABLE_PARALLEL_USER_PROMPT: ParamKey = ParamKey("disable_parallel_user_prompt");
@@ -366,6 +370,9 @@ pub const DEFAULT_PUT_GET_MAX_ATTEMPTS: u32 = 6;
 
 /// Default `login_timeout` in seconds (mirrors the `ParamDef`).
 pub const DEFAULT_LOGIN_TIMEOUT_SECS: u64 = 120;
+pub const DEFAULT_JWT_TIMEOUT_SECS: i64 = 120;
+
+pub const DEFAULT_CONNECT_TIMEOUT_SECS: u64 = 60;
 
 /// ODBC's default `authentication_timeout` in seconds, matching the old
 /// snowflake-odbc driver's `S_DEFAULT_LOGIN_TIMEOUT`. It replaces the registry
@@ -378,6 +385,8 @@ pub const DEFAULT_QUERY_TIMEOUT_SECS: u64 = 0;
 
 /// Default `request_timeout` in seconds for non-login, non-query operations.
 pub const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 120;
+
+pub const DEFAULT_RETRY_TIMEOUT_SECS: u64 = 300;
 
 /// Common exponential-backoff defaults shared by the HTTP and PUT/GET retry
 /// pipelines. These are the single source of truth: both the `ParamDef`
@@ -1022,7 +1031,9 @@ static PARAM_DEFS: &[ParamDef] = &[
         .required(Required::WhenAuthMethod("SNOWFLAKE_JWT"))
         .sensitive(true)
         .auth(true)
-        .description("Private key for key-pair authentication (base64-encoded or PEM)")
+        .description(
+            "Private key for key-pair authentication (PEM or base64 text, DER bytes, or an RSAPrivateKey or EllipticCurvePrivateKey)",
+        )
         .scopes(&[ParamScope::Connection])
         .mutable_after_connect(false)
         .build(),
@@ -1253,6 +1264,18 @@ static PARAM_DEFS: &[ParamDef] = &[
         .mutable_after_connect(false)
         .build(),
     ParamDef::builder()
+        .canonical_name(param_names::JWT_TIMEOUT.as_str())
+        .value_type(ValueType::Int)
+        .default(DefaultValue::Int(DEFAULT_JWT_TIMEOUT_SECS))
+        .sensitive(false)
+        .auth(false)
+        .description(
+            "Lifetime in seconds for each key-pair authentication JWT (0 uses the default; must not be negative)",
+        )
+        .scopes(&[ParamScope::Connection])
+        .mutable_after_connect(false)
+        .build(),
+    ParamDef::builder()
         .canonical_name(param_names::AUTHENTICATION_TIMEOUT.as_str())
         // ODBC's LOGIN_TIMEOUT historically means authentication_timeout (it is an
         // auth-retry budget, not a socket timeout); for the other wrappers
@@ -1271,6 +1294,18 @@ static PARAM_DEFS: &[ParamDef] = &[
         .description("Timeout in seconds for native Okta SSO authentication")
         .scopes(&[ParamScope::Connection])
         .mutable_after_connect(false)
+        .build(),
+    ParamDef::builder()
+        .canonical_name(param_names::BROWSER_REDIRECT_PORT.as_str())
+        .value_type(ValueType::Int)
+        .sensitive(false)
+        .auth(true)
+        .description(
+            "Local callback port for EXTERNALBROWSER login. 0 or omitted binds an ephemeral port on 127.0.0.1",
+        )
+        .scopes(&[ParamScope::Connection])
+        .mutable_after_connect(false)
+        .visible_to(visible_to!(NodeJs))
         .build(),
     ParamDef::builder()
         .canonical_name(param_names::OKTA_USERNAME.as_str())
@@ -1974,6 +2009,7 @@ static PARAM_DEFS: &[ParamDef] = &[
         .build(),
     ParamDef::builder()
         .canonical_name(param_names::REQUEST_TIMEOUT.as_str())
+        .aliases(aliases![Jdbc; "networkTimeout"])
         .value_type(ValueType::Int)
         .default(DefaultValue::Int(DEFAULT_REQUEST_TIMEOUT_SECS as i64))
         .sensitive(false)
@@ -1984,20 +2020,24 @@ static PARAM_DEFS: &[ParamDef] = &[
         .build(),
     ParamDef::builder()
         .canonical_name(param_names::RETRY_TIMEOUT.as_str())
-        .aliases(aliases![NodeJs; "timeout"])
+        .aliases(&[
+            Alias::scoped(Wrapper::NodeJs, "timeout"),
+            Alias::scoped(Wrapper::Jdbc, "HTTP_CLIENT_SOCKET_TIMEOUT"),
+        ])
         .value_type(ValueType::Int)
         .sensitive(false)
         .auth(false)
-        .description("Per-request timeout in seconds for a single HTTP attempt within a retry loop (0 or absent = no per-request timeout)")
+        .description("Per-request timeout in seconds for a single HTTP attempt within a retry loop (0 = no timeout, absent = 300)")
         .scopes(&[ParamScope::Connection])
         .mutable_after_connect(false)
         .build(),
     ParamDef::builder()
         .canonical_name(param_names::CONNECT_TIMEOUT.as_str())
+        .aliases(aliases![Jdbc; "HTTP_CLIENT_CONNECTION_TIMEOUT"])
         .value_type(ValueType::Int)
         .sensitive(false)
         .auth(false)
-        .description("TCP connect timeout in seconds for the HTTP client (0 or absent = system default)")
+        .description("HTTP connect timeout in seconds for name lookup, TCP, and TLS (0 = no timeout, absent = 60)")
         .scopes(&[ParamScope::Connection])
         .mutable_after_connect(false)
         .build(),
@@ -2910,6 +2950,7 @@ mod tests {
             ("ROLE", "role"),
             ("AUTHENTICATOR", "authenticator"),
             ("TOKEN", "token"),
+            ("JWT_TIMEOUT", "jwt_timeout"),
             ("TOKEN_FILE_PATH", "token_file_path"),
             ("PASSCODE", "passcode"),
             ("OAUTH_CLIENT_ID", "oauth_client_id"),
@@ -3119,6 +3160,9 @@ mod tests {
             ("retryTimeout", "login_timeout", &[NodeJs]),
             ("browserActionTimeout", "authentication_timeout", &[NodeJs]),
             ("timeout", "retry_timeout", &[NodeJs]),
+            ("HTTP_CLIENT_CONNECTION_TIMEOUT", "connect_timeout", &[Jdbc]),
+            ("HTTP_CLIENT_SOCKET_TIMEOUT", "retry_timeout", &[Jdbc]),
+            ("networkTimeout", "request_timeout", &[Jdbc]),
             ("wifHost", "wif_host", &[Jdbc, NodeJs]),
             ("workloadIdentityHost", "wif_host", &[Jdbc]),
             ("workload_identity_host", "wif_host", &[Jdbc, Python]),
@@ -3667,6 +3711,18 @@ mod tests {
 
         // Canonical name also resolves.
         assert!(r.resolve("disable_parallel_user_prompt").is_some());
+    }
+
+    #[test]
+    fn jwt_timeout_is_connection_scoped_with_two_minute_default() {
+        let def = registry()
+            .resolve_for(Wrapper::Python, "JWT_TIMEOUT")
+            .expect("case-insensitive canonical name should resolve");
+        assert_eq!(def.canonical_name, param_names::JWT_TIMEOUT.as_str());
+        assert_eq!(def.value_type, ValueType::Int);
+        assert_eq!(def.default, Some(DefaultValue::Int(120)));
+        assert_eq!(def.scopes, &[ParamScope::Connection]);
+        assert!(!def.mutable_after_connect);
     }
 
     #[test]
@@ -4368,6 +4424,8 @@ mod tests {
             "warehouse",
             "crl_check_mode",
             "proxy_password",
+            "jwt_timeout",
+            "JWT_TIMEOUT",
             "totally_unknown_key",
         ] {
             assert!(

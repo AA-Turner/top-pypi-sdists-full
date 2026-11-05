@@ -8,7 +8,6 @@ export interface Spec extends TurboModule {
 		flags?: number,
 		fuel?: number,
 	): string;
-	unparseFromAstString(ast: string): string;
 }
 
 export default TurboModuleRegistry.getEnforcing<Spec>("DiscordMarkdown");

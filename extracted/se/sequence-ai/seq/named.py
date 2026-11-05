@@ -136,8 +136,8 @@ def _check_benchmark_forms(cls: type, value: Any, worlds: int | None, error: typ
         if form.group("worlds"):
             if worlds is None:
                 raise error(f"{cls.__name__}: init= names {{num_worlds}}, how many worlds one call of a vectorized env's "
-                            "@seq.step takes - mark it @seq.concurrent(sizes=[N]), N the most it takes; an env of one "
-                            "world an instance takes none")
+                            "@seq.step takes - mark it @seq.concurrent(sizes=[N]), N the most it takes; an env that "
+                            "steps one world at a time takes none")
             named = True
         elif form.group("field") is not None:
             if form.group("field") not in POLICY_FIELDS:
@@ -150,7 +150,7 @@ def _check_benchmark_forms(cls: type, value: Any, worlds: int | None, error: typ
         raise error(_vectorized(cls, worlds))
 
 
-def check(cls: type, bindings: dict[SeqFlags, str], *, planner: bool = False) -> None:
+def check(cls: type, bindings: dict[SeqFlags, str]) -> None:
     """Each marked method held to what the worker hands it: @seq.on_episode the episode alone, as the episode begins
     and as it ends (ends); observe each observation, infer nothing in a class that observes (its observations went to
     observe), sample nothing. An infer of a class that does not observe is held by the registry's own check, to an observation
@@ -164,7 +164,7 @@ def check(cls: type, bindings: dict[SeqFlags, str], *, planner: bool = False) ->
     _takes(cls, "observe", bindings.get(SeqFlags.OBSERVE), 1)
     if SeqFlags.OBSERVE in bindings:
         _takes(cls, "infer", bindings.get(SeqFlags.INFER), 0)
-    _takes(cls, "sample", bindings.get(SeqFlags.SAMPLE), 0, planner=planner)
+    _takes(cls, "sample", bindings.get(SeqFlags.SAMPLE), 0)
 
 
 def per_step(cls: type) -> str | None:
@@ -204,7 +204,7 @@ def _params(cls: type, name: str) -> list[inspect.Parameter] | None:
     return params
 
 
-def _takes(cls: type, arg: str, name: str | None, positional: int, *, planner: bool = False) -> None:
+def _takes(cls: type, arg: str, name: str | None, positional: int) -> None:
     """That the method `name` takes `positional` arguments besides self and no more required ones, the platform's by
     name: the worker hands observe one observation - with step= and episode= when it takes them - infer the act's
     inputs, or nothing in a class that observes (with episode= and its other platform arguments), reset and sample
@@ -236,8 +236,7 @@ def _takes(cls: type, arg: str, name: str | None, positional: int, *, planner: b
                "infer": "the act's inputs - or each of them by name, to a method that takes two or more arguments "
                         "without a default" if positional else
                "nothing but its platform arguments (episode=) - its observations went to @seq.observe",
-               "sample": "nothing - it returns its sample group, each member's robots' observations or a member "
-                         "planner's state" if planner else "nothing - it returns the episode's calls"}[arg]
+               "sample": "nothing - it returns the episode's calls"}[arg]
         raise PolicyDefinitionError(f"{cls.__name__}.{name}{sig} (@{_DECORATOR[arg]}): the worker hands it {hands} "
                                     f"({why})") from None
 

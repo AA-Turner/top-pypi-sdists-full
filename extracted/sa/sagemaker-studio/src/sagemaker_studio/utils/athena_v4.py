@@ -1,9 +1,9 @@
 """Run Athena queries directly through the AWS API.
 
-V4 managed-result executions use GetQueryResultStream and Apache Arrow IPC. V1-V3 executions and
-customer-managed results use paginated GetQueryResults. Query-level EngineVersion overrides are
-resolved from the completed query before selecting the reader, so a V3 workgroup can run a V4
-managed query without being misclassified.
+V4 executions use GetQueryResultStream and Apache Arrow IPC, whether their results are in Athena
+managed storage or a customer output location. V1-V3 executions use paginated GetQueryResults.
+Query-level EngineVersion overrides are resolved from the completed query before selecting the
+reader, so a V3 workgroup can run a V4 query without being misclassified.
 
 GetQueryResultStream and the query-level EngineVersion input are supplied by the internal Athena
 model bundled at ``boto3_models/athena/2017-05-18/service-2.json``.
@@ -73,15 +73,9 @@ _workgroup_infos: Dict[Tuple[str, str], "WorkgroupInfo"] = {}
 
 
 class WorkgroupInfo(NamedTuple):
-    """What a single GetWorkGroup call tells us about how a workgroup runs queries.
-
-    ``managed_storage`` is True when the workgroup stores results in Athena managed storage (read
-    with GetQueryResultStream), and False for a customer output location or when the signal is
-    absent -- so the Arrow path is only taken on an explicit managed-storage signal.
-    """
+    """What a single GetWorkGroup call tells us about how a workgroup runs queries."""
 
     engine_version: Optional[int]
-    managed_storage: bool
 
 
 class AthenaQueryError(RuntimeError):
@@ -310,27 +304,13 @@ def _session_with_refreshable_credentials(credential_provider: Any) -> Any:
     return session
 
 
-def _uses_managed_storage(configuration: dict) -> bool:
-    """Whether ``configuration`` (a WorkGroupConfiguration) stores results in Athena managed
-    storage rather than a customer output location.
-
-    The signal is ``ManagedQueryResultsConfiguration.Enabled``; a customer output location is
-    ``ResultConfiguration.OutputLocation`` instead, and the two are mutually exclusive. Managed
-    storage is reported only on an explicit ``Enabled`` truth; an absent or unexpected shape
-    selects the native Row/Datum reader.
-    """
-    managed = configuration.get("ManagedQueryResultsConfiguration") or {}
-    return bool(managed.get("Enabled"))
-
-
 def workgroup_info(client: Any, work_group: str) -> WorkgroupInfo:
     """How ``work_group`` runs queries, from a single GetWorkGroup call: its major engine version
-    (None when unknown) and whether it stores results in Athena managed storage."""
+    (None when unknown)."""
     response = client.get_work_group(WorkGroup=work_group)
     configuration = (response.get("WorkGroup") or {}).get("Configuration") or {}
     return WorkgroupInfo(
         engine_version=_effective_engine_version_number(configuration.get("EngineVersion")),
-        managed_storage=_uses_managed_storage(configuration),
     )
 
 
@@ -392,8 +372,8 @@ def athena_executor(
 ) -> Optional["AthenaV4Executor"]:
     """Build the SDK-owned executor for any Athena connection.
 
-    V4 executions with managed results use Arrow. Older engines and customer-managed results use
-    paginated GetQueryResults. A query-level ``EngineVersion`` override takes precedence over the
+    V4 executions use Arrow, whatever their result storage. Older engines use paginated
+    GetQueryResults. A query-level ``EngineVersion`` override takes precedence over the
     workgroup's engine when selecting the result reader.
     """
     if not _is_athena_connection(conn):
@@ -413,12 +393,13 @@ def athena_executor(
         info = _cached_workgroup_info(client, conn_key, work_group)
     except Exception as error:
         logger.warning(
-            "Could not read Athena workgroup %s; using the native row reader: %s: %s",
+            "Could not read Athena workgroup %s; each query's own engine version selects its result "
+            "reader: %s: %s",
             work_group,
             type(error).__name__,
             error,
         )
-        info = WorkgroupInfo(engine_version=None, managed_storage=False)
+        info = WorkgroupInfo(engine_version=None)
 
     override = selected_engine_version
     if override is None:
@@ -446,7 +427,6 @@ def athena_executor(
         work_group,
         catalog=catalog,
         schema=schema,
-        managed_storage=info.managed_storage,
         workgroup_engine_version=info.engine_version,
         selected_engine_version=override,
         execution_parameters=parameters,
@@ -487,7 +467,6 @@ class AthenaV4Executor:
         work_group: str,
         catalog: Optional[str] = None,
         schema: Optional[str] = None,
-        managed_storage: bool = True,
         workgroup_engine_version: Optional[int] = MIN_ENGINE_VERSION,
         selected_engine_version: Optional[str] = None,
         execution_parameters: Optional[Any] = None,
@@ -496,7 +475,6 @@ class AthenaV4Executor:
         self.work_group = work_group
         self.catalog = catalog
         self.schema = schema
-        self.managed_storage = managed_storage
         self.workgroup_engine_version = workgroup_engine_version
         self.selected_engine_version = selected_engine_version
         self.execution_parameters = execution_parameters
@@ -568,7 +546,7 @@ class AthenaV4Executor:
         if execution is None:
             execution = self._executions.get(query_execution_id)
         version = self._execution_version(execution)
-        return self.managed_storage and version is not None and version >= MIN_ENGINE_VERSION
+        return version is not None and version >= MIN_ENGINE_VERSION
 
     @staticmethod
     def _skip_row_header(execution: Optional[dict]) -> bool:

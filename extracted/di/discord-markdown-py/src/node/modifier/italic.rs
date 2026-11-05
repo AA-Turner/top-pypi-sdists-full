@@ -1,26 +1,7 @@
 //! Italic.
 
-use crate::node::Inlines;
-use crate::span::Span;
-use crate::unparse::Unparse;
-
 pub const UNDERSCORE_DELIMITER: &str = "_";
 pub const ASTERISK_DELIMITER: &str = "*";
-
-/// Unparse italic content back to markdown.
-///
-/// # Errors
-/// If formatting fails
-// TODO: Retain which delimiter was used in the AST (underscore vs asterisk) and use it here.
-pub fn unparse<S: Span>(content: &Inlines<S>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-	write!(
-		f,
-		"{}{}{}",
-		UNDERSCORE_DELIMITER,
-		content.unparse(),
-		UNDERSCORE_DELIMITER
-	)
-}
 
 #[cfg(test)]
 mod test {

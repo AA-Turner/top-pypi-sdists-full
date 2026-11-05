@@ -61,7 +61,7 @@ class _PartialFunction:
         """
         raise PolicyDefinitionError(
             f"{getattr(self.raw_fn, '__name__', self.raw_fn)!r} is a @seq.* lifecycle stub; it only works "
-            "as a method of a class decorated with @seq.policy, @seq.planner, @seq.benchmark or @seq.adapter"
+            "as a method of a class decorated with @seq.policy, @seq.benchmark or @seq.adapter"
         )
 
 
@@ -188,7 +188,7 @@ def _as_partial(target: Any, flags: SeqFlags, params: dict[str, Any]) -> _Partia
         kind = type(target).__name__
         raise PolicyDefinitionError(
             f"@seq lifecycle decorators cannot be applied to a {kind}; a lifecycle entrypoint must be a "
-            "plain instance method"
+            "plain method, def name(self, ...)"
         )
 
     if not callable(target):
@@ -253,20 +253,19 @@ def _validate_every_s(every_s: Any) -> float:
 
 
 def plan(fn: Any = None, *, every_s: Any = None, wake_on: Any = None) -> Callable[[Any], _PartialFunction]:
-    """`@seq.plan(every_s=SECONDS, wake_on=[KEY, ...])` — a planner's one method (@seq.planner), `def plan(self, group)`,
-    plain or async. The platform calls it on the planner's own clock - every_s from one plan's start to the next, one
-    plan at a time (one that runs past its tick is followed by the next the moment it returns) - handed the group:
-    group.members, each a policy (m.robots, each robot's id and episode, r.id and r.state) or a planner below (m.state,
-    what it hands up), and group.state, the planner's own record. What it returns, {id: value} keyed by a robot's r.id
-    or a planner member's m.id, is written where that robot's policy reads it, its episode.state["seq.plans"], or into
-    that planner's group.state["seq.plans"]; None writes nothing. A plan that raises is noted in the worker's log and
-    called again at the next tick. `wake_on`: top-level keys whose arrival plans at once, the clock going on beside as
-    the fallback - of what is observed into the planner, or by a policy member's robots, and "seq.plans", a plan from the
-    planner above. The worker reads wake_on off the method, where it is stashed as `__seq_plan_wake_on__`. On a
-    @seq.policy it is refused: a policy is planned by a planner that names it.
+    """`@seq.plan(every_s=SECONDS, wake_on=[KEY, ...])` — a policy's one planning method, `def plan(self, robot)`, plain or
+    async, in the same @seq.policy class as its act. The worker calls it in the copy that holds the robot's episode, in
+    the background - every_s from one plan's start to the next, one plan at a time per robot, only when the robot has
+    sent a new observation - handed `robot`: robot.id and robot.state, a read-only view of the robot's episode.state
+    (the newest observation is robot.state["seq.observations"][-1]). What it returns is appended to the robot's
+    episode.state["seq.plans"] as {"step", "value"}, which the act function reads on its next act; None changes
+    nothing, and seq.ask_human(...) hands the robot to a person instead. A plan that raises is noted in the worker's log
+    and called again at the next tick; the act never waits for a plan. `wake_on`: top-level keys of an observation or an
+    act's inputs whose arrival plans at once, the clock going on beside. The worker reads wake_on off the method, where
+    it is stashed as `__seq_plan_wake_on__`. A class has at most one.
 
 
-    WHY a separate binding from `@seq.infer`, never used bare: a planner's VLM runs at a slow cadence and MUST NOT sit
+    WHY a separate binding from `@seq.infer`, never used bare: a plan's model call runs at a slow cadence and MUST NOT sit
     on a robot's per-step hot path — a plan call is hundreds of ms to seconds. So `plan` only sets what a policy reads;
     its `infer` remains the sole per-step entrypoint. Requiring `every_s` makes the cadence explicit and un-omittable.
 

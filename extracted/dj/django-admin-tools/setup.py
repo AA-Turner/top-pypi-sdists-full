@@ -14,8 +14,9 @@ long_desc = '''
 
 
 if sys.argv[-1] == 'publish':
-    os.system("python setup.py sdist upload")
-    os.system("python setup.py bdist_wheel upload")
+    cmd = "rm -rf dist && {0} -m build && {0} -m twine upload dist/*"
+    if os.system(cmd.format(sys.executable)) != 0:
+        sys.exit("Publish failed.")
     print("You probably want to also tag the version now:")
     print("  git tag -a {0} -m 'version {0}'".format(VERSION))
     print("  git push --tags")
@@ -49,6 +50,13 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15',
+        'Framework :: Django',
         'Framework :: Django :: 1.11',
         'Framework :: Django :: 2.1',
         'Framework :: Django :: 2.2',
@@ -56,6 +64,13 @@ setup(
         'Framework :: Django :: 3.1',
         'Framework :: Django :: 3.2',
         'Framework :: Django :: 4.0',
+        'Framework :: Django :: 4.1',
+        'Framework :: Django :: 4.2',
+        'Framework :: Django :: 5.0',
+        'Framework :: Django :: 5.1',
+        'Framework :: Django :: 5.2',
+        'Framework :: Django :: 6.0',
+        'Framework :: Django :: 6.1',
         'Topic :: Software Development :: Libraries :: Python Modules'
     ],
     zip_safe=False,

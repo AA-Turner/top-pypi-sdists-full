@@ -333,6 +333,7 @@ __all__ = (
     "StartNotebookExecutionOutputTypeDef",
     "StartSessionInputTypeDef",
     "StartSessionOutputTypeDef",
+    "StepAdditionalInfoTypeDef",
     "StepConfigOutputTypeDef",
     "StepConfigTypeDef",
     "StepConfigUnionTypeDef",
@@ -1051,6 +1052,11 @@ class SetUnhealthyNodeReplacementInputTypeDef(TypedDict):
 class SetVisibleToAllUsersInputTypeDef(TypedDict):
     JobFlowIds: Sequence[str]
     VisibleToAllUsers: bool
+
+
+class StepAdditionalInfoTypeDef(TypedDict):
+    ResourceManagerApplicationIds: NotRequired[list[str]]
+    ResourceManager: NotRequired[str]
 
 
 class StepExecutionStatusDetailTypeDef(TypedDict):
@@ -1937,6 +1943,7 @@ class StepSummaryTypeDef(TypedDict):
     Status: NotRequired[StepStatusTypeDef]
     LogUri: NotRequired[str]
     EncryptionKeyArn: NotRequired[str]
+    AdditionalInfo: NotRequired[StepAdditionalInfoTypeDef]
 
 
 class StepTypeDef(TypedDict):
@@ -1948,6 +1955,7 @@ class StepTypeDef(TypedDict):
     ExecutionRoleArn: NotRequired[str]
     LogUri: NotRequired[str]
     EncryptionKeyArn: NotRequired[str]
+    AdditionalInfo: NotRequired[StepAdditionalInfoTypeDef]
 
 
 class PutBlockPublicAccessConfigurationInputTypeDef(TypedDict):

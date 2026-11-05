@@ -9,6 +9,8 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::glob_unescape::unescape;
+
 use typed_path::{
     Utf8Component, Utf8Encoding, Utf8NativeEncoding, Utf8Path, Utf8PathBuf, Utf8UnixEncoding,
     Utf8WindowsComponent, Utf8WindowsEncoding, Utf8WindowsPath,
@@ -57,6 +59,13 @@ trait Syntax: Utf8Encoding + Sized {
 
     fn is_rooted(name: &str) -> bool;
 
+    /// Whether the OS takes a `..` in `path` literally rather than climbing
+    /// through it, so it must be folded before the path is used.
+    fn is_verbatim(path: &Utf8Path<Self>) -> bool;
+
+    /// The directory a written literal path names.
+    fn literal(text: &str) -> String;
+
     fn reported(path: &Utf8Path<Self>) -> String;
 }
 
@@ -66,6 +75,14 @@ impl Syntax for Utf8UnixEncoding {
 
     fn is_rooted(name: &str) -> bool {
         name.starts_with('/')
+    }
+
+    fn is_verbatim(_: &Utf8Path<Self>) -> bool {
+        false
+    }
+
+    fn literal(text: &str) -> String {
+        unescape(text)
     }
 
     fn reported(path: &Utf8Path<Self>) -> String {
@@ -81,14 +98,22 @@ impl Syntax for Utf8WindowsEncoding {
         Utf8WindowsPath::new(name).has_root()
     }
 
+    fn is_verbatim(path: &Utf8Path<Self>) -> bool {
+        matches!(
+            path.components().next(),
+            Some(Utf8WindowsComponent::Prefix(prefix)) if prefix.kind().is_verbatim()
+        )
+    }
+
+    /// A `\` here is a separator, so it quotes nothing.
+    fn literal(text: &str) -> String {
+        text.to_string()
+    }
+
     /// Reported with `/`, matching the index-root-relative paths. A verbatim
     /// (`\\?\`) path is the exception: there `/` is not a separator.
     fn reported(path: &Utf8Path<Self>) -> String {
-        let verbatim = matches!(
-            path.components().next(),
-            Some(Utf8WindowsComponent::Prefix(prefix)) if prefix.kind().is_verbatim()
-        );
-        if verbatim {
+        if Self::is_verbatim(path) {
             path.as_str().to_string()
         } else {
             path.as_str().replace('\\', "/")
@@ -130,6 +155,9 @@ fn resolve_as<S: Syntax>(
 ) -> Resolution {
     let target = trailing_separator_as_star::<S>(name);
     if let Some(rest) = target.strip_prefix("./") {
+        // Left on, a separator after `./` would make the rest an absolute
+        // path that replaces the index root when joined to it.
+        let rest = rest.trim_start_matches('/');
         return Resolution::Table(split_relative(index_root, rest, is_dir));
     }
     if target.starts_with("../") {
@@ -137,6 +165,9 @@ fn resolve_as<S: Syntax>(
     }
 
     match absolute_target::<S>(&target, index_root, home) {
+        Some(Some(target)) if S::is_verbatim(&target) => {
+            Resolution::Table(split_absolute(&normalize(&target), is_dir))
+        }
         Some(Some(target)) => Resolution::Table(split_absolute(&target, is_dir)),
         Some(None) => Resolution::NoHome,
         None if has_glob_metacharacter(name) => Resolution::Hint,
@@ -149,7 +180,10 @@ fn resolve_as<S: Syntax>(
 /// lists the files directly inside it.
 pub fn directory_as_glob(glob: &str, index_root: &Path, is_dir: &dyn Fn(&Path) -> bool) -> String {
     let target = trailing_separator_as_star::<Utf8UnixEncoding>(glob);
-    if !target.is_empty() && !has_glob_metacharacter(&target) && is_dir(&index_root.join(&target)) {
+    if !target.is_empty()
+        && !has_glob_metacharacter(&target)
+        && is_dir(&index_root.join(unescape(&target)))
+    {
         return format!("{target}/{DIRECTORY_GLOB}");
     }
     target
@@ -163,9 +197,9 @@ pub fn named_directory(
     index_root: &Path,
     is_dir: &dyn Fn(&Path) -> bool,
 ) -> Option<String> {
-    let name = glob.trim_end_matches('/');
-    (!name.is_empty() && !has_glob_metacharacter(name) && is_dir(&index_root.join(name)))
-        .then(|| name.to_string())
+    let name = unescape(glob.trim_end_matches('/'));
+    (!name.is_empty() && !has_glob_metacharacter(glob) && is_dir(&index_root.join(&name)))
+        .then_some(name)
 }
 
 /// Where a config `[[table]] glob` anchors, and the glob to match beneath it.
@@ -193,14 +227,14 @@ fn config_anchor_as<S: Syntax>(
     let Some(target) = absolute_target::<S>(glob, config_dir, home) else {
         return Some((config_dir.to_path_buf(), glob.to_string()));
     };
-    let target = target?;
+    let target = normalize(&target?);
     let (literal, rest) = split_at_first_glob(&target);
     if !rest.is_empty() {
-        return Some((PathBuf::from(literal.as_str()), rest));
+        return Some((PathBuf::from(S::literal(literal.as_str())), rest));
     }
     let name = literal.file_name()?.to_string();
     let parent = literal.parent().unwrap_or(&literal);
-    Some((PathBuf::from(parent.as_str()), name))
+    Some((PathBuf::from(S::literal(parent.as_str())), name))
 }
 
 /// A trailing separator is `*` appended, so `./*/` is `./*/*` (like `ls */`)
@@ -217,16 +251,18 @@ fn trailing_separator_as_star<S: Syntax>(name: &str) -> String {
 /// root and the glob to match there. The walk starts at the literal prefix
 /// and `path` is reported under it, so the rows read as if the index root
 /// had been walked whole. The prefix is kept as written, `//` and `.` and
-/// `..` included, as the shell keeps it; past the first wildcard, repeated
-/// separators collapse.
+/// `..` included, as the shell keeps it, but with its backslash escapes
+/// resolved; past the first wildcard, repeated separators collapse.
 fn split_relative(index_root: &Path, rest: &str, is_dir: &dyn Fn(&Path) -> bool) -> PathTable {
     let parts: Vec<&str> = rest.split('/').collect();
     let (literal, glob) = match parts.iter().position(|p| has_glob_metacharacter(p)) {
-        Some(at) => (parts[..at].join("/"), glob_of(&parts[at..])),
-        None if is_dir(&index_root.join(rest)) => (rest.to_string(), DIRECTORY_GLOB.to_string()),
+        Some(at) => (unescape(&parts[..at].join("/")), glob_of(&parts[at..])),
+        None if is_dir(&index_root.join(unescape(rest))) => {
+            (unescape(rest), DIRECTORY_GLOB.to_string())
+        }
         None => {
             let (name, parent) = parts.split_last().expect("split yields a part");
-            (parent.join("/"), (*name).to_string())
+            (unescape(&parent.join("/")), (*name).to_string())
         }
     };
     let root = if literal.is_empty() {
@@ -257,7 +293,9 @@ fn typed<S: Syntax>(path: &Path) -> Utf8PathBuf<S> {
     Utf8PathBuf::from(path.to_string_lossy().into_owned())
 }
 
-/// The absolute path a non-`./` path-table names, with `.` and `..` folded out.
+/// The absolute path a non-`./` path-table names. A `..` is kept as written:
+/// after a symlinked directory it climbs out of the link's target, as the
+/// shell's does, which a lexical fold would get wrong.
 ///
 /// `None` means the name is not a path at all. `Some(None)` means it is a `~/`
 /// path but no home directory could be found.
@@ -267,20 +305,19 @@ fn absolute_target<S: Syntax>(
     home: Option<&Path>,
 ) -> Option<Option<Utf8PathBuf<S>>> {
     if let Some(rest) = S::HOME_PREFIXES.iter().find_map(|p| name.strip_prefix(p)) {
-        return Some(home.map(|h| normalize(&typed::<S>(h).join(rest))));
+        return Some(home.map(|h| typed::<S>(h).join(rest)));
     }
     if name.starts_with("../") {
-        return Some(Some(normalize(&typed::<S>(index_root).join(name))));
+        return Some(Some(typed::<S>(index_root).join(name)));
     }
     if S::is_rooted(name) {
-        return Some(Some(normalize(Utf8Path::new(name))));
+        return Some(Some(Utf8PathBuf::from(name)));
     }
     None
 }
 
 /// Fold `.` and `..` out of `path` lexically. Purely textual: a `..` is not
-/// resolved through a symlink, which keeps the answer a function of the string
-/// the user wrote.
+/// resolved through a symlink.
 fn normalize<S: Syntax>(path: &Utf8Path<S>) -> Utf8PathBuf<S> {
     let mut kept: Vec<&str> = Vec::new();
     let mut normal = 0;
@@ -335,7 +372,7 @@ fn split_target<S: Syntax>(
     if !rest.is_empty() {
         return (literal, rest);
     }
-    if is_dir(Path::new(literal.as_str())) {
+    if is_dir(Path::new(&S::literal(literal.as_str()))) {
         return (literal, DIRECTORY_GLOB.to_string());
     }
 
@@ -349,8 +386,9 @@ fn split_target<S: Syntax>(
 
 /// A path-table rooted at `root`, reporting absolute paths.
 fn table_at<S: Syntax>(root: &Utf8Path<S>, glob: String) -> PathTable {
+    let root = Utf8PathBuf::<S>::from(S::literal(root.as_str()));
     PathTable {
-        path_prefix: S::reported(root),
+        path_prefix: S::reported(&root),
         root: PathBuf::from(root.as_str()),
         glob,
     }
@@ -495,6 +533,22 @@ mod tests {
         assert_eq!(t.root, Path::new("/index/docs/"));
         assert_eq!(t.glob, "a.md");
         assert_eq!(t.path_prefix, "docs//");
+    }
+
+    #[test]
+    fn separators_after_the_leading_dot_resolve_under_the_index_root() {
+        let t = table(".//docs/a.md", &nothing_is_a_dir);
+        assert_eq!(t.root, Path::new("/index/docs"));
+        assert_eq!(t.glob, "a.md");
+        assert_eq!(t.path_prefix, "docs");
+        assert_eq!(
+            table(".///docs", &everything_is_a_dir),
+            table("./docs", &everything_is_a_dir)
+        );
+        assert_eq!(
+            table(".//", &nothing_is_a_dir),
+            table("./", &nothing_is_a_dir)
+        );
     }
 
     #[test]
@@ -821,6 +875,29 @@ mod tests {
     }
 
     #[test]
+    fn an_absolute_path_keeps_a_parent_component_for_the_filesystem_to_resolve() {
+        let t = table("/a/link/../*.md", &nothing_is_a_dir);
+        assert_eq!(t.root, Path::new("/a/link/.."));
+        assert_eq!(t.glob, "*.md");
+        assert_eq!(t.path_prefix, "/a/link/..");
+    }
+
+    #[test]
+    fn a_home_relative_path_keeps_a_parent_component_for_the_filesystem_to_resolve() {
+        let t = table("~/link/../f.md", &nothing_is_a_dir);
+        assert_eq!(t.root, Path::new("/home/u/link/.."));
+        assert_eq!(t.glob, "f.md");
+        assert_eq!(t.path_prefix, "/home/u/link/..");
+    }
+
+    #[test]
+    fn an_absolute_path_drops_a_current_directory_component() {
+        let t = table("/a/./b/*.md", &nothing_is_a_dir);
+        assert_eq!(t.root, Path::new("/a/b"));
+        assert_eq!(t.path_prefix, "/a/b");
+    }
+
+    #[test]
     fn normalize_drops_current_directory_components() {
         assert_eq!(unix_normalize("/a/./b"), "/a/b");
     }
@@ -923,6 +1000,12 @@ mod tests {
         }
 
         #[test]
+        fn a_backslash_in_a_drive_letter_prefix_separates_rather_than_escapes() {
+            let t = table(r"C:\do\cs\*.md", &nothing_is_a_dir);
+            assert_eq!(t.root, Path::new(r"C:\do\cs"));
+        }
+
+        #[test]
         fn a_drive_letter_glob_roots_at_its_literal_prefix() {
             let t = table(r"C:\var\log\*.log", &nothing_is_a_dir);
             assert_eq!(t.root, Path::new(r"C:\var\log"));
@@ -995,6 +1078,19 @@ mod tests {
             assert_eq!(t.root, Path::new(r"\\server\share\docs"));
             assert_eq!(t.glob, "*.md");
             assert_eq!(t.path_prefix, "//server/share/docs");
+        }
+
+        #[test]
+        fn a_verbatim_path_folds_a_parent_component_the_os_would_take_literally() {
+            let t = table(r"\\?\C:\var\x\..\log\*.log", &nothing_is_a_dir);
+            assert_eq!(t.root, Path::new(r"\\?\C:\var\log"));
+            assert_eq!(t.path_prefix, r"\\?\C:\var\log");
+        }
+
+        #[test]
+        fn a_drive_letter_path_folds_a_parent_component_as_windows_does() {
+            let t = table(r"C:\var\x\..\log\*.log", &nothing_is_a_dir);
+            assert_eq!(t.path_prefix, "C:/var/log");
         }
 
         #[test]
@@ -1079,6 +1175,78 @@ mod tests {
                 Resolution::NotAPath
             );
         }
+    }
+
+    fn unix_table(name: &str, is_dir: &dyn Fn(&Path) -> bool) -> PathTable {
+        match resolve_as::<Utf8UnixEncoding>(name, Path::new(ROOT), None, is_dir) {
+            Resolution::Table(t) => t,
+            other => panic!("expected a path-table, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_escape_in_a_relative_prefix_is_resolved_for_the_walk_and_the_paths() {
+        let t = unix_table(r"./my\ do\cs/*.md", &nothing_is_a_dir);
+        assert_eq!(t.root, Path::new("/index/my docs"));
+        assert_eq!(t.glob, "*.md");
+        assert_eq!(t.path_prefix, "my docs");
+    }
+
+    #[test]
+    fn an_escape_in_a_literal_file_is_resolved_in_its_parent_only() {
+        let t = unix_table(r"./do\cs/a\.md", &nothing_is_a_dir);
+        assert_eq!(t.root, Path::new("/index/docs"));
+        assert_eq!(t.glob, r"a\.md");
+        assert_eq!(t.path_prefix, "docs");
+    }
+
+    #[test]
+    fn an_escaped_directory_name_is_tested_unescaped() {
+        let is_docs = |p: &Path| p == Path::new("/index/docs");
+        let t = unix_table(r"./do\cs", &is_docs);
+        assert_eq!(t.root, Path::new("/index/docs"));
+        assert_eq!(t.glob, "*");
+    }
+
+    #[test]
+    fn an_escape_in_an_absolute_unix_prefix_is_resolved() {
+        let t = unix_table(r"/var/lo\g/*.log", &nothing_is_a_dir);
+        assert_eq!(t.root, Path::new("/var/log"));
+        assert_eq!(t.path_prefix, "/var/log");
+    }
+
+    #[test]
+    fn an_escaped_absolute_unix_directory_is_tested_unescaped() {
+        let is_log = |p: &Path| p == Path::new("/var/log");
+        let t = unix_table(r"/var/lo\g", &is_log);
+        assert_eq!(t.root, Path::new("/var/log"));
+        assert_eq!(t.glob, "*");
+    }
+
+    #[test]
+    fn an_escape_in_an_absolute_config_anchor_is_resolved() {
+        let anchor = |glob| config_anchor_as::<Utf8UnixEncoding>(glob, Path::new("/cfg"), None);
+        assert_eq!(
+            anchor(r"/var/lo\g/*.log"),
+            Some((PathBuf::from("/var/log"), "*.log".to_string()))
+        );
+        assert_eq!(
+            anchor(r"/var/lo\g/sys\log"),
+            Some((PathBuf::from("/var/log"), r"sys\log".to_string()))
+        );
+    }
+
+    #[test]
+    fn an_escaped_literal_config_directory_is_tested_and_named_unescaped() {
+        let is_docs = |p: &Path| p == Path::new("/index/docs");
+        assert_eq!(
+            directory_as_glob(r"do\cs", Path::new(ROOT), &is_docs),
+            r"do\cs/*"
+        );
+        assert_eq!(
+            named_directory(r"do\cs/", Path::new(ROOT), &is_docs).as_deref(),
+            Some("docs")
+        );
     }
 
     #[test]

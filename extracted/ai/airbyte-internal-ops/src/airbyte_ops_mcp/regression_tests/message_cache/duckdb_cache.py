@@ -228,16 +228,16 @@ class DuckDbMessageCache:
         """
         if message.type == AirbyteMessageType.CATALOG:
             return (self.RELATIVE_CATALOGS_PATH,), (
-                _add_message_id(message.catalog.model_dump_json()),
+                _add_message_id(message.catalog.model_dump_json()),  # ty: ignore[unresolved-attribute]
             )
 
         if message.type == AirbyteMessageType.CONNECTION_STATUS:
             return (self.RELATIVE_CONNECTION_STATUS_PATH,), (
-                _add_message_id(message.connectionStatus.model_dump_json()),
+                _add_message_id(message.connectionStatus.model_dump_json()),  # ty: ignore[unresolved-attribute]
             )
 
         if message.type == AirbyteMessageType.RECORD:
-            stream_name = message.record.stream
+            stream_name = message.record.stream  # ty: ignore[unresolved-attribute]
             stream_file_path = (
                 self.record_per_stream_directory
                 / f"{sanitize_stream_name(stream_name)}.jsonl"
@@ -259,32 +259,32 @@ class DuckDbMessageCache:
             ), (
                 message_with_id,
                 message_with_id,
-                json.dumps(message.record.data, sort_keys=True),
+                json.dumps(message.record.data, sort_keys=True),  # ty: ignore[unresolved-attribute]
             )
 
         if message.type == AirbyteMessageType.SPEC:
             return (self.RELATIVE_SPECS_PATH,), (
-                _add_message_id(message.spec.model_dump_json()),
+                _add_message_id(message.spec.model_dump_json()),  # ty: ignore[unresolved-attribute]
             )
 
         if message.type == AirbyteMessageType.STATE:
             return (self.RELATIVE_STATES_PATH,), (
-                _add_message_id(message.state.model_dump_json()),
+                _add_message_id(message.state.model_dump_json()),  # ty: ignore[unresolved-attribute]
             )
 
         if message.type == AirbyteMessageType.TRACE:
             return (self.RELATIVE_TRACES_PATH,), (
-                _add_message_id(message.trace.model_dump_json()),
+                _add_message_id(message.trace.model_dump_json()),  # ty: ignore[unresolved-attribute]
             )
 
         if message.type == AirbyteMessageType.LOG:
             return (self.RELATIVE_LOGS_PATH,), (
-                _add_message_id(message.log.model_dump_json()),
+                _add_message_id(message.log.model_dump_json()),  # ty: ignore[unresolved-attribute]
             )
 
         if message.type == AirbyteMessageType.CONTROL:
             return (self.RELATIVE_CONTROLS_PATH,), (
-                _add_message_id(message.control.model_dump_json()),
+                _add_message_id(message.control.model_dump_json()),  # ty: ignore[unresolved-attribute]
             )
 
         raise NotImplementedError(
@@ -412,4 +412,4 @@ class DuckDbMessageCache:
             result = self.query(f"SELECT COUNT(*) FROM {table_name}")
         else:
             result = self.query("SELECT COUNT(*) FROM records")
-        return result.fetchone()[0]
+        return result.fetchone()[0]  # ty: ignore[not-subscriptable]

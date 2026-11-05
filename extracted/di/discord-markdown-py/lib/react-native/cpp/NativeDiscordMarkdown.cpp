@@ -98,14 +98,4 @@ std::string NativeDiscordMarkdown::parseLosslessToAstString(
 	return result.str();
 }
 
-std::string NativeDiscordMarkdown::unparseFromAstString(jsi::Runtime &rt, std::string ast) {
-	const ParseResult result(
-		dmd_unparse(reinterpret_cast<const uint8_t *>(ast.data()), ast.size(), /* js_bigints */ true));
-
-	if (!result.ok()) {
-		throw jsi::JSError(rt, result.str());
-	}
-	return result.str();
-}
-
 } // namespace facebook::react

@@ -18,7 +18,6 @@
 # Make coding more python3-ish
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 from unittest.mock import patch
@@ -109,7 +108,7 @@ class TestVyosFirewallGlobalModule(TestVyosModule):
                         ),
                         dict(
                             afi="ipv6",
-                            ip_src_route=True,
+                            ip_src_route=False,
                             icmp_redirects=dict(receive=False),
                         ),
                     ],
@@ -183,6 +182,7 @@ class TestVyosFirewallGlobalModule(TestVyosModule):
             "set firewall group port-group TELNET description 'This group has the telnet ports'",
             "set firewall group port-group TELNET",
             "set firewall ip-src-route 'enable'",
+            "set firewall ipv6-src-route 'disable'",
             "set firewall receive-redirects 'disable'",
             "set firewall config-trap 'enable'",
             "set firewall ipv6-receive-redirects 'disable'",
@@ -424,8 +424,8 @@ class TestVyosFirewallGlobalModule(TestVyosModule):
                                 name="DELETE-HOSTS",
                                 description="The (single) last address from this group will be deleted in the tests",
                                 members=[
-                                    dict(address='1.2.3.4'),
-                                ]
+                                    dict(address="1.2.3.4"),
+                                ],
                             ),
                             dict(
                                 afi="ipv6",

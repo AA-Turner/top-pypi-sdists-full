@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
 from pathlib import Path
 import time
 
@@ -270,9 +271,10 @@ class WaitingRoomMixin:
     def _staged_publisher(self, op: dict, clean: bytes):
         """Write `clean` to a staging blob now; return the publish step that moves it into place
         inside the append lock (gc takes the same lock)."""
-        staging = self.blobs_dir / f".staging-{op['op_id']}"
-        staging.unlink(missing_ok=True)
-        _write_private(staging, clean)
+        # A name nobody can know ahead, written only as a new file (M2: the service may deliver a
+        # fenced caller's outbox; a link planted at a fixed name would be written through).
+        staging = self.blobs_dir / f".staging-{op['op_id']}.{secrets.token_hex(8)}"
+        _write_new_private(staging, clean)
         digest = op["upload"].get("blob")
         final = self.blobs_dir / digest if digest else self.blobs_dir / f"incoming-{op['op_id']}"
 
@@ -333,4 +335,4 @@ from probe.sdk.delivery.journal.headroom import OutboxFull  # noqa: E402 -- piec
 from probe.sdk.delivery.journal.item_locks import _item_lock  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.journal.item_locks import _retire_lock  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.journal.item_locks import _try_lock  # noqa: E402 -- pieces need each other; the front door loads this one first
-from probe.sdk.delivery.journal.item_locks import _write_private  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.journal.item_locks import _write_new_private, _write_private  # noqa: E402 -- pieces need each other; the front door loads this one first

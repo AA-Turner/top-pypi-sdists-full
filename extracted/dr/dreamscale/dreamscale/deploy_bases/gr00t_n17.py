@@ -9,7 +9,7 @@ run so101` sends; any other unit is the robot's own deployment, driven from Pyth
 custom robot names its control rate (``--hz``) and, where the robot's names differ from the
 checkpoint's, its cameras (``--camera key=feature``). `dreamscale run yam` and `dreamscale run
 so101` drive the presets; its sessions' contract is dreamscale.policy.gr00t_n17_deployment.
-Unlisted (``listed_as=None``) until GA; ``--base gr00t-n1.7`` names it.
+Listed since GA (0150) as ``gr00t-n1.7``; ``gr00t-n17`` still names it.
 """
 
 from __future__ import annotations
@@ -279,7 +279,8 @@ EXPORTED = ExportedBase(
     "dreamscale.policy.gr00t_n17_deployment:runtime_contract",
 )
 BASE = DeployBase(
-    family="gr00t_n17", name=NAME, label=LABEL, cli=CLI, aliases=(PUBLIC,), creates_as=PUBLIC,
+    family="gr00t_n17", name=NAME, label=LABEL, cli=CLI, aliases=(PUBLIC,), listed_as=PUBLIC,
+    creates_as=PUBLIC,
     robot_line=gr00t_n17_robot_line, detects_as_base=True, found_lines=gr00t_n17_found_lines,
     create=_create, exported=EXPORTED, runner=runner, run_command=run_command,
     robots=tuple(RUNNERS.values()),

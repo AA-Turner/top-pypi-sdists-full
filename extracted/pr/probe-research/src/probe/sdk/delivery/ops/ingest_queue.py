@@ -1,12 +1,14 @@
 """The server's ingest queue, as a queued write sees it (infra I15d; twin: app/runs/telemetry/ingest_queue).
-A queued /metrics or /steps/batch POST asks for an async ack; a close held for queued data is waiting."""
+A queued /metrics or /steps/batch POST and a live log-chunk POST ask for an async ack; a close held for
+queued data is waiting."""
 
 from __future__ import annotations
 
 from typing import Any
 
-#: Sent on a queued metrics or steps-batch POST: the server may answer 202 (durable in its queue,
-#: stored later), which deletes the op file as any 2xx does; `finish()` then waits for the store.
+#: Sent on a queued metrics or steps-batch POST and a live log-chunk POST: the server may answer 202
+#: (durable in its queue, stored later), which deletes the op file as any 2xx does; `finish()` then
+#: waits for the store.
 ASYNC_ACK_HEADER = "X-Probe-Async-Ack"
 #: The server feature that says it gives a 202 only where every close waits for the data.
 ASYNC_ACK_FEATURE = "ingest_async_ack"

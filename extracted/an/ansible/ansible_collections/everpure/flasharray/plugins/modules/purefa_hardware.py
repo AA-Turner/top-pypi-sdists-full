@@ -1,0 +1,154 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# (c) 2021, Simon Dodsley (simon@everpuredata.com)
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import absolute_import, division, print_function
+
+__metaclass__ = type
+
+ANSIBLE_METADATA = {
+    "metadata_version": "1.1",
+    "status": ["preview"],
+    "supported_by": "community",
+}
+
+DOCUMENTATION = r"""
+---
+module: purefa_hardware
+version_added: '1.24.0'
+short_description: Manage FlashArray Hardware Identification
+description:
+- Enable or disable FlashArray visual identification lights
+author:
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@everpuredata.com>
+options:
+  name:
+    description:
+    - Name of hardware component
+    type: str
+    required: true
+  enabled:
+    description:
+    - State of the component identification LED
+    type: bool
+    required: true
+extends_documentation_fragment:
+- everpure.flasharray.everpure.fa
+"""
+
+EXAMPLES = r"""
+- name: Enable identification LED
+  everpure.flasharray.purefa_hardware:
+    name: "CH1.FB1"
+    enabled: true
+    fa_url: 10.10.10.2
+    api_token: T-68618f31-0c9e-4e57-aa44-5306a2cf10e3
+
+- name: Disable identification LED
+  everpure.flasharray.purefa_hardware:
+    name: "CH1.FB1"
+    enabled: false
+    fa_url: 10.10.10.2
+    api_token: T-68618f31-0c9e-4e57-aa44-5306a2cf10e3
+"""
+
+RETURN = r"""
+"""
+
+HAS_PURESTORAGE = True
+try:
+    from pypureclient import flasharray
+except ImportError:
+    HAS_PURESTORAGE = False
+
+import time
+
+from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.everpure.flasharray.plugins.module_utils.purefa import (
+    get_array,
+    purefa_argument_spec,
+)
+from ansible_collections.everpure.flasharray.plugins.module_utils.api_helpers import (
+    check_response,
+)
+
+# How long to wait for the array to report the new LED state after a PATCH
+SETTLE_SECONDS = 5
+SETTLE_POLL_SECONDS = 0.5
+
+
+def read_identify_state(array, name):
+    """Return the component's identify_enabled, or None when unknown"""
+    res = array.get_hardware(names=[name])
+    if res.status_code != 200:
+        return None
+    items = list(res.items)
+    if not items:
+        return None
+    return getattr(items[0], "identify_enabled", None)
+
+
+def wait_for_identify_state(array, name, wanted):
+    """Poll until the array reports the requested LED state or time runs out.
+
+    The array can keep reporting the old identify_enabled for a moment after
+    a successful PATCH, so an immediate re-run patched it again. Returns the
+    last state read; the caller does not fail when it never settled.
+    """
+    deadline = time.monotonic() + SETTLE_SECONDS
+    state = read_identify_state(array, name)
+    while state != wanted and time.monotonic() < deadline:
+        time.sleep(SETTLE_POLL_SECONDS)
+        state = read_identify_state(array, name)
+    return state
+
+
+def main():
+    argument_spec = purefa_argument_spec()
+    argument_spec.update(
+        dict(
+            enabled=dict(type="bool", required=True),
+            name=dict(type="str", required=True),
+        )
+    )
+
+    module = AnsibleModule(argument_spec, supports_check_mode=True)
+    if not HAS_PURESTORAGE:
+        module.fail_json(msg="py-pure-client sdk is required for this module")
+
+    array = get_array(module)
+    changed = False
+    res = array.get_hardware(names=[module.params["name"]])
+    if res.status_code != 200:
+        module.fail_json(
+            msg=f"Hardware component {module.params['name']} does not exist"
+        )
+    id_state = getattr(list(res.items)[0], "identify_enabled", None)
+    if id_state is not None and id_state != module.params["enabled"]:
+        changed = True
+        if not module.check_mode:
+            # identify_enabled is read-only on the Hardware model, so a
+            # Hardware body serialises to {} and the array answers
+            # "No operation was specified"; HardwarePatch carries the field
+            res = array.patch_hardware(
+                names=[module.params["name"]],
+                hardware=flasharray.HardwarePatch(
+                    identify_enabled=module.params["enabled"]
+                ),
+            )
+            check_response(
+                res,
+                module,
+                f"Failed to set identification LED for {module.params['name']}",
+            )
+            wait_for_identify_state(
+                array, module.params["name"], module.params["enabled"]
+            )
+
+    module.exit_json(changed=changed)
+
+
+if __name__ == "__main__":
+    main()

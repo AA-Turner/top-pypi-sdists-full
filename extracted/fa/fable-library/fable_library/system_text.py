@@ -8,10 +8,10 @@ from .core import byte, float32, int16, int32, int64, sbyte, uint16, uint32, uin
 from .exceptions import to_string
 from .reflection import TypeInfo, class_type
 from .string_ import format, get_length, is_null_or_empty, join, replace, replicate, substring
-from .util import UNIT, Unit, clear, range, string_hash, to_enumerable
+from .util import UNIT, Unit, clear, range, slice_index, string_hash, to_enumerable
 
 
-def _expr236() -> TypeInfo:
+def _expr226() -> TypeInfo:
     return class_type("System.Text.StringBuilder", None, StringBuilder)
 
 
@@ -34,7 +34,7 @@ class StringBuilder(StringableBase):
         return string_hash(to_string(x))
 
 
-StringBuilder_reflection = _expr236
+StringBuilder_reflection = _expr226
 
 
 def StringBuilder__ctor_Z18115A39(value: str, capacity: int) -> StringBuilder:
@@ -239,8 +239,8 @@ def StringBuilder__set_Chars_413E0D0A(x: StringBuilder, index: int, value: str) 
 
     else:
         pos: int = tmp_2 if (-2147483648 <= (tmp_2 := index - len_1) <= 2147483647) else int32(tmp_2)
-        x.buf[i] = (x.buf[i][0 : ((pos - 1) if (pos >= -2147483647) else int32(pos - 1)) + 1] + value) + x.buf[i][
-            (pos + 1) if (pos <= 2147483646) else int32(pos + 1) : len(x.buf[i])
+        x.buf[i] = (x.buf[i][0 : slice_index(int32((pos - 1) + 1))] + value) + x.buf[i][
+            slice_index((pos + 1) if (pos <= 2147483646) else int32(pos + 1)) : len(x.buf[i])
         ]
 
 

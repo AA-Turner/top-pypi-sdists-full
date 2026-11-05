@@ -1,0 +1,59 @@
+"""A bad frame must not brick an async websocket connection.
+
+``_recv_task`` used to end on the first frame it could not handle - a
+protocol-level error carrying no ``id``, or anything that failed to decode.
+The socket stayed open, so ``connect()`` saw a live socket and no-opped, and
+every later request registered a future nothing would ever resolve. With no
+timeout on that wait, the caller hung forever and the reported error ("the
+connection closed") was wrong: the socket was open the whole time.
+
+The blocking transport was given a deadline when the same class of bug was
+found there; these tests cover the async twin, which was missed.
+"""
+
+import asyncio
+
+import pytest
+
+from surrealdb.connections.async_ws import AsyncWsSurrealConnection
+from surrealdb.data.types.record_id import RecordID
+from surrealdb.errors import SurrealError
+
+# Long enough not to flake on CI, far below an indefinite hang.
+_BUDGET_SECONDS = 15.0
+
+
+@pytest.mark.parametrize(
+    ("label", "bad_call"),
+    [
+        # A protocol-level error: the server cannot correlate this to a
+        # request, so its reply carries no `id`. An oversized integer used to
+        # serve here; it no longer reaches the server, because the encoder now
+        # refuses an int outside SurrealDB's signed 64-bit range rather than
+        # letting it wrap silently.
+        # `_unchecked`, not the constructor: `RecordID(None, 1)` is now a
+        # `TypeError` before anything is sent. This test is about what the
+        # reader does when the *server* rejects a frame, so the frame still
+        # has to reach the wire.
+        (
+            "record id with a null table",
+            lambda db: db.select(RecordID._unchecked(None, 1)),  # pyright: ignore[reportPrivateUsage]
+        ),
+    ],
+)
+async def test_connection_survives_a_protocol_error(
+    async_ws_connection: AsyncWsSurrealConnection,
+    label: str,
+    bad_call: object,
+) -> None:
+    """The failure is reported, and the connection keeps working afterwards."""
+    with pytest.raises(SurrealError):
+        await bad_call(async_ws_connection)  # type: ignore[operator]
+
+    assert async_ws_connection.recv_task is not None
+    assert not async_ws_connection.recv_task.done(), f"{label}: reader died"
+
+    result = await asyncio.wait_for(
+        async_ws_connection.query("RETURN 42").first(), timeout=_BUDGET_SECONDS
+    )
+    assert result == 42

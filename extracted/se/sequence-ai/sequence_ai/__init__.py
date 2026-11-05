@@ -8,14 +8,14 @@ its own way, at its own rate.
 
     import sequence_ai
 
-    with sequence_ai.connect(model="my-policy") as policy:
-        policy.observe(frame)                             # as the robot makes it; never blocks
-        actions = policy.act()                            # when your code wants them: what the act function returned
-        for step in actions:                              # played by your code, at your rate
-            robot.apply(step)
-        policy.end_episode()
+    with sequence_ai.connect(model="my_policy_user") as policy_user:
+        policy_user.observe(frame_user)                   # as the robot makes it; never blocks
+        actions_user = policy_user.act()                  # when your code wants them: what the act function returned
+        for step_user in actions_user:                    # played by your code, at your rate
+            robot_user.apply(step_user)
+        policy_user.end_episode()
 
-    policy.interrupt()      # from any thread, at any moment
+    policy_user.interrupt()      # from any thread, at any moment
 
 ── Two brains, one string between them ───────────────────────────────
 A VLM looks at a snapshot, decides *what* to do next, and says it in a sentence. This package is
@@ -76,7 +76,6 @@ from .chat import ChatResult, ChatStream, Conversation, cached, chat, image
 from .decide import DecideResult, decide
 
 from .markers import Depth, Tactile, Video
-from .planner import Planner, planner
 from ._core.direct import DirectConnection
 from ._core import teleop as _teleop
 from ._core import teleop_robot as _teleop_robot
@@ -87,13 +86,13 @@ from .errors import (
     AuthError,
     CertPinError,
     Conflict,
-    WaitingForPlan,
     Gone,
     InternalError,
     InvalidRequest,
     MissingPackage,
     NotFound,
     OutOfCredit,
+    PLANNERS_GONE,
     PermissionDenied,
     PolicyError,
     SequencesError,
@@ -107,9 +106,6 @@ __all__ = [
 
     "teleop",
     "Teleop",
-
-    "planner",
-    "Planner",
 
     "Video",
     "Depth",
@@ -151,7 +147,6 @@ __all__ = [
     "OutOfCredit",
     "NotFound",
     "Conflict",
-    "WaitingForPlan",
     "Gone",
     "Unavailable",
     "PolicyError",
@@ -227,14 +222,10 @@ def connect(
     commands.
 
     model       the deployment's name — what `seq deploy` registered it as (its id works too)
-    policy      connect through a planner: `model` then names the planner, this the policy this robot runs, one of its
-                members=. What the robot observes under `instruction`, `task`, `prompt` or `language_instruction`, at the
-                top of an observation, reaches the planner and never the policy's code, which is told what to do by the
-                planner's plans alone: act() raises WaitingForPlan until the first. Other names, nested keys and words in
-                an image are the policy's own to leave alone. Unset, the robot runs `model` as deployed, its prompt its
-                own, and no planner plans for it.
+    policy      gone: connecting through a planner is no more. Planning is a `@seq.plan` method of the policy itself, so
+                a robot connects to its policy by its name alone; passing it raises InvalidRequest (PLANNERS_GONE).
     api_key     defaults to $SEQUENCES_API_KEY
-    base_url    defaults to $SEQUENCES_BASE_URL, then the production gateway
+    base_url    defaults to $SEQUENCES_BASE_URL, then the platform's gateway
     timeout_s   how long one request waits for its answer, in seconds. Unset, an act waits as long as the deployment
                 allows one - the platform's, 300 s unless its check measured slower acts - and 10 s more, so
                 the worker's own 504 at that deadline is what you get; 30 s where the deployment says none. Every other
@@ -271,7 +262,7 @@ def connect(
     teleop      True: a person can watch and drive this robot from a console holding its key (sequence_ai.teleop).
                 Its observe() sends every frame; while a person drives it, act() hands back the newest chunk they sent
                 at once, with no network wait - each chunk once: with none newer, `hold`, the robot staying where it
-                is; while it is stopped (by a console, by its planner, or its connection lost while a person drove it),
+                is; while it is stopped (by a console, by its plan, or its connection lost while a person drove it),
                 `hold`. An act on its way as it is stopped or taken comes back the same - a person's chunk or `hold`,
                 never the policy's answer; on_resume waits for what the arm can play: a person's chunk, or its model's
                 answer once it drives again. act()'s use and its answer's form are unchanged; `policy.driver` says who
@@ -284,7 +275,7 @@ def connect(
     Use it as a context manager. The connection is what makes this worth calling at all, and
     a `Policy` that is never closed leaks a socket:
 
-        with sequence_ai.connect(model="my-pi05") as policy:
+        with sequence_ai.connect(model="my_pi05_user") as policy_user:
             ...
 
     Nothing is sent at connect time — no session is opened on the server and nothing is
@@ -306,9 +297,11 @@ def connect(
         raise TypeError("connect(hold=) is what act() hands back while a person stops the robot: it goes with "
                         "teleop=True")
     driven = (_teleop_robot.Driven() if hold is None else _teleop_robot.Driven(hold)) if teleop else None
-    return _connect(policy or model, api_key=api_key, base_url=base_url, timeout_s=timeout_s,
+    if policy is not None:
+        raise InvalidRequest(PLANNERS_GONE)
+    return _connect(model, api_key=api_key, base_url=base_url, timeout_s=timeout_s,
                     startup_timeout_s=startup_timeout_s, on_warming=on_warming, on_queue=on_queue, teleop=driven,
-                    on_stale=on_stale, on_resume=on_resume, planner=model if policy else None)
+                    on_stale=on_stale, on_resume=on_resume)
 
 
 def teleop(policy: str, *, robot: str | None = None, key: str | None = None, operator: str | None = None,
@@ -317,19 +310,19 @@ def teleop(policy: str, *, robot: str | None = None, key: str | None = None, ope
     A person's console for one robot: watch it, take it, drive it with action chunks, hand it back, stop it - over one
     connection straight to the worker the robot is on.
 
-        with sequence_ai.teleop("my-pi05", key=ROBOT_KEY, operator="alice_user") as op:
-            for step in op.stream():               # each step the robot observes: {"episode", "seq", "observation"}
+        with sequence_ai.teleop("my_pi05_user", key=ROBOT_KEY_user, operator="alice_user") as op_user:
+            for step_user in op_user.stream():     # each step the robot observes: {"episode", "seq", "observation"}
                 ...
-            op.take()                              # one person at a time: Conflict while another drives it
-            op.send({"actions": chunk})            # the robot's next act() hands it back, at once
-            op.release()                           # back to its model; op.stop() stops it where it is
+            op_user.take()                         # one person at a time: Conflict while another drives it
+            op_user.send({"actions": chunk_user})  # the robot's next act() hands it back, at once
+            op_user.release()                      # back to its model; op_user.stop() stops it where it is
 
     policy      the deployment the robot acts on, as connect() names it
     robot       optional: a check that the key is the robot meant - "robot …k3Fz" for the key `seq robot list` shows
                 as …k3Fz; another robot's is refused (another_robots_key). The key names its robot: none is needed
     key         the robot's own key - the one its loop connects with; defaults to $SEQUENCES_API_KEY
     operator    the name this console goes by: who drives, in the robot's audit trail and `seq policy status`
-    base_url    defaults to $SEQUENCES_BASE_URL, then the production gateway
+    base_url    defaults to $SEQUENCES_BASE_URL, then the platform's gateway
     timeout_s   how long the platform's answer and the worker's opening may take: 10 s unset
 
     The robot must be connected, with sequence_ai.connect(..., teleop=True): Conflict while it is not (details.reason
@@ -351,8 +344,8 @@ def _connect(model: str, *, api_key: str | None, base_url: str | None, timeout_s
              startup_timeout_s: float | None, on_warming: Callable[[float, float], None] | None,
              on_queue: Callable[[Any, Any, float, Any], None] | None, teleop: Any = None,
              on_stale: Callable[[Stale], None] | None = None,
-             on_resume: Callable[[Stale], None] | None = None, planner: str | None = None) -> Policy:
-    """connect()'s body: `model` the policy it is seated on, `planner` the planner it connects through, if any."""
+             on_resume: Callable[[Stale], None] | None = None) -> Policy:
+    """connect()'s body: `model` the policy it is seated on."""
 
 
 
@@ -395,7 +388,7 @@ def _connect(model: str, *, api_key: str | None, base_url: str | None, timeout_s
     return Policy(
 
 
-        DirectConnection(gateway, model=model, timeout_s=timeout_s, teleop=teleop, planner=planner),
+        DirectConnection(gateway, model=model, timeout_s=timeout_s, teleop=teleop),
         model=model,
         reporter=reporter,
 
@@ -408,6 +401,14 @@ def _connect(model: str, *, api_key: str | None, base_url: str | None, timeout_s
         on_stale=on_stale,
         on_resume=on_resume,
     )
+
+
+def __getattr__(name: str) -> Any:
+    """`sequence_ai.planner(...)` and `sequence_ai.Planner` are gone with planners: they say so (PLANNERS_GONE)."""
+    if name in ("planner", "Planner"):
+        raise AttributeError(PLANNERS_GONE)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 def models(
     *,
@@ -436,7 +437,7 @@ def models(
     if endpoint not in (None, "chat", "decide"):
         raise InvalidRequest(f"endpoint={endpoint!r}: the catalogue lists chat and decide models; a robot policy "
                              "is your own deployment — connect(<its name>)",
-                             hint="seq init <template> my-policy && seq deploy my-policy "
+                             hint="seq init <template> my_policy_user && seq deploy my_policy_user "
                                   "(seq init --list names the templates)")
     if endpoint and kind == "template":
         raise InvalidRequest("a template has no endpoint; drop endpoint= or ask for kind='model'")

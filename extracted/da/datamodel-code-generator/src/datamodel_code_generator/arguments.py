@@ -128,7 +128,9 @@ def _json_value_or_file(value: str) -> dict[str, object]:
 def _recommend_mode(value: str) -> str:
     """Accept a recommendation mode, quick or full; the option is documented without a value, which picks by size."""
     if value not in {"quick", "full"}:
-        msg = f"unknown mode {value!r}; use --recommend-options without a value"
+        from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
+        msg = f"unknown mode {stable_repr(value)}; use --recommend-options without a value"
         raise ArgumentTypeError(msg)
     return value
 
@@ -1293,7 +1295,7 @@ base_options.add_argument(
     "--formatters",
     help="Formatters (current default: black, isort; future default: builtin). "
     "For Ruff projects, use --formatters ruff-check ruff-format "
-    f"(install with {install_command('ruff', prompt='', row='plain')}). "
+    f"(install with {install_command('ruff', row='plain')}). "
     "Use --formatters builtin when no external formatter is used or generation speed takes priority. "
     "Keep --formatters black isort to preserve existing formatting. "
     "Presets dated 20260909 or later include builtin; explicit formatters override presets. "
@@ -1303,6 +1305,14 @@ base_options.add_argument(
     "Details: https://datamodel-code-generator.koxudaxi.dev/formatter-behavior/",
     choices=_values(Formatter),
     nargs="+",
+    default=None,
+)
+base_options.add_argument(
+    "--no-formatters",
+    dest="formatters",
+    help="Select no formatter, not even the default or a preset's formatters; --custom-formatters still run.",
+    action="store_const",
+    const=(),
     default=None,
 )
 base_options.add_argument(
@@ -1439,7 +1449,7 @@ general_options.add_argument(
 _flag(
     general_options,
     "--debug",
-    help=f'show debug message (require "debug". {install_command("debug", prompt="$ ")})',
+    help=f'show debug message (require "debug". {install_command("debug")})',
 )
 _flag(general_options, "--disable-warnings", help="disable warnings")
 for _registry, _contents in (

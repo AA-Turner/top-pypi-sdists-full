@@ -1,113 +1,83 @@
-use std::{fmt::Debug, marker::PhantomData};
-
-use nom::{
-	IResult, Parser,
-	branch::alt,
-	bytes::take_until1,
-	character::complete::{char, space1},
-	combinator::{opt, verify},
-	sequence::delimited,
-};
-use tracing::Level;
 use url::Url;
 
 use crate::{
 	Input,
 	context::Context,
-	error::ParseError,
+	error::{Fail, PResult},
 	lossless::TokenKind,
-	span::{Span, Syntax, TraceOk, TraceParse, WithToken},
+	span::{Span, Syntax, Trace},
 };
 
-use super::{Scope, auto, has_no_link, verify_url};
+use super::{Scope, auto, verify_url};
+
+/// The character that opens and closes a title.
+const TITLE_QUOTE: char = '"';
+/// The character that makes the next [`TITLE_QUOTE`] or [`TITLE_ESCAPE`] stand for itself.
+const TITLE_ESCAPE: char = '\\';
+
+/// Whether a title has to escape `ch` to contain it.
+fn needs_escape(ch: char) -> bool {
+	ch == TITLE_QUOTE || ch == TITLE_ESCAPE
+}
 
 /// Parse a masked link title.
 ///
-/// The title is shown to the reader on hover, so it carries the same guard as the text segment: a
-/// title that reads as a link masks a destination the reader never sees.
-fn parse_title<'data, E>(data: Input<'data>, context: &Context) -> IResult<Input<'data>, String, E>
-where
-	E: ParseError<'data>,
-{
-	verify(
-		delimited(char('"'), take_until1("\""), char('"'))
-			.map(|title: Input<'_>| title.to_string()),
-		|title: &str| has_no_link(title, context),
-	)
-	.parse_complete(data)
-}
-
-struct SegmentParser<'ctx, S, E> {
-	context: &'ctx Context,
-	link_grammar: Context,
-	span: PhantomData<S>,
-	error: PhantomData<E>,
-}
-
-impl<S, E> Debug for SegmentParser<'_, S, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("SegmentParser")
-			.field("context", &self.context)
-			.field("link_grammar", &self.link_grammar)
-			.field("error", &self.error)
-			.finish()
+/// A backslash escapes a double quote or another backslash; before anything else it is literal.
+fn parse_title(input: &mut Input) -> PResult<String> {
+	input.char(TITLE_QUOTE)?;
+	let mut title = String::new();
+	loop {
+		title.push_str(input.take_while(|ch| !needs_escape(ch)));
+		if input.char(TITLE_QUOTE).is_ok() {
+			break;
+		}
+		input.char(TITLE_ESCAPE)?;
+		match input.satisfy(needs_escape) {
+			Ok(escaped) => title.push(escaped),
+			Err(_) => title.push(TITLE_ESCAPE),
+		}
 	}
-}
-
-impl<'ctx, 'data, S, E> Parser<Input<'data>> for SegmentParser<'ctx, S, E>
-where
-	S: Span,
-	E: ParseError<'data> + 'ctx,
-{
-	type Output = (Url, Option<String>, S::Syntax);
-	type Error = E;
-
-	#[tracing::instrument(name = "segment_parser", level = Level::TRACE, fields(ok, output))]
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let context = self.context;
-		(
-			char('(').token::<S>(TokenKind::DestinationOpen),
-			// TODO: handle matched parentheses inside the link content
-			alt((
-				auto::auto::<S, E>(self.context.clone()),
-				verify_url(&self.link_grammar).with_token::<S>(TokenKind::Url),
-			)),
-			opt((
-				space1.token::<S>(TokenKind::Whitespace),
-				(|data| parse_title(data, context)).with_token::<S>(TokenKind::Title),
-			)),
-			char(')').token::<S>(TokenKind::DestinationClose),
-		)
-			.map(|(open, (url, url_syntax), title, close)| {
-				let (title, title_syntax) = match title {
-					Some((space, (title, title_syntax))) => (Some(title), space.join(title_syntax)),
-					None => (None, S::Syntax::default()),
-				};
-				let syntax = open.join(url_syntax).join(title_syntax).join(close);
-				(url, title, syntax)
-			})
-			.trace_parse()
-			.process::<OM>(input)
-			.trace_ok()
+	if title.is_empty() {
+		Err(Fail::NoMatch)
+	} else {
+		Ok(title)
 	}
 }
 
 /// Parse the link segment of a masked link, including its title.
-pub fn segment<'ctx, 'data, S, E>(
-	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = (Url, Option<String>, S::Syntax), Error = E> + 'ctx
-where
-	S: Span,
-	E: ParseError<'data> + 'ctx,
-{
+///
+/// The title is shown to the reader on hover, so it carries the same guard as the text segment: a
+/// title that reads as a link masks a destination the reader never sees. Like the text segment's,
+/// that guard is the caller's to run.
+///
+/// # Errors
+/// If the content does not begin with a link segment.
+#[tracing::instrument(name = "segment_parser", level = "trace", skip_all, fields(ok, output))]
+pub fn segment<S: Span>(
+	input: &mut Input,
+	context: &Context,
+) -> PResult<(Url, Option<String>, S::Syntax)> {
 	let link_grammar = context.clone().with_scope(Scope::MaskedLinkLink);
-	SegmentParser {
-		context,
-		link_grammar,
-		span: PhantomData::<S>,
-		error: PhantomData,
-	}
+
+	let open = input.token::<S, _>(TokenKind::DestinationOpen, |input| input.char('('))?;
+	// TODO: handle matched parentheses inside the link content
+	let (url, url_syntax) = match input.attempt(|input| auto::auto::<S>(input, context))? {
+		Some(auto) => auto,
+		None => {
+			input.with_token::<S, _>(TokenKind::Url, |input| verify_url(input, &link_grammar))?
+		}
+	};
+	let title = input.attempt(|input| {
+		let space = input.token::<S, _>(TokenKind::Whitespace, Input::space1)?;
+		let (title, title_syntax) = input.with_token::<S, _>(TokenKind::Title, parse_title)?;
+		Ok((title, space.join(title_syntax)))
+	})?;
+	let close = input.token::<S, _>(TokenKind::DestinationClose, |input| input.char(')'))?;
+
+	let (title, title_syntax) = match title {
+		Some((title, syntax)) => (Some(title), syntax),
+		None => (None, S::Syntax::default()),
+	};
+	let syntax = open.join(url_syntax).join(title_syntax).join(close);
+	Ok((url, title, syntax)).trace()
 }

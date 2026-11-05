@@ -19,11 +19,8 @@
 #include <string>
 #include <vector>
 
-#include "common.h"
-#include "sentencepiece_model.pb.h"
-#include "sentencepiece_processor.h"
-#include "third_party/absl/status/status.h"
-#include "third_party/absl/strings/string_view.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 
 namespace sentencepiece::normalizer {
 
@@ -118,7 +115,7 @@ class Builder {
   // Makes NFKD with Unicode case folding.
   static absl::Status BuildNFKD_CFMap(CharsMap* chars_map);
 
-  // Makes NFKC with Unicode case folding.
+  // Makes NFC with Unicode case folding.
   static absl::Status BuildNFC_CFMap(CharsMap* chars_map);
 
   // Makes NFD with Unicode case folding.
@@ -139,9 +136,6 @@ class Builder {
   // When char_maps have "aa" => "bb" and "a" => "b", the first
   // rule is not necessary since the second rule can cover the first rule.
   static absl::Status RemoveRedundantMap(CharsMap* chars_map);
-
- private:
-  FRIEND_TEST(BuilderTest, RemoveRedundantMapTest);
 };
 }  // namespace sentencepiece::normalizer
 

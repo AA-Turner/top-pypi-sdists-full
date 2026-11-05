@@ -749,6 +749,7 @@ def register_generated_tools(mcp, _get_client):
         order: Literal["asc", "desc"] = "asc",
         include_over_limit: bool = False,
         exclude_hidden: bool = False,
+        platforms: str | None = None,
         ad_account_rows: bool = False,
         include_creator_accounts: bool = False,
         include_sandbox: bool = False,
@@ -774,7 +775,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id: Filter accounts by profile ID. Must be a valid ObjectId.
                 platform: Filter accounts by platform (e.g. "instagram", "twitter").
                 status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
-                search: Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.
+                search: Case-insensitive match on the account username, display name or platform user id. A 24-character hexadecimal value is read as an account id and matches only that exact account. Combine with page/limit to paginate the matches.
                 category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit, Microsoft), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, analytics = Google Analytics, social = every other platform.
                 sort: Sort an offset-paginated listing (page and limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
                 order: Direction for `sort`.
@@ -785,6 +786,7 @@ def register_generated_tools(mcp, _get_client):
         - the internal `sms` and `phone` accounts behind each phone number.
 
         Applied before pagination, so page totals and `statusCounts` count only the remaining accounts. Sandbox accounts added by `includeSandbox` are appended after this filter. Accepts `true` or `false` in any letter case; any other value returns 400.
+                platforms: Comma-separated platforms (up to 50) to list together, the several-platform form of `platform`. Applied before pagination.
                 ad_account_rows: When true, lists every ads account row, one per ad account. By default an API key or OAuth app sees each ads login once per profile and platform, as the single ads connection it had before rows per ad account: its oldest row.
 
         Only changes the result once ads are connected as one row per ad account; until then the two shapes are the same. Applied before pagination. Accepts `true` or `false` in any letter case; any other value returns 400.
@@ -799,6 +801,7 @@ def register_generated_tools(mcp, _get_client):
         reconnection. Accepts `true` or `false` in any letter case; any other value returns 400.
                 page: Page number (1-based) for offset paging. Requires limit; omit page, limit and cursor for all accounts.
                 limit: Page size. With page, an offset page; alone or with cursor, a cursor page.
+         Omitted, one page of 100 is returned.
                 cursor: Opaque cursor from a previous response's `pagination.nextCursor`; returns the next page of `limit` accounts (500 when limit is omitted). A cursor we cannot parse returns 400. Cannot be combined with page.
                 profile_ids: Comma-separated profile IDs (up to 50) to preview, together with perProfile. The response then also carries `profileTotals`.
                 per_profile: Return a preview of each profile in profileIds: the newest account of every platform it has, topped up to at least N. Requires profileIds; cannot be combined with page, limit or cursor."""
@@ -814,12 +817,15 @@ def register_generated_tools(mcp, _get_client):
                 order=order,
                 include_over_limit=include_over_limit,
                 exclude_hidden=exclude_hidden,
+                platforms=platforms,
                 ad_account_rows=ad_account_rows,
                 include_creator_accounts=include_creator_accounts,
                 include_sandbox=include_sandbox,
                 include_status_counts=include_status_counts,
                 page=page,
-                limit=limit,
+                limit=limit
+                if limit is not None or sort is not None or per_profile is not None
+                else 100,
                 cursor=cursor,
                 profile_ids=profile_ids,
                 per_profile=per_profile,
@@ -886,25 +892,48 @@ def register_generated_tools(mcp, _get_client):
         username: str | None = None,
         display_name: str | None = None,
         x_capabilities: dict[str, Any] | None = None,
+        meta_ads_sync_enabled: bool | None = None,
     ) -> str:
         """Update account
 
-        Updates a connected account's display name or username override.
+            Updates a connected account's display name or username override.
 
-        ### X capabilities
+            ### X capabilities
 
-        For X accounts on usage-based billing, also accepts an `xCapabilities` object to toggle background API operations that incur X API pass-through costs.
+            For X accounts on usage-based billing, also accepts an `xCapabilities` object to toggle background API operations that incur X API pass-through costs.
 
-        - Both fields are opt-in (default `false`).
-        - When off, no analytics syncs or DM polling are performed for that account, and no API call is metered for those operations.
-        - Publishing and deleting posts are always available regardless of these toggles.
-        - Setting `xCapabilities` on a non-X account returns 400.
+            - Both fields are opt-in (default `false`).
+            - When off, no analytics syncs or DM polling are performed for that account, and no API call is metered for those operations.
+            - Publishing and deleting posts are always available regardless of these toggles.
+            - Setting `xCapabilities` on a non-X account returns 400.
 
-        Args:
-            account_id: (required)
-            username
-            display_name
-            x_capabilities: X only. Per-account opt-in toggles for background API operations that incur X API pass-through costs. Each call is billed at the X tier rate. Either field can be sent independently; omitted fields are unchanged. Object with keys: analytics (boolean) - Enable periodic analytics reads (impressions, likes, etc.) for this X account. Each X API call is metered as `posts_read` and billed pass-through ...; inbox (boolean) - Enable DM polling and inbox sync for this X account. DM reads are metered as `dm_event_read` (~$0.010/call) and DM sends as `dm_interaction_create` ..."""
+            ### Meta ads sync
+
+            For Facebook accounts, also accepts `metaAdsSyncEnabled` to sync the Meta ads of the ad accounts the account reaches without a Meta Ads connection. See the field for what turning it on and off does.
+
+            Args:
+                account_id: (required)
+                username
+                display_name
+                x_capabilities: X only. Per-account opt-in toggles for background API operations that incur X API pass-through costs. Each call is billed at the X tier rate. Either field can be sent independently; omitted fields are unchanged. Object with keys: analytics (boolean) - Enable periodic analytics reads (impressions, likes, etc.) for this X account. Each X API call is metered as `posts_read` and billed pass-through ...; inbox (boolean) - Enable DM polling and inbox sync for this X account. DM reads are metered as `dm_event_read` (~$0.010/call) and DM sends as `dm_interaction_create` ...
+                meta_ads_sync_enabled: Facebook only (400 `invalid_field_value` on any other platform). Off by default for every Facebook account.
+
+        `true` makes this account sync the Meta ads of the ad accounts it reaches, like a `metaads` connection.
+
+        - The first sync starts at once (14 days, then 90 days of history in the background) and fires `account.ads.initial_sync_completed` for this `accountId` with `platform: metaads`.
+        - It then refreshes on the Meta Ads schedule.
+        - Each switch from `false` to `true` runs another initial sync and fires the webhook again. Sending `true` while it is on changes nothing.
+        - Needs `ads_management` and `ads_read` on the account (403 `reconnect_required` otherwise, with `details.requiredPermissions`).
+        - Needs ads access (403 `ads_addon_required`) and room in the managed ads allowance (403 `ads_allowance_exceeded`).
+        - While a `metaads` connection has this account as `parentAccountId`, that connection syncs the ads instead.
+
+        Synced active ads count on the managed ads meter like ads from a Meta Ads
+        connection.
+
+        `false` stops the sync. Ads already synced are kept, never deleted: they
+        stop updating and stop counting on the meter, and a `metaads` connection
+        of yours that reaches the same ad account takes them over. Posting, inbox
+        and comments on the account are not affected."""
         client = _get_client()
         try:
             response = client.accounts.update_account(
@@ -912,6 +941,7 @@ def register_generated_tools(mcp, _get_client):
                 username=username,
                 display_name=display_name,
                 x_capabilities=x_capabilities,
+                meta_ads_sync_enabled=meta_ads_sync_enabled,
             )
             return _format_response(response)
         except Exception as e:
@@ -958,7 +988,11 @@ def register_generated_tools(mcp, _get_client):
     def accounts_delete_account(account_id: str) -> str:
         """Disconnect account
 
-        Disconnects and removes a connected account. Repeating the call for an account already disconnected returns 404, the account stays in its 1h grace window and the disconnect is not re-run.
+        Disconnects and removes a connected account, and fires account.disconnected with disconnectionType intentional.
+
+        The account is kept for a 1h grace window. Reconnecting the same account within it restores it with the same accountId and its scheduled posts. After that it is deleted permanently.
+
+        Repeating the call for an account already disconnected returns 404, the account stays in its 1h grace window and the disconnect is not re-run.
 
         Args:
             account_id: (required)"""
@@ -10959,7 +10993,7 @@ def register_generated_tools(mcp, _get_client):
         - Reddit: builds an image ad (requires `linkUrl`). On a Reddit video ad it is the fallback for `video.thumbnailUrl`.
                 images: Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart, so it must be set here for Display. Object with keys: landscape (string) - Landscape 1.91:1 marketing image URL (e.g. 1200x628). Also accepted via the top-level `imageUrl` for backward compatibility.; square (string) - Square 1:1 marketing image URL (e.g. 1080x1080). Required for Google Display.
                 video: Creates a single VIDEO ad. Meta (facebook, instagram), LinkedIn and Reddit. Mutually exclusive with `imageUrl`. Supply `url` to upload a file, or `id` to reuse a video already on the ad account (list them with GET /v1/ads/videos). Works on the single-ad and attach (`adSetId`) shapes; for Meta multi-creative, set `video` per entry inside `creatives[]` instead. Supply MP4 H.264/AAC, 3s-30min, 75KB-500MB. - Reddit: `url`, `linkUrl` and a thumbnail (`thumbnailUrl`, or `imageUrl`) are all required. - LinkedIn: uploaded under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO. LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame). Object with keys: url (string) - Public URL of the video. Meta: uploaded via chunked transfer on /act_X/advideos, then the request blocks on Meta's transcoding until status.video_status === ...; id (string) - Meta only. Reuse a video ALREADY uploaded to this ad account instead of re-uploading the file: pass the `videoId` returned by a previous create. Wins over ...; thumbnailUrl (string) - Public URL of a still-image thumbnail for the video. OPTIONAL. - Meta, omitted: the poster is auto-generated from Meta's own preferred video thumbnail (the ...
-                creatives: Meta-only. When present, switches to the multi-creative shape: creates 1 campaign + 1 ad set + N ads (one per entry here). Top-level `headline` / `body` / `imageUrl` / `linkUrl` / `callToAction` are ignored in this mode. Mutually exclusive with `adSetId`. Each item is an object with keys: creativeFeatures (object) - Replaces the entire top-level creativeFeatures map for this item. Omit to inherit; an empty map clears these defaults.; name (string) - Exact name for this ad. Falls back to `<name> #N` (N = 1-based position).; headline (string, required); body (string, required); description (string) - Link description for this ad (link_data.description; video creatives: video_data.link_description). Falls back to the top-level `description`; when both are ...; imageUrl (string) - Image creative. Mutually exclusive with `video`.; video (object with keys url, thumbnailUrl) - Video creative for this entry. Mutually exclusive with `imageUrl`. thumbnailUrl is optional: when omitted, the poster is auto-generated from Meta's preferred ...; linkUrl (string, required); callToAction (one of: BOOK_TRAVEL, CONTACT_US, DONATE, DONATE_NOW, DOWNLOAD, GET_DIRECTIONS, GO_LIVE, INTERESTED, LEARN_MORE, SEE_DETAILS, LIKE_PAGE, MESSAGE_PAGE, RAISE_MONEY, SAVE, SEND_TIP, SHOP_NOW, SIGN_UP, VIEW_INSTAGRAM_PROFILE, INSTAGRAM_MESSAGE, LOYALTY_LEARN_MORE, PURCHASE_GIFT_CARDS, PAY_TO_ACCESS, SEE_MORE, TRY_IN_CAMERA, WHATSAPP_LINK, GET_IN_TOUCH, TRY_NOW, ASK_A_QUESTION, START_A_CHAT, CHAT_NOW, ASK_US, CHAT_WITH_US, SHOP_ON_RETAILER, BOOK_NOW, CHECK_AVAILABILITY, ORDER_NOW, WHATSAPP_MESSAGE, GET_MOBILE_APP, INSTALL_MOBILE_APP, USE_MOBILE_APP, INSTALL_APP, USE_APP, PLAY_GAME, TRY_DEMO, WATCH_VIDEO, WATCH_MORE, OPEN_LINK, NO_BUTTON, LISTEN_MUSIC, MOBILE_DOWNLOAD, GET_OFFER, GET_OFFER_VIEW, BUY_NOW, BUY_TICKETS, UPDATE_APP, BET_NOW, ADD_TO_CART, SELL_NOW, GET_SHOWTIMES, LISTEN_NOW, GET_EVENT_TICKETS, REMIND_ME, SEARCH_MORE, PRE_REGISTER, SWIPE_UP_PRODUCT, SWIPE_UP_SHOP, PLAY_GAME_ON_FACEBOOK, VISIT_WORLD, OPEN_INSTANT_APP, JOIN_GROUP, GET_PROMOTIONS, SEND_UPDATES, INQUIRE_NOW, VISIT_PROFILE, CHAT_ON_WHATSAPP, EXPLORE_MORE, CONFIRM, JOIN_CHANNEL, MAKE_AN_APPOINTMENT, ASK_ABOUT_SERVICES, BOOK_A_CONSULTATION, GET_A_QUOTE, BUY_VIA_MESSAGE, ASK_FOR_MORE_INFO, VIEW_PRODUCT, VIEW_CHANNEL, WATCH_LIVE_VIDEO, JOIN_LIVE_VIDEO, IMAGINE, WATCH_NOW, STREAM_NOW, BUY_ACTIVITY_TICKETS, CALL, MISSED_CALL, CALL_NOW, CALL_ME, APPLY_NOW, BUY, GET_QUOTE, SUBSCRIBE, RECORD_NOW, VOTE_NOW, GIVE_FREE_RIDES, REGISTER_NOW, OPEN_MESSENGER_EXT, EVENT_RSVP, CIVIC_ACTION, SEND_INVITES, REFER_FRIENDS, REQUEST_TIME, SEE_MENU, SEARCH, TRY_IT, TRY_ON, LINK_CARD, DIAL_CODE, FIND_YOUR_GROUPS, START_ORDER; required)
+                creatives: Meta-only. When present, switches to the multi-creative shape: creates 1 campaign + 1 ad set + N ads (one per entry here). Mutually exclusive with `adSetId`. With `existingCampaignId` it creates 1 ad set + N ads under that campaign, so one call per audience launches a creative matrix. Top-level `headline` / `body` / `imageUrl` / `linkUrl` / `callToAction` are ignored in this mode. Entries that repeat an `imageUrl` or `video.url` share one upload. Each item is an object with keys: creativeFeatures (object) - Replaces the entire top-level creativeFeatures map for this item. Omit to inherit; an empty map clears these defaults.; name (string) - Exact name for this ad. Falls back to `<name> #N` (N = 1-based position).; headline (string, required); body (string, required); description (string) - Link description for this ad (link_data.description; video creatives: video_data.link_description). Falls back to the top-level `description`; when both are ...; imageUrl (string) - Image creative. Mutually exclusive with `video`.; video (object with keys url, thumbnailUrl) - Video creative for this entry. Mutually exclusive with `imageUrl`. thumbnailUrl is optional: when omitted, the poster is auto-generated from Meta's preferred ...; linkUrl (string, required); callToAction (one of: BOOK_TRAVEL, CONTACT_US, DONATE, DONATE_NOW, DOWNLOAD, GET_DIRECTIONS, GO_LIVE, INTERESTED, LEARN_MORE, SEE_DETAILS, LIKE_PAGE, MESSAGE_PAGE, RAISE_MONEY, SAVE, SEND_TIP, SHOP_NOW, SIGN_UP, VIEW_INSTAGRAM_PROFILE, INSTAGRAM_MESSAGE, LOYALTY_LEARN_MORE, PURCHASE_GIFT_CARDS, PAY_TO_ACCESS, SEE_MORE, TRY_IN_CAMERA, WHATSAPP_LINK, GET_IN_TOUCH, TRY_NOW, ASK_A_QUESTION, START_A_CHAT, CHAT_NOW, ASK_US, CHAT_WITH_US, SHOP_ON_RETAILER, BOOK_NOW, CHECK_AVAILABILITY, ORDER_NOW, WHATSAPP_MESSAGE, GET_MOBILE_APP, INSTALL_MOBILE_APP, USE_MOBILE_APP, INSTALL_APP, USE_APP, PLAY_GAME, TRY_DEMO, WATCH_VIDEO, WATCH_MORE, OPEN_LINK, NO_BUTTON, LISTEN_MUSIC, MOBILE_DOWNLOAD, GET_OFFER, GET_OFFER_VIEW, BUY_NOW, BUY_TICKETS, UPDATE_APP, BET_NOW, ADD_TO_CART, SELL_NOW, GET_SHOWTIMES, LISTEN_NOW, GET_EVENT_TICKETS, REMIND_ME, SEARCH_MORE, PRE_REGISTER, SWIPE_UP_PRODUCT, SWIPE_UP_SHOP, PLAY_GAME_ON_FACEBOOK, VISIT_WORLD, OPEN_INSTANT_APP, JOIN_GROUP, GET_PROMOTIONS, SEND_UPDATES, INQUIRE_NOW, VISIT_PROFILE, CHAT_ON_WHATSAPP, EXPLORE_MORE, CONFIRM, JOIN_CHANNEL, MAKE_AN_APPOINTMENT, ASK_ABOUT_SERVICES, BOOK_A_CONSULTATION, GET_A_QUOTE, BUY_VIA_MESSAGE, ASK_FOR_MORE_INFO, VIEW_PRODUCT, VIEW_CHANNEL, WATCH_LIVE_VIDEO, JOIN_LIVE_VIDEO, IMAGINE, WATCH_NOW, STREAM_NOW, BUY_ACTIVITY_TICKETS, CALL, MISSED_CALL, CALL_NOW, CALL_ME, APPLY_NOW, BUY, GET_QUOTE, SUBSCRIBE, RECORD_NOW, VOTE_NOW, GIVE_FREE_RIDES, REGISTER_NOW, OPEN_MESSENGER_EXT, EVENT_RSVP, CIVIC_ACTION, SEND_INVITES, REFER_FRIENDS, REQUEST_TIME, SEE_MENU, SEARCH, TRY_IT, TRY_ON, LINK_CARD, DIAL_CODE, FIND_YOUR_GROUPS, START_ORDER; required)
                 ad_set_id: When present, switches to the attach shape: adds one new ad to this existing ad set without creating a new campaign. Mutually exclusive with `creatives[]`.
 
         **Inherited from the ad set on Meta:** budget, targeting, goal, schedule and bid strategy. Passing `bidStrategy` in attach mode returns 400 (change an ad set's bid with `PUT /v1/ads/ad-sets/{adSetId}`). `dynamicCreative` returns 400 in attach mode: omit `adSetId` to create a new dynamic ad set instead.
@@ -10989,10 +11023,11 @@ def register_generated_tools(mcp, _get_client):
         - `budgetAmount`/`budgetType` and bidding fields (`bidStrategy`, `bidAmount`, `portfolioBidStrategyId`) return 400; the ad group already owns them.
         - With `campaignType: "demand_gen"` the ad group must belong to a Demand Gen campaign (otherwise 400). `demandGen` carries only the ad's creative, and the new ad is created PAUSED.
         - Demand Gen ad group settings return 400: geo, languages, `demandGen.channels`/`audience`/`audienceId`/ `adGroupName`.
-                existing_campaign_id: Create the new objects under this EXISTING campaign instead of creating a new one. Supported on Meta, Google Ads, LinkedIn, TikTok and Reddit Ads. Mutually exclusive with `adSetId` and `creatives[]`.
+                existing_campaign_id: Create the new objects under this EXISTING campaign instead of creating a new one. Supported on Meta, Google Ads, LinkedIn, TikTok and Reddit Ads. Mutually exclusive with `adSetId`.
 
         - TikTok: creates the ad group and the ad under this campaign. The campaign is neither created nor activated, and its objective must fit `goal`. Not with `smartPlus`.
         - Meta: adds the new ad set under this campaign (multi-ad-set audience testing). Its budget matches the campaign's mode: for a CBO campaign (campaign-level budget) omit `budgetAmount`/`budgetType`, since the campaign owns the budget; for an ABO campaign pass them (they go on the new ad set).
+        - Meta with `creatives[]`: the new ad set gets one ad per entry.
         - LinkedIn: creates a new Campaign (and its Creative) under this EXISTING CampaignGroup.
         - Google Ads: creates a new ad group under this campaign. It inherits the campaign's budget, so omit `budgetAmount`/`budgetType` (and any bidding field), or the request returns 400.
         - Google Ads with `campaignType: "demand_gen"`: the campaign must be Demand Gen (otherwise 400). The new ad group (with its geo, languages, channels and audience from the request) and its ad are created in one atomic request, the ad group PAUSED. Schedule and `locationTargetingType` belong to the campaign and return 400.
@@ -13176,6 +13211,9 @@ def register_generated_tools(mcp, _get_client):
         conditions: dict[str, Any] | None,
         actions: list[dict[str, Any]] | None,
         campaign_ids: list[str] | None = None,
+        filters: list[dict[str, Any]] | None = None,
+        groups: str | None = None,
+        lifecycle: dict[str, Any] | None = None,
         schedule: dict[str, Any] | None = None,
         cooldown_minutes: int = 1440,
         enabled: bool = True,
@@ -13216,9 +13254,12 @@ def register_generated_tools(mcp, _get_client):
             ad_account_id: Platform ad account ID, from `GET /v1/ads/accounts`. (required)
             level: (required)
             campaign_ids: Only check these platform campaign IDs (or their ad sets). Leave out to check the whole ad account.
+            filters: Each item is an object with keys: field (one of: name, campaign_name, adset_name, goal; required) - The object's own name, its campaign's or ad set's name, or the campaign goal (objective) as the platform reports it.; op (one of: contains, not_contains, equals, not_equals, starts_with; required); value (string, required)
+            groups
+            lifecycle: Object with keys: confirmChecks (integer) - Matching runs in a row before acting. Defaults to 1.; hold (object with keys all) - Keeps an open alert open after the conditions stop matching.; critical (object with keys all) - Marks an open alert critical.
             conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, required) (required)
-            actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook. (required)
-            schedule: Leave it out to run every 60 minutes. Object with keys: everyMinutes (one of: 60, 180, 360, 720, 1440; required) - How often the rule runs, in minutes.
+            actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook, and the alert to every `send` destination.; send (list of objects with keys accountId, channelId) - Also send a short alert through accounts you connected: what matched, the values and what the rule did. Up to 5 destinations, checked when the rule is saved. ... (required)
+            schedule: Leave it out to run every 60 minutes. Object with keys: everyMinutes (one of: 15, 30, 60, 180, 360, 720, 1440) - How often the rule runs, in minutes. Null on a rule that runs at set times.; times (array or null) - Set weekly times in the ad account timezone, instead of an interval. A rule that changes ads needs a cooldown of at least the shortest gap between two times.; startsAt (string or null) - The rule runs from this time on.; endsAt (string or null) - The rule stops running after this time.; quietHours (object or null) - A daily window in the ad account timezone when the rule does not run, like `{ \"from\": \"22:00\", \"to\": \"06:00\" }`. It may wrap past midnight; the first run ...
             cooldown_minutes: How long the rule leaves an object alone after acting on it.
             enabled"""
         client = _get_client()
@@ -13229,6 +13270,9 @@ def register_generated_tools(mcp, _get_client):
                 ad_account_id=ad_account_id,
                 level=level,
                 campaign_ids=campaign_ids,
+                filters=filters,
+                groups=groups,
+                lifecycle=lifecycle,
                 conditions=conditions,
                 actions=actions,
                 schedule=schedule,
@@ -13273,7 +13317,10 @@ def register_generated_tools(mcp, _get_client):
     def ad_rules_list_ad_rule_activity(
         rule_id: str | None = None,
         account_id: str | None = None,
-        type: Literal["pause", "activate", "adjust_budget"] | None = None,
+        type: Literal[
+            "pause", "activate", "adjust_budget", "adjust_bid", "duplicate", "edit_name"
+        ]
+        | None = None,
         from_: str | None = None,
         to: str | None = None,
         limit: int = 50,
@@ -13311,6 +13358,32 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Undo a change an ad rule made",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_rules_undo_ad_rule_activity(activity_id: str) -> str:
+        """Undo a change an ad rule made
+
+        Puts back a pause, reactivation, budget or bid change, or name tag a rule applied, as a new change recorded in the activity feed. The rule's cooldown then covers the object.
+
+        It is refused (409 `invalid_resource_state`) when the change was not applied, was already undone, is a copy, or when the object changed since: delivering again after a pause, paused again after a reactivation, or on another budget, bid or name.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            activity_id: The `id` of an entry from `GET /v1/ads/rules/activity`. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.undo_ad_rule_activity(activity_id=activity_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get an ad rule",
             readOnlyHint=True,
             destructiveHint=False,
@@ -13342,6 +13415,9 @@ def register_generated_tools(mcp, _get_client):
         name: str | None = None,
         level: Literal["campaign", "adset", "ad"] | None = None,
         campaign_ids: str | None = None,
+        filters: list[dict[str, Any]] | None = None,
+        groups: str | None = None,
+        lifecycle: str | None = None,
         conditions: dict[str, Any] | None = None,
         actions: list[dict[str, Any]] | None = None,
         schedule: dict[str, Any] | None = None,
@@ -13360,9 +13436,12 @@ def register_generated_tools(mcp, _get_client):
             name
             level
             campaign_ids
+            filters: Each item is an object with keys: field (one of: name, campaign_name, adset_name, goal; required) - The object's own name, its campaign's or ad set's name, or the campaign goal (objective) as the platform reports it.; op (one of: contains, not_contains, equals, not_equals, starts_with; required); value (string, required)
+            groups: Null removes the groups; each campaign is then judged on its own.
+            lifecycle: Null removes it; every matching run then acts and notifies again.
             conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, required)
-            actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook.
-            schedule: Object with keys: everyMinutes (one of: 60, 180, 360, 720, 1440; required) - How often the rule runs, in minutes.
+            actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook, and the alert to every `send` destination.; send (list of objects with keys accountId, channelId) - Also send a short alert through accounts you connected: what matched, the values and what the rule did. Up to 5 destinations, checked when the rule is saved. ...
+            schedule: Object with keys: everyMinutes (one of: 15, 30, 60, 180, 360, 720, 1440) - How often the rule runs, in minutes. Null on a rule that runs at set times.; times (array or null) - Set weekly times in the ad account timezone, instead of an interval. A rule that changes ads needs a cooldown of at least the shortest gap between two times.; startsAt (string or null) - The rule runs from this time on.; endsAt (string or null) - The rule stops running after this time.; quietHours (object or null) - A daily window in the ad account timezone when the rule does not run, like `{ \"from\": \"22:00\", \"to\": \"06:00\" }`. It may wrap past midnight; the first run ...
             cooldown_minutes
             enabled"""
         client = _get_client()
@@ -13371,6 +13450,9 @@ def register_generated_tools(mcp, _get_client):
                 name=name,
                 level=level,
                 campaign_ids=campaign_ids,
+                filters=filters,
+                groups=groups,
+                lifecycle=lifecycle,
                 conditions=conditions,
                 actions=actions,
                 schedule=schedule,
@@ -13423,6 +13505,40 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ad_rules.preview_ad_rule(rule_id=rule_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List a rule's alerts",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_rules_list_ad_rule_alerts(
+        rule_id: str,
+        state: Literal["pending", "open", "resolved"] | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> str:
+        """List a rule's alerts
+
+        The alert episodes of a rule with a `lifecycle`, newest first. `pending` alerts are confirming, `open` ones were acted on, `resolved` ones ended, with `resolvedReason` saying why. Resolved alerts are kept 90 days.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            rule_id: (required)
+            state
+            limit
+            cursor: `nextCursor` from the previous page."""
+        client = _get_client()
+        try:
+            response = client.ad_rules.list_ad_rule_alerts(
+                rule_id=rule_id, state=state, limit=limit, cursor=cursor
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -14179,19 +14295,23 @@ def register_generated_tools(mcp, _get_client):
 
             ### Why the scope is narrow
 
-            This ACCOUNT-level endpoint intentionally exposes only the four counter metrics below. These account-level figures are not on any public TikTok API, for any account type:
+            This ACCOUNT-level endpoint intentionally exposes only the four counter metrics below. It does not return:
 
             - account-level impressions / reach
             - follower inflow / outflow breakdown
-            - account-level watch time and audience demographics
+            - account-level watch time
 
-            TikTok's Research API doesn't expose them either, and is restricted to non-commercial academic use per TikTok's eligibility policy.
+            Follower age, gender, country and city are on GET /v1/analytics/tiktok/demographics.
 
             ### Per-video metrics
 
             PER-VIDEO is a different story on the Business lane. An account connected through the TikTok for Business app reports these per video on GET /v1/analytics?postId=...:
 
-            - profile views, ...
+            - profile views, website clicks, follows
+            - full-watched rate, watch time
+            - impression sources, viewer types and viewer countries
+
+            They arrive roughly ...
 
             Args:
                 account_id: The Zernio SocialAccount ID for the TikTok account. (required)
@@ -14223,6 +14343,44 @@ def register_generated_tools(mcp, _get_client):
                 since=since,
                 until=until,
                 metric_type=metric_type,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get TikTok follower demographics",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_get_tik_tok_demographics(
+        account_id: str, breakdown: str | None = None
+    ) -> str:
+        """Get TikTok follower demographics
+
+        Returns the share of a TikTok account's followers by age, gender, country and city. Without `breakdown` it returns all four.
+
+        - Each value is a share of followers from 0 to 1, and each list is sorted largest first. It is not a follower count.
+        - Age, gender and country lists add up to 1. The city list can add up to less, because TikTok does not place every follower in a listed city.
+        - These are followers of the account, not the viewers of its videos. Viewer countries per video are on GET /v1/analytics?postId=...
+        - TikTok updates this data every 24-48 hours.
+
+        ### Requirements
+
+        - The account needs at least 100 followers (400 `tiktok_insufficient_followers` otherwise).
+        - The account owner must turn on Analytics in the TikTok app and have published at least one video. Until then an account with enough followers gets empty lists.
+        - Requires the user.insights scope, which an account gets by connecting through the TikTok for Business app (412 `tiktok_insights_scope_missing` otherwise). ...
+
+        Args:
+            account_id: The Zernio SocialAccount ID for the TikTok account. (required)
+            breakdown: Comma-separated list of demographic dimensions: age, gender, country, city. Defaults to all four."""
+        client = _get_client()
+        try:
+            response = client.analytics.get_tik_tok_demographics(
+                account_id=account_id, breakdown=breakdown
             )
             return _format_response(response)
         except Exception as e:
@@ -23280,6 +23438,59 @@ def register_generated_tools(mcp, _get_client):
             raise ToolError(f"Error: {e}") from e
 
     # CONNECT
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a connect link",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_create_platform_invite(
+        profile_id: str,
+        platform: Literal[
+            "facebook",
+            "instagram",
+            "linkedin",
+            "twitter",
+            "threads",
+            "tiktok",
+            "youtube",
+            "pinterest",
+            "reddit",
+            "bluesky",
+            "snapchat",
+            "googlebusiness",
+        ],
+        account_id: str | None = None,
+        login_method: Literal["instagram_login", "facebook_login"] | None = None,
+        expires_in_days: int = 7,
+    ) -> str:
+        """Create a connect link
+
+        Create a single-use link that lets someone else connect their account to one of your profiles, without a Zernio login.
+
+        For Instagram, choose how they sign in with loginMethod. With facebook_login they sign in with Facebook and pick the Page linked to their Instagram account.
+
+        Args:
+            profile_id: The profile the account is connected to. (required)
+            platform: (required)
+            account_id: Reconnect this existing account instead of adding a new one. It must belong to the profile and platform.
+            login_method: Instagram only. instagram_login (the default) uses Instagram Login, facebook_login uses Facebook Login. A reconnect link keeps the method the account was connected with.
+            expires_in_days: Days until the link expires."""
+        client = _get_client()
+        try:
+            response = client.connect.create_platform_invite(
+                profile_id=profile_id,
+                platform=platform,
+                account_id=account_id,
+                login_method=login_method,
+                expires_in_days=expires_in_days,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
 
     @mcp.tool(
         annotations=ToolAnnotations(
@@ -37699,7 +37910,7 @@ def register_generated_tools(mcp, _get_client):
                 source: Which collection to read. `zernio` (default) returns posts authored through Zernio. `external` returns posts synced from the platform (existing/historical posts that were published outside Zernio). Combine with `accountId` and paginate via `page`/`limit` to walk the full synced history (we keep up to the last ~12 months per account).
                 status
                 platform
-                profile_id: Filter posts to a specific profile (24-char hex ObjectId). Omit it, or send `all` or an empty value, to list posts across every profile.
+                profile_id: Filter posts to a specific profile (24-char hex ObjectId), including drafts filed under it without platforms. Omit it, or send `all` or an empty value, to list posts across every profile.
                 created_by: Filter posts to those created by a specific team user (24-char hex ObjectId).
                 from_date: Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400. The same name the other date-window filters use (ads, analytics).
                 to_date: Zero-padded YYYY-MM-DD, or a full ISO 8601 datetime. An empty value means no date filter; any other malformed value returns 400. The same name the other date-window filters use (ads, analytics).
@@ -37767,10 +37978,13 @@ def register_generated_tools(mcp, _get_client):
         recycling: dict[str, Any] | None = None,
         queued_from_profile: str | None = None,
         queue_id: str | None = None,
+        profile_id: str | None = None,
     ) -> str:
         """Create post
 
             Create a post, and optionally publish it in the same request. A post published immediately (`publishNow: true`) comes back with `platformPostUrl` in the response.
+
+            ## Optional content
 
             `content` is optional in four cases:
 
@@ -37795,11 +38009,11 @@ def register_generated_tools(mcp, _get_client):
 
             - `isDraft: true` wins over `publishNow` and `scheduledFor` (the post is saved, never published).
             - `publishNow: true` wins over `scheduledFor`.
-            - A `scheduledFor` ...
+            - A ...
 
             Args:
                 title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
-                content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts. LinkedIn @mentions: write @[https://www.linkedin.com/in/jane-doe] or @[https://www.linkedin.com/company/acme] in the text, see [LinkedIn mentions](/platforms/linkedin#mentions).
+                content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.
                 media_items: Media attached to every platform in the request (a platform entry can override it with `customMedia`). - Each entry needs a publicly reachable HTTPS `url`. - `type` (image, video, gif, document) is inferred from the URL extension when omitted; a `type` that contradicts the extension is rejected with 400. - Upload files with `POST /v1/media/presign` first. - Per-platform size, duration and format limits are listed on each platform schema. Each item is an object with keys: type (one of: image, video, gif, document) - Optional when the item names a connected file (`fileId`): inferred from the file's MIME type.; url (string) - A media item with a null, missing or empty url is dropped, unless it names a connected file with `fileId` + `accountId`.; fileId (string) - A file of a connected Google Drive or OneDrive account (see the Files endpoints). Requires `accountId`. The file is copied into Zernio media storage when the ...; accountId (string) - The connected Google or Microsoft account the `fileId` belongs to (must have the `files` area). Required with `fileId`.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image. Set once per image; the same value is sent to each selected platform. - Applied on: Instagram (feed images only, ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, YouTube videos and Shorts, and LinkedIn video posts. ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Zernio downloads each file when the post is ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
                 platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override. When set, this content is used instead of the top-level post content for this platform. Useful for tailoring captions per ...; customMedia (list of objects with keys type, url, fileId, accountId, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. When omitted, the top-level scheduledFor is used.; platformSpecificData (object with keys article, replyToTweetId, quoteTweetId, replySettings, threadItems, poll, longVideo, geoRestriction, paidPartnership, madeWithAi, sensitiveMedia, mediaTaggedUsers)
                 scheduled_for: When to publish. Required unless `publishNow` is true, `queuedFromProfile` is set, or the post is a draft. Ignored when `publishNow` is true.
@@ -37830,7 +38044,7 @@ def register_generated_tools(mcp, _get_client):
         An unknown name returns 400 when `scheduledFor` is set.
                 tags: Tags/keywords. YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates auto-removed.
                 hashtags: Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead.
-                mentions: Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, write them in the post content, for example @[https://www.linkedin.com/in/jane-doe] or @[https://www.linkedin.com/company/acme].
+                mentions: Stored for reference only. Publishing does not create mentions from this field.
                 crossposting_enabled: Stored on the post and echoed back on reads. Publishing does not branch on it: every entry in `platforms` is published regardless, so treat it as a label for your own tooling.
                 metadata: Free-form key/value pairs of your own, stored on the post and returned on reads and in webhook payloads. Zernio also writes the bookkeeping keys `usageCounted`, `usageRefunded` and `hidden` into this object; do not set them, and they are stripped from webhook payloads.
                 tiktok_settings: Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence. Object with keys: draft (boolean) - When true, sends the post to the TikTok Creator Inbox as a draft instead of publishing immediately. The creator gets an inbox notification to complete posting ...; privacyLevel (string) - One of the values returned by the TikTok creator info API for the account. Accounts connected through the TikTok for Business app publish videos as public ...; allowComment (boolean) - Allow comments on the post; allowDuet (boolean) - Allow duets (required for video posts); allowStitch (boolean) - Allow stitches (required for video posts); commercialContentType (one of: none, brand_organic, brand_content) - Type of commercial content disclosure. Sufficient on its own: \"brand_organic\" (\"Your Brand\") implies isBrandOrganicPost and \"brand_content\" (\"Branded ...; brandPartnerPromote (boolean) - Whether the post promotes a brand partner (branded content / paid partnership). Only needed to disclose BOTH types at once (set it alongside ...; isBrandOrganicPost (boolean) - Whether the post promotes the creator's own brand (brand organic). Only needed to disclose BOTH types at once (set it alongside commercialContentType ...; contentPreviewConfirmed (boolean) - User has confirmed they previewed the content; expressConsentGiven (boolean) - User has given express consent for posting; mediaType (one of: video, photo) - Optional override. Defaults based on provided media items.; videoCoverTimestampMs (integer) - Optional for video posts. Timestamp in milliseconds to select which frame to use as thumbnail (defaults to 1000ms/1 second). Ignored when videoCoverImageUrl ...; videoCoverImageUrl (string) - Optional for video posts. URL of a custom thumbnail image (JPG, PNG, or WebP, max 20MB). Any downloadable URL works: we rehost it ourselves. Overrides ...; photoCoverIndex (integer) - Optional for photo carousels. Index of image to use as cover, 0-based (defaults to 0/first image).; autoAddMusic (boolean) - When true, TikTok may add recommended music (photos only). With the brand-organic or branded-content toggle on, TikTok allows Commercial Music Library tracks ...; musicSoundInfo (object with keys musicSoundId, musicSoundVolume, musicSoundStart, musicSoundEnd) - Commercial Music Library track to attach. Accounts connected through the TikTok for Business app only: a developer-app account rejects the post at publish ...; videoOriginalSoundVolume (integer) - Volume of the video's own sound when a commercial track is attached (0 to 100). Requires musicSoundInfo. Video posts only. Omitted, TikTok keeps its API ...; videoMadeWithAi (boolean) - Set true to disclose AI-generated content. Accounts connected through the TikTok for Business app carry the disclosure on video posts only. The business photo ...; locationId (string) - Location tag to attach, as the id of a result from GET /v1/accounts/{accountId}/tiktok/locations. Requires locationName. Ignored on drafts, where TikTok ...; locationName (string) - Display name of the location tag, as returned next to its id. Required with locationId; a locationId without it is rejected at creation.; isAdsOnly (boolean) - Set true to publish the video as an \"Only show in ads\" post: it is kept off the profile and exists to be used as a Spark Ad. Accounts connected through the ...; description (string) - Optional long-form caption for photo posts (max 4000 chars). Recommended when content exceeds 90 chars, as photo titles are auto-truncated. Falls back to the ...
@@ -37839,7 +38053,8 @@ def register_generated_tools(mcp, _get_client):
                 queued_from_profile: Profile ID to schedule via queue. When provided without scheduledFor, the post is auto-assigned to the next available slot. Do not call /v1/queue/next-slot and use that time in scheduledFor, as that bypasses queue locking.
                 queue_id: Specific queue ID to use when scheduling via queue.
         Only used when queuedFromProfile is also provided.
-        If omitted, uses the profile's default queue."""
+        If omitted, uses the profile's default queue.
+                profile_id: Files a draft with no platforms under this profile so it lists under ?profileId= and profile-scoped API keys. Ignored when platforms are set. When promoting the draft via PUT, send platforms, isDraft false and scheduledFor again."""
         client = _get_client()
         try:
             response = client.posts.create_post(
@@ -37863,6 +38078,7 @@ def register_generated_tools(mcp, _get_client):
                 recycling=recycling,
                 queued_from_profile=queued_from_profile,
                 queue_id=queue_id,
+                profile_id=profile_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -39292,7 +39508,7 @@ def register_generated_tools(mcp, _get_client):
             include_over_limit: When true, includes over-limit profiles (marked with isOverLimit: true).
             name: Exact-match filter on the profile name. Useful to recover a profile id after an ambiguous create (timeout followed by a 409 on retry).
             external_id: Exact-match filter on the externalId you set on the profile, to find the profile of one of your tenants without storing its Zernio id. Team members can each own a profile with the same externalId, so the result is a list.
-            limit: Page size. When limit or skip is present, the response includes total and skip (and echoes limit).
+            limit: Page size. When limit or skip is present, the response includes total and skip (and echoes limit). Omitted, one page of 100 is returned.
             skip: Number of profiles to skip, applied after sorting and filtering."""
         client = _get_client()
         try:
@@ -39300,7 +39516,7 @@ def register_generated_tools(mcp, _get_client):
                 include_over_limit=include_over_limit,
                 name=name,
                 external_id=external_id,
-                limit=limit,
+                limit=limit if limit is not None else 100,
                 skip=skip,
             )
             return _format_response(response)
@@ -44689,6 +44905,10 @@ def register_generated_tools(mcp, _get_client):
                 "review.restored",
                 "lead.received",
                 "ad.status_changed",
+                "ad.created",
+                "ad.updated",
+                "campaign.created",
+                "campaign.updated",
                 "ad.review.approved",
                 "ad.review.rejected",
                 "ad.delivery_issue",
@@ -44696,6 +44916,13 @@ def register_generated_tools(mcp, _get_client):
                 "ad_account.status_changed",
                 "ad.video.processed",
                 "ad_rule.triggered",
+                "automation.check.completed",
+                "automation.action.applied",
+                "automation.action.failed",
+                "automation.action.unknown",
+                "automation.alert.opened",
+                "automation.alert.escalated",
+                "automation.alert.resolved",
                 "whatsapp.template.status_updated",
                 "whatsapp.template.category_updated",
                 "whatsapp.account.name_status_updated",
@@ -44896,6 +45123,10 @@ def register_generated_tools(mcp, _get_client):
                 "review.restored",
                 "lead.received",
                 "ad.status_changed",
+                "ad.created",
+                "ad.updated",
+                "campaign.created",
+                "campaign.updated",
                 "ad.review.approved",
                 "ad.review.rejected",
                 "ad.delivery_issue",
@@ -44903,6 +45134,13 @@ def register_generated_tools(mcp, _get_client):
                 "ad_account.status_changed",
                 "ad.video.processed",
                 "ad_rule.triggered",
+                "automation.check.completed",
+                "automation.action.applied",
+                "automation.action.failed",
+                "automation.action.unknown",
+                "automation.alert.opened",
+                "automation.alert.escalated",
+                "automation.alert.resolved",
                 "whatsapp.template.status_updated",
                 "whatsapp.template.category_updated",
                 "whatsapp.account.name_status_updated",
@@ -45268,6 +45506,10 @@ def register_generated_tools(mcp, _get_client):
             "review.deleted",
             "review.restored",
             "ad.status_changed",
+            "ad.created",
+            "ad.updated",
+            "campaign.created",
+            "campaign.updated",
             "ad.review.approved",
             "ad.review.rejected",
             "ad.delivery_issue",
@@ -45275,6 +45517,13 @@ def register_generated_tools(mcp, _get_client):
             "ad_account.status_changed",
             "ad.video.processed",
             "ad_rule.triggered",
+            "automation.check.completed",
+            "automation.action.applied",
+            "automation.action.failed",
+            "automation.action.unknown",
+            "automation.alert.opened",
+            "automation.alert.escalated",
+            "automation.alert.resolved",
             "lead.received",
             "whatsapp.template.status_updated",
             "whatsapp.template.category_updated",

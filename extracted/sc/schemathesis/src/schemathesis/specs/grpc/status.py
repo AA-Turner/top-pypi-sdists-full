@@ -1,18 +1,14 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
-from schemathesis.core.transport import CallOutcome
-
-if TYPE_CHECKING:
-    from schemathesis.core.transport import Response
+from schemathesis.core.transport import CallOutcome, StatusClass
 
 
 class GrpcStatus(NamedTuple):
     name: str
-    # The HTTP status with the same meaning.
-    http_status: int
+    status_class: StatusClass
     # What the status says about the call.
     outcome: CallOutcome
 
@@ -21,46 +17,43 @@ class GrpcStatus(NamedTuple):
 # FAILED_PRECONDITION and OUT_OF_RANGE depend on system state, not on the data sent, so they are conflicts.
 # UNIMPLEMENTED answers calls to methods the server lacks or has disabled.
 GRPC_STATUSES: dict[int, GrpcStatus] = {
-    0: GrpcStatus("OK", 200, CallOutcome.ACCEPTED),
-    1: GrpcStatus("CANCELLED", 499, CallOutcome.UNINFORMATIVE),
-    2: GrpcStatus("UNKNOWN", 500, CallOutcome.UNINFORMATIVE),
-    3: GrpcStatus("INVALID_ARGUMENT", 400, CallOutcome.REJECTED),
-    4: GrpcStatus("DEADLINE_EXCEEDED", 504, CallOutcome.UNINFORMATIVE),
-    5: GrpcStatus("NOT_FOUND", 404, CallOutcome.UNREACHABLE),
-    6: GrpcStatus("ALREADY_EXISTS", 409, CallOutcome.CONFLICT),
-    7: GrpcStatus("PERMISSION_DENIED", 403, CallOutcome.UNINFORMATIVE),
-    8: GrpcStatus("RESOURCE_EXHAUSTED", 429, CallOutcome.UNINFORMATIVE),
-    9: GrpcStatus("FAILED_PRECONDITION", 409, CallOutcome.CONFLICT),
-    10: GrpcStatus("ABORTED", 409, CallOutcome.CONFLICT),
-    11: GrpcStatus("OUT_OF_RANGE", 409, CallOutcome.CONFLICT),
-    12: GrpcStatus("UNIMPLEMENTED", 501, CallOutcome.NOT_SERVED),
-    13: GrpcStatus("INTERNAL", 500, CallOutcome.UNINFORMATIVE),
-    14: GrpcStatus("UNAVAILABLE", 503, CallOutcome.UNINFORMATIVE),
-    15: GrpcStatus("DATA_LOSS", 500, CallOutcome.UNINFORMATIVE),
-    16: GrpcStatus("UNAUTHENTICATED", 401, CallOutcome.UNINFORMATIVE),
+    0: GrpcStatus("OK", StatusClass.SUCCESS, CallOutcome.ACCEPTED),
+    1: GrpcStatus("CANCELLED", StatusClass.CLIENT_ERROR, CallOutcome.UNINFORMATIVE),
+    2: GrpcStatus("UNKNOWN", StatusClass.INTERNAL_ERROR, CallOutcome.UNINFORMATIVE),
+    3: GrpcStatus("INVALID_ARGUMENT", StatusClass.CLIENT_ERROR, CallOutcome.REJECTED),
+    4: GrpcStatus("DEADLINE_EXCEEDED", StatusClass.SERVER_ERROR, CallOutcome.UNINFORMATIVE),
+    5: GrpcStatus("NOT_FOUND", StatusClass.NOT_FOUND, CallOutcome.UNREACHABLE),
+    6: GrpcStatus("ALREADY_EXISTS", StatusClass.CONFLICT, CallOutcome.CONFLICT),
+    7: GrpcStatus("PERMISSION_DENIED", StatusClass.FORBIDDEN, CallOutcome.UNINFORMATIVE),
+    8: GrpcStatus("RESOURCE_EXHAUSTED", StatusClass.RATE_LIMITED, CallOutcome.UNINFORMATIVE),
+    9: GrpcStatus("FAILED_PRECONDITION", StatusClass.CONFLICT, CallOutcome.CONFLICT),
+    10: GrpcStatus("ABORTED", StatusClass.CONFLICT, CallOutcome.CONFLICT),
+    11: GrpcStatus("OUT_OF_RANGE", StatusClass.CONFLICT, CallOutcome.CONFLICT),
+    12: GrpcStatus("UNIMPLEMENTED", StatusClass.NOT_IMPLEMENTED, CallOutcome.NOT_SERVED),
+    13: GrpcStatus("INTERNAL", StatusClass.INTERNAL_ERROR, CallOutcome.UNINFORMATIVE),
+    14: GrpcStatus("UNAVAILABLE", StatusClass.SERVER_ERROR, CallOutcome.UNINFORMATIVE),
+    15: GrpcStatus("DATA_LOSS", StatusClass.INTERNAL_ERROR, CallOutcome.UNINFORMATIVE),
+    16: GrpcStatus("UNAUTHENTICATED", StatusClass.UNAUTHENTICATED, CallOutcome.UNINFORMATIVE),
 }
-
-_HTTP_STATUS_COUNTS = Counter(status.http_status for status in GRPC_STATUSES.values())
-# Only an HTTP status that stands for exactly one gRPC status names it; 409 and 500 stand for several.
-STATUS_NAMES_BY_HTTP_STATUS = {
-    status.http_status: status.name for status in GRPC_STATUSES.values() if _HTTP_STATUS_COUNTS[status.http_status] == 1
+GRPC_STATUS_CODES_BY_NAME = {status.name: code for code, status in GRPC_STATUSES.items()}
+_CLASS_COUNTS = Counter(status.status_class for status in GRPC_STATUSES.values())
+# Only a class that exactly one status belongs to names it; several statuses are conflicts or internal errors.
+GRPC_STATUS_CODES_BY_CLASS = {
+    status.status_class: code for code, status in GRPC_STATUSES.items() if _CLASS_COUNTS[status.status_class] == 1
 }
 
 OK = 0
-INTERNAL = 13
 
-# How gRPC servers start the INTERNAL message they send when a request does not decode, before any handler runs.
-# Go clients word a response that does not decode the same way, so a handler passing one on is reported here too.
-LIBRARY_DECODE_ERRORS = (
-    "grpc: failed to unmarshal the received message",
-    "grpc: error unmarshalling request",
-    "Exception deserializing request!",
-    "Error deserializing request: ",
-)
-
-
-def grpc_status(response: Response) -> int:
-    return int(response.headers["grpc-status"][0])
+# How gRPC servers start messages for requests that do not decode before any handler runs.
+LIBRARY_DECODE_ERRORS = {
+    3: ("unmarshal message: ",),
+    13: (
+        "grpc: failed to unmarshal the received message",
+        "grpc: error unmarshalling request",
+        "Exception deserializing request!",
+        "Error deserializing request: ",
+    ),
+}
 
 
 def starts_with_verb(name: str, verbs: tuple[str, ...]) -> bool:

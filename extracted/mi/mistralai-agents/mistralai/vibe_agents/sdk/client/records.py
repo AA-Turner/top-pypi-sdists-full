@@ -43,6 +43,7 @@ from mistralai.vibe_agents.sdk.authoring import tool as tool_authoring
 from mistralai.vibe_agents.sdk.authoring.errors import ObservationLost, SdkError
 from mistralai.vibe_agents.sdk.authoring.tool_result import ToolResult
 from mistralai.vibe_agents.sdk.client.approval_requests import ApprovalRequest
+from mistralai.vibe_agents.sdk.client.unknown_values import UnknownValue
 from mistralai.vibe_agents.sdk.transport.client_tools import ClientToolCall
 from mistralai.vibe_agents.sdk.transport.results import ToolCall
 
@@ -109,10 +110,10 @@ class OpenCallback:
     ``id`` is the one ``turn.answer`` takes, for an approval, a client tool call and a sign-in, on
     any turn of its session or of a session above it in the tree. ``session_id`` and ``turn_id``
     name the session and turn that opened it: a subagent's callback has the subagent's ids, its own
-    turn included. When the host does not send the turn, the SDK reads the session that opened the
-    callback for its running turn. ``kind`` is ``"approval"`` for an approval, ``"sign_in"`` for a
-    sign-in and ``"client_tool"`` for a client tool call; a host has other kinds for its own use,
-    which can change. ``title`` is an approval's title, ``None`` for the other kinds.
+    turn included. A callback whose host names no turn raises ``RuntimeError`` when it is read:
+    the Harness hosts name one on every callback. ``kind`` is ``"approval"`` for an approval,
+    ``"sign_in"`` for a sign-in and ``"client_tool"`` for a client tool call; a host has other
+    kinds for its own use, which can change. ``title`` is an approval's title, ``None`` for the other kinds.
     """
 
     id: str
@@ -141,13 +142,14 @@ class SignInRequest:
     connector's is the name the Agent gives it, as in ``agents.connector("linear")``. ``name`` is
     the name to show the user: the display name when the host knows it, else the id.
     ``mode`` is ``"connect"`` for a first sign-in and ``"reconnect"`` when the source was connected
-    and its access has to be renewed.
+    and its access has to be renewed. A newer host may send a ``source`` or a ``mode`` this SDK
+    does not know: it is an :class:`UnknownValue`.
     """
 
-    source: Literal["connector", "mcp"]
+    source: Literal["connector", "mcp"] | UnknownValue
     id: str
     name: str
-    mode: Literal["connect", "reconnect"] = "connect"
+    mode: Literal["connect", "reconnect"] | UnknownValue = "connect"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
@@ -270,10 +272,12 @@ class Completed(_TurnRecord, Generic[_T_co]):
     ``output`` is the turn's output, validated against the requested type, or
     :class:`InvalidOutput` when it did not validate. With ``output_type``, it is ``None``
     when the turn ended early: ``stop_reason`` is ``"iteration_limit"`` (the turn reached its
-    iteration limit), ``"skipped"`` (a hook skipped it) or ``"rejected"`` (a hook rejected the
-    reply), so there is no answer to parse.
+    iteration limit), ``"skipped"`` (a hook skipped it), ``"rejected"`` (a hook rejected the
+    reply) or ``"output_limit"`` (the model's last reply stopped at the output token limit after
+    the harness asked it again for a shorter reply, up to 6 times), so there is no answer to parse.
     Without ``output_type``, it is the turn's text, also when the turn ended early (a
-    skipped turn's text is the hook's reason), or ``""`` when there is none.
+    skipped turn's text is the hook's reason, a cut-off turn's text is the cut-off reply), or
+    ``""`` when there is none.
     ``stop_reason`` is ``None`` when the turn ended normally. ``tool_calls`` lists the turn's own
     tool calls in the order the model made them; a subagent's calls are not included.
     """
@@ -419,14 +423,16 @@ class CompletedTermination:
     """The session completed.
 
     ``stop_reason`` is ``"iteration_limit"`` when it reached its iteration limit, ``"skipped"`` when
-    a hook skipped its work, ``"rejected"`` when a ``post_llm_call`` hook rejected the reply, and
+    a hook skipped its work, ``"rejected"`` when a ``post_llm_call`` hook rejected the reply,
+    ``"output_limit"`` when the model's last reply stopped at the output token limit, and
     ``None`` when it ended normally. A deployed session's record always has ``None``: the control
-    plane does not keep the reason with the session. Its turn's result has it.
+    plane does not keep the reason with the session. Its turn's result has it. A stop reason a
+    newer host added is an :class:`UnknownValue`.
     """
 
     __match_args__ = ("stop_reason",)
 
-    stop_reason: Literal["iteration_limit", "skipped", "rejected"] | None = None
+    stop_reason: Literal["iteration_limit", "skipped", "rejected", "output_limit"] | UnknownValue | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True, match_args=False)
@@ -475,8 +481,9 @@ class SessionInfo:
     """One session found in a listing.
 
     ``status`` is ``"running"`` while a turn is active, ``"waiting"`` when no turn is, and
-    ``"terminated"`` once the session has ended; ``termination`` says how it ended, and is ``None``
-    until then. ``parent_id`` is the parent session of a
+    ``"terminated"`` once the session has ended, and an :class:`UnknownValue` for a status a newer
+    host added; ``termination`` says how it ended, and is ``None`` until then. ``parent_id`` is the
+    parent session of a
     subagent, or ``None`` for a root session; ``root_id`` is the root session of its tree, its own
     ``id`` for a root. ``title`` is the session's title, or ``None`` when it has none yet. The
     times are in UTC; ``archived_at`` is ``None`` for a session that is not archived. A listing
@@ -487,7 +494,7 @@ class SessionInfo:
     parent_id: str | None
     root_id: str
     title: str | None
-    status: Literal["running", "waiting", "terminated"]
+    status: Literal["running", "waiting", "terminated"] | UnknownValue
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None

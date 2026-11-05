@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "irepo-artifact"
-version = "0.2.4"
+version = "0.2.6"
 description = "Standalone HTTP artifact downloads"
 readme = "README.md"
 requires-python = ">=3.10"

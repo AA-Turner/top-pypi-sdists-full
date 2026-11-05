@@ -45,6 +45,7 @@ from bitfab.constants import (
 )
 from bitfab.datasets import DatasetsClient
 from bitfab.db_snapshot import DbSnapshotRef, build_snapshot_ref
+from bitfab.error_chain import describe_error
 from bitfab.experiment_id import resolve_experiment_id
 from bitfab.experiments import ExperimentsClient
 from bitfab.graders import GradersClient
@@ -477,6 +478,7 @@ class SpanContext(TypedDict, total=False):
     enclosingTrace: TraceLink
     variantChain: VariantChain
     spanName: str
+    traceFunctionKey: str
     rootTraceFunctionKey: str
     instrumentation: SpanInstrumentation
     declaredNode: bool
@@ -545,6 +547,10 @@ class TraceState(TypedDict, total=False):
 # Uses Python's contextvars which properly propagate through async/await chains
 _span_stack: ContextVar[list[SpanContext]] = ContextVar(
     "bitfab_span_stack", default=None
+)
+
+_enclosing_trace_function_keys: ContextVar[tuple[str, ...]] = ContextVar(
+    "bitfab_enclosing_trace_function_keys", default=()
 )
 
 # Global dict to track active trace states (trace_id -> TraceState)
@@ -680,11 +686,28 @@ def _trace_root_span_context() -> SpanContext | None:
     )
 
 
+def _running_trace_function_keys(stack: list[SpanContext]) -> list[str]:
+    keys: list[str] = []
+    candidates = list(_enclosing_trace_function_keys.get())
+    candidates.extend(context.get("traceFunctionKey", "") for context in stack)
+    for key in candidates:
+        if key and key not in keys:
+            keys.append(key)
+    return keys
+
+
 class CurrentSpan:
     """Handle to the current active span, allowing context to be added."""
 
-    def __init__(self, context: SpanContext) -> None:
+    def __init__(
+        self, context: SpanContext, trace_function_keys: list[str] | None = None
+    ) -> None:
         self._context = context
+        self._trace_function_keys = (
+            trace_function_keys
+            if trace_function_keys is not None
+            else _running_trace_function_keys([context])
+        )
 
     @property
     def id(self) -> str:
@@ -695,6 +718,15 @@ class CurrentSpan:
     def trace_id(self) -> str:
         """The trace ID for the current span."""
         return self._context["traceId"]
+
+    @property
+    def trace_function_keys(self) -> list[str]:
+        """The keys of every trace function running at this point, outermost
+        first, each listed once. A trace function called inside another one
+        comes after it, so a cost recorded here can be counted toward each of
+        them. Empty outside a trace.
+        """
+        return list(self._trace_function_keys)
 
     def add_context(self, context: dict[str, Any]) -> None:
         """Add a context entry to this span.
@@ -744,8 +776,26 @@ def _on_event_loop_thread() -> bool:
 class CurrentTrace:
     """Handle to the current active trace, allowing trace-level context to be set."""
 
-    def __init__(self, trace_id: str) -> None:
-        self._trace_id = trace_id
+    def __init__(self, context: SpanContext) -> None:
+        self._trace_id = context["traceId"]
+        self._root_trace_function_key = context.get("rootTraceFunctionKey")
+
+    @property
+    def trace_function_key(self) -> str:
+        """The key of the trace function the current trace is stored under,
+        which is the one that started it.
+
+        A ``@span`` or ``get_function`` call inside another trace function
+        joins that trace, so it reports the outer key. A ``trace()`` root
+        inside another root starts its own trace, so it reports its own key.
+        Empty string outside a trace.
+        """
+        return (
+            _resolve_root_trace_function_key(
+                self._root_trace_function_key, self._trace_id, None
+            )
+            or ""
+        )
 
     def _get_or_create_trace_state(self) -> TraceState:
         """Get existing trace state or create a new one."""
@@ -961,6 +1011,11 @@ class _NoOpCurrentSpan:
         """Return empty string when outside a span context."""
         return ""
 
+    @property
+    def trace_function_keys(self) -> list[str]:
+        """Return an empty list when outside a span context."""
+        return []
+
     def add_context(self, context: dict[str, Any]) -> None:
         pass
 
@@ -970,6 +1025,11 @@ class _NoOpCurrentSpan:
 
 class _NoOpCurrentTrace:
     """No-op trace handle returned when outside a span context."""
+
+    @property
+    def trace_function_key(self) -> str:
+        """Return empty string when outside a span context."""
+        return ""
 
     def set_session_id(self, session_id: str) -> None:
         pass
@@ -1001,7 +1061,7 @@ def get_current_span() -> CurrentSpan | _NoOpCurrentSpan:
     """
     stack = _get_span_stack()
     if stack:
-        return CurrentSpan(stack[-1])
+        return CurrentSpan(stack[-1], _running_trace_function_keys(stack))
     return _NO_OP_SPAN
 
 
@@ -1045,8 +1105,20 @@ def get_current_trace() -> CurrentTrace | _NoOpCurrentTrace:
     """
     stack = _get_span_stack()
     if stack:
-        return CurrentTrace(stack[-1]["traceId"])
+        return CurrentTrace(stack[-1])
     return _NO_OP_TRACE
+
+
+@contextlib.contextmanager
+def _trace_root_scope(scope: tuple[list[SpanContext], tuple[str, ...]]) -> Any:
+    stack, enclosing_keys = scope
+    stack_token = _span_stack.set(stack)
+    keys_token = _enclosing_trace_function_keys.set(enclosing_keys)
+    try:
+        yield
+    finally:
+        _enclosing_trace_function_keys.reset(keys_token)
+        _span_stack.reset(stack_token)
 
 
 def _run_with_span_stack(stack: list[SpanContext], fn: Callable[[], T]) -> T:
@@ -2660,6 +2732,7 @@ class Bitfab:
                     "spanId": span_id,
                     "threadId": executing_thread.ident or 0,
                     "spanName": span_name,
+                    "traceFunctionKey": trace_function_key,
                     "rootTraceFunctionKey": (
                         root_state_at_open.get("traceFunctionKey", trace_function_key)
                         if root_state_at_open
@@ -3258,7 +3331,7 @@ class Bitfab:
                             yielded.append(value)
                             yield value
                     except Exception as e:
-                        error_msg = str(e)
+                        error_msg = describe_error(e)
                         raise
                     finally:
                         token = _span_stack.set(new_stack)
@@ -3271,7 +3344,7 @@ class Bitfab:
                                 ):
                                     iterator.close()
                             except Exception as e:
-                                error_msg = str(e)
+                                error_msg = describe_error(e)
                                 raise
                             finally:
                                 if finalize is not None and error_msg is None:
@@ -3369,7 +3442,7 @@ class Bitfab:
                         error_msg = str(e) or e.__class__.__name__
                         raise
                     except Exception as e:
-                        error_msg = str(e)
+                        error_msg = describe_error(e)
                         raise
                     finally:
                         token = _span_stack.set(new_stack)
@@ -3385,7 +3458,7 @@ class Bitfab:
                                 error_msg = str(e) or e.__class__.__name__
                                 raise
                             except Exception as e:
-                                error_msg = str(e)
+                                error_msg = describe_error(e)
                                 raise
                             finally:
                                 if not sent:
@@ -3563,7 +3636,7 @@ class Bitfab:
                             span_ctx,
                             **base_params,
                             result=None,
-                            error=str(e),
+                            error=describe_error(e),
                             ended_at=_get_ended_at(),
                         )
                         raise
@@ -3649,7 +3722,7 @@ class Bitfab:
                             span_ctx,
                             **base_params,
                             result=None,
-                            error=str(e),
+                            error=describe_error(e),
                             ended_at=_get_ended_at(),
                         )
                         raise
@@ -4431,16 +4504,16 @@ class Bitfab:
                 surface="opt-out",
             )(inner)
 
-            def root_span_stack() -> list[SpanContext] | None:
+            def root_span_stack() -> tuple[list[SpanContext], tuple[str, ...]] | None:
                 stack = _get_span_stack()
                 enclosing = stack[-1].get("surface") if stack else None
                 if enclosing == "opt-in":
                     raise _mixed_tracing_error("trace", "span")
                 if enclosing != "opt-out":
-                    return stack
+                    return stack, _enclosing_trace_function_keys.get()
                 if _in_replay_item() or _in_seed_scope():
                     return None
-                return []
+                return [], tuple(_running_trace_function_keys(stack))
 
             if inspect.isasyncgenfunction(fn):
 
@@ -4458,21 +4531,15 @@ class Bitfab:
                     iterator = spanned(*args, **kwargs)
                     try:
                         while True:
-                            token = _span_stack.set(root_stack)
-                            try:
+                            with _trace_root_scope(root_stack):
                                 try:
                                     item = await iterator.__anext__()
                                 except StopAsyncIteration:
                                     return
-                            finally:
-                                _span_stack.reset(token)
                             yield item
                     finally:
-                        token = _span_stack.set(root_stack)
-                        try:
+                        with _trace_root_scope(root_stack):
                             await iterator.aclose()
-                        finally:
-                            _span_stack.reset(token)
 
             elif inspect.iscoroutinefunction(fn):
 
@@ -4481,11 +4548,8 @@ class Bitfab:
                     root_stack = root_span_stack()
                     if root_stack is None:
                         return await body(*args, **kwargs)
-                    token = _span_stack.set(root_stack)
-                    try:
+                    with _trace_root_scope(root_stack):
                         return await spanned(*args, **kwargs)
-                    finally:
-                        _span_stack.reset(token)
 
             else:
 
@@ -4494,9 +4558,8 @@ class Bitfab:
                     root_stack = root_span_stack()
                     if root_stack is None:
                         return body(*args, **kwargs)
-                    return _run_with_span_stack(
-                        root_stack, lambda: spanned(*args, **kwargs)
-                    )
+                    with _trace_root_scope(root_stack):
+                        return spanned(*args, **kwargs)
 
             _trace_root_wrappers.add(detached)
             return detached  # type: ignore[return-value]

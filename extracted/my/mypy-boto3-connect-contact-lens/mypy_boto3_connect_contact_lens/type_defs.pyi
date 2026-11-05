@@ -8,21 +8,23 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_connect_contact_lens.type_defs import PointOfInterestTypeDef
+    from mypy_boto3_connect_contact_lens.type_defs import TagConditionTypeDef
 
-    data: PointOfInterestTypeDef = ...
+    data: TagConditionTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
 from .literals import (
     ExtractedInformationFailureCodeType,
     PostContactSummaryFailureCodeType,
     PostContactSummaryStatusType,
     SentimentValueType,
+    TagComparisonTypeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -31,6 +33,8 @@ else:
     from typing_extensions import NotRequired, TypedDict
 
 __all__ = (
+    "CategoriesAttributeAndConditionTypeDef",
+    "CategoriesAttributeFilterTypeDef",
     "CategoriesTypeDef",
     "CategoryDetailsTypeDef",
     "CharacterOffsetsTypeDef",
@@ -41,10 +45,17 @@ __all__ = (
     "ListRealtimeContactAnalysisSegmentsResponseTypeDef",
     "PointOfInterestTypeDef",
     "PostContactSummaryTypeDef",
+    "RealTimeContactAnalysisSegmentsFilterTypeDef",
     "RealtimeContactAnalysisSegmentTypeDef",
     "ResponseMetadataTypeDef",
+    "TagConditionTypeDef",
     "TranscriptTypeDef",
 )
+
+class TagConditionTypeDef(TypedDict):
+    TagKey: NotRequired[str]
+    TagValue: NotRequired[str]
+    ComparisonType: NotRequired[TagComparisonTypeType]
 
 class PointOfInterestTypeDef(TypedDict):
     BeginOffsetMillis: int
@@ -53,12 +64,6 @@ class PointOfInterestTypeDef(TypedDict):
 class CharacterOffsetsTypeDef(TypedDict):
     BeginOffsetChar: int
     EndOffsetChar: int
-
-class ListRealtimeContactAnalysisSegmentsRequestTypeDef(TypedDict):
-    InstanceId: str
-    ContactId: str
-    MaxResults: NotRequired[int]
-    NextToken: NotRequired[str]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -72,8 +77,12 @@ class PostContactSummaryTypeDef(TypedDict):
     Content: NotRequired[str]
     FailureCode: NotRequired[PostContactSummaryFailureCodeType]
 
+class CategoriesAttributeAndConditionTypeDef(TypedDict):
+    TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
+
 class CategoryDetailsTypeDef(TypedDict):
     PointsOfInterest: list[PointOfInterestTypeDef]
+    RuleId: NotRequired[str]
 
 class ExtractedInformationValueTypeDef(TypedDict):
     Content: str
@@ -81,6 +90,11 @@ class ExtractedInformationValueTypeDef(TypedDict):
 
 class IssueDetectedTypeDef(TypedDict):
     CharacterOffsets: CharacterOffsetsTypeDef
+
+class CategoriesAttributeFilterTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[CategoriesAttributeAndConditionTypeDef]]
+    AndCondition: NotRequired[CategoriesAttributeAndConditionTypeDef]
+    TagCondition: NotRequired[TagConditionTypeDef]
 
 class CategoriesTypeDef(TypedDict):
     MatchedCategories: list[str]
@@ -103,11 +117,21 @@ class TranscriptTypeDef(TypedDict):
     Sentiment: NotRequired[SentimentValueType]
     IssuesDetected: NotRequired[list[IssueDetectedTypeDef]]
 
+class RealTimeContactAnalysisSegmentsFilterTypeDef(TypedDict):
+    CategoriesAttributeFilter: NotRequired[CategoriesAttributeFilterTypeDef]
+
 class RealtimeContactAnalysisSegmentTypeDef(TypedDict):
     Transcript: NotRequired[TranscriptTypeDef]
     Categories: NotRequired[CategoriesTypeDef]
     PostContactSummary: NotRequired[PostContactSummaryTypeDef]
     ExtractedInformation: NotRequired[ExtractedInformationTypeDef]
+
+class ListRealtimeContactAnalysisSegmentsRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    ListFilter: NotRequired[RealTimeContactAnalysisSegmentsFilterTypeDef]
 
 class ListRealtimeContactAnalysisSegmentsResponseTypeDef(TypedDict):
     Segments: list[RealtimeContactAnalysisSegmentTypeDef]

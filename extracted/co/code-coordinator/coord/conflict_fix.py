@@ -555,6 +555,19 @@ ALREADY_UPSTREAM_MARKER = "coord:conflict=already-upstream"
 # no-conflict-expected briefing rather than the ordinary one.
 STALE_REBASE_FIX_TITLE_PREFIX = "[stale-rebase-fix]"
 
+# #3859 review: `has_prior_conflict_fix`'s `current_base_sha` skip (a
+# base-move-granted re-dispatch isn't "the same block recurring") has no
+# ceiling of its own — on a repo whose sibling merges land faster than one
+# PR's own CI wall-clock, that skip can fire every tick forever, each one a
+# fresh paid conflict-fix leg with no escalation. `count_stale_rebase_
+# attempts` lets a caller bound the total number of stale-rebase rows one
+# merge entry may accumulate regardless of why each prior one didn't block —
+# a genuine failure, a base-move skip, or even a clean success immediately
+# invalidated by the next sibling merge all count the same way here, because
+# from the operator's perspective it is the identical "this PR keeps losing
+# races" situation either way.
+MAX_STALE_REBASE_RACE_ATTEMPTS = 5
+
 STALE_REBASE_FIX_SYSTEM_PROMPT = """\
 You are a Claude Code conflict-fix worker. This branch's CI ran against a \
 base that has since moved (a `checks_stale` merge-gate refusal) — there is \
@@ -631,6 +644,7 @@ def build_stale_rebase_briefing(
         "solely because its CI checks predate the current base — no content "
         "conflict is known.",
         f"Reason: {entry.error or 'CI stale'}",
+        f"Target base SHA: {entry.target_branch_head_sha or 'unknown'}",
         "",
         f"Issue: #{entry.issue_number} — {entry.issue_title}",
         "",
@@ -1314,12 +1328,37 @@ def _dispatched_error(assignment: Assignment) -> str | None:
     return None
 
 
+def _dispatched_base_sha(assignment: Assignment) -> str | None:
+    """The target-branch SHA a stale-rebase conflict-fix's briefing was
+    dispatched against (#3859).
+
+    :func:`build_stale_rebase_briefing` embeds the entry's live
+    ``target_branch_head_sha`` verbatim as a ``"Target base SHA: …"`` line —
+    the only durable record of which base THAT attempt actually targeted,
+    since the merge queue never persists ``target_branch_head_sha`` itself
+    (it is recomputed from GitHub on every ``process()`` tick). Returns
+    ``None`` when the briefing carries no such line (an ordinary
+    conflict-fix, a hand-built test ``Assignment``, or the literal
+    ``"unknown"`` placeholder written when the base SHA could not be read at
+    dispatch time) — callers must then fall back to the pre-#3859,
+    base-SHA-blind behaviour rather than treat an absent anchor as a match
+    or a mismatch.
+    """
+    briefing = assignment.briefing or ""
+    for line in briefing.splitlines():
+        if line.startswith("Target base SHA: "):
+            value = line[len("Target base SHA: "):].strip()
+            return value if value and value != "unknown" else None
+    return None
+
+
 def has_prior_conflict_fix(
     board: Board,
     merge_entry_id: str | None,
     *,
     current_error: str | None = None,
     ignore_stale_rebase_attempts: bool = False,
+    current_base_sha: str | None = None,
 ) -> bool:
     """True when a second conflict-fix dispatch for *merge_entry_id* is blocked.
 
@@ -1359,35 +1398,156 @@ def has_prior_conflict_fix(
     (:func:`coord.reconcile._try_ordinary_escalation_after_stale_mismatch`)
     to skip every stale-rebase-titled row entirely — active or not — so
     ONLY prior *ordinary* conflict-fix attempts count against the cap.
+
+    *current_base_sha* (#3859): without it, a stale-rebase attempt's
+    ``failed``/``advisory`` status consumes the cap FOREVER, regardless of
+    whether the target branch has since moved again — treating "the base
+    moved a second time" as indistinguishable from "the fix genuinely
+    failed against the base that is still current". quadraui#1961 lived
+    this: a stale-rebase attempt failed (or an ordinary conflict-fix did)
+    against one base, a sibling PR merged and moved the base again, and the
+    NEXT rebase attempt — against the new base — would have succeeded, but
+    never got the chance because this function kept reporting the cap as
+    spent. When *current_base_sha* is given, a stale-rebase row's own
+    dispatched base (:func:`_dispatched_base_sha`) is compared against it:
+    a MISMATCH means the base has moved since that attempt ran, so it is
+    stale evidence about a block that no longer exists — it is skipped
+    entirely (continues to the next assignment) rather than consuming the
+    cap, for both the ``failed``/``advisory`` branch and the ``done`` +
+    identical-error branch. A row with no recoverable base SHA
+    (:func:`_dispatched_base_sha` returns ``None`` — predates #3859, or the
+    base genuinely couldn't be read at dispatch time) is treated exactly as
+    before: *current_base_sha* has nothing to compare against for it, so it
+    falls through to the base-SHA-blind rules unchanged. Callers that don't
+    pass *current_base_sha* get the pre-#3859 behaviour byte-for-byte.
+
+    Thin wrapper around :func:`_classify_prior_conflict_fix`, which makes
+    the same decision and additionally says WHY — used where the caller
+    needs accurate escalation wording rather than a plain bool.
+    """
+    return _classify_prior_conflict_fix(
+        board, merge_entry_id,
+        current_error=current_error,
+        ignore_stale_rebase_attempts=ignore_stale_rebase_attempts,
+        current_base_sha=current_base_sha,
+    ) is not None
+
+
+# #3859 review: the escalation `_run_auto_revalidate_checks_stale` writes when
+# `has_prior_conflict_fix` returns `True` used to assert "a fresh rebase
+# cannot clear it (same base)" unconditionally — true for exactly one of
+# three shapes that function folds into a single `True`. These let a caller
+# pick accurate wording instead.
+BLOCK_REASON_ACTIVE = "active"
+BLOCK_REASON_SAME_BASE = "same_base"
+BLOCK_REASON_BASE_UNKNOWN = "base_unknown"
+BLOCK_REASON_ORDINARY_FAILURE = "ordinary_failure"
+
+
+def _classify_prior_conflict_fix(
+    board: Board,
+    merge_entry_id: str | None,
+    *,
+    current_error: str | None = None,
+    ignore_stale_rebase_attempts: bool = False,
+    current_base_sha: str | None = None,
+) -> str | None:
+    """The reason :func:`has_prior_conflict_fix` returns ``True``, or ``None``
+    when nothing blocks (#3859).
+
+    Exactly the same walk and the same decision points as
+    :func:`has_prior_conflict_fix` — see that function's docstring for the
+    full rationale of each branch — just returning WHY instead of only
+    whether, for accurate escalation wording:
+
+    * :data:`BLOCK_REASON_ACTIVE` — a conflict-fix is running/pending right
+      now.
+    * :data:`BLOCK_REASON_SAME_BASE` — a stale-rebase attempt failed (or
+      recurred identically) against the base that is CONFIRMED still
+      current: a fresh rebase genuinely cannot clear it.
+    * :data:`BLOCK_REASON_BASE_UNKNOWN` — the same shape, but either
+      *current_base_sha* or the attempt's own dispatched base
+      (:func:`_dispatched_base_sha`) could not be read, so "same base" is
+      not a claim this function can make — only "not known to have moved".
+    * :data:`BLOCK_REASON_ORDINARY_FAILURE` — a non-stale-rebase
+      conflict-fix failed or recurred; the base comparison never applies to
+      it (it never claimed to be a pure rebase).
     """
     if merge_entry_id is None:
-        return False
+        return None
     for a in list(board.active) + list(board.completed):
         if a.type != "conflict-fix":
             continue
         if a.review_of_assignment_id != merge_entry_id:
             continue
-        if ignore_stale_rebase_attempts and (a.issue_title or "").startswith(
+        is_stale_rebase_row = (a.issue_title or "").startswith(
             STALE_REBASE_FIX_TITLE_PREFIX,
-        ):
+        )
+        if ignore_stale_rebase_attempts and is_stale_rebase_row:
             continue
+        if (
+            current_base_sha is not None
+            and is_stale_rebase_row
+            and a.status in ("failed", "advisory", "done", "cancelled")
+        ):
+            dispatched_base = _dispatched_base_sha(a)
+            if dispatched_base is not None and dispatched_base != current_base_sha:
+                # The base moved again since this attempt ran — new
+                # evidence, not the same block recurring. Does not consume
+                # the cap, same as an unrelated "done".
+                continue
         # Active attempt in flight — prevent duplicate dispatch.
         if a.status in ("running", "pending"):
-            return True
+            return BLOCK_REASON_ACTIVE
         # Genuine failure — retry cap consumed, surface to human.
         if a.status in ("failed", "advisory"):
-            return True
+            if not is_stale_rebase_row:
+                return BLOCK_REASON_ORDINARY_FAILURE
+            if current_base_sha is None or _dispatched_base_sha(a) is None:
+                return BLOCK_REASON_BASE_UNKNOWN
+            return BLOCK_REASON_SAME_BASE
         if a.status == "done":
             if current_error is not None and _dispatched_error(a) == current_error:
                 # Same failure text recurring after a "successful" fix means
                 # nothing was actually fixed — treat like a genuine failure.
-                return True
+                if not is_stale_rebase_row:
+                    return BLOCK_REASON_ORDINARY_FAILURE
+                if current_base_sha is None or _dispatched_base_sha(a) is None:
+                    return BLOCK_REASON_BASE_UNKNOWN
+                return BLOCK_REASON_SAME_BASE
             # Otherwise: successful rebase, different (or unknown) situation
             # now → cap not consumed; a re-conflict is new.
         # "cancelled" falls through here too — a cancelled attempt did no
         # work, so it is treated the same as an unrelated "done": re-dispatch
         # is allowed.
-    return False
+    return None
+
+
+def count_stale_rebase_attempts(board: Board, merge_entry_id: str | None) -> int:
+    """Total stale-rebase conflict-fix dispatches ever made for
+    *merge_entry_id*, regardless of status (#3859).
+
+    This is the absolute bound :func:`has_prior_conflict_fix`'s
+    *current_base_sha* skip does not provide on its own: that skip is
+    correct in isolation (a base-move IS new evidence, not the same block
+    recurring), but it has no ceiling — on a repo whose sibling merges land
+    faster than one PR's own CI wall-clock, the skip can fire every tick
+    forever, each one a fresh paid conflict-fix leg with no escalation
+    (quadraui#1961's livelock, unbounded). A caller compares this against
+    :data:`MAX_STALE_REBASE_RACE_ATTEMPTS` and escalates once the row has
+    accumulated that many stale-rebase rows, win or lose — "this PR keeps
+    losing races against its own repo's merge cadence" needs a human either
+    way, not a fourth, fifth, sixth paid retry.
+    """
+    if merge_entry_id is None:
+        return 0
+    return sum(
+        1
+        for a in list(board.active) + list(board.completed)
+        if a.type == "conflict-fix"
+        and a.review_of_assignment_id == merge_entry_id
+        and (a.issue_title or "").startswith(STALE_REBASE_FIX_TITLE_PREFIX)
+    )
 
 
 # ── Machine selection ───────────────────────────────────────────────────────

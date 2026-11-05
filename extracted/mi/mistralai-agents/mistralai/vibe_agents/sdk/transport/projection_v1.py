@@ -32,7 +32,7 @@ from mistralai.vibe.harness.app_server import session as harness_session
 from mistralai.vibe_agents.sessions_client import AgentSessionResponse, ObservedControllerEventResponse
 from mistralai.vibe_agents.sessions_client.rendered_session_v1 import RenderedSessionV1, parse_session_v1_event
 
-from .event_ids import _EMPTY_CURSOR, _encode_event_id
+from .event_ids import _empty_cursor, _encode_event_id
 from .product_session import build_session_from_product
 
 # What the projection relays: a canonical event, or one this SDK has no model for, as it came.
@@ -43,9 +43,12 @@ _TURN_EVENTS = (
     harness_session.TurnUpdatedEvent,
     harness_session.TurnTerminatedEvent,
 )
+
+
 # A Turn is live until it terminates. `blocked` is live too: the Session is waiting on a
-# callback, not finished with the Turn.
-_LIVE_TURN_STATUSES = frozenset({"running", "blocked"})
+# callback, not finished with the Turn. So is a status a newer host added (an UnknownValue).
+def _is_live(turn: harness_session.TurnState) -> bool:
+    return turn.status != "terminated"
 
 
 class VibeAgentsSessionV1Projection:
@@ -102,7 +105,7 @@ class VibeAgentsSessionV1Projection:
         """The live Turn, searched newest first because that is where it almost always is."""
 
         for turn in reversed(self.turns.values()):
-            if turn.status in _LIVE_TURN_STATUSES:
+            if _is_live(turn):
                 return turn.id
         return None
 
@@ -181,7 +184,10 @@ class VibeAgentsSessionV1Projection:
             return turn
         start: str | None
         if isinstance(payload, harness_session.TurnStartedEvent):
-            start = _EMPTY_CURSOR if previous_cursor is None else _encode_event_id(previous_cursor)
+            session_id = self.product_session.agent_session_id
+            start = (
+                _empty_cursor(session_id) if previous_cursor is None else _encode_event_id(session_id, previous_cursor)
+            )
         else:
             known = self.turns.get(turn.id)
             start = None if known is None else known.started_after_event_id
@@ -328,7 +334,7 @@ def _close_live_turns(
     closed = dict(turns)
     terminated: list[harness_session.TurnTerminatedEvent] = []
     for turn_id, turn in turns.items():
-        if turn.status in _LIVE_TURN_STATUSES:
+        if _is_live(turn):
             closed[turn_id] = turn.model_copy(
                 update={"status": "terminated", "completed_at": session.updated_at, "termination": termination}
             )

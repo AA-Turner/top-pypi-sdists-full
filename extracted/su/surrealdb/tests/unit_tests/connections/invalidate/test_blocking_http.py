@@ -1,17 +1,21 @@
-import os
+from collections.abc import Iterator
+from typing import Any, cast
 
 import pytest
 
 from surrealdb.connections.blocking_http import BlockingHttpSurrealConnection
+from surrealdb.types import Value
 
 
 @pytest.fixture
-def main_connection() -> None:
+def main_connection(
+    connection_params: dict[str, Any],
+) -> Iterator[BlockingHttpSurrealConnection]:
     """Create a separate connection for the main connection that creates the test data"""
-    url = "http://localhost:8000"
+    url = connection_params["url"]
     password = "root"
     username = "root"
-    vars_params = {
+    vars_params: dict[str, Value] = {
         "username": username,
         "password": password,
     }
@@ -20,53 +24,55 @@ def main_connection() -> None:
     connection = BlockingHttpSurrealConnection(url)
     connection.signin(vars_params)
     connection.use(namespace=namespace, database=database_name)
-    connection.query("DEFINE TABLE IF NOT EXISTS user SCHEMALESS;")
-    connection.query("DELETE user;")
+    connection.query("DEFINE TABLE IF NOT EXISTS user SCHEMALESS;").execute()
+    connection.query("DELETE user;").execute()
     connection.query_raw(
         "CREATE user:jaime SET name = 'Jaime', email = 'jaime@example.com', password = 'password123', enabled = true;"
     )
     yield connection
-    connection.query("DELETE user;")
+    connection.query("DELETE user;").execute()
 
 
 def test_invalidate_test_for_no_guest_mode(
-    main_connection, blocking_http_connection: BlockingHttpSurrealConnection
+    main_connection: BlockingHttpSurrealConnection,
+    blocking_http_connection: BlockingHttpSurrealConnection,
 ) -> None:
-    outcome = blocking_http_connection.query("SELECT * FROM user;")
-    assert len(outcome) == 1
-    outcome = main_connection.query("SELECT * FROM user;")
-    assert len(outcome) == 1
+    outcome = blocking_http_connection.query("SELECT * FROM user;").first()
+    assert len(cast(list, outcome)) == 1
+    outcome = main_connection.query("SELECT * FROM user;").first()
+    assert len(cast(list, outcome)) == 1
 
     blocking_http_connection.invalidate()
 
     try:
-        outcome = blocking_http_connection.query("SELECT * FROM user;")
-        assert len(outcome) == 0
+        outcome = blocking_http_connection.query("SELECT * FROM user;").first()
+        assert len(cast(list, outcome)) == 0
     except Exception as err:
         assert "Not enough permissions" in str(
             err
         ) or "Anonymous access not allowed" in str(err)
-    outcome = main_connection.query("SELECT * FROM user;")
-    assert len(outcome) == 1
+    outcome = main_connection.query("SELECT * FROM user;").first()
+    assert len(cast(list, outcome)) == 1
 
 
 def test_invalidate_with_guest_mode_on(
-    main_connection, blocking_http_connection: BlockingHttpSurrealConnection
+    main_connection: BlockingHttpSurrealConnection,
+    blocking_http_connection: BlockingHttpSurrealConnection,
 ) -> None:
-    outcome = blocking_http_connection.query("SELECT * FROM user;")
-    assert len(outcome) == 1
-    outcome = main_connection.query("SELECT * FROM user;")
-    assert len(outcome) == 1
+    outcome = blocking_http_connection.query("SELECT * FROM user;").first()
+    assert len(cast(list, outcome)) == 1
+    outcome = main_connection.query("SELECT * FROM user;").first()
+    assert len(cast(list, outcome)) == 1
 
     blocking_http_connection.invalidate()
 
     try:
-        outcome = blocking_http_connection.query("SELECT * FROM user;")
-        assert len(outcome) == 0
+        outcome = blocking_http_connection.query("SELECT * FROM user;").first()
+        assert len(cast(list, outcome)) == 0
     except Exception as err:
         assert "Not enough permissions" in str(
             err
         ) or "Anonymous access not allowed" in str(err)
 
-    outcome = main_connection.query("SELECT * FROM user;")
-    assert len(outcome) == 1
+    outcome = main_connection.query("SELECT * FROM user;").first()
+    assert len(cast(list, outcome)) == 1

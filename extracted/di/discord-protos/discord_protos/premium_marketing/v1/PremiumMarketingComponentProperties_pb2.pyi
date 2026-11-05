@@ -599,6 +599,9 @@ class PremiumMarketingComponentProperties(_message.Message):
         DISMISSIBLE_CONTENT_CUSTOM_TYPING_INDICATOR_MOBILE_NEW_PRESETS_SETTINGS_BADGE: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 876
         DISMISSIBLE_CONTENT_CUSTOM_TYPING_INDICATOR_MOBILE_NEW_PRESETS_STYLING_BADGE: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 877
         DISMISSIBLE_CONTENT_CUSTOM_TYPING_INDICATOR_MOBILE_NEW_PRESETS_ACTION_SHEET: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 878
+        DISMISSIBLE_CONTENT_BLOONS_TD_BATTLES_ACCOUNT_LINK_UPSELL: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 879
+        DISMISSIBLE_CONTENT_DEFAULT_NITRO_SOUNDS_CAROUSEL_PREVIEW: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 880
+        DISMISSIBLE_CONTENT_GLOBAL_DISCOVERY_GAMES_TAB_COACHMARK: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 881
 
     class DismissibleContent(_DismissibleContent, metaclass=_DismissibleContentEnumTypeWrapper): ...
     DISMISSIBLE_CONTENT_UNSPECIFIED: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 0
@@ -1128,6 +1131,9 @@ class PremiumMarketingComponentProperties(_message.Message):
     DISMISSIBLE_CONTENT_CUSTOM_TYPING_INDICATOR_MOBILE_NEW_PRESETS_SETTINGS_BADGE: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 876
     DISMISSIBLE_CONTENT_CUSTOM_TYPING_INDICATOR_MOBILE_NEW_PRESETS_STYLING_BADGE: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 877
     DISMISSIBLE_CONTENT_CUSTOM_TYPING_INDICATOR_MOBILE_NEW_PRESETS_ACTION_SHEET: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 878
+    DISMISSIBLE_CONTENT_BLOONS_TD_BATTLES_ACCOUNT_LINK_UPSELL: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 879
+    DISMISSIBLE_CONTENT_DEFAULT_NITRO_SOUNDS_CAROUSEL_PREVIEW: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 880
+    DISMISSIBLE_CONTENT_GLOBAL_DISCOVERY_GAMES_TAB_COACHMARK: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 881
 
     class _AssetVariant:
         ValueType = _typing.NewType("ValueType", _builtins.int)
@@ -1834,9 +1840,11 @@ class PremiumMarketingComponentProperties(_message.Message):
         TRINKET_ANIMATION_URL_FIELD_NUMBER: _builtins.int
         TRINKET_GLOW_ANIMATION_URL_FIELD_NUMBER: _builtins.int
         GRADIENT_FIELD_NUMBER: _builtins.int
+        TRINKET_RIVE_ANIMATION_URL_FIELD_NUMBER: _builtins.int
         box_animation_url: _builtins.str
         trinket_animation_url: _builtins.str
         trinket_glow_animation_url: _builtins.str
+        trinket_rive_animation_url: _builtins.str
         @_builtins.property
         def gradient(self) -> Global___PremiumMarketingComponentProperties.Gradient: ...
         def __init__(
@@ -1846,10 +1854,11 @@ class PremiumMarketingComponentProperties(_message.Message):
             trinket_animation_url: _builtins.str = ...,
             trinket_glow_animation_url: _builtins.str = ...,
             gradient: Global___PremiumMarketingComponentProperties.Gradient | None = ...,
+            trinket_rive_animation_url: _builtins.str = ...,
         ) -> None: ...
         _HasFieldArgType: _TypeAlias = _typing.Literal["_gradient", b"_gradient", "gradient", b"gradient"]  # noqa: Y015
         def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["_gradient", b"_gradient", "box_animation_url", b"box_animation_url", "gradient", b"gradient", "trinket_animation_url", b"trinket_animation_url", "trinket_glow_animation_url", b"trinket_glow_animation_url"]  # noqa: Y015
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_gradient", b"_gradient", "box_animation_url", b"box_animation_url", "gradient", b"gradient", "trinket_animation_url", b"trinket_animation_url", "trinket_glow_animation_url", b"trinket_glow_animation_url", "trinket_rive_animation_url", b"trinket_rive_animation_url"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         _WhichOneofReturnType__gradient: _TypeAlias = _typing.Literal["gradient"]  # noqa: Y015
         _WhichOneofArgType__gradient: _TypeAlias = _typing.Literal["_gradient", b"_gradient"]  # noqa: Y015

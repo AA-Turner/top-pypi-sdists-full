@@ -2288,6 +2288,28 @@ def test_nested_table_survives_the_round_trip(depth: int) -> None:
     assert _render(md(_nested_tables(depth))).count("<table") == depth
 
 
+@pytest.mark.parametrize("name", ['"', 'a"b', "é"], ids=["quote", "inner-quote", "non-ascii"])
+@pytest.mark.parametrize(
+    ("html", "config", "selector", "expected"),
+    [
+        pytest.param("<table><td><table {}>", Markdown(), "table table", [{}], id="cell-table"),
+        pytest.param(
+            "<p>x <img {} src=a> y</p>",
+            Markdown(images=Markdown.Images(mode="html")),
+            "img",
+            [{"src": "a"}],
+            id="raw-image",
+        ),
+    ],
+)
+def test_raw_html_drops_attribute_names_commonmark_cannot_read(
+    name: str, html: str, config: Markdown, selector: str, expected: list[dict[str, str]]
+) -> None:
+    # one such name makes the reader escape the whole tag as text
+    rendered: Final = _render(parse_fragment(html.format(name)).to_markdown(config))
+    assert [dict(element.attrs) for element in parse_fragment(rendered).select(selector)] == expected
+
+
 def test_corpus_never_crashes_and_renders(wpt_html_tree_corpus: WptHtmlTreeCorpus) -> None:
     inputs = [
         case["data"] for case in wpt_html_tree_corpus["cases"] if "�" not in case["data"] and len(case["data"]) < 200
@@ -3187,6 +3209,45 @@ def test_wrap_links(html: str, config: Markdown, expected: str) -> None:
 )
 def test_html_passthrough(html: str, config: Markdown, expected: str) -> None:
     assert _mode_markdown(html, config) == expected
+
+
+@pytest.mark.parametrize(
+    ("html", "config", "selector"),
+    [
+        pytest.param("<table><td><tr><td><td>\n<head>\n    ", Markdown(), "table", id="ragged-table-indented-tail"),
+        pytest.param(
+            "<table><tr><td>a\n\n    b</td></tr></table>",
+            Markdown(tables=Markdown.Tables(mode="html")),
+            "table",
+            id="table-blank-line",
+        ),
+        pytest.param(
+            "<table><tr><td>a&#13;&#13;b</td></tr></table>",
+            Markdown(tables=Markdown.Tables(mode="html")),
+            "table",
+            id="table-carriage-returns",
+        ),
+        pytest.param(
+            "<blockquote><table><tr><td>a\n\nb</td></tr></table></blockquote>",
+            Markdown(tables=Markdown.Tables(mode="html")),
+            "blockquote > table",
+            id="quoted-table-blank-line",
+        ),
+        pytest.param(
+            "<ul><li>x<table><tr><td>a\n\nb</td></tr></table></li></ul>",
+            Markdown(tables=Markdown.Tables(mode="html")),
+            "li > table",
+            id="listed-table-blank-line",
+        ),
+        pytest.param(
+            '<p><img alt="a\n\n    b"></p>', Markdown(images=Markdown.Images(mode="html")), "img", id="image-blank-line"
+        ),
+    ],
+)
+def test_html_passthrough_stays_one_html_block(html: str, config: Markdown, selector: str) -> None:
+    # a blank line ends a raw-HTML block, and the rest reads as Markdown (here an indented code block)
+    rendered: Final = MarkdownIt("commonmark", {"html": True}).render(_mode_markdown(html, config))
+    assert parse_fragment(rendered).select(selector)[0].html == parse(html).select(selector)[0].html
 
 
 @pytest.mark.parametrize(

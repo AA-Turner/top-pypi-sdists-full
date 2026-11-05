@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 
 from datamodel_code_generator._api_types import Diagnostic
-from datamodel_code_generator._client.config import _is_sequence
-from datamodel_code_generator._client.naming import CLIENT_KEYWORDS, token
+from datamodel_code_generator._client.naming import CLIENT_KEYWORDS
 from datamodel_code_generator._runtime.client.security import (
     SecurityBinding,
     SecurityRequirement,
@@ -26,10 +24,12 @@ from datamodel_code_generator._target_contract import (
     operation_schemes,
     requirement_alternatives,
     scheme_catalogues,
+    scope_problem,
     unresolved_reference,
 )
 from datamodel_code_generator._target_naming import NameScope
 from datamodel_code_generator._target_operations import declared_in
+from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -43,7 +43,6 @@ if TYPE_CHECKING:
     )
 
 
-_SCOPE: Final = re.compile(r"[\x21\x23-\x5b\x5d-\x7e]+")
 _ARGUMENTS: Final = frozenset({"self", *CLIENT_KEYWORDS})
 _REFRESHED: Final = ("authorizationCode", "password", "deviceAuthorization", "implicit")
 Flow: TypeAlias = Literal["client_credentials", "refresh_token"]
@@ -61,20 +60,6 @@ class CredentialSpec:
     scheme: SecurityScheme
     flows: tuple[tuple[Flow, str | None], ...] = ()
     prefix: str = ""
-
-
-def _scope_tuple(value: object) -> tuple[str, ...]:
-    """Copy explicit scope collections into sorted, distinct ASCII tokens."""
-    if not _is_sequence(value):
-        msg = "Scopes must be a tuple or list."
-        raise ValueError(msg)
-    normalized: set[str] = set()
-    for item in value:
-        if not isinstance(item, str) or not _SCOPE.fullmatch(item):
-            msg = "Scopes must contain valid ASCII scope tokens."
-            raise ValueError(msg)
-        normalized.add(item)
-    return tuple(sorted(normalized))
 
 
 def _url(flow: object, *names: str) -> str | None:
@@ -131,8 +116,6 @@ def _scheme(declaration: WireDeclaration) -> SecuritySchemeEntry:
         return unavailable
     if (place := api_key_place(declaration)) is not None:
         location, wire_name = place
-        if location != "query" and not token(wire_name):
-            return unavailable
         return SecurityScheme(name=name, kind="api_key", location=location, wire_name=wire_name)
     if (scheme := http_scheme(declaration)) in {"basic", "bearer"}:
         return SecurityScheme(
@@ -150,8 +133,10 @@ class SecurityPlanner:
         """Compile complete document catalogues, retaining unusable names as unavailable entries."""
         self.catalogues: dict[SourceDocumentId, dict[str, SecuritySchemeEntry]] = {}
         self.declarations: dict[str, WireDeclaration] = {}
+        self.declared = scheme_catalogues(batch)
+        self.openapi = batch.openapi
         root = batch.documents[0].id
-        for document, schemes in scheme_catalogues(batch).items():
+        for document, schemes in self.declared.items():
             for name, item in schemes.items():
                 self.catalogues.setdefault(document, {})[name] = _scheme(item)
                 if document == root or name not in self.declarations:
@@ -225,15 +210,14 @@ class SecurityPlanner:
             requirements: list[SecurityRequirement] = []
             owners: set[tuple[str, str]] = set()
             for name, scopes in alternative:
-                scheme = schemes.get(name) if isinstance(name, str) else None
-                if not isinstance(scheme, SecurityScheme):
-                    self.problem(operation, f"requires the unavailable scheme {name!r}")
+                if not isinstance(name, str) or not isinstance(scheme := schemes.get(name), SecurityScheme):
+                    self.problem(operation, f"requires the unavailable scheme {stable_repr(name)}")
                     continue
-                try:
-                    required = _scope_tuple(scopes)
-                except ValueError:
-                    self.problem(operation, f"requires valid scope tokens for scheme {name!r}")
+                declaration = operation_schemes(self.declared, operation)[name]
+                if (invalid := scope_problem(name, declaration, scopes, self.openapi)) is not None:
+                    self.problem(operation, invalid)
                     continue
+                required = tuple(sorted(set(scopes or ())))
                 position = parameter_key(scheme.location, scheme.wire_name)
                 if position in owners:
                     self.problem(

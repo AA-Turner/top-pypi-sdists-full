@@ -17,12 +17,17 @@ class InstanceGroup:
         summary (Union[Unset, str]):
         emails (Union[Unset, List[str]]):
         instance_role (Union[Unset, None, InstanceGroupInstanceRole]):
+        external_id (Union[Unset, None, str]): IdP group this group is linked to; its membership then follows the SSO
+            groups claim
+        scim_managed (Union[Unset, bool]): Provisioned by SCIM, which then owns external_id
     """
 
     name: str
     summary: Union[Unset, str] = UNSET
     emails: Union[Unset, List[str]] = UNSET
     instance_role: Union[Unset, None, InstanceGroupInstanceRole] = UNSET
+    external_id: Union[Unset, None, str] = UNSET
+    scim_managed: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -35,6 +40,9 @@ class InstanceGroup:
         instance_role: Union[Unset, None, str] = UNSET
         if not isinstance(self.instance_role, Unset):
             instance_role = self.instance_role.value if self.instance_role else None
+
+        external_id = self.external_id
+        scim_managed = self.scim_managed
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -49,6 +57,10 @@ class InstanceGroup:
             field_dict["emails"] = emails
         if instance_role is not UNSET:
             field_dict["instance_role"] = instance_role
+        if external_id is not UNSET:
+            field_dict["external_id"] = external_id
+        if scim_managed is not UNSET:
+            field_dict["scim_managed"] = scim_managed
 
         return field_dict
 
@@ -70,11 +82,17 @@ class InstanceGroup:
         else:
             instance_role = InstanceGroupInstanceRole(_instance_role)
 
+        external_id = d.pop("external_id", UNSET)
+
+        scim_managed = d.pop("scim_managed", UNSET)
+
         instance_group = cls(
             name=name,
             summary=summary,
             emails=emails,
             instance_role=instance_role,
+            external_id=external_id,
+            scim_managed=scim_managed,
         )
 
         instance_group.additional_properties = d

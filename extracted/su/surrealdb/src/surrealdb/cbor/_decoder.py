@@ -7,7 +7,7 @@ from codecs import getincrementaldecoder
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
-from typing import IO, TYPE_CHECKING, Any, TypeVar, cast, overload
+from typing import IO, TYPE_CHECKING, Any, TypeVar, overload
 
 from surrealdb.cbor._types import (
     CBORDecodeEOF,
@@ -60,6 +60,7 @@ class CBORDecoder:
         "_immutable",
         "_str_errors",
         "_stringref_namespace",
+        "null_value",
     )
 
     _fp: IO[bytes]  # pyright: ignore[reportUninitializedInstanceVariable]
@@ -104,6 +105,10 @@ class CBORDecoder:
         self._shareables: list[object] = []
         self._stringref_namespace: list[str | bytes] | None = None
         self._immutable = False
+        # What a plain CBOR null decodes to. `None` here, as CBOR says; the
+        # SurrealDB layer sets it to `Null`, because on that wire a null is
+        # SurrealDB's NULL and has to stay distinct from its NONE.
+        self.null_value: Any = None
 
     @property
     def immutable(self) -> bool:
@@ -273,11 +278,11 @@ class CBORDecoder:
         elif subtype == 24:
             return self.read(1)[0]
         elif subtype == 25:
-            return cast(int, struct.unpack(">H", self.read(2))[0])
+            return struct.unpack(">H", self.read(2))[0]
         elif subtype == 26:
-            return cast(int, struct.unpack(">L", self.read(4))[0])
+            return struct.unpack(">L", self.read(4))[0]
         elif subtype == 27:
-            return cast(int, struct.unpack(">Q", self.read(8))[0])
+            return struct.unpack(">Q", self.read(8))[0]
         elif subtype == 31 and allow_indefinite:
             return None
         else:
@@ -612,7 +617,11 @@ class CBORDecoder:
     def decode_none(self) -> None:
         # Semantic tag 6
         value = self._decode()
-        if not isinstance(value, type(None)):
+        # The payload is a plain CBOR null, which `null_value` decides the
+        # Python spelling of - so compare against that rather than against
+        # `None`, or a decoder configured for a different null (SurrealDB's
+        # `Null`) rejects its own well-formed tag 6.
+        if value is not self.null_value:
             raise CBORDecodeValueError("invalid None value " + str(value))
 
         return self.set_shareable(None)
@@ -761,13 +770,13 @@ class CBORDecoder:
         return CBORSimpleValue(self.read(1)[0])
 
     def decode_float16(self) -> float:
-        return self.set_shareable(cast(float, struct.unpack(">e", self.read(2))[0]))
+        return self.set_shareable(struct.unpack(">e", self.read(2))[0])
 
     def decode_float32(self) -> float:
-        return self.set_shareable(cast(float, struct.unpack(">f", self.read(4))[0]))
+        return self.set_shareable(struct.unpack(">f", self.read(4))[0])
 
     def decode_float64(self) -> float:
-        return self.set_shareable(cast(float, struct.unpack(">d", self.read(8))[0]))
+        return self.set_shareable(struct.unpack(">d", self.read(8))[0])
 
 
 major_decoders: dict[int, Callable[[CBORDecoder, int], Any]] = {
@@ -784,7 +793,7 @@ major_decoders: dict[int, Callable[[CBORDecoder, int], Any]] = {
 special_decoders: dict[int, Callable[[CBORDecoder], Any]] = {
     20: lambda self: False,
     21: lambda self: True,
-    22: lambda self: None,
+    22: lambda self: self.null_value,
     23: lambda self: undefined,
     24: CBORDecoder.decode_simple_value,
     25: CBORDecoder.decode_float16,

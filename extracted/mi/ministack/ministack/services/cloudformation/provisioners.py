@@ -8,6 +8,7 @@ import base64
 import contextvars
 import copy
 import hashlib
+import html
 import io
 import json
 import logging
@@ -2439,6 +2440,8 @@ def _lambda_create(logical_id, props, stack_name):
         "aliases": {},
         "concurrency": None,
         "provisioned_concurrency": {},
+        # As CreateFunction: only a template naming an architecture pins the container platform.
+        "architectures_declared": "Architectures" in props,
     }
     if is_image:
         # Mirror the Lambda API's image response: ImageUri echoed on the config,
@@ -2545,6 +2548,12 @@ def _lambda_update(physical_id, old_props, new_props, stack_name, logical_id=Non
     resp = _lambda_svc._update_config(name, config_data)
     if resp[0] >= 400:
         raise ValueError(f"AWS::Lambda::Function configuration update failed: {resp[2]!r}")
+    # The template is the whole desired state: an update declares what a create of it would.
+    func["architectures_declared"] = "Architectures" in new_props
+    if not func["architectures_declared"]:
+        # A container spawned while the flag read True would stay pooled pinned.
+        _lambda_svc.invalidate_worker(name, qualifier="$LATEST")
+        _lambda_svc._pool_kill_function(get_account_id(), name)
     _reconcile_tag_map(func.setdefault("tags", {}), old_props, new_props)
     return name, {"Arn": func["config"]["FunctionArn"]}
 
@@ -8495,9 +8504,9 @@ def _ec2_sg_permissions(rules):
             "PrefixListIds": [],
             "UserIdGroupPairs": [],
         }
-        if "FromPort" in rule:
+        if "FromPort" in rule and not _ec2._ignores_ports(perm["IpProtocol"]):
             perm["FromPort"] = int(rule["FromPort"])
-        if "ToPort" in rule:
+        if "ToPort" in rule and not _ec2._ignores_ports(perm["IpProtocol"]):
             perm["ToPort"] = int(rule["ToPort"])
         described = {"Description": rule["Description"]} if rule.get("Description") else {}
         if "CidrIp" in rule:
@@ -8534,7 +8543,7 @@ def _ec2_sg_reconcile(store, old_perms, new_perms):
         return
 
     def key(perm):
-        return json.dumps(_ec2._strip_descriptions(perm), sort_keys=True)
+        return json.dumps(_ec2._rule_match_form(perm), sort_keys=True)
 
     keys = {key(p) for p in old_perms} | {key(p) for p in new_perms}
     store[:] = [p for p in store if key(p) not in keys] + new_perms
@@ -8845,26 +8854,30 @@ def _cfn_to_camel(key):
     return key[0].lower() + key[1:]
 
 
+# ECS API names that are not the template name with a lower-case first letter (botocore ecs model).
+_ECS_API_NAMES = {"EFSVolumeConfiguration": "efsVolumeConfiguration", "FilesystemId": "fileSystemId",
+                  "IAM": "iam", "FSxWindowsFileServerVolumeConfiguration": "fsxWindowsFileServerVolumeConfiguration",
+                  "ProxyConfigurationProperties": "properties"}
+# Map-typed fields whose keys are the user's own (dockerLabels, log/firelens options, docker volume opts).
+_ECS_USER_MAPS = frozenset(("dockerLabels", "options", "driverOpts", "labels"))
+
+
+def _ecs_api_form(value):
+    """A task definition property in the ECS API's camelCase, at every depth, user-keyed maps untouched."""
+    if isinstance(value, list):
+        return [_ecs_api_form(v) for v in value]
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            name = _ECS_API_NAMES.get(k) or _cfn_to_camel(k)
+            out[name] = v if name in _ECS_USER_MAPS else _ecs_api_form(v)
+        return out
+    return value
+
+
 def _normalize_container_defs(cdefs):
     """Convert CF PascalCase container definitions to camelCase for ECS API."""
-    result = []
-    for cdef in cdefs:
-        normalized = {}
-        for k, v in cdef.items():
-            camel = _cfn_to_camel(k)
-            if camel == "portMappings" and isinstance(v, list):
-                v = [{_cfn_to_camel(pk): pv for pk, pv in pm.items()} for pm in v]
-            elif camel == "environment" and isinstance(v, list):
-                v = [{_cfn_to_camel(ek): ev for ek, ev in e.items()} for e in v]
-            elif camel == "mountPoints" and isinstance(v, list):
-                v = [{_cfn_to_camel(mk): mv for mk, mv in m.items()} for m in v]
-            elif camel == "volumesFrom" and isinstance(v, list):
-                v = [{_cfn_to_camel(vk): vv for vk, vv in vf.items()} for vf in v]
-            elif camel == "logConfiguration" and isinstance(v, dict):
-                v = {_cfn_to_camel(lk): lv for lk, lv in v.items()}
-            normalized[camel] = v
-        result.append(normalized)
-    return result
+    return _ecs_api_form(list(cdefs or []))
 
 
 def _ecs_task_def_create(logical_id, props, stack_name):
@@ -8883,10 +8896,10 @@ def _ecs_task_def_create(logical_id, props, stack_name):
         "networkMode": props.get("NetworkMode", "bridge"),
         "executionRoleArn": props.get("ExecutionRoleArn", ""),
         "taskRoleArn": props.get("TaskRoleArn", ""),
-        "volumes": props.get("Volumes", []),
+        "volumes": _ecs_api_form(props.get("Volumes", [])),
         "pidMode": props.get("PidMode", ""),
         "ipcMode": props.get("IpcMode", ""),
-        "placementConstraints": props.get("PlacementConstraints", []),
+        "placementConstraints": _ecs_api_form(props.get("PlacementConstraints", [])),
         "registeredAt": now_iso(),
         "registeredBy": f"arn:aws:iam::{get_account_id()}:root",
     }
@@ -8894,6 +8907,10 @@ def _ecs_task_def_create(logical_id, props, stack_name):
                       ("Memory", "memory")):
         if prop in props:
             td[key] = props[prop]
+    for prop in ("RuntimePlatform", "EphemeralStorage", "ProxyConfiguration", "InferenceAccelerators",
+                 "EnableFaultInjection"):
+        if prop in props:
+            td[_cfn_to_camel(prop)] = _ecs_api_form(props[prop])
     _ecs._task_defs[td_key] = td
     _ecs._tags[arn] = _pascal_to_camel(props.get("Tags") or [])
     return arn, {"TaskDefinitionArn": arn}
@@ -9386,7 +9403,7 @@ def _lambda_layer_create(logical_id, props, stack_name):
     import hashlib
     zip_data = None
     if s3_bucket and s3_key:
-        zip_data = _s3._get_object_data(s3_bucket, s3_key)
+        zip_data = _s3._get_object_data_for_caller(s3_bucket, s3_key)
 
     layer_arn = f"arn:aws:lambda:{get_region()}:{get_account_id()}:layer:{layer_name}"
     version_arn = f"{layer_arn}:{ver}"
@@ -9518,7 +9535,7 @@ def _sfn_definition(props):
         if bucket and key:
             from ministack.services import s3 as _s3_svc
             try:
-                blob = _s3_svc._get_object_data(bucket, key, version_id=version)
+                blob = _s3_svc._get_object_data_for_caller(bucket, key, version_id=version)
             except Exception as e:
                 raise ValueError(
                     f"AWS::StepFunctions::StateMachine DefinitionS3Location fetch failed "
@@ -13343,14 +13360,16 @@ def _ec_query(props, renames=None):
 
 def _ec_call(fn, params, resource_type, action):
     _ec._seed_default_param_groups()
+    _ec._seed_default_user()
     status, _headers, body = fn(params)
     if status >= 400:
         text = body.decode("utf-8", errors="replace") if isinstance(body, bytes) else str(body)
         code = re.search(r"<Code>(.*?)</Code>", text)
         message = re.search(r"<Message>(.*?)</Message>", text, re.S)
-        raise ValueError(
-            f"{resource_type} {action} failed: "
-            f"{code.group(1) if code else status}: {message.group(1) if message else text}")
+        # The handler's reason (real AWS, us-east-1, AWS::ElastiCache::UserGroup).
+        message = html.unescape(message.group(1)) if message else text
+        raise ValueError(f'Resource handler returned message: "{_sdk_error(message, "ElastiCache", status)}" '
+                         f"(RequestToken: {new_uuid()}, HandlerErrorCode: GeneralServiceException)")
 
 
 def _ec_sync_tags(arn, old_props, new_props, resource_type):
@@ -13737,10 +13756,17 @@ def _ec_user_group_update(physical_id, old_props, new_props, stack_name, logical
         _ec_user_group_create, _ec_user_group_delete)
     if replaced:
         return replaced
-    old_users = list(old_props.get("UserIds") or [])
+    # Only a change to the set of users or to Engine resets the group to the template's users (real AWS, us-east-1).
+    live_users = list((_ec._user_groups.get(physical_id) or {}).get("UserIds") or [])
     new_users = list(new_props.get("UserIds") or [])
-    params = _ec_query({"UserIdsToAdd": [u for u in new_users if u not in old_users],
-                        "UserIdsToRemove": [u for u in old_users if u not in new_users]})
+    params = {}
+    if (set(new_users) != set(old_props.get("UserIds") or [])
+            or new_props.get("Engine") != old_props.get("Engine")):
+        params = _ec_query({"UserIdsToAdd": [u for u in new_users if u not in live_users],
+                            "UserIdsToRemove": [u for u in live_users if u not in new_users]})
+    live_engine = (_ec._user_groups.get(physical_id) or {}).get("Engine")
+    if new_props.get("Engine") and str(new_props["Engine"]) != live_engine:
+        params["Engine"] = str(new_props["Engine"])
     if params:
         _ec_call(_ec._modify_user_group, {"UserGroupId": physical_id, **params},
                  "AWS::ElastiCache::UserGroup", "update")

@@ -7097,6 +7097,7 @@ class Permission(pycarlo.lib.types.Enum):
     * `CompliancePiiInventoryAccess`None
     * `CompliancePiiInventoryExport`None
     * `DashboardAccess`None
+    * `DashboardComposableUse`None
     * `DashboardEdit`None
     * `DashboardEditTheirOwn`None
     * `DataExportsAccess`None
@@ -7158,6 +7159,7 @@ class Permission(pycarlo.lib.types.Enum):
     * `PerformanceInsightsEdit`None
     * `SettingsAccess`None
     * `SettingsAgentConversationLogsAccess`None
+    * `SettingsAgentConversationLogsEdit`None
     * `SettingsAgentsAccess`None
     * `SettingsAgentsEdit`None
     * `SettingsAiAgentsAccess`None
@@ -7239,6 +7241,7 @@ class Permission(pycarlo.lib.types.Enum):
         "CompliancePiiInventoryAccess",
         "CompliancePiiInventoryExport",
         "DashboardAccess",
+        "DashboardComposableUse",
         "DashboardEdit",
         "DashboardEditTheirOwn",
         "DataExportsAccess",
@@ -7300,6 +7303,7 @@ class Permission(pycarlo.lib.types.Enum):
         "PerformanceInsightsEdit",
         "SettingsAccess",
         "SettingsAgentConversationLogsAccess",
+        "SettingsAgentConversationLogsEdit",
         "SettingsAgentsAccess",
         "SettingsAgentsEdit",
         "SettingsAiAgentsAccess",
@@ -8304,6 +8308,19 @@ class ReinforcementLoopIssueStatus(pycarlo.lib.types.Enum):
     __choices__ = ("FIXED", "IN_PROGRESS", "OPEN")
 
 
+class ReinforcementLoopIssueUndoAction(pycarlo.lib.types.Enum):
+    """The user action that undoReinforcementLoopIssueStatus reverts.
+
+    Enumeration Choices:
+
+    * `MARK_FIXED`None
+    * `MARK_IN_PROGRESS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("MARK_FIXED", "MARK_IN_PROGRESS")
+
+
 class ReinforcementLoopRunMode(pycarlo.lib.types.Enum):
     """Whether a reinforcement-loop run or issue is live work or a
     backtest.
@@ -8593,6 +8610,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
     * `ComplianceRead`None
     * `ComplianceWrite`None
     * `DashboardAll`None
+    * `DashboardComposableAll`None
+    * `DashboardComposablePropose`None
+    * `DashboardComposableRead`None
+    * `DashboardComposableWrite`None
     * `DashboardPropose`None
     * `DashboardRead`None
     * `DashboardWrite`None
@@ -8843,6 +8864,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
         "ComplianceRead",
         "ComplianceWrite",
         "DashboardAll",
+        "DashboardComposableAll",
+        "DashboardComposablePropose",
+        "DashboardComposableRead",
+        "DashboardComposableWrite",
         "DashboardPropose",
         "DashboardRead",
         "DashboardWrite",
@@ -12410,7 +12435,10 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
     tags = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("TagKeyValuePairInput")), graphql_name="tags"
     )
-    """Return alerts with the specified tags."""
+    """Return alerts with the specified tags. A data product tag also
+    returns the alerts raised by monitors on that data product's
+    agents.
+    """
 
     audience_ids = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="audienceIds"
@@ -12424,7 +12452,9 @@ class AlertsFilterCriteriaInput(sgqlc.types.Input):
     data_product_ids = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="dataProductIds"
     )
-    """Return alerts that are on tables belong to these data products."""
+    """Return alerts on tables of these data products, or raised by
+    monitors on their agents.
+    """
 
     slo_statuses = sgqlc.types.Field(sgqlc.types.list_of(SloStatus), graphql_name="sloStatuses")
     """Return alerts with the specified SLO statuses. Use null to include
@@ -14865,6 +14895,18 @@ class DataExplorerWidgetInputType(sgqlc.types.Input):
 
     config = sgqlc.types.Field(JSONString, graphql_name="config")
     """Additional configuration for widget"""
+
+
+class DataProductAssetInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("mcon", "agent_name")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """MCON of the agent's trace table, or of the agent. An agent MCON is
+    stored as the MCON of the agent's span storage
+    """
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Name of the agent"""
 
 
 class DataProfilerWidgetDataInput(sgqlc.types.Input):
@@ -26402,10 +26444,10 @@ class AgentHealthIssueJiraTicket(sgqlc.types.Type):
 
 
 class AgentHealthIssueLinearTicket(sgqlc.types.Type):
-    """A Linear ticket created for an agent-health issue.  Present means
-    a ticket already exists for this issue (keyed on the issue's
-    stable identity, so it persists across pipeline runs); absent
-    means none has been created yet.
+    """A Linear ticket created for, or linked to, an agent-health issue.
+    Present means a ticket already exists for this issue (keyed on the
+    issue's stable identity, so it persists across pipeline runs);
+    absent means none has been created yet.
     """
 
     __schema__ = schema
@@ -26417,12 +26459,12 @@ class AgentHealthIssueLinearTicket(sgqlc.types.Type):
     """Web URL of the Linear ticket."""
 
     status = sgqlc.types.Field(String, graphql_name="status")
-    """Latest Linear workflow-state type synced via webhook; null until
-    first sync.
+    """Latest Linear workflow-state type, synced via webhook. Null on a
+    created ticket until the first sync.
     """
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-    """When the Linear ticket was created from this issue."""
+    """When the Linear ticket was created from, or linked to, this issue."""
 
 
 class AgentHealthIssueServiceNowTicket(sgqlc.types.Type):
@@ -34322,7 +34364,7 @@ class CostFindingCalculationOutput(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("formula", "formula_version", "inputs", "price", "window")
+    __field_names__ = ("formula", "formula_version", "inputs", "price", "window", "assumption")
     formula = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="formula")
     """The formula over the inputs, by name."""
 
@@ -34342,6 +34384,11 @@ class CostFindingCalculationOutput(sgqlc.types.Type):
     window = sgqlc.types.Field(
         sgqlc.types.non_null("CostFindingWindowOutput"), graphql_name="window"
     )
+
+    assumption = sgqlc.types.Field(String, graphql_name="assumption")
+    """One fixed sentence saying what an estimate assumes. Set on
+    'ESTIMATED' figures only.
+    """
 
 
 class CostFindingDisappearedOutput(sgqlc.types.Type):
@@ -34453,6 +34500,7 @@ class CostFindingOutput(sgqlc.types.Type):
         "change",
         "current_spend",
         "saving",
+        "overlap_group",
     )
     fix_type = sgqlc.types.Field(sgqlc.types.non_null(CostFindingFixType), graphql_name="fixType")
 
@@ -34516,6 +34564,14 @@ class CostFindingOutput(sgqlc.types.Type):
         sgqlc.types.non_null("CostFindingFigureOutput"), graphql_name="saving"
     )
     """What acting on the finding would save."""
+
+    overlap_group = sgqlc.types.Field(String, graphql_name="overlapGroup")
+    """The same for findings that share a table, warehouse or job,
+    directly or through another finding. Their savings overlap, so a
+    total counts each group once, at its largest saving. Null on runs
+    from before the field existed: count such a finding as its own
+    group.
+    """
 
 
 class CostFindingPreviousRunOutput(sgqlc.types.Type):
@@ -38487,6 +38543,8 @@ class DataProductDryRunTableCounts(sgqlc.types.Type):
         "total_asset_count",
         "total_asset_monitored_count",
         "total_asset_unmonitored_count",
+        "name_taken",
+        "existing_data_product_uuid",
     )
     total_asset_count = sgqlc.types.Field(Int, graphql_name="totalAssetCount")
     """Total count of assets that would be in the data product"""
@@ -38498,6 +38556,17 @@ class DataProductDryRunTableCounts(sgqlc.types.Type):
         Int, graphql_name="totalAssetUnmonitoredCount"
     )
     """Total count of yet unmonitored assets"""
+
+    name_taken = sgqlc.types.Field(Boolean, graphql_name="nameTaken")
+    """Whether another data product already has the requested name, so
+    `createOrUpdateDataProductV2` would reject it. Null when no name
+    was passed.
+    """
+
+    existing_data_product_uuid = sgqlc.types.Field(UUID, graphql_name="existingDataProductUuid")
+    """The data product that already has the requested name, if the user
+    can read it
+    """
 
 
 class DataProductEdge(sgqlc.types.Type):
@@ -39715,6 +39784,21 @@ class DeleteCollibraIntegration(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("deleted",)
     deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
+
+
+class DeleteConversation(sgqlc.types.Type):
+    """Permanently delete one Operations Agent conversation."""
+
+    __schema__ = schema
+    __field_names__ = ("conversation_id", "deleted")
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+    """The requested conversation id."""
+
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """Always true: the conversation no longer exists. This includes a
+    conversation that was already deleted, so a retried delete
+    succeeds.
+    """
 
 
 class DeleteConversationClusteringSpace(sgqlc.types.Type):
@@ -48955,6 +49039,21 @@ class LinkOpsgenieIncident(sgqlc.types.Type):
     """The link details"""
 
 
+class LinkReinforcementLoopIssueTicket(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("issue_uuid", "status", "linear_ticket")
+    issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopIssueStatus), graphql_name="status"
+    )
+
+    linear_ticket = sgqlc.types.Field(AgentHealthIssueLinearTicket, graphql_name="linearTicket")
+    """The linked Linear ticket. Null when the link only marked the issue
+    in progress.
+    """
+
+
 class LinkServiceNowIncidentForAlert(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("servicenow_incident",)
@@ -50104,7 +50203,14 @@ class MetaSummarizerState(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("domain_id", "domain_name", "watch_notes", "alerts", "recently_posted")
+    __field_names__ = (
+        "domain_id",
+        "domain_name",
+        "watch_notes",
+        "first_enabled_time",
+        "alerts",
+        "recently_posted",
+    )
     domain_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainId")
     """The teammate audience's domain."""
 
@@ -50114,6 +50220,13 @@ class MetaSummarizerState(sgqlc.types.Type):
     watch_notes = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="watchNotes")
     """True when the teammate audience wants a note when the teammate
     starts watching an item.
+    """
+
+    first_enabled_time = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="firstEnabledTime"
+    )
+    """When the teammate audience was first turned on. Turning it off and
+    on again keeps this time.
     """
 
     alerts = sgqlc.types.Field(
@@ -51378,11 +51491,15 @@ class MonitorLabelObject(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -52793,6 +52910,7 @@ class Mutation(sgqlc.types.Type):
         "unignore_reinforcement_loop_issue",
         "mark_reinforcement_loop_issue_fixed",
         "mark_reinforcement_loop_issue_in_progress",
+        "link_reinforcement_loop_issue_ticket",
         "undo_reinforcement_loop_issue_status",
         "update_reinforcement_loop_agent",
         "update_reinforcement_loop_selector",
@@ -53400,6 +53518,7 @@ class Mutation(sgqlc.types.Type):
         "bulk_set_etl_job_generates_alerts",
         "start_tsa_analysis",
         "start_remediation",
+        "delete_conversation",
         "request_agent_budget_increase",
         "create_agent_memory",
         "replace_agent_memory",
@@ -55406,6 +55525,44 @@ class Mutation(sgqlc.types.Type):
       ticket.
     """
 
+    link_reinforcement_loop_issue_ticket = sgqlc.types.Field(
+        LinkReinforcementLoopIssueTicket,
+        graphql_name="linkReinforcementLoopIssueTicket",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "issue_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="issueUuid", default=None
+                    ),
+                ),
+                (
+                    "url",
+                    sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="url", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Links a pasted ticket or PR URL to a live RL V2
+    issue. When the account's Linear integration is in the URL's
+    workspace, a Linear issue URL becomes the issue's Linear ticket,
+    which replaces any other, and the issue's status then follows the
+    ticket. A completed ticket marks the issue FIXED. A canceled or
+    duplicate ticket is refused. Any other URL, or a Linear URL that
+    can't sync, marks the issue in progress with the link, as
+    markReinforcementLoopIssueInProgress does, and
+    undoReinforcementLoopIssueStatus reverts it. A linked Linear
+    ticket clears the undo. Monte Carlo staff can't change the status
+    of issues.
+
+    Arguments:
+
+    * `issue_uuid` (`UUID!`): The issueUuid of a
+      getReinforcementLoopV2Issues node.
+    * `url` (`String!`): An http(s) link to a ticket or PR, such as a
+      Linear issue.
+    """
+
     undo_reinforcement_loop_issue_status = sgqlc.types.Field(
         "UndoReinforcementLoopIssueStatus",
         graphql_name="undoReinforcementLoopIssueStatus",
@@ -55422,7 +55579,8 @@ class Mutation(sgqlc.types.Type):
     )
     """(experimental) Reverts the last markReinforcementLoopIssueFixed or
     markReinforcementLoopIssueInProgress on an issue. A later fix,
-    ticket or draft PR clears the undo, and the call then fails.
+    ticket, draft PR or regression clears the undo, and the call then
+    fails.
 
     Arguments:
 
@@ -60231,7 +60389,9 @@ class Mutation(sgqlc.types.Type):
     * `description` (`String`): Description of the data product
     * `domain_id` (`UUID`): UUID of domain to create this data product
     * `mcons` (`[String]`): MCON of assets to be part of this data
-      product
+      product. Agent MCONs, and the base MCON of an agent the data
+      product holds, are rejected; add agents with
+      `createOrUpdateDataProductV2`
     * `name` (`String`): Data product name
     * `uuid` (`UUID`): UUID of data product to update
     """
@@ -60241,6 +60401,14 @@ class Mutation(sgqlc.types.Type):
         graphql_name="createOrUpdateDataProductV2",
         args=sgqlc.types.ArgDict(
             (
+                (
+                    "assets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(DataProductAssetInput)),
+                        graphql_name="assets",
+                        default=None,
+                    ),
+                ),
                 (
                     "audience_uuids",
                     sgqlc.types.Arg(
@@ -60260,6 +60428,10 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.list_of(String), graphql_name="mcons", default=None
                     ),
                 ),
+                (
+                    "merge_assets",
+                    sgqlc.types.Arg(Boolean, graphql_name="mergeAssets", default=None),
+                ),
                 ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
                 ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
             )
@@ -60269,14 +60441,19 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `assets` (`[DataProductAssetInput!]`): Agents to be part of this
+      data product. Omit to keep the current agents.
     * `audience_uuids` (`[UUID]`): UUIDs of audiences for this data
       product
     * `description` (`String`): Description of the data product
     * `enable_monitoring_upon_creation` (`Boolean`): Deprecated and
       ignored. Create table monitors to monitor the data product's
       tables.
-    * `mcons` (`[String]`): MCON of assets to be part of this data
-      product
+    * `mcons` (`[String]`): MCON of the non-agent assets to be part of
+      this data product. Omit to keep the current ones. An empty list
+      also keeps them, unless `assets` is passed.
+    * `merge_assets` (`Boolean`): Add `mcons` and `assets` to the
+      current assets instead of replacing them
     * `name` (`String`): Data product name
     * `uuid` (`UUID`): UUID of data product to update
     """
@@ -80182,6 +80359,32 @@ class Mutation(sgqlc.types.Type):
       plan for
     """
 
+    delete_conversation = sgqlc.types.Field(
+        DeleteConversation,
+        graphql_name="deleteConversation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "conversation_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="conversationId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Permanently delete one of the account's Operations
+    Agent conversations, by its `conversationId` from
+    `opsAgentConversations`. Deleting a conversation that no longer
+    exists succeeds, so retries are safe. Another agent's conversation
+    is rejected. Restricted to account owners.
+
+    Arguments:
+
+    * `conversation_id` (`String!`): The `conversationId` of a
+      conversation from `opsAgentConversations`.
+    """
+
     request_agent_budget_increase = sgqlc.types.Field(
         "RequestAgentBudgetIncrease",
         graphql_name="requestAgentBudgetIncrease",
@@ -82119,6 +82322,7 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
         "lost_analyses",
         "previous_run",
         "disappeared_findings",
+        "latest_run_failed",
     )
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
     """Whether cost insights are fully enabled for the caller's account.
@@ -82138,14 +82342,16 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
         ),
         graphql_name="insights",
     )
-    """Insights from the latest completed cost-insights run for the
-    caller's account, limited to what the account has access to. Empty
-    until a run has produced insights.
+    """Insights from the run shown for the caller's account, limited to
+    what the account has access to. The run shown is the latest
+    completed cost-insights run, or the newest earlier one that
+    succeeded when 'latestRunFailed' is true. Empty until a run has
+    produced insights.
     """
 
     insights_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="insightsCount")
-    """How many insights the latest completed run produced, which can
-    exceed the number in 'insights' when the account does not have the
+    """How many insights the run shown produced, which can exceed the
+    number in 'insights' when the account does not have the
     Performance & Cost agent feature enabled.
     """
 
@@ -82192,6 +82398,16 @@ class PerformancePageInsightsOutput(sgqlc.types.Type):
     what the account has access to. Empty for a version 1 run, and
     when the account does not have the Performance & Cost agent
     feature enabled.
+    """
+
+    latest_run_failed = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="latestRunFailed"
+    )
+    """True when the account's latest run was a new-flow run that failed
+    and stored no findings. The insights then come from the newest
+    earlier run that succeeded, and 'createdTime' is when that run
+    started. With no such run, 'insights' is empty. False for a failed
+    old-flow run, which is shown as it is.
     """
 
 
@@ -84191,6 +84407,7 @@ class Query(sgqlc.types.Type):
         "get_domain_filtered_data_products",
         "get_data_product_metrics",
         "get_data_product_metrics_v2",
+        "get_data_products_for_agent",
         "get_data_product_asset_data",
         "get_data_product_upstream_counts",
         "get_data_product_audiences",
@@ -90629,6 +90846,36 @@ class Query(sgqlc.types.Type):
     * `domain_id` (`UUID`): Filter assets by domain UUID
     """
 
+    get_data_products_for_agent = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("DataProduct"))),
+        graphql_name="getDataProductsForAgent",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get the data products that hold an agent as an
+    asset
+
+    Arguments:
+
+    * `mcon` (`String!`): The agent's MCON: its trace table or aiagent
+      MCON
+    * `agent_name` (`String!`): The agent's name
+    """
+
     get_data_product_asset_data = sgqlc.types.Field(
         DataProductAssetData,
         graphql_name="getDataProductAssetData",
@@ -90663,16 +90910,31 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "assets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(DataProductAssetInput)),
+                        graphql_name="assets",
+                        default=None,
+                    ),
+                ),
                 ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
             )
         ),
     )
     """(general availability) Fetch data about table upstream status as
-    well as total counts
+    well as total counts. Raises for a table in `mcons` or an agent in
+    `assets` that the caller can't read. An agent or tool MCON outside
+    the caller's domains is left out. An agent in `assets` that isn't
+    live is read through its base MCON, and left out when the caller
+    can read it
 
     Arguments:
 
-    * `mcons` (`[String]!`): List of table MCONS to filter the result
+    * `mcons` (`[String]!`): List of table, agent or tool MCONs to
+      filter the result
+    * `assets` (`[DataProductAssetInput!]`): Agents to analyze
+      alongside `mcons`
     * `domain_id` (`UUID`): Filter by domain UUID
     """
 
@@ -90710,15 +90972,26 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "assets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(DataProductAssetInput)),
+                        graphql_name="assets",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
     """(experimental) Get the warehouse UUID with the most associated
-    MCONs
+    MCONs. For a domain-restricted caller, MCONs and agents outside
+    their domains are left out.
 
     Arguments:
 
     * `mcons` (`[String]!`): List of MCONs to analyze
+    * `assets` (`[DataProductAssetInput!]`): Agents to analyze
+      alongside `mcons`
     """
 
     get_domains_for_mcons = sgqlc.types.Field(
@@ -90735,6 +91008,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "assets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(DataProductAssetInput)),
+                        graphql_name="assets",
+                        default=None,
+                    ),
+                ),
+                (
                     "domain_types",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(DomainType)),
@@ -90747,12 +91028,15 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Get (warehouse, domain) pairs with table counts for
     a set of MCONs. Resolves all domain assignment types (explicit,
-    database/schema inheritance, tags).
+    database/schema inheritance, tags). For a domain-restricted
+    caller, MCONs and agents outside their domains are left out.
 
     Arguments:
 
     * `mcons` (`[String!]!`): List of MCONs to look up domain
       assignments for (max 250)
+    * `assets` (`[DataProductAssetInput!]`): Agents to analyze
+      alongside `mcons`
     * `domain_types` (`[DomainType!]`): Domain types to include.
       Defaults to metadata-only. Pass `AGENTIC` alongside `METADATA`
       to also surface agentic domains.
@@ -90771,16 +91055,30 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "assets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(DataProductAssetInput)),
+                        graphql_name="assets",
+                        default=None,
+                    ),
+                ),
+                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
             )
         ),
     )
     """(experimental) Return asset counts for a data product had it been
-    created from these MCONs
+    created from these MCONs. For a domain-restricted caller, MCONs
+    and agents outside their domains are left out.
 
     Arguments:
 
     * `mcons` (`[String]!`): MCON of assets to create data product
       from
+    * `assets` (`[DataProductAssetInput!]`): Agents to analyze
+      alongside `mcons`
+    * `name` (`String`): Name of the data product to create. When set,
+      the response says whether another data product already has it.
     """
 
     parse_query = sgqlc.types.Field(
@@ -92678,7 +92976,8 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Cost insights for the caller's account, shown on
     the Performance Page: whether the feature is enabled and the
-    latest completed run's insights.
+    insights of the latest completed run, or of the newest earlier one
+    that succeeded when that run failed.
     """
 
     get_indexed_field_specs = sgqlc.types.Field(
@@ -96646,11 +96945,15 @@ class Query(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -96966,11 +97269,15 @@ class Query(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -97286,11 +97593,15 @@ class Query(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -97606,11 +97917,15 @@ class Query(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -97926,11 +98241,15 @@ class Query(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -98246,11 +98565,15 @@ class Query(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -98566,11 +98889,15 @@ class Query(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -98886,11 +99213,15 @@ class Query(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -99206,11 +99537,15 @@ class Query(sgqlc.types.Type):
       can include null to include monitors without tags
     * `asset_tags` (`[TagKeyValuePairInput!]`): Filter by asset tags.
       Returns monitors with at least one linked table that has any of
-      the provided tags
+      the provided tags, and the monitors on the agents of the data
+      products whose tags are provided
     * `exclude_asset_tags` (`[TagKeyValuePairInput!]`): Exclude
       monitors that have any linked table whose tags consist only of
       the provided tags. Tables with additional tags or no tags are
-      included
+      included. Data product tags also exclude the monitors on agents
+      held only by data products with the provided tags, unless one of
+      the monitor's tables carries the tag of another live data
+      product. Other tags on that table don't keep it
     * `data_product_ids` (`[UUID]`): Filter by data product IDs
     * `data_quality_dimensions` (`[String]`): Filter by data quality
       dimensions
@@ -112285,6 +112620,10 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "fix_link_url",
         "regressed_at",
         "in_progress_link_url",
+        "undo_action",
+        "regression_conversations",
+        "regression_conversation_count",
+        "dismissed_conversations",
     )
     issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
     """The issue's public id — the handle the ticket and draft-PR
@@ -112498,6 +112837,43 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
 
     in_progress_link_url = sgqlc.types.Field(String, graphql_name="inProgressLinkUrl")
     """The link a user gave when marking the issue in progress."""
+
+    undo_action = sgqlc.types.Field(ReinforcementLoopIssueUndoAction, graphql_name="undoAction")
+    """The user's last Mark fixed or Mark in progress, while
+    undoReinforcementLoopIssueStatus can still revert it. Null when
+    there is nothing to undo: after an undo, or once a later fix,
+    ticket, draft PR or regression cleared it.
+    """
+
+    regression_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopV2IssueConversation"))
+        ),
+        graphql_name="regressionConversations",
+    )
+    """The newest conversationsFirst conversations that count against the
+    last fix: those that started 24 hours or more after it, less the
+    dismissed ones. Newest conversation first. Empty without a fix.
+    Not narrowed by the workflow filter.
+    """
+
+    regression_conversation_count = sgqlc.types.Field(
+        Int, graphql_name="regressionConversationCount"
+    )
+    """How many conversations count against the last fix. Two or more
+    regress a Fixed issue. Null without a fix.
+    """
+
+    dismissed_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopV2IssueConversation"))
+        ),
+        graphql_name="dismissedConversations",
+    )
+    """The conversations a customer rated as not belonging to the issue.
+    They don't count against a fix. Empty without a fix. Not narrowed
+    by the workflow filter.
+    """
 
 
 class ReinforcementLoopV2IssueConnection(sgqlc.types.relay.Connection):
@@ -116045,6 +116421,9 @@ class SpanPredicate(sgqlc.types.Type):
         "allow_negation",
         "negated_description",
         "category",
+        "hint",
+        "allowed_comparison_operators",
+        "minimum_counts",
         "supported_connections",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
@@ -116063,10 +116442,32 @@ class SpanPredicate(sgqlc.types.Type):
 
     category = sgqlc.types.Field(String, graphql_name="category")
 
+    hint = sgqlc.types.Field(String, graphql_name="hint")
+
+    allowed_comparison_operators = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FilterSpanComparisonOperator)),
+        graphql_name="allowedComparisonOperators",
+    )
+
+    minimum_counts = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("SpanPredicateMinimumCount")),
+        graphql_name="minimumCounts",
+    )
+
     supported_connections = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="supportedConnections",
     )
+
+
+class SpanPredicateMinimumCount(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("operator", "count")
+    operator = sgqlc.types.Field(
+        sgqlc.types.non_null(FilterSpanComparisonOperator), graphql_name="operator"
+    )
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
 
 
 class SpanTrendMetrics(sgqlc.types.Type):
@@ -118091,6 +118492,9 @@ class TableUpstreamData(sgqlc.types.Type):
     upstream_excluded_count = sgqlc.types.Field(Int, graphql_name="upstreamExcludedCount")
 
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
+    """MCON of the asset the upstream counts are for. For an agent, its
+    `lineageRootMcon`
+    """
 
 
 class TableUseCaseMembership(sgqlc.types.Type):
@@ -118325,8 +118729,8 @@ class TaskPerformanceSummaryEdge(sgqlc.types.Type):
 
 
 class TeammateAgentPolicyOutput(sgqlc.types.Type):
-    """How triage and the Troubleshooting Agent run on alerts in a domain
-    with an active teammate.
+    """How triage, the Troubleshooting Agent and monitor tuning run in a
+    domain with an active teammate.
     """
 
     __schema__ = schema
@@ -118334,9 +118738,10 @@ class TeammateAgentPolicyOutput(sgqlc.types.Type):
         "triage_always_on",
         "triage_limits_apply",
         "triage_free",
-        "tsa_min_threshold",
+        "tsa_threshold",
         "tsa_limits_apply",
         "tsa_free",
+        "tuning_auto_apply_always_on",
     )
     triage_always_on = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="triageAlwaysOn"
@@ -118356,12 +118761,11 @@ class TeammateAgentPolicyOutput(sgqlc.types.Type):
     triage_free = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="triageFree")
     """Whether triage runs are free."""
 
-    tsa_min_threshold = sgqlc.types.Field(
-        sgqlc.types.non_null(TsaAutomationThreshold), graphql_name="tsaMinThreshold"
+    tsa_threshold = sgqlc.types.Field(
+        sgqlc.types.non_null(TsaAutomationThreshold), graphql_name="tsaThreshold"
     )
-    """Lowest threshold the Troubleshooting Agent runs at after triage.
-    HIGH means it runs on every high-priority alert; a wider domain
-    threshold is kept.
+    """Threshold the Troubleshooting Agent runs at after triage. The
+    account and domain thresholds do not apply.
     """
 
     tsa_limits_apply = sgqlc.types.Field(
@@ -118373,6 +118777,14 @@ class TeammateAgentPolicyOutput(sgqlc.types.Type):
 
     tsa_free = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="tsaFree")
     """Whether Troubleshooting Agent runs are free."""
+
+    tuning_auto_apply_always_on = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="tuningAutoApplyAlwaysOn"
+    )
+    """Proactive tuning suggestions are applied automatically to the
+    domain's monitors, whatever the account and domain settings say. A
+    monitor whose own auto-tuning setting is off is not tuned.
+    """
 
 
 class TeammateAudience(sgqlc.types.Type):
@@ -129162,8 +129574,9 @@ class DataProduct(sgqlc.types.Type, Node):
     incident_count_history = sgqlc.types.Field(
         sgqlc.types.list_of(IncidentDailyCount), graphql_name="incidentCountHistory"
     )
-    """Number of incidents per day for the past 30 days across all
-    monitors
+    """Number of incidents per day for the past 30 days on the data
+    product's tables. Alerts that reach the data product only through
+    its agents are not counted
     """
 
 
@@ -129180,6 +129593,8 @@ class DataProductAsset(sgqlc.types.Type, Node):
         "table_id",
         "is_deleted",
         "is_visible_in_domain",
+        "agent_name",
+        "lineage_root_mcon",
         "categories_with_monitors",
         "incidents",
         "upstream_dependencies_count",
@@ -129198,7 +129613,10 @@ class DataProductAsset(sgqlc.types.Type, Node):
     """Data product an asset belongs to"""
 
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
-    """The asset MC unique identifier"""
+    """The asset MCON, which agents on one trace table share. For an
+    agent, the MCON of its trace table, or of the agent for a
+    Snowflake agent
+    """
 
     deleted_mcon_display_name = sgqlc.types.Field(String, graphql_name="deletedMconDisplayName")
     """A display name for this asset. The redundancy is loaded for
@@ -129219,6 +129637,16 @@ class DataProductAsset(sgqlc.types.Type, Node):
 
     is_visible_in_domain = sgqlc.types.Field(Boolean, graphql_name="isVisibleInDomain")
     """Indicates if the asset is visible in the selected domain"""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Name of the agent, if the asset is an agent"""
+
+    lineage_root_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="lineageRootMcon"
+    )
+    """MCON to root the asset's lineage at, unique per asset. For an
+    agent, its lineage node MCON
+    """
 
     categories_with_monitors = sgqlc.types.Field(
         sgqlc.types.list_of(IncidentCategory), graphql_name="categoriesWithMonitors"

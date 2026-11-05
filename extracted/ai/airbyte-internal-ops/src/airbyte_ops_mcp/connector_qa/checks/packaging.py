@@ -4,12 +4,12 @@ from typing import ClassVar
 
 import semver
 import toml
-from pydash.objects import get  # type: ignore
+from pydash.objects import get
 
 from airbyte_ops_mcp.connector_ops.utils import (
     Connector,
     ConnectorLanguage,
-)  # type: ignore
+)
 from airbyte_ops_mcp.connector_qa import consts
 from airbyte_ops_mcp.connector_qa.models import (
     Check,
@@ -228,19 +228,19 @@ class CheckVersionFollowsSemver(PackagingCheck):
     description = f"Connector version must follow the Semantic Versioning scheme. This is to ensure that all connectors follow a consistent versioning scheme. Refer to our [Semantic Versioning for Connectors]({consts.SEMVER_FOR_CONNECTORS_DOC_URL}) for more details."
 
     def _run(self, connector: Connector) -> CheckResult:
-        if "dockerImageTag" not in connector.metadata:
+        if "dockerImageTag" not in connector.metadata:  # ty: ignore[unsupported-operator]
             return self.create_check_result(
                 connector=connector,
                 passed=False,
                 message=f"dockerImageTag is missing in {consts.METADATA_FILE_NAME}",
             )
         try:
-            semver.Version.parse(str(connector.metadata["dockerImageTag"]))
+            semver.Version.parse(str(connector.metadata["dockerImageTag"]))  # ty: ignore[not-subscriptable]
         except ValueError:
             return self.create_check_result(
                 connector=connector,
                 passed=False,
-                message=f"Connector version {connector.metadata['dockerImageTag']} does not follow semantic versioning",
+                message=f"Connector version {connector.metadata['dockerImageTag']} does not follow semantic versioning",  # ty: ignore[not-subscriptable]
             )
         return self.create_check_result(
             connector=connector,

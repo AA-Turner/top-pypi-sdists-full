@@ -112,6 +112,8 @@ class _RunMetrics:
 
         # Definitions: pattern -> (step_metric, hidden), and their revision.
         self._definitions: dict[str, tuple[str | None, bool]] = {}
+        self._defaults: dict[str, tuple[str | None, bool]] = {}
+        self._effective_definitions: dict[str, tuple[str | None, bool]] = {}
         self._version = 0
         self._defined_at = 0.0
         self._resolved: dict[str, str | None] = {}
@@ -175,33 +177,90 @@ class _RunMetrics:
                 raise ValueError(
                     f"a run may define at most {MAX_DEFINITIONS} metric patterns"
                 )
-            version = self._version + 1
-            body = encode(
+            warnings = self._revise_definitions(definitions, self._defaults)
+        for warning in warnings:
+            _warn(warning)
+
+    def _revise_definitions(self, definitions, defaults):
+        """Publish one snapshot; caller rules take precedence over fallbacks.
+
+        Called with the writer lock held. Automatic defaults use only spare
+        wire capacity, never the caller's definition quota.
+        """
+        version = self._version + 1
+
+        def body_for(metrics):
+            return encode(
                 {
                     "version": version,
                     "metrics": [
                         {"name": pattern, "step_metric": step, "hidden": hide}
-                        for pattern, (step, hide) in sorted(definitions.items())
+                        for pattern, (step, hide) in sorted(metrics.items())
                     ],
                 }
             )
-            if len(body) + len(self._producer) + _ENVELOPE_BYTES > MAX_BATCH_BYTES:
-                raise ValueError(
-                    f"metric definitions exceed {MAX_BATCH_BYTES} bytes; "
-                    "use fewer or shorter patterns"
-                )
-            previous = self._version
-            self._definitions = definitions
-            self._version = version
-            self._defined_at = time.monotonic()
-            self._resolved.clear()
-            if not self._accepting():
+
+        limit = MAX_BATCH_BYTES - len(self._producer) - _ENVELOPE_BYTES
+        body = body_for(definitions)
+        if len(body) > limit:
+            raise ValueError(
+                f"metric definitions exceed {MAX_BATCH_BYTES} bytes; "
+                "use fewer or shorter patterns"
+            )
+        fallbacks = [
+            (name, definition)
+            for name, definition in defaults.items()
+            if not any(
+                name == pattern
+                or (pattern.endswith("*") and name.startswith(pattern[:-1]))
+                for pattern in definitions
+            )
+        ][: MAX_DEFINITIONS - len(definitions)]
+        # Fit automatic defaults without rejecting otherwise valid caller rules.
+        low, high = 0, len(fallbacks)
+        while low < high:
+            count = (low + high + 1) // 2
+            if len(body_for(definitions | dict(fallbacks[:count]))) <= limit:
+                low = count
+            else:
+                high = count - 1
+        effective = definitions | dict(fallbacks[:low])
+        self._definitions, self._defaults = definitions, defaults
+        if effective == self._effective_definitions:
+            return []
+        body = body_for(effective)
+        previous = self._version
+        self._effective_definitions = effective
+        self._version = version
+        self._defined_at = time.monotonic()
+        self._resolved.clear()
+        if not self._accepting():
+            return []
+        self._revisions[version] = body
+        self._revision_bytes += len(body)
+        self._release_revision(previous)
+        warnings = [self._overflow_warning(self._enforce_budget()), self._start()]
+        self._lock.notify_all()
+        return warnings
+
+    def _define_metric_defaults(
+        self, names: Iterable[str], *, step_metric: str, hidden: Iterable[str] = ()
+    ) -> None:
+        """Register bounded fallbacks, without creating caller definitions."""
+        if self._pid != os.getpid():
+            self._skip_inherited()
+            return
+        with self._lock:
+            defaults = dict(self._defaults)
+            for name in names:
+                if "*" in name or name in defaults:
+                    continue
+                if len(defaults) >= MAX_DEFINITIONS:
+                    break
+                defaults[name] = (step_metric, name in hidden)
+            if defaults == self._defaults:
                 return
-            self._revisions[version] = body
-            self._revision_bytes += len(body)
-            self._release_revision(previous)
-            warnings = [self._overflow_warning(self._enforce_budget()), self._start()]
-            self._lock.notify_all()
+            warnings = self._revise_definitions(self._definitions, defaults)
         for warning in warnings:
             _warn(warning)
 
@@ -259,22 +318,22 @@ class _RunMetrics:
             return self._resolved[name]
         if len(self._resolved) >= MAX_RESOLVED_NAMES:
             self._resolved.clear()
-        definition = self._definitions.get(name)
+        definition = self._effective_definitions.get(name)
         if definition is None:
             # Equal-length matching prefixes are the same pattern.
             prefixes = [
                 (len(pattern), pattern)
-                for pattern in self._definitions
+                for pattern in self._effective_definitions
                 if pattern.endswith("*") and name.startswith(pattern[:-1])
             ]
             if prefixes:
-                definition = self._definitions[max(prefixes)[1]]
+                definition = self._effective_definitions[max(prefixes)[1]]
         step_metric = definition[0] if definition else None
         self._resolved[name] = step_metric
         return step_metric
 
     def _missing_coordinate_warning(self, values: dict[str, float]) -> str | None:
-        if not self._definitions:
+        if not self._effective_definitions:
             return None
         for name in values:
             step_metric = self._step_metric(name)

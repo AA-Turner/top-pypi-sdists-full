@@ -11,6 +11,8 @@ from ..core.unchecked_base_model import UncheckedBaseModel, UnionMetadata
 from .anthropic_model import AnthropicModel
 from .aws_bedrock_think_provider_credentials import AwsBedrockThinkProviderCredentials
 from .aws_bedrock_think_provider_model import AwsBedrockThinkProviderModel
+from .deepgram_think_provider_model import DeepgramThinkProviderModel
+from .deepgram_think_provider_reasoning_mode import DeepgramThinkProviderReasoningMode
 from .google_model import GoogleModel
 from .google_version import GoogleVersion
 from .groq_reasoning_mode import GroqReasoningMode
@@ -100,6 +102,24 @@ class ThinkSettingsV1Provider_Groq(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ThinkSettingsV1Provider_Deepgram(UncheckedBaseModel):
+    type: typing.Literal["deepgram"] = "deepgram"
+    model: DeepgramThinkProviderModel
+    version: typing.Optional[typing.Literal["v1"]] = None
+    temperature: typing.Optional[float] = None
+    reasoning_mode: typing.Optional[DeepgramThinkProviderReasoningMode] = None
+    voice_prompt_opt_out: typing.Optional[bool] = None
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 ThinkSettingsV1Provider = typing_extensions.Annotated[
     typing.Union[
         ThinkSettingsV1Provider_OpenAi,
@@ -107,6 +127,7 @@ ThinkSettingsV1Provider = typing_extensions.Annotated[
         ThinkSettingsV1Provider_Anthropic,
         ThinkSettingsV1Provider_Google,
         ThinkSettingsV1Provider_Groq,
+        ThinkSettingsV1Provider_Deepgram,
     ],
     UnionMetadata(discriminant="type"),
 ]

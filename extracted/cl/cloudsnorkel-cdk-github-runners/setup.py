@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cloudsnorkel.cdk-github-runners",
-    "version": "0.18.1",
+    "version": "0.18.2",
     "description": "CDK construct to create GitHub Actions self-hosted runners. Creates ephemeral runners on demand. Easy to deploy and highly customizable.",
     "license": "Apache-2.0",
     "url": "https://github.com/CloudSnorkel/cdk-github-runners.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cloudsnorkel.cdk_github_runners._jsii": [
-            "cdk-github-runners@0.18.1.jsii.tgz"
+            "cdk-github-runners@0.18.2.jsii.tgz"
         ],
         "cloudsnorkel.cdk_github_runners": [
             "py.typed"

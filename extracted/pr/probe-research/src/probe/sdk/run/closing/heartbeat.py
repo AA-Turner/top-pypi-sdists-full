@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ... import errors
+from ..launch import preempt as _preempt
 
 if TYPE_CHECKING:  # Run only in annotations: importing it here would loop back into run.py
     from ..run import Run
@@ -99,6 +100,8 @@ def _beat_forever(
     # beat landing on it does not restart the whole cycle every few beats.
     gave_up = False
     while True:
+        # A handler set since the run opened (Lightning's) may have displaced the recorder.
+        _preempt.mark_sender_stale()
         try:
             row = _beat_once(
                 client,

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from sequence_base.constants.serving import MAX_ROBOTS_PER_COPY
 from sequence_base.contract import SeqFlags
 
 from sequence_ai._core.capacity import LOAD_MAX, wait_steps
@@ -81,14 +82,26 @@ def check(spec: Any, bindings: dict) -> str:
     return "loads it and calls nothing: it names no sample episode (@seq.sample)"
 
 
+def most_a_copy(listed: list[int]) -> str:
+    """What a deploy adds of a policy that lists a batch size past what a copy seats: the most it seats, whatever it
+    lists, and why - the number stands in for a time no check measures
+. Nothing for any other.
+"""
+    if max(listed) <= MAX_ROBOTS_PER_COPY:
+        return ""
+    return (f"; {MAX_ROBOTS_PER_COPY} robots a copy at most whatever it lists: past them its worker's own handling of "
+            "their requests, which no check times, is what would hold them up")
+
+
 def seats(spec: Any, bindings: dict) -> str:
     """How a worker seats robots on a copy: a policy whose infer takes a
     batch (@seq.concurrent(sizes=[...])) as many as the largest listed size whose batch answers within the time its
     robots can wait for an answer (wait_steps at hz), as long as their batches fill at most LOAD_MAX of the time between
-    a robot's asks (its replan step at hz), each size timed by its version's build check; one that asks at its last valid
-    step, or declares no action_chunk_valid_len, one robot a copy, its robots waiting for every answer or nothing saying
-    how long they can; any other one robot a copy - several robots never take turns on one copy (the user 10-24: "We
-    just want to do the batching").
+    a robot's asks (its replan step at hz), each size timed by its version's build check, up to most_a_copy; one that
+    asks at its last valid step, or declares no action_chunk_valid_len, one robot a copy, its robots waiting for every
+    answer or nothing saying how long they can; any other one robot a copy - several robots never take turns on one
+    copy (the user 10-24: "We just want to do the batching").
+
 """
     listed = getattr(spec.concurrency, "sizes", None)
     if spec.episodes == "own":
@@ -105,7 +118,7 @@ def seats(spec: Any, bindings: dict) -> str:
                     f"answers within its max_wait_for_batch of {wait:g} s, each robot waiting up to that long for an "
                     f"answer, as long as their batches fill at most {LOAD_MAX:.0%} of a robot's time between asks (its "
                     f"{ask} steps at {spec.hz:g} Hz and its wait for the answer) - each warmed and timed on "
-                    f"{_timing(spec, bindings) or 'nothing'} before it serves")
+                    f"{_timing(spec, bindings) or 'nothing'} before it serves{most_a_copy(listed)}")
         if not steps:
             return ("one robot a copy: it asks for each answer at its last valid step, so its robots wait for every "
                     "answer and none can wait for a batch - an action_chunk_replan_at below action_chunk_valid_len "
@@ -115,7 +128,7 @@ def seats(spec: Any, bindings: dict) -> str:
                 f"within {steps / spec.hz:.3g} s, the {steps} steps a robot plays between asking for an answer and "
                 f"needing it at {spec.hz:g} Hz, as long as their batches fill at most {LOAD_MAX:.0%} of the "
                 f"{ask / spec.hz:.3g} s between a robot's asks (its {ask} steps) - each timed on "
-                f"{_timing(spec, bindings) or 'nothing'} by its build check")
+                f"{_timing(spec, bindings) or 'nothing'} by its build check{most_a_copy(listed)}")
     return "one robot a copy"
 
 
@@ -127,31 +140,27 @@ def names_sample(cls: type) -> bool:
     return SeqFlags.SAMPLE in registration(cls).bindings
 
 
-def planner(cls: type, spec: Any, bindings: dict, plan_every_s: float | None) -> list[str]:
-    """The lines `seq deploy` says of a planner (@seq.planner), which answers no act: what it plans for and when - its
-    clock, and wake_on: a key of what is observed into it or by a policy member's robots, or "seq.plans", a plan from
-    the planner above - and what its build check plans."""
+def plans(cls: type, bindings: dict, plan_every_s: float | None) -> str:
+    """What `seq deploy` says of a policy's @seq.plan: when it plans - its clock, and wake_on: a key of what a robot
+    observes or an act is handed, which plans at once - and that its build check plans once when the class names a sample
+    episode."""
     plan = getattr(cls, bindings[SeqFlags.PLAN], None)
     wake = list(getattr(getattr(plan, "raw_fn", plan), "__seq_plan_wake_on__", None) or [])
-    keys = [k for k in wake if k != "seq.plans"]
-    woken = ([f"an observation holds {_and(keys)}"] if keys else []) + (
-        ["the planner above writes it a plan"] if "seq.plans" in wake else [])
-    when = f"every {plan_every_s:g} s" + (f", and at once when {' or '.join(woken)}" if woken else "")
+    when = f"every {plan_every_s:g} s" + (f", and at once when an input holds {_and(wake)}" if wake else "")
     sample = _method(bindings, SeqFlags.SAMPLE)
-    return [_line("plans", f"for its members {_and(spec.planner.members)}, {when}"),
-            _line("check", f"plans its sample group once, {sample}" if sample
-                  else "loads it and plans nothing: it names no sample group (@seq.sample)")]
+    return (f"{when}, in the copy that holds the robot, in the background of its acts" +
+            (f"; its build check plans once after {sample}'s first act" if sample else ""))
 
 
 def of(cls: type) -> list[str]:
     """The lines `seq deploy` says of a policy class's parts - reads for a policy of its own inputs, then episodes,
-    check and seats; a planner's own (planner)."""
+    check and seats, and its plans when it has a @seq.plan."""
     from seq.registry import registration
 
     reg = registration(cls)
     spec, bindings = reg.spec, dict(reg.bindings)
-    if spec.planner is not None:
-        return planner(cls, spec, bindings, reg.plan_every_s)
     lines = [_line("episodes", episodes(spec, bindings)), _line("check", check(spec, bindings)),
-              _line("seats", seats(spec, bindings))]
+             _line("seats", seats(spec, bindings))]
+    if SeqFlags.PLAN in bindings:
+        lines.insert(1, _line("plans", plans(cls, bindings, reg.plan_every_s)))
     return lines

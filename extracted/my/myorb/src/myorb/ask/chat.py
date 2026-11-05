@@ -109,6 +109,16 @@ def clean_history(messages: Any) -> list[dict[str, str]]:
     return merged
 
 
+def warning(conversation: Conversation) -> str:
+    """For an action that reaches others, proposed after Claude read someone's text: that text
+    may have asked for it, written to make Claude do so (prompt injection)."""
+    read = ", ".join(conversation.read_from)
+    return (
+        f"{conversation.assistant} proposes this after reading {read}. An email can be written "
+        "to make it act for someone else: do it only if you asked for it yourself."
+    )
+
+
 def ask_question(conversation: Conversation, question: str) -> None:
     """Add the user's next question. Actions still waiting are cancelled: they wrote instead."""
     content: list[dict[str, Any]] = [*conversation.replies, *_cancel_pending(conversation)]
@@ -225,6 +235,8 @@ async def turn(
                 if not action.confirm:
                     yield {"status": action.working}  # until the answer goes on
                     result = await action.run(context, block.input)
+                    if result.read_from and result.read_from not in conversation.read_from:
+                        conversation.read_from.append(result.read_from)
                     conversation.replies.append(
                         {"type": "tool_result", "tool_use_id": block.id, "content": result.message}
                     )
@@ -244,7 +256,10 @@ async def turn(
                 )
                 continue
             conversation.pending[block.id] = (block.name, block.input)
-            proposals.append({"id": block.id, "summary": summary})
+            proposal = {"id": block.id, "summary": summary}
+            if action.outward and conversation.read_from:
+                proposal["warning"] = warning(conversation)
+            proposals.append(proposal)
         if proposals:
             for proposal in proposals:
                 yield {"proposal": proposal}

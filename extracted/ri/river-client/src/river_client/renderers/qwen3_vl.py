@@ -22,6 +22,7 @@ import math
 from typing import cast
 
 from river_client.renderers.base import (
+    rejected_call_text,
     ImageChunk,
     ImagePart,
     Message,
@@ -42,7 +43,6 @@ from river_client.renderers.qwen3 import (
     _IM_END,
     _IM_START,
 )
-
 
 VISION_START = "<|vision_start|>"
 VISION_END = "<|vision_end|>"
@@ -281,6 +281,13 @@ class Qwen35VLRenderer(Qwen35Renderer):
                 content_weight=content_weight,
                 is_reasoning_turn=is_reasoning_turn,
             )
+            rejected = rejected_call_text(msg)
+            if rejected:
+                builder.add_text(
+                    self.tokenizer.encode(rejected, add_special_tokens=False),
+                    content_weight,
+                )
+                answer_has_text = answer_has_text or bool(rejected.strip())
 
             if "tool_calls" in msg:
                 sep = "\n\n" if answer_has_text else ""
@@ -490,7 +497,9 @@ class Qwen35VLRenderer(Qwen35Renderer):
                     msg["role"] == "assistant" and idx > last_user_index
                 ),
             )
-            prompt_parts.append(content_str)
+            rejected = rejected_call_text(msg)
+            prompt_parts.append(content_str + rejected)
+            answer_has_text = answer_has_text or bool(rejected.strip())
 
             if "tool_calls" in msg:
                 tc_text = self._format_tool_calls(msg["tool_calls"])

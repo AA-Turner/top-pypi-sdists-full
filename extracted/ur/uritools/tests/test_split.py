@@ -48,6 +48,8 @@ class SplitTest(unittest.TestCase):
             ("//?", (None, "", "", "", None)),
             ("//#", (None, "", "", None, "")),
             ("//?#", (None, "", "", "", "")),
+            ("#foo\nbar", (None, None, "", None, "foo\nbar")),
+            ("?foo\nbar#baz\n", (None, None, "", "foo\nbar", "baz\n")),
             ("?", (None, None, "", "", None)),
             ("??", (None, None, "", "?", None)),
             ("?#", (None, None, "", "", "")),
@@ -77,6 +79,8 @@ class SplitTest(unittest.TestCase):
             (b"?:", (None, None, b"", b":", None)),
             (b"#:", (None, None, b"", None, b":")),
             (b"_:", (None, None, b"_:", None, None)),
+            (b"#foo\nbar", (None, None, b"", None, b"foo\nbar")),
+            (b"?foo\nbar#baz\n", (None, None, b"", b"foo\nbar", b"baz\n")),
         ]
         for uri, parts in cases:
             self.check(uri, parts)
@@ -281,9 +285,31 @@ class SplitTest(unittest.TestCase):
                 ("nobody", "localhost", 42),
                 ("userinfo", "test.python.org", 5432),
             ),
+            (
+                "urn:example:animal:ferret:nose",
+                (b"nobody", b"localhost", 42),
+                (b"nobody", b"localhost", 42),
+            ),
+            ("file:///", (b"nobody", b"localhost", 42), (b"nobody", b"localhost", 42)),
+            (
+                "http://Test.python.org/foo/",
+                (b"nobody", b"localhost", 42),
+                (b"nobody", "test.python.org", 42),
+            ),
+            (
+                "http://@Test.python.org:5432/foo/",
+                (b"nobody", b"localhost", 42),
+                ("", "test.python.org", 5432),
+            ),
+            (
+                "http://userinfo@Test.python.org:5432/foo/",
+                (b"nobody", b"localhost", 42),
+                ("userinfo", "test.python.org", 5432),
+            ),
         ]
         for uri, default, authority in cases:
             self.assertEqual(urisplit(uri).getauthority(default), authority)
+            self.assertEqual(urisplit(uri.encode()).getauthority(default), authority)
         for uri in ["http://[::1/", "http://::1]/"]:
             with self.assertRaises(ValueError, msg="%r" % uri):
                 urisplit(uri).getauthority()
@@ -314,7 +340,7 @@ class SplitTest(unittest.TestCase):
     def test_getport(self):
         for uri in ["foo://bar", "foo://bar:", "foo://bar/", "foo://bar:/"]:
             result = urisplit(uri)
-            if result.authority.endswith(":"):
+            if result.authority.endswith(":"):  # type: ignore
                 self.assertEqual(result.port, "")
             else:
                 self.assertEqual(result.port, None)
@@ -564,6 +590,12 @@ class SplitTest(unittest.TestCase):
             with self.assertRaises(ValueError, msg="%r" % uri):
                 urisplit(uri).gethost()
             with self.assertRaises(ValueError, msg="%r" % uri.encode("ascii")):
+                urisplit(uri.encode("ascii")).gethost()
+        # RFC 3986 3.2.2: the IPvFuture version flag is case-insensitive
+        for uri in ["http://[v7.future]/", "http://[V7.future]/"]:
+            with self.assertRaisesRegex(ValueError, "mechanism not supported"):
+                urisplit(uri).gethost()
+            with self.assertRaisesRegex(ValueError, "mechanism not supported"):
                 urisplit(uri.encode("ascii")).gethost()
 
     def test_encoding_none(self):

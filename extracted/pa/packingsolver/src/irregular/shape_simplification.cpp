@@ -1,5 +1,7 @@
 #include "irregular/shape_simplification.hpp"
 
+#include "irregular/instance_cache.hpp"
+
 #include "shape/simplification.hpp"
 #include "shape/approximation.hpp"
 
@@ -250,4 +252,22 @@ SimplifiedInstance irregular::shape_simplification(
 
     //std::cout << "shape_simplification end" << std::endl;
     return simplified_instance;
+}
+
+const SimplifiedInstance* Instance::get_simplified_instance(
+        double maximum_approximation_ratio,
+        const bool& end) const
+{
+    std::lock_guard<std::mutex> lock(simplified_instances_cache_->mutex);
+    std::map<double, SimplifiedInstance>& simplified_instances
+        = simplified_instances_cache_->simplified_instances;
+    auto it = simplified_instances.find(maximum_approximation_ratio);
+    if (it != simplified_instances.end())
+        return &it->second;
+    if (end)
+        return nullptr;
+    it = simplified_instances.insert({
+            maximum_approximation_ratio,
+            shape_simplification(*this, maximum_approximation_ratio)}).first;
+    return &it->second;
 }

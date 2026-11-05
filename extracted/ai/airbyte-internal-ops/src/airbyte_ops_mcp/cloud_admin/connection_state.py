@@ -195,7 +195,7 @@ def _make_empty_stream_state(
     stream_namespace: str | None,
 ) -> dict[str, Any]:
     stream_state = StreamState(
-        streamDescriptor={
+        streamDescriptor={  # ty: ignore[invalid-argument-type]
             "name": stream_name,
             **({"namespace": stream_namespace} if stream_namespace else {}),
         },

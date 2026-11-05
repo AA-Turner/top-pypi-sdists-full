@@ -46,7 +46,7 @@ use aws_smithy_runtime_api::client::runtime_components::RuntimeComponents;
 use aws_smithy_types::body::SdkBody;
 use snafu::ResultExt;
 
-use crate::crl::CrlManager;
+use crate::crl::ConnectionCrl;
 use crate::tls::RootStoreProvider;
 use crate::tls::client::configure_http1_tls_builder;
 use crate::tls::config::{ProxyConfig, TlsConfig};
@@ -79,7 +79,7 @@ impl AwsSdkReqwestClient {
     pub(crate) fn build(
         tls_config: &TlsConfig,
         proxy: Option<&ProxyConfig>,
-        crl_manager: CrlManager,
+        crl_manager: ConnectionCrl,
         roots: RootStoreProvider,
     ) -> Result<Self, TlsError> {
         Self::finish(configure_http1_tls_builder(
@@ -94,7 +94,7 @@ impl AwsSdkReqwestClient {
     pub(crate) async fn build_prepared(
         tls_config: &TlsConfig,
         proxy: Option<&ProxyConfig>,
-        crl_manager: CrlManager,
+        crl_manager: ConnectionCrl,
         roots: RootStoreProvider,
     ) -> Result<Self, TlsError> {
         let snapshot = roots
@@ -127,7 +127,7 @@ impl AwsSdkReqwestClient {
         Self::build_prepared(
             &TlsConfig::default(),
             None,
-            crate::crl::CrlManager::new(),
+            crate::crl::CrlManager::new().connection_crl(),
             roots,
         )
         .await
@@ -150,32 +150,6 @@ impl AwsSdkReqwestClient {
     #[cfg(test)]
     pub(crate) fn into_inner(self) -> reqwest::Client {
         self.0
-    }
-
-    /// Unwraps the client for storage in a batch-scoped
-    /// [`StorageHttp`](crate::file_manager::cloud_http::StorageHttp) slot, and
-    /// re-wraps it on the way back out.
-    ///
-    /// These exist as a pair because a PUT/GET batch shares one client across
-    /// every file in the command, and it is carried there by `TransferCtx` as a
-    /// cloud-agnostic `&reqwest::Client` — one field serving S3, GCS and Azure
-    /// alike. That field is where the newtype is necessarily erased.
-    ///
-    /// So for the shared path the construction guarantee rests on there being
-    /// exactly one producer of a `StorageHttp::S3` slot — `StorageHttp::for_stage`,
-    /// which builds through [`build`](Self::build) — rather than on the type.
-    /// That is weaker than the rest of the module, and deliberately narrow:
-    /// `from_shared` is not a general `From<reqwest::Client>`, and it must not
-    /// become one. Anything reaching the SDK by any other route still has to go
-    /// through a real constructor.
-    pub(crate) fn into_shared(self) -> reqwest::Client {
-        self.0
-    }
-
-    /// See [`into_shared`](Self::into_shared) — re-wraps a client that a
-    /// `StorageHttp::S3` slot already built through [`build`](Self::build).
-    pub(crate) fn from_shared(client: reqwest::Client) -> Self {
-        Self(client)
     }
 }
 
@@ -265,7 +239,7 @@ mod tests {
         AwsSdkReqwestClient::build(
             &TlsConfig::default(),
             None,
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
         )
         .expect("default SDK reqwest client must build")
@@ -334,7 +308,7 @@ mod tests {
         AwsSdkReqwestClient::build(
             &cfg,
             None,
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
         )
         .expect("TLS 1.3-only window must build");
@@ -352,7 +326,7 @@ mod tests {
         AwsSdkReqwestClient::build(
             &cfg,
             None,
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
         )
         .expect("TLS 1.2-only window must build");
@@ -368,7 +342,7 @@ mod tests {
         AwsSdkReqwestClient::build(
             &TlsConfig::default(),
             Some(&proxy),
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
         )
         .expect("explicit-proxy client must build");
@@ -521,7 +495,7 @@ mod tests {
                 ..TlsConfig::default()
             },
             None,
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
         )
         .expect("client must build")
@@ -542,7 +516,7 @@ mod tests {
                 ..TlsConfig::default()
             },
             None,
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
         )
         .expect("client must build")
@@ -634,7 +608,7 @@ mod tests {
                 ..TlsConfig::default()
             },
             None,
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
         )
         .expect("client must build")
@@ -680,7 +654,7 @@ mod tests {
             reqwest::Client::builder(),
             &config,
             Some(&crate::tls::config::ProxyConfig::default()),
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
         )
         .expect("configure storage TLS client")
@@ -717,7 +691,7 @@ mod tests {
         let client = crate::tls::create_tls_client_with_proxy(
             config,
             Some(&crate::tls::config::ProxyConfig::default()),
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
         )
         .expect("build connection-level TLS client");
@@ -749,7 +723,7 @@ mod tests {
                 ..Default::default()
             },
             Some(&crate::tls::config::ProxyConfig::default()),
-            CrlManager::new(),
+            CrlManager::new().connection_crl(),
             crate::tls::RootStoreProvider::new(),
             None,
             true,

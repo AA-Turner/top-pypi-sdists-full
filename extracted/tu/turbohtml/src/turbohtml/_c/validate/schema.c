@@ -48,6 +48,7 @@ typedef struct arena_block {
 
 typedef struct {
     arena_block *head;
+    int no_memory; /* an allocation failed, so what was built from this arena is partial */
 } arena;
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
@@ -67,8 +68,9 @@ static void *arena_alloc(arena *mem, size_t size) {
     if (block == NULL || block->cap - block->used < size) {
         size_t want = size > SCHEMA_ARENA_BLOCK ? size : SCHEMA_ARENA_BLOCK;
         arena_block *fresh = PyMem_Malloc(sizeof(arena_block) + want);
-        if (fresh == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-            return NULL;     /* GCOVR_EXCL_LINE */
+        if (fresh == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            mem->no_memory = 1; /* GCOVR_EXCL_LINE: the compile or validate entry raises the MemoryError */
+            return NULL;        /* GCOVR_EXCL_LINE */
         }
         fresh->next = mem->head;
         fresh->used = 0;
@@ -398,12 +400,19 @@ static const char *name_utf8(const Py_UCS4 *name, Py_ssize_t len, char *buf, siz
 }
 
 /* The first character-data child's text of a schema element (a name/value/param
-   literal), or the empty run. Used at compile time, without a validation context. */
+   literal), or the empty run. Used at compile time, without a validation context; a
+   text span that cannot be realized reads as the empty run with MemoryError set. */
 static const Py_UCS4 *element_text_raw(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
     for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
         if (is_chardata(child)) {
+            const Py_UCS4 *text = child->text_len == 0 ? EMPTY_UCS4 : th_node_realize_text(tree, child);
+            if (text == NULL) {    /* GCOVR_EXCL_BR_LINE: lazy text OOM */
+                PyErr_NoMemory();  /* GCOVR_EXCL_LINE: the compile stops on the pending exception */
+                *out_len = 0;      /* GCOVR_EXCL_LINE: allocation failure */
+                return EMPTY_UCS4; /* GCOVR_EXCL_LINE: allocation failure */
+            }
             *out_len = child->text_len;
-            return child->text_len == 0 ? EMPTY_UCS4 : th_node_realize_text(tree, child);
+            return text;
         }
     } /* GCOVR_EXCL_LINE: llvm miscredits this loop-exit brace when the element has no text child */
     *out_len = 0;
@@ -507,7 +516,6 @@ typedef struct th_schema {
     struct rpattern *regex_patterns;
     size_t regex_max_states;        /* states in the largest compiled pattern, sizing the match buffers */
     struct rscratch *regex_scratch; /* match buffers of one validate() call, built on its first pattern check */
-    int regex_no_memory;            /* a pattern check of this validate() call could not get its buffers */
     struct xfacet_entry *facet_entries;
     size_t facet_count, facet_cap;
 } th_schema;
@@ -873,14 +881,16 @@ PyObject *turbohtml_schema_compile(PyObject *module, PyObject *args) {
         return PyErr_NoMemory();                             /* GCOVR_EXCL_LINE */
     }
     int ok = kind == 0 ? xsd_compile(schema) : rng_compile(schema, base_url, include_root);
+    /* a pattern that exceeds the regex limits sets a ValueError */
+    ok = ok && regex_cache_schema(schema, schema->root) == 0;
+    /* a build that lost an arena allocation is partial even when it raised nothing */
+    if (schema->mem.no_memory && !PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: arena OOM */
+        PyErr_NoMemory();                             /* GCOVR_EXCL_LINE */
+        ok = 0;                                       /* GCOVR_EXCL_LINE */
+    } /* GCOVR_EXCL_LINE: arena OOM */
     if (!ok) {
         schema_free(schema);
         return NULL;
-    }
-    if (regex_cache_schema(schema, schema->root) < 0) {
-        schema_free(schema);
-        /* a pattern that exceeds the regex limits sets a ValueError; only an unforceable arena OOM leaves none */
-        return PyErr_Occurred() ? NULL : PyErr_NoMemory(); /* GCOVR_EXCL_BR_LINE: the OOM arm is unforceable */
     }
     PyObject *capsule = PyCapsule_New(schema, CAPSULE_NAME, capsule_destructor);
     if (capsule == NULL) {   /* GCOVR_EXCL_BR_LINE: capsule creation failure is unforceable */
@@ -941,9 +951,10 @@ TH_NODE_API(, PyObject *, turbohtml_schema_validate, (PyObject * module, PyObjec
     Py_END_CRITICAL_SECTION();
     PyMem_Free(ctx.path.data);
     arena_free(&local.mem);
-    if (local.regex_no_memory) { /* GCOVR_EXCL_BR_LINE: arena OOM */
-        ctx.failed = 1;          /* GCOVR_EXCL_LINE */
-        PyErr_NoMemory();        /* GCOVR_EXCL_LINE */
+    /* a derivative or pattern check that lost an allocation degraded to a mismatch, so its verdict is unknown */
+    if (local.mem.no_memory && !ctx.failed) { /* GCOVR_EXCL_BR_LINE: arena OOM */
+        ctx.failed = 1;                       /* GCOVR_EXCL_LINE */
+        PyErr_NoMemory();                     /* GCOVR_EXCL_LINE */
     } /* GCOVR_EXCL_LINE: arena OOM */
     if (ctx.failed) {
         Py_DECREF(errors);

@@ -152,19 +152,24 @@ def register(
     base_url: str | None = None,
     directory: Path | str | None = None,
     writer: dict | None = None,
+    ppid: int | None = None,
 ) -> Path | None:
     """Declare that this process owns `run_id`. Returns the entry path, or None
     if anything at all went wrong. ``writer`` (SDK reliability 2.2) is the
     session, epoch and sole-writer belief the watcher needs to report this
-    process's death to the server, not only as a span."""
+    process's death to the server, not only as a span. ``ppid`` (this process's
+    parent when ``pid`` is not given) lets a `probe exec` launcher find its own
+    child's entry (`Run._release_dead_writer`)."""
     try:
         d = Path(directory) if directory is not None else default_dir()
         d.mkdir(parents=True, exist_ok=True)
         this_pid = os.getpid() if pid is None else int(pid)
+        parent = os.getppid() if pid is None and ppid is None else ppid
         entry = {
             "schema": SCHEMA,
             "run_id": str(run_id),
             "pid": this_pid,
+            "ppid": parent,
             # Together with the pid, this is the identity. See the module note.
             "create_time": _create_time(this_pid),
             "registered_at": time.time(),

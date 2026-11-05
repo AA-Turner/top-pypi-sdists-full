@@ -5,7 +5,6 @@ use derive_where::derive_where;
 use crate::{
 	node::{Id, Inlines},
 	span::Span,
-	unparse::Unparse,
 };
 
 pub const DELIMITER: &str = "||";
@@ -22,14 +21,6 @@ pub struct Spoiler<'data, S: Span> {
 	/// one spoiler in fragments, which share their id so that they can be revealed together.
 	pub id: Id,
 	pub content: Inlines<'data, S>,
-}
-
-/// Unparse spoiler content back to markdown.
-///
-/// # Errors
-/// If formatting fails
-pub fn unparse<S: Span>(content: &Inlines<S>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-	write!(f, "{}{}{}", DELIMITER, content.unparse(), DELIMITER)
 }
 
 #[cfg(test)]

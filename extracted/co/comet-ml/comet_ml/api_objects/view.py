@@ -17,9 +17,9 @@ from typing import Any, Dict, List, Optional
 
 @dataclass
 class View:
-    """Represents a saved dashboard view configuration.
+    """Represents a saved view configuration.
 
-    A View stores dashboard layout and query state for a project or experiment.
+    A View stores the layout and query state for a project or experiment.
     Views can be created and retrieved via the API or APIExperiment classes.
 
     Args:
@@ -28,7 +28,7 @@ class View:
         project_id: The project this view belongs to.
         experiment_key: The experiment this view is scoped to.
         query_state: Serialized experiment query/filter state.
-        chart_state: Serialized dashboard chart configuration.
+        chart_state: Serialized chart configuration.
         table_state: Serialized react grid table configuration.
         v2: v2-format view state dict returned by the backend.
     """
@@ -99,6 +99,46 @@ class View:
                 payload[key] = value
 
         return payload
+
+    def layout_scope(self) -> Optional[str]:
+        """Return which scope's envelope holds this view's sections.
+
+        Project views keep their sections in ``v3["sections"]``; experiment
+        views keep them in ``v2["panels"]["sections"]``. The backend accepts
+        either envelope in either scope, but only renders the matching one.
+
+        Returns:
+            "project", "experiment", or None if the view has no sections.
+        """
+        if isinstance(self.v3, dict) and self.v3.get("sections"):
+            return "project"
+        if isinstance(self.v2, dict):
+            panels = self.v2.get("panels")
+            if isinstance(panels, dict) and panels.get("sections"):
+                return "experiment"
+        return None
+
+    def check_layout_scope(self, expected: str) -> None:
+        """Raise if this view's sections are in the other scope's envelope.
+
+        Such a view would be saved without error but render with no panels.
+
+        Args:
+            expected: "project" or "experiment", the scope being written to.
+
+        Raises:
+            ValueError: if the view's sections belong to the other scope.
+        """
+        actual = self.layout_scope()
+        if actual is not None and actual != expected:
+            builder = {
+                "project": "comet_ml.views.build_view",
+                "experiment": "comet_ml.views.build_experiment_view",
+            }[expected]
+            raise ValueError(
+                "view %r has %s-scope sections, which render empty in %s scope;"
+                " build it with %s() instead" % (self.name, actual, expected, builder)
+            )
 
     def as_portable(self) -> "View":
         """Return a copy of this view with all project- and experiment-specific

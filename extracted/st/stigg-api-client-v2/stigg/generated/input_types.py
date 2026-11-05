@@ -1070,12 +1070,14 @@ class CreditGrantInput(BaseModel):
 class CreditLedgerInput(BaseModel):
     currency_id: Optional[str] = Field(alias="currencyId", default=None)
     customer_id: str = Field(alias="customerId")
+    end_date: Optional[Any] = Field(alias="endDate", default=None)
     environment_id: Optional[Any] = Field(alias="environmentId", default=None)
     event_type: Optional[List[CreditLedgerEventType]] = Field(
         alias="eventType", default=None
     )
     paging: Optional["CursorPaging"] = None
     resource_id: Optional[str] = Field(alias="resourceId", default=None)
+    start_date: Optional[Any] = Field(alias="startDate", default=None)
 
 
 class CreditRateInput(BaseModel):

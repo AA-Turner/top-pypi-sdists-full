@@ -25,6 +25,7 @@ pub struct ScanProgress {
     pub cache_hits: usize,
     pub cache_invalidations: usize,
     pub validated_bytes: usize,
+    pub surveyed_sources: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -337,6 +338,19 @@ pub struct ScanPlan {
     pub project: Option<String>,
     pub contains: Option<String>,
     pub source_limit: Option<usize>,
+    pub listed: Option<Vec<(PathBuf, f64)>>,
+}
+
+impl ScanPlan {
+    /// The transcripts a scan of this plan visits, in order, when the caller
+    /// named them or listed them; empty when the scan discovers its own.
+    pub fn sources(&self) -> Vec<PathBuf> {
+        match &self.listed {
+            _ if !self.paths.is_empty() => self.paths.clone(),
+            Some(listed) => newest(listed.clone(), self.source_limit).0,
+            None => Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -429,6 +443,14 @@ impl<'a> ScanSession<'a> {
             let total = plan.paths.len();
             return Ok((plan.paths.clone(), total));
         }
+        if let Some(listed) = &plan.listed {
+            self.budget.checkpoint(&self.cancel)?;
+            self.budget.progress.discovery_entries += listed.len();
+            if self.budget.progress.discovery_entries > self.budget.limits.max_discovery_entries {
+                return Err(self.budget.exhaust(Budget::DiscoveryEntries));
+            }
+            return Ok(newest(listed.clone(), plan.source_limit));
+        }
         let canonical_root =
             std::fs::canonicalize(&plan.root).map_err(|error| incomplete(error.to_string()))?;
         let roots = if let Some(project) = &plan.project {
@@ -458,11 +480,6 @@ impl<'a> ScanSession<'a> {
         if roots.is_empty() {
             return Ok((Vec::new(), 0));
         }
-        crate::discovery::warm_metadata(
-            &roots,
-            self.budget.remaining().max_discovery_entries,
-            self.budget.limits.deadline_unix_ms,
-        );
         let mut request = self.bounded_request("discover");
         request.insert(
             "roots",
@@ -514,19 +531,7 @@ impl<'a> ScanSession<'a> {
             }
             break;
         }
-        paths.sort_by(|a, b| {
-            b.1.partial_cmp(&a.1)
-                .expect("finite discovery timestamp")
-                .then_with(|| {
-                    a.0.as_os_str()
-                        .as_encoded_bytes()
-                        .cmp(b.0.as_os_str().as_encoded_bytes())
-                })
-        });
-        let total = paths.len();
-        let selected = plan.source_limit.unwrap_or(total).min(total);
-        paths.truncate(selected);
-        Ok((paths.into_iter().map(|(path, _)| path).collect(), total))
+        Ok(newest(paths, plan.source_limit))
     }
 
     pub fn run<F>(&mut self, plan: &ScanPlan, mut visit: F) -> ScanOutcome
@@ -656,6 +661,21 @@ impl Drop for ScanSession<'_> {
             let _ = self.store.discard_response(&response, &self.context);
         }
     }
+}
+
+fn newest(mut paths: Vec<(PathBuf, f64)>, limit: Option<usize>) -> (Vec<PathBuf>, usize) {
+    paths.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .expect("finite discovery timestamp")
+            .then_with(|| {
+                a.0.as_os_str()
+                    .as_encoded_bytes()
+                    .cmp(b.0.as_os_str().as_encoded_bytes())
+            })
+    });
+    let total = paths.len();
+    paths.truncate(limit.unwrap_or(total).min(total));
+    (paths.into_iter().map(|(path, _)| path).collect(), total)
 }
 
 fn discovered_mtime(timestamp: i128) -> f64 {

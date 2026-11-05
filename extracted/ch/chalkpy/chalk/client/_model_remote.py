@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import collections.abc
 import time
 from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, TypeVar
@@ -11,7 +12,7 @@ import grpc
 
 if TYPE_CHECKING:
     import pyarrow as pa
-    from chalkcompute import RemoteCallClient  # pyright: ignore[reportMissingImports]
+    from chalkcompute import RemoteCallCancelResult, RemoteCallClient  # pyright: ignore[reportMissingImports]
 
     from chalk.client.client_grpc import ChalkGRPCClient
     from chalk.client.model_deployment import ModelDeployment
@@ -350,17 +351,43 @@ class ModelCallHandle:
         self._chunks: List[bytes] = []
         self._done = False
         self._result: Any = None
-        self._error: Optional[ModelRemoteError] = None
+        self._error: Optional[Exception] = None
 
     @property
     def call_id(self) -> str:
         """Server-assigned id of the queued call."""
         return self._call_id
 
+    def cancel(self) -> Any:
+        """Cancel this Stream-backed call before a consumer acquires its input.
+
+        Successful repeats are idempotent. Acquired calls fail with gRPC
+        FAILED_PRECONDITION and keep executing with their output unchanged.
+        Inside an event loop, await the result.
+        """
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return self._cancel()
+        return asyncio.to_thread(self._cancel)
+
+    def _cancel(self) -> "RemoteCallCancelResult":
+        result = self._get_queue_client().cancel(self._call_id)
+        if result.is_cancelled:
+            self._record_cancellation()
+        return result
+
+    def _record_cancellation(self) -> None:
+        from chalkcompute import CallCancelledError  # pyright: ignore[reportMissingImports]
+
+        self._chunks.clear()
+        self._error = CallCancelledError(f"Model call {self._call_id} was cancelled")
+
     def get(self, timeout: Optional[float] = None) -> Any:
         """Block until the call completes, returning what ``remote()`` would return.
 
-        Raises ``ModelRemoteError`` if the call failed, or ``TimeoutError`` if
+        Raises ``CallCancelledError`` if cancelled, ``ModelRemoteError`` if
+        the call failed, or ``TimeoutError`` if
         ``timeout`` seconds elapse first.
         """
         if self._error is not None:
@@ -374,6 +401,10 @@ class ModelCallHandle:
         while True:
             # poll_next blocks server-side and backs off internally, so this loop must not sleep.
             result = self._get_queue_client().poll_next(self._call_id, self._cursor, self._poll_count)
+            if result.is_cancelled:
+                self._record_cancellation()
+            if self._error is not None:
+                raise self._error
             self._cursor = result.cursor
             self._poll_count = result.poll_count
             last_status = result.status_name

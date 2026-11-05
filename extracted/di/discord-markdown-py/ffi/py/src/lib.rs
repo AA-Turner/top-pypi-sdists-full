@@ -9,7 +9,6 @@ use ::discord_markdown::{
 	DEFAULT_FUEL, Options,
 	error::Error,
 	lossless::Unit,
-	node::Blocks,
 	syntax::{Syntax, SyntaxSet},
 };
 use pyo3::{
@@ -19,7 +18,7 @@ use pyo3::{
 	types::{PyAnyMethods, PyModule, PyModuleMethods},
 	wrap_pyfunction,
 };
-use pythonize::{depythonize, pythonize};
+use pythonize::pythonize;
 
 /// Parse markdown content into an AST.
 ///
@@ -39,17 +38,14 @@ fn parse<'py>(py: Python<'py>, data: &str, flags: u32, fuel: u32) -> PyResult<Bo
 
 	let result = py
 		.allow_threads(|| {
-			::discord_markdown::parse::<(), Error<'_>>(
-				data.as_str(),
-				Options::from_flags(flags, fuel),
-			)
+			::discord_markdown::parse::<()>(data.as_str(), Options::from_flags(flags, fuel))
 		})
 		.map_err(|err| {
 			let msg = err.to_string();
 
 			match err {
 				Error::OutOfFuel => OutOfFuelException::new_err(msg),
-				Error::Parse(_) => PyException::new_err(msg),
+				Error::Parse { .. } => PyException::new_err(msg),
 			}
 		})?;
 
@@ -75,41 +71,29 @@ fn parse_lossless<'py>(
 
 	let result = py
 		.allow_threads(|| {
-			let mut node = ::discord_markdown::parse_lossless::<Error<'_>>(
+			let mut node = ::discord_markdown::parse_lossless(
 				data.as_str(),
 				Options::from_flags(flags, fuel),
 			)?;
 			node.convert_spans(&data, Unit::CodePoint);
 			Ok(node)
 		})
-		.map_err(|err: Error<'_>| {
+		.map_err(|err: Error| {
 			let msg = err.to_string();
 
 			match err {
 				Error::OutOfFuel => OutOfFuelException::new_err(msg),
-				Error::Parse(_) => PyException::new_err(msg),
+				Error::Parse { .. } => PyException::new_err(msg),
 			}
 		})?;
 
 	Ok(pythonize(py, &result)?)
 }
 
-/// Turn an AST back into markdown.
-///
-/// Takes the value `parse` returned. The AST cannot reconstruct everything exactly: text is not
-/// re-escaped, italics always come back as `_`, and unordered lists always as `* `.
-#[pyfunction]
-fn unparse(py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<String> {
-	let nodes = depythonize::<Blocks<'static, ()>>(nodes)?;
-
-	Ok(py.allow_threads(|| ::discord_markdown::unparse(&nodes)))
-}
-
 #[pymodule]
 fn discord_markdown(m: &Bound<'_, PyModule>) -> PyResult<()> {
 	m.add_function(wrap_pyfunction!(parse, m)?)?;
 	m.add_function(wrap_pyfunction!(parse_lossless, m)?)?;
-	m.add_function(wrap_pyfunction!(unparse, m)?)?;
 	m.add("DEFAULT_FUEL", DEFAULT_FUEL)?;
 	m.add("Syntax", syntax_flag(m.py())?)?;
 	Ok(())

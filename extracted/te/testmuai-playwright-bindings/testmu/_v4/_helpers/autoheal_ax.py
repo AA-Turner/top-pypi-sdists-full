@@ -95,6 +95,30 @@ async def _build_frame_chain(page, frame_captures, target_frame_id: str):
     return chain
 
 
+# A re-probed select whose option a variable chooses: AH2 may return the OPTION
+# itself. Its index in its single-select <select> (None when the node is not an
+# enabled option of one) lets the retry select THAT option, not the recorded one.
+_OPTION_INDEX_JS = (
+    "function(){if(this.tagName!=='OPTION')return null;"
+    "const s=this.closest('select');"
+    "return (s&&!s.multiple&&!this.disabled)?this.index:null;}"
+)
+
+
+async def _option_index(cdp, backend_node_id) -> int | None:
+    try:
+        node = await cdp.send("DOM.resolveNode", {"backendNodeId": backend_node_id})
+        res = await cdp.send("Runtime.callFunctionOn", {
+            "objectId": node["object"]["objectId"],
+            "functionDeclaration": _OPTION_INDEX_JS,
+            "returnByValue": True,
+        })
+        value = (res.get("result") or {}).get("value")
+        return value if isinstance(value, int) else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 async def run_locator_heal(
     page,
     action_instruction: str,
@@ -137,7 +161,10 @@ async def run_locator_heal(
         # session, never the main-frame session (a bare backendNodeId can
         # collide across frames).
         cdp = await resolve_session_for_frame(page, entry.get("frame_id", ""))
+        option_index = None
         try:
+            if reprobe and action_type == "select":
+                option_index = await _option_index(cdp, entry["backend_dom_node_id"])
             enriched = await enrich_element_locator(
                 cdp, {"backend_dom_node_id": entry["backend_dom_node_id"]}, page=page,
             )
@@ -162,6 +189,7 @@ async def run_locator_heal(
             "locator": enriched["locator"],
             "locator_type": enriched.get("locator_type", "css"),
             "frame_chain": frame_chain,
+            "option_index": option_index,
             "confidence": confidence,
             "reasoning": resp.get("reasoning", ""),
         }

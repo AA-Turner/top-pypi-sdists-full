@@ -10,7 +10,7 @@ import contextlib
 import functools
 import warnings
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Coroutine
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 
@@ -21,7 +21,7 @@ from mistralai.vibe.harness.runtime.errors import ToolNameCollisionError
 
 
 class AgentsError(Exception):
-    """The base of the errors the Agents SDK raises.
+    """The base of the errors the SDK raises.
 
     ``except agents.AgentsError`` catches a failed session or turn call on both hosts, including an
     HTTP error (``APIStatusError``), a connection error (``APIConnectionError``) or an error the
@@ -37,11 +37,44 @@ class AgentsError(Exception):
 
 
 class SdkError(AgentsError, ValueError):
-    """Raised when an Agents SDK operation is invalid."""
+    """Raised when an SDK operation is invalid."""
+
+
+class InvalidCursorError(SdkError):
+    """``after=`` is not a position of the session it reads, on either host.
+
+    The cursor is not one the session gave, or it is a cursor or a record of another session. A
+    program that stores cursors can read again from the start (``after=None``) or from a record of
+    this session. ``cursor`` is the cursor passed, a record's ``cursor`` for a record; a cursor
+    without a session id, as the SDK gave before, shows with this session's id in it.
+    """
+
+    def __init__(self, message: str, *, cursor: str | None) -> None:
+        super().__init__(message)
+        self.cursor = cursor
+
+
+def invalid_cursor(
+    cursor: str, session_id: object, *, owner: str | None = None, host_class: type[Exception] | None = None
+) -> InvalidCursorError:
+    """The ``InvalidCursorError`` both hosts raise for ``cursor`` passed to ``session_id``'s read.
+
+    ``owner`` is the other session the cursor names, if any. ``host_class`` is the class the host
+    raised before, which the error stays an instance of, so an ``except`` on it still catches it.
+    """
+    reason = (
+        f"is not an event cursor of session {session_id}"
+        if owner is None
+        else f"is a cursor of session {owner}, not of {session_id}"
+    )
+    cls = InvalidCursorError
+    if host_class is not None:
+        cls = cast(type[InvalidCursorError], _wrapped_class(InvalidCursorError, host_class))
+    return cls(f"after={cursor!r} {reason}: pass a cursor this session gave, or after=None", cursor=cursor)
 
 
 class UnsupportedAgentFeatureError(SdkError, RuntimeError):
-    """An Agents SDK feature has no implementation in the selected backend."""
+    """An SDK feature has no implementation in the selected backend."""
 
     def __init__(self, feature: str, reason: str) -> None:
         self.feature = feature
@@ -73,20 +106,54 @@ class SessionNotFoundError(AgentsError, LookupError):
 
     On a deployment, either no session has this ID, or the API key in use belongs to a
     workspace that cannot read it. On the local host, no session with this ID ran in this process.
+    On both hosts, ``scope="tree"`` of ``list_sessions`` also raises it for a subagent as the root.
     """
 
     def __init__(self, session_id: str, detail: str | None = None) -> None:
         self.session_id = session_id
+        super().__init__(self._message(session_id, detail))
+
+    @staticmethod
+    def _message(session_id: str, detail: str | None) -> str:
         message = f"Session {session_id} was not found; check the ID and that your API key can read it"
-        super().__init__(f"{message} ({detail})" if detail else message)
+        return f"{message} ({detail})" if detail else message
+
+
+class _LocalSessionNotFoundError(SessionNotFoundError):
+    """``SessionNotFoundError`` on the local host, whose sessions no API key reads: its text has no key hint.
+
+    It shows as ``SessionNotFoundError``, and pickles back to this class.
+    """
+
+    def __init__(self, session_id: str, detail: str) -> None:
+        self.detail = detail
+        super().__init__(session_id, detail)
+
+    @staticmethod
+    def _message(session_id: str, detail: str | None) -> str:
+        return f"Session {session_id} was not found: {detail}"
+
+    def __reduce__(self) -> tuple[Callable[[str, str], SessionNotFoundError], tuple[str, str]]:
+        return local_session_not_found, (self.session_id, self.detail)
+
+
+_LocalSessionNotFoundError.__name__ = _LocalSessionNotFoundError.__qualname__ = SessionNotFoundError.__name__
+
+
+def local_session_not_found(session_id: str, detail: str) -> SessionNotFoundError:
+    """``SessionNotFoundError`` for the local host, whose sessions no API key reads."""
+    return _LocalSessionNotFoundError(session_id, detail)
 
 
 class SessionBusyError(AgentsError, _harness_session.SessionBusyError):
     """The session cannot take the message yet, and nothing was applied.
 
     Each host retries for a bounded time before it raises this error: retry the same request later.
+    ``retry_after`` is the wait in seconds a deployment named when it refused, or None when it named none.
     It is also an ``experimental.session_protocol.SessionBusyError``, so an ``except`` on that class catches it.
     """
+
+    retry_after: float | None = None
 
 
 class SessionIdempotencyConflictError(AgentsError, _harness_session.SessionIdempotencyConflictError):
@@ -122,15 +189,6 @@ class MistralConnectorNotFoundError(AgentsError, _harness_connectors.MistralConn
     ``connector_name`` is the name, and ``close_matches`` the names of visible connectors close to it.
     It is still the Harness's ``MistralConnectorNotFoundError``, so an ``except`` on that class catches it.
     """
-
-
-class LocalSessionNotFoundError(AgentsError, LookupError):
-    """A local listing named, as ``root=`` or ``parent=``, a Session this event loop's local runtime
-    does not have."""
-
-    def __init__(self, session_id: str) -> None:
-        self.session_id = session_id
-        super().__init__(f"Session {session_id} is not a session of this event loop's local runtime")
 
 
 class SessionInUseError(AgentsError, RuntimeError):
@@ -200,7 +258,7 @@ class OutcomeUnknownError(AgentsError, RuntimeError):
     ``idempotency_key`` is the key to retry with, including one the SDK generated, or the
     callback id for a callback answer. It is ``None`` for an operation without a key, and
     for a start refused without a report while another Turn ran (an agent deployed with an
-    older Agents SDK, or a control plane that does not report the refusal): that key would
+    older SDK, or a control plane that does not report the refusal): that key would
     be refused again, so start again with a new key. Passing ``None`` as
     ``idempotency_key`` does that.
     """
@@ -290,8 +348,26 @@ class PermissionDeniedError(APIStatusError):
     """The API key may not do this: HTTP 403."""
 
 
+def retry_after_seconds(response: httpx.Response) -> float | None:
+    """The response's ``Retry-After`` in seconds, or None when it has none or names a date."""
+
+    value = response.headers.get("Retry-After", "")
+    if value.isascii() and value.isdigit():
+        return float(value)
+    return None
+
+
 class RateLimitError(APIStatusError):
-    """Too many requests: HTTP 429. The same request may succeed later."""
+    """Too many requests: HTTP 429. The same request may succeed later.
+
+    ``retry_after`` is the wait in seconds the server named, or None when it named none, for example
+    for a concurrent session limit. A session start already waits out a ``Retry-After`` that ends
+    within 30 seconds of the start before it raises this error.
+    """
+
+    @property
+    def retry_after(self) -> float | None:
+        return retry_after_seconds(self.response)
 
 
 class InternalServerError(APIStatusError):
@@ -521,8 +597,8 @@ __all__ = [
     "AgentsError",
     "AuthenticationError",
     "InternalServerError",
+    "InvalidCursorError",
     "LegacySessionError",
-    "LocalSessionNotFoundError",
     "MistralConnectorNotFoundError",
     "ObservationLost",
     "OutcomeUnknownError",

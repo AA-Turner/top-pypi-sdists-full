@@ -348,19 +348,30 @@ def _mask_reproduce_commands(data: str) -> str:
     # has a varying number of steps. The `st replay <id>` line is masked separately by `replace_test_case_id`.
     lines = []
     seen = False
+    # Blank lines after a command, held back until the next line shows whether the run goes on.
+    blanks = 0
+    # A warning about the previous command joins it with the next one.
     after_warning = False
     for line in data.splitlines():
         if "curl" in line or line.lstrip().startswith("# as "):
+            if seen and blanks and not after_warning:
+                lines.extend([""] * blanks)
+                seen = False
             if not seen:
                 lines.append("    <PLACEHOLDER>")
                 seen = True
+            blanks = 0
+            after_warning = False
         elif line.endswith(CURL_WARNING_SUFFIXES) or CURL_WARNING_MARKER in line:
             # Warnings describe the masked command's generated values, so they vary with it.
+            blanks = 0
             after_warning = True
-        elif after_warning and not line.strip():
-            after_warning = False
+        elif seen and not line.strip():
+            blanks += 1
         else:
+            lines.extend([""] * blanks)
             seen = False
+            blanks = 0
             after_warning = False
             lines.append(line)
     return "\n".join(lines) + "\n"
@@ -540,9 +551,17 @@ def normalize_connection_errors(data: str) -> str:
         # gRPC on Windows names a connection closed by the server differently.
         .replace("End of TCP stream", "Socket closed")
     )
-    return data.replace(
+    data = data.replace(
         "No connection could be made because the target machine actively refused it", "Connection refused"
     ).replace("An existing connection was forcibly closed by the remote host", "Connection reset by peer")
+    # gRPC on Windows sometimes wraps the closed connection error when a write is still pending.
+    data = re.sub(r"Delayed close due to in-progress write \((.+?)\)", r"\1", data)
+    # gRPC on Windows reports a refused connection with a different status and the system error text.
+    return re.sub(
+        r"UNAVAILABLE: (ipv4:\S+?): WSAGetOverlappedResult: Connection refused \(Connection refused\.\r?\n -- 10061\)",
+        r"UNKNOWN: \1: Failed to connect to remote host: Connection refused",
+        data,
+    )
 
 
 @pytest.fixture

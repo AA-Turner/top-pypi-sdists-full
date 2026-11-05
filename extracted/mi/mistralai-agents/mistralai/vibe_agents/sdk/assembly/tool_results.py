@@ -34,12 +34,26 @@ _JSON_VALUE_ADAPTER: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
 type ProvidedToolResult = ProvidedToolInvocationSucceeded | ProvidedToolInvocationFailed
 
 
+class OutputSchemaMismatch(ValueError):
+    """A tool's structured content does not match its ``output_schema=``.
+
+    ``result`` is the failed call the model reads; the caller decides by ``tool_errors`` whether
+    the turn goes on with it.
+    """
+
+    def __init__(self, summary: str, result: ProvidedToolInvocationFailed) -> None:
+        super().__init__(summary)
+        self.summary = summary
+        self.result = result
+
+
 def to_provided_tool_result(value: object, *, result_schema: type[BaseModel] | None) -> ProvidedToolResult:
     """Normalise a handler's return value.
 
     Raises ``ValueError`` for blocks that are not valid content (an image that is not a URL or
     a base64 data URI, invalid base64), and for a value that is not JSON. The caller handles it as an
-    exception of the tool, by ``tool_errors``.
+    exception of the tool, by ``tool_errors``. Raises ``OutputSchemaMismatch`` for structured content
+    that does not match ``result_schema``.
     """
 
     if isinstance(value, mcp_types.CallToolResult):
@@ -140,7 +154,7 @@ def _provided(
             # The call fails and the structured value is dropped, so code calling the tool gets
             # the error and never an unchecked value; the model still sees what the tool returned.
             mismatch = f"structured result did not match output_schema: {_validation_summary(error)}"
-            return ProvidedToolInvocationFailed.model_validate(
+            failed = ProvidedToolInvocationFailed.model_validate(
                 {
                     "content": [core_protocol.TextContentBlock(text=mismatch), *content],
                     "metadata": meta,
@@ -150,6 +164,7 @@ def _provided(
                     ),
                 }
             )
+            raise OutputSchemaMismatch(mismatch, failed) from error
     return ProvidedToolInvocationSucceeded.model_validate(fields)
 
 
@@ -168,4 +183,4 @@ def to_json_value(value: object) -> JsonValue:
     return _JSON_VALUE_ADAPTER.validate_python(to_jsonable_python(value, by_alias=True))
 
 
-__all__ = ["to_json_value", "to_provided_tool_result"]
+__all__ = ["OutputSchemaMismatch", "to_json_value", "to_provided_tool_result"]

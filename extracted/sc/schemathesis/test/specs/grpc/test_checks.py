@@ -8,6 +8,8 @@ from requests.structures import CaseInsensitiveDict
 
 import schemathesis
 from schemathesis.checks import not_a_server_error
+from schemathesis.config import ConfigError
+from schemathesis.config._checks import ChecksConfig
 from schemathesis.core.error_feedback import Observation, ObservationKind
 from schemathesis.core.error_feedback.collector import parse_observations
 from schemathesis.core.failures import ServerError, Severity
@@ -29,18 +31,8 @@ def operation(tmp_path_factory):
     return load_descriptor_set(tmp_path_factory.mktemp("grpc"), users_descriptor_set())["pkg.Users"]["GetUser"]
 
 
-def grpc_response(response_factory, *, status, content=b"", headers=None, status_line=None):
-    return response_factory.core(
-        content=content,
-        content_type=None,
-        status_code=200 if status == 0 else 500,
-        headers={"grpc-status": [str(status)], **(headers or {})},
-        status_line=status_line,
-    )
-
-
 def server_error(operation, response_factory, status, status_line, headers=None, body=None):
-    response = grpc_response(response_factory, status=status, headers=headers, status_line=status_line)
+    response = response_factory.grpc(status=status, headers=headers, status_line=status_line)
     with pytest.raises(AssertionError) as exc_info:
         not_a_server_error(check_context(), response, operation.Case(body={} if body is None else body))
     return exc_info.value
@@ -89,26 +81,39 @@ def test_server_errors_are_told_apart_by_status(operation, response_factory, fir
 )
 def test_call_outcome(operation, response_factory, status, outcome):
     case = operation.Case(body={})
-    response = grpc_response(response_factory, status=status)
+    response = response_factory.grpc(status=status)
     assert operation.schema.classify_call_outcome(case, response) == outcome
 
 
 @pytest.mark.parametrize(
-    "details",
+    ("status", "status_line", "details"),
     [
-        "grpc: failed to unmarshal the received message: unmarshal: invalid SpanID length",
-        "grpc: error unmarshalling request: unexpected EOF",
-        "Exception deserializing request!",
-        "Error deserializing request: index out of range",
+        (13, "INTERNAL", "grpc: failed to unmarshal the received message: unmarshal: invalid SpanID length"),
+        (13, "INTERNAL", "grpc: error unmarshalling request: unexpected EOF"),
+        (13, "INTERNAL", "Exception deserializing request!"),
+        (13, "INTERNAL", "Error deserializing request: index out of range"),
+        (3, "INVALID_ARGUMENT", "unmarshal message: invalid wire-format data"),
     ],
-    ids=["go", "go-legacy", "python", "node"],
+    ids=["go", "go-legacy", "python", "node", "connect-go"],
 )
-def test_library_decode_error(operation, response_factory, details):
-    failure = server_error(operation, response_factory, 13, "INTERNAL", headers={"grpc-message": [details]})
+def test_library_decode_error(operation, response_factory, status, status_line, details):
+    failure = server_error(operation, response_factory, status, status_line, headers={"grpc-message": [details]})
     assert (failure, failure.severity) == (
-        UndecodableGrpcRequest(operation=operation.label, status_code=500, status_name="INTERNAL"),
+        UndecodableGrpcRequest(
+            operation=operation.label,
+            status_code=status,
+        ),
         Severity.CRITICAL,
     )
+
+
+def test_library_decode_error_is_not_a_rejection(operation, response_factory):
+    case = operation.Case(body={})
+    response = response_factory.grpc(
+        status=3,
+        headers={"grpc-message": ["unmarshal message: invalid wire-format data"]},
+    )
+    assert operation.schema.classify_call_outcome(case, response) == CallOutcome.UNINFORMATIVE
 
 
 # Messages a client library produces when a response does not decode, so a handler may pass them on.
@@ -127,28 +132,28 @@ def test_library_decode_error(operation, response_factory, details):
 def test_handler_errors_stay_server_errors(operation, response_factory, status, status_line, details, body):
     headers = {} if details is None else {"grpc-message": [details]}
     assert server_error(operation, response_factory, status, status_line, headers=headers, body=body) == ServerError(
-        operation=operation.label, status_code=500, status_name=status_line
+        operation=operation.label, status_code=status
     )
 
 
 def test_decodable_responses_pass(operation, response_factory):
     details = base64.b64encode(status_pb2.Status(code=13, message="boom").SerializeToString()).decode()
     for response in (
-        grpc_response(response_factory, status=0, content=b"\x0a\x02u7"),
-        grpc_response(response_factory, status=13),
-        grpc_response(response_factory, status=13, headers={"grpc-status-details-bin": [details]}),
+        response_factory.grpc(status=0, content=b"\x0a\x02u7"),
+        response_factory.grpc(status=13),
+        response_factory.grpc(status=13, headers={"grpc-status-details-bin": [details]}),
     ):
         assert operation.validate_response(response, case=operation.Case(body={})) is None
 
 
 def test_undecodable_ok_response(operation, response_factory):
-    response = grpc_response(response_factory, status=0, content=b"\xff")
+    response = response_factory.grpc(status=0, content=b"\xff")
     with pytest.raises(MalformedGrpcMessage, match="Cannot decode the response as `pkg.User`"):
         operation.validate_response(response, case=operation.Case(body={}))
 
 
 def test_bad_status_details(operation, response_factory):
-    response = grpc_response(response_factory, status=13, headers={"grpc-status-details-bin": ["/w=="]})
+    response = response_factory.grpc(status=13, headers={"grpc-status-details-bin": ["/w=="]})
     with pytest.raises(MalformedGrpcMessage, match="Cannot decode the status details as `google.rpc.Status`"):
         operation.validate_response(response, case=operation.Case(body={}))
 
@@ -180,9 +185,9 @@ def test_ignored_auth_outside_a_run(ctx, headers):
 
 def test_failures_group_by_message(operation, response_factory):
     responses = [
-        grpc_response(response_factory, status=0, content=b"\xff"),
-        grpc_response(response_factory, status=0, content=b"\x0a"),
-        grpc_response(response_factory, status=13, headers={"grpc-status-details-bin": ["/w=="]}),
+        response_factory.grpc(status=0, content=b"\xff"),
+        response_factory.grpc(status=0, content=b"\x0a"),
+        response_factory.grpc(status=13, headers={"grpc-status-details-bin": ["/w=="]}),
     ]
     failures = set()
     for response in responses:
@@ -193,7 +198,7 @@ def test_failures_group_by_message(operation, response_factory):
 
 
 def test_unknown_fields_pass_for_descriptor_sets(operation, response_factory):
-    response = grpc_response(response_factory, status=0, content=b"\x0a\x02u7\x98\x06\x01")
+    response = response_factory.grpc(status=0, content=b"\x0a\x02u7\x98\x06\x01")
     assert operation.validate_response(response, case=operation.Case(body={})) is None
 
 
@@ -211,35 +216,27 @@ def packed_node(value):
 
 @pytest.mark.parametrize("loader", [from_reflection, load], ids=["reflection", "descriptor-set"])
 @pytest.mark.parametrize(
-    ("content", "field", "wire_type"),
-    [(b"\x08\x05", "name", 0), (b"\x12\x03\x0a\x01x", "created_at.seconds", 2)],
-    ids=["top-level", "nested"],
-)
-def test_declared_fields_under_other_wire_types_do_not_decode(ctx, response_factory, loader, content, field, wire_type):
-    operation = loader(ctx.grpc.apps.users())["pkg.Users"]["GetUser"]
-    response = grpc_response(response_factory, status=0, content=content)
-    with pytest.raises(MalformedGrpcMessage) as exc_info:
-        operation.validate_response(response, case=operation.Case(body={}))
-    assert exc_info.value.message == (
-        f"Cannot decode the response as `pkg.User`: field `{field}` arrived with wire type {wire_type}"
-    )
-
-
-@pytest.mark.parametrize("loader", [from_reflection, load], ids=["reflection", "descriptor-set"])
-@pytest.mark.parametrize(
-    ("method", "content", "message"),
+    ("app", "service", "method", "content", "message"),
     [
-        ("Legacy", b"\x08\x01", "Cannot decode the response as `legacy.Legacy`: required fields missing: blob, label"),
-        ("Edition", b"\x12\x01a", "Cannot decode the response as `editions.Edition`: required fields missing: id"),
+        ("users", "pkg.Users", "GetUser", b"\x08\x05", "`pkg.User`: field `name` arrived with wire type 0"),
+        (
+            "users",
+            "pkg.Users",
+            "GetUser",
+            b"\x12\x03\x0a\x01x",
+            "`pkg.User`: field `created_at.seconds` arrived with wire type 2",
+        ),
+        ("envelope", "types.Types", "Legacy", b"\x08\x01", "`legacy.Legacy`: required fields missing: blob, label"),
+        ("envelope", "types.Types", "Edition", b"\x12\x01a", "`editions.Edition`: required fields missing: id"),
     ],
-    ids=["proto2", "editions"],
+    ids=["wire-type-top-level", "wire-type-nested", "proto2-required", "editions-required"],
 )
-def test_responses_without_required_fields_do_not_decode(ctx, response_factory, loader, method, content, message):
-    operation = loader(ctx.grpc.apps.envelope())["types.Types"][method]
-    response = grpc_response(response_factory, status=0, content=content)
+def test_undecodable_responses(ctx, response_factory, loader, app, service, method, content, message):
+    operation = loader(getattr(ctx.grpc.apps, app)())[service][method]
+    response = response_factory.grpc(status=0, content=content)
     with pytest.raises(MalformedGrpcMessage) as exc_info:
         operation.validate_response(response, case=operation.Case(body={}))
-    assert exc_info.value.message == message
+    assert exc_info.value.message == f"Cannot decode the response as {message}"
 
 
 @pytest.mark.parametrize("loader", [from_reflection, load], ids=["reflection", "descriptor-set"])
@@ -255,13 +252,51 @@ def test_responses_without_required_fields_do_not_decode(ctx, response_factory, 
 )
 def test_well_formed_responses_pass(ctx, response_factory, loader, method, content):
     operation = loader(ctx.grpc.apps.envelope())["types.Types"][method]
-    response = grpc_response(response_factory, status=0, content=content)
+    response = response_factory.grpc(status=0, content=content)
     assert operation.validate_response(response, case=operation.Case(body={})) is None
 
 
 def test_unimplemented_is_not_a_server_error(ctx):
     operation = schemathesis.grpc.from_url(ctx.grpc.apps.users().target)["pkg.Users"]["GetUser"]
     assert operation.Case(body={"userId": 501}).call_and_validate().status_line == "UNIMPLEMENTED"
+
+
+@pytest.mark.parametrize(
+    ("expected_status", "user_id"),
+    [("UNAVAILABLE", 503), ("INTERNAL", -1)],
+    ids=["unavailable", "internal"],
+)
+def test_expected_grpc_status_name(ctx, expected_status, user_id):
+    operation = schemathesis.grpc.from_url(ctx.grpc.apps.users().target)["pkg.Users"]["GetUser"]
+    case = operation.Case(body={"userId": user_id})
+    response = case.call()
+    config = ChecksConfig.from_dict({"not_a_server_error": {"expected-statuses": [expected_status]}})
+    assert not_a_server_error(check_context(config), response, case) is None
+
+
+@pytest.mark.parametrize(
+    ("user_id", "status"),
+    [(502, 2), (505, 15)],
+    ids=["unknown", "data-loss"],
+)
+def test_expected_internal_does_not_allow_other_grpc_statuses(ctx, user_id, status):
+    operation = schemathesis.grpc.from_url(ctx.grpc.apps.users().target)["pkg.Users"]["GetUser"]
+    case = operation.Case(body={"userId": user_id})
+    response = case.call()
+    config = ChecksConfig.from_dict({"not_a_server_error": {"expected-statuses": ["INTERNAL"]}})
+    with pytest.raises(ServerError) as exc_info:
+        not_a_server_error(check_context(config), response, case)
+    assert exc_info.value == ServerError(operation=operation.label, status_code=status)
+
+
+@pytest.mark.parametrize("expected_status", ["NOT_A_STATUS", "503"], ids=["unknown-name", "http-status"])
+def test_unknown_expected_grpc_status_name(ctx, expected_status):
+    operation = schemathesis.grpc.from_url(ctx.grpc.apps.users().target)["pkg.Users"]["GetUser"]
+    case = operation.Case(body={"userId": 503})
+    response = case.call()
+    with pytest.raises(ConfigError, match=f"Invalid status value `{expected_status}` for gRPC"):
+        config = ChecksConfig.from_dict({"not_a_server_error": {"expected-statuses": [expected_status]}})
+        not_a_server_error(check_context(config), response, case)
 
 
 def rejection(response_factory, *fields):
@@ -275,11 +310,10 @@ def rejection(response_factory, *fields):
         )
     )
     encoded = base64.b64encode(details.SerializeToString()).decode()
-    return response_factory.core(
+    return response_factory.grpc(
+        status=3,
         content=b"",
-        content_type=None,
-        status_code=400,
-        headers={"grpc-status": ["3"], "grpc-status-details-bin": [encoded]},
+        headers={"grpc-status-details-bin": [encoded]},
     )
 
 
@@ -371,11 +405,10 @@ def corrupt_bad_request():
     ids=["malformed-status", "malformed-bad-request", "no-details"],
 )
 def test_rejections_without_field_violations_teach_nothing(operation, response_factory, body, details):
-    response = response_factory.core(
+    response = response_factory.grpc(
+        status=3,
         content=b"",
-        content_type=None,
-        status_code=400,
-        headers={"grpc-status": ["3"], "grpc-status-details-bin": details},
+        headers={"grpc-status-details-bin": details},
     )
     assert parse_observations(operation, operation.Case(body=body), response) == ()
 
@@ -406,8 +439,6 @@ MALFORMED_NODE = "Cannot decode the `google.protobuf.Any` value in the response 
 )
 def test_malformed_packed_messages_do_not_decode(ctx, response_factory, loader, status, content, details, message):
     operation = loader(ctx.grpc.apps.envelope())["types.Types"]["Envelope"]
-    response = grpc_response(
-        response_factory, status=status, content=content, headers={"grpc-status-details-bin": details}
-    )
+    response = response_factory.grpc(status=status, content=content, headers={"grpc-status-details-bin": details})
     with pytest.raises(MalformedGrpcMessage, match=re.escape(message)):
         operation.validate_response(response, case=operation.Case(body={}))

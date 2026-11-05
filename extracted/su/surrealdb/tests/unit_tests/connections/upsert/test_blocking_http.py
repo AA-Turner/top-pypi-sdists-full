@@ -3,6 +3,7 @@ from typing import Any
 
 import pytest
 
+from surrealdb import StringRecordId
 from surrealdb.connections.blocking_http import BlockingHttpSurrealConnection
 from surrealdb.data.types.record_id import RecordID
 from surrealdb.data.types.table import Table
@@ -32,26 +33,28 @@ def existing_data() -> dict[str, Any]:
 def setup_user(
     blocking_http_connection: BlockingHttpSurrealConnection,
 ) -> Generator[None, None, None]:
-    blocking_http_connection.query("DELETE user;")
+    blocking_http_connection.query("DELETE user;").execute()
     blocking_http_connection.query(
         "CREATE user:tobie SET name = 'Tobie', email = 'tobie@example.com', password = 'password123', enabled = true;"
-    )
+    ).execute()
     yield
-    blocking_http_connection.query("DELETE user;")
+    blocking_http_connection.query("DELETE user;").execute()
 
 
 def test_upsert_string(
     blocking_http_connection: BlockingHttpSurrealConnection,
     setup_user: None,
-    existing_data,
+    existing_data: dict[str, Any],
 ) -> None:
     record_id = RecordID("user", "tobie")
-    outcome = blocking_http_connection.upsert("user:tobie", existing_data)
+    outcome = blocking_http_connection.upsert(
+        StringRecordId("user:tobie"), existing_data
+    )
     assert outcome["id"] == record_id
     assert outcome["name"] == "Tobie"
     assert outcome["email"] == "tobie@example.com"
     assert outcome["enabled"] is True
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    result = blocking_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Tobie"
     assert result[0]["email"] == "tobie@example.com"
@@ -64,12 +67,14 @@ def test_upsert_string_with_data(
     setup_user: None,
 ) -> None:
     record_id = RecordID("user", "tobie")
-    first_outcome = blocking_http_connection.upsert("user:tobie", upsert_data)
+    first_outcome = blocking_http_connection.upsert(
+        StringRecordId("user:tobie"), upsert_data
+    )
     assert first_outcome["id"] == record_id
     assert first_outcome["name"] == "Jaime"
     assert first_outcome["email"] == "jaime@example.com"
     assert first_outcome["enabled"] is True
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    result = blocking_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Jaime"
     assert result[0]["email"] == "jaime@example.com"
@@ -79,7 +84,7 @@ def test_upsert_string_with_data(
 def test_upsert_record_id(
     blocking_http_connection: BlockingHttpSurrealConnection,
     setup_user: None,
-    existing_data,
+    existing_data: dict[str, Any],
 ) -> None:
     record_id = RecordID("user", "tobie")
     first_outcome = blocking_http_connection.upsert(record_id, existing_data)
@@ -87,7 +92,7 @@ def test_upsert_record_id(
     assert first_outcome["name"] == "Tobie"
     assert first_outcome["email"] == "tobie@example.com"
     assert first_outcome["enabled"] is True
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    result = blocking_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Tobie"
     assert result[0]["email"] == "tobie@example.com"
@@ -105,7 +110,7 @@ def test_upsert_record_id_with_data(
     assert outcome["name"] == "Jaime"
     assert outcome["email"] == "jaime@example.com"
     assert outcome["enabled"] is True
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    result = blocking_http_connection.query("SELECT * FROM user;").first()
     assert result[0]["id"] == record_id
     assert result[0]["name"] == "Jaime"
     assert result[0]["email"] == "jaime@example.com"
@@ -115,12 +120,12 @@ def test_upsert_record_id_with_data(
 def test_upsert_table(
     blocking_http_connection: BlockingHttpSurrealConnection,
     setup_user: None,
-    existing_data,
+    existing_data: dict[str, Any],
 ) -> None:
     table = Table("user")
     record_id = RecordID("user", "tobie")
-    first_outcome = blocking_http_connection.upsert(table, existing_data)
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    blocking_http_connection.upsert(table, existing_data)
+    result = blocking_http_connection.query("SELECT * FROM user;").first()
     # SurrealDB may create a new record or not, depending on version
     assert any(r["id"] == record_id for r in result)
     assert any(r["name"] == "Tobie" for r in result)
@@ -132,7 +137,7 @@ def test_upsert_table_with_data(
     setup_user: None,
 ) -> None:
     table = Table("user")
-    record_id = RecordID("user", "tobie")
+    RecordID("user", "tobie")
     outcome = blocking_http_connection.upsert(table, upsert_data)
     # At least one record should match the upserted data
     assert any(
@@ -141,7 +146,7 @@ def test_upsert_table_with_data(
         and r["enabled"] is True
         for r in outcome
     )
-    result = blocking_http_connection.query("SELECT * FROM user;")
+    result = blocking_http_connection.query("SELECT * FROM user;").first()
     assert any(
         r["name"] == "Jaime"
         and r["email"] == "jaime@example.com"

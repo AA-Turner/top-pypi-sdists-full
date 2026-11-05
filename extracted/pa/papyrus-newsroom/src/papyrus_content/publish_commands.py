@@ -13,6 +13,7 @@ from .projection_trigger import (
     SKIP_LINE,
     item_task,
     projection_enabled,
+    projection_unknown,
     retry_command,
     skipped_projection,
     trigger_projection,
@@ -68,7 +69,7 @@ def resolve_item_id(client, options: dict[str, Any]) -> str:
 
 
 def run_site_triggers(client, options: dict[str, Any], result, *, unpublished: bool = False) -> dict[str, Any]:
-    projecting = projection_enabled()
+    projecting = projection_enabled() or projection_unknown()
     if options.get("no-trigger"):
         return {"projection": skipped_projection()} if projecting else {}
     triggers: dict[str, Any] = {}
@@ -81,7 +82,9 @@ def run_site_triggers(client, options: dict[str, Any], result, *, unpublished: b
     if not result.changed:
         return triggers
     item = client.get_record("Item", result.item_id) or {}
-    if item.get("slug") and not projecting:
+    # A site whose pages are projected has no Pretext reader to revalidate; the signed-in lane learns that from the projection answer.
+    projects_pages = projection_enabled() or bool((triggers.get("projection") or {}).get("projectsPages"))
+    if item.get("slug") and not projects_pages:
         try:
             revalidated = trigger_pretext_revalidation([item["slug"]], None)
         except Exception as error:  # noqa: BLE001 - a trigger failure never fails the publish
@@ -106,6 +109,10 @@ def _run(flags: list[str], label: str, action: Callable[..., Any], *, unpublishe
     try:
         if not unpublished:
             refuse_placeholder_slug(client, item_id)
+            if apply:
+                from .projection.runtime import render_preflight
+
+                render_preflight(client, item_id)   # only where this process projects (the operator's lane); the signed-in lane's function does it
         result = action(target, item_id, actor=actor)
     except PublishError as error:
         payload = {
@@ -118,7 +125,7 @@ def _run(flags: list[str], label: str, action: Callable[..., Any], *, unpublishe
         raise SystemExit(1)
     planned = [] if apply else target.planned
     triggers: dict[str, Any] = {}
-    if apply and (result.changed or projection_enabled()):
+    if apply and (result.changed or projection_enabled() or projection_unknown()):
         triggers = run_site_triggers(client, options, result, unpublished=unpublished)
     projection = triggers.get("projection") or {}
     page_failed = projection.get("ok") is False

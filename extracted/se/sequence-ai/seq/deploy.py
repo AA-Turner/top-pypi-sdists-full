@@ -111,7 +111,7 @@ def deployment_request(
             episodes=spec.episodes,
 
 
-            params=None if reg.spec.planner is not None else infer_params(cls),
+            params=infer_params(cls),
 
 
 
@@ -123,9 +123,6 @@ def deployment_request(
 
 
             plan_every_s=reg.plan_every_s,
-
-
-            planner=spec.planner,
         ),
 
 

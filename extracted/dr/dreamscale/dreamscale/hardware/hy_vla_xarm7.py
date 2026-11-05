@@ -6,8 +6,8 @@ rows 0-1, gripper 0-1) and each chunk row is 40 values: both arms' poses relativ
 request's state (0-19), then absolute in each arm's base frame (20-39). This adapter, in the
 shape of ``yam_end_effector.py``, turns the rig's 16 measured joint values (aft first: seven
 joints in radians and the gripper's drive_joint radians, then fore) into that state, and
-each chunk into 16 joint targets before the run loop sees it, exactly as Rodeo evaluated the
-checkpoint (``rodeo_training.eval_hy.execute``):
+each chunk into 16 joint targets before the run loop sees it, exactly as the checkpoint was
+evaluated at delivery:
 
 - the active arm (the instruction's, from the deployment's label map) blends the two heads
   (positions and grippers averaged, rotations slerp 0.5), then solves damped least-squares IK
@@ -70,8 +70,8 @@ def _measured(values) -> np.ndarray:
             f"Hy-VLA needs the rig's {JOINTS} measured values (aft then fore: seven joints in "
             "radians and the gripper's drive_joint radians)."
         )
-    # Rodeo trained and evaluated on float32 states; the same rounding keeps execution
-    # identical to its evaluation.
+    # The checkpoint was trained and evaluated on float32 states; the same rounding keeps
+    # execution identical to its evaluation.
     return raw.astype(np.float32)
 
 
@@ -129,7 +129,7 @@ class IkFailure:
     row: int
     rows: int
     active_arm: str
-    # rodeo_training.eval_hy.execute's report (its action numbers count from 0).
+    # As the delivery evaluation reports it (its action numbers count from 0).
     error: str
     # The unconverged row's residual; None for a degenerate predicted rotation.
     position_error_m: float | None = None
@@ -294,7 +294,7 @@ def _joint_contract(*, action_hz, chunk_size, native_action_hz=None, fixed_rate=
 
 def _undo_float32_rounding(joints, offset):
     """Joint rows as float64. IK clips each joint to [LOWER + .02, UPPER - .02], the rig's
-    command limits; Rodeo's float32 rows can round a joint the solver left exactly on that
+    command limits; float32 rows can round a joint the solver left exactly on that
     bound a few 1e-8 rad outside it. Only that rounding is undone (at most 1e-6 rad)."""
     values = np.asarray(joints, dtype=np.float64)
     low, high = kinematics.LOWER + .02, kinematics.UPPER - .02
@@ -339,8 +339,8 @@ class _JointReferences:
     """The server's chunk with its RTC reference rows (``runtime_metadata.reference_actions``,
     which the run loop commits with each action) replaced by the executed joint rows: the
     next request re-expresses the committed physical rows against its own measured state
-    (``rtc_prefix``), as Rodeo trained and evaluated the prefix. ``pose_chunk`` is the
-    server's own."""
+    (``rtc_prefix``), as the checkpoint was trained and evaluated with the prefix.
+    ``pose_chunk`` is the server's own."""
 
     def __init__(self, chunk, metadata):
         self.pose_chunk = chunk

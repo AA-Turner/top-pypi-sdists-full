@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opening_hours_py
-Version: 2.1.4
+Version: 2.1.5
 License-File: LICENSE-APACHE
 License-File: LICENSE-MIT
 Summary: A parser for the opening_hours fields from OpenStreetMap.
@@ -8,7 +8,7 @@ Keywords: openstreetmap,parser,time,schedule
 Home-Page: https://github.com/remi-dupre/opening-hours-rs/tree/master/opening-hours-py
 Author-email: Rémi Dupré <remi+openinghours@dupre.io>
 License: MIT OR Apache-2.0
-Requires-Python: ~=3.10
+Requires-Python: >=3.10.0, <4
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # ![][demo-favicon] Python bindings for [OSM Opening Hours](https://github.com/remi-dupre/opening-hours-rs)

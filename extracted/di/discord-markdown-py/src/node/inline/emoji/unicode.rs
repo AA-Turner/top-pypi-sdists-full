@@ -2,27 +2,14 @@
 //!
 //! This matches emoji sequences from [`discord_emoji`].
 
-use std::{fmt::Debug, marker::PhantomData, sync::LazyLock};
-
-use aho_corasick::{AhoCorasick, Anchored, MatchKind, StartKind};
-use discord_emoji::CODE_POINTS;
+use discord_emoji::{CODE_POINTS, MAX_CODE_POINT_LEN};
 use icu_properties::{CodePointSetData, CodePointSetDataBorrowed, props::Emoji};
-use nom::{
-	Mode, Parser,
-	combinator::fail,
-	error::{ErrorKind, ParseError},
+
+use crate::{
+	Input,
+	error::{Fail, PResult},
+	span::Trace,
 };
-use tracing::{Level, Span};
-
-use crate::{Input, span::TraceOk};
-
-static CODE_POINT_FINDER: LazyLock<AhoCorasick> = LazyLock::new(|| {
-	AhoCorasick::builder()
-		.match_kind(MatchKind::LeftmostLongest)
-		.start_kind(StartKind::Anchored)
-		.build(CODE_POINTS.iter())
-		.unwrap()
-});
 
 const EMOJI: CodePointSetDataBorrowed = CodePointSetData::new::<Emoji>();
 
@@ -42,46 +29,11 @@ fn starts_with_emoji(input: &str) -> bool {
 	}
 }
 
-struct EmojiParser<E>(PhantomData<E>);
-
-impl<E> Debug for EmojiParser<E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_tuple("EmojiParser").field(&self.0).finish()
-	}
-}
-
-impl<'data, E> Parser<Input<'data>> for EmojiParser<E>
-where
-	E: ParseError<Input<'data>>,
-{
-	type Output = Input<'data>;
-	type Error = E;
-
-	#[tracing::instrument(name = "emoji_parser", level = Level::TRACE, fields(ok))]
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		if !starts_with_emoji(&input) {
-			Span::current().record("ok", false);
-			return Err(nom::Err::Error(OM::Error::bind(|| {
-				E::from_error_kind(input, ErrorKind::Satisfy)
-			})));
-		}
-
-		let end_byte = CODE_POINT_FINDER
-			.find(aho_corasick::Input::new(&*input).anchored(Anchored::Yes))
-			.map(|mat| mat.end());
-
-		match end_byte {
-			Some(end) => {
-				let (rest, emoji) = nom::Input::take_split(&input, end);
-				Ok((rest, OM::Output::bind(|| emoji)))
-			}
-			None => fail().process::<OM>(input),
-		}
-		.trace_ok()
-	}
+/// Whether an emoji can begin with `byte`: an ASCII emoji, or the lead byte of any other code
+/// point.
+#[must_use]
+pub fn may_start_with(byte: u8) -> bool {
+	!byte.is_ascii() || ASCII_EMOJI & (1 << byte) != 0
 }
 
 /// Parse an emoji.
@@ -90,12 +42,33 @@ where
 ///
 /// # Errors
 /// If the content does not begin with a Unicode emoji.
-#[must_use]
-pub fn emoji<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<Input<'data>>,
-{
-	EmojiParser(PhantomData)
+#[tracing::instrument(name = "emoji_parser", level = "trace", skip_all, fields(ok, output))]
+pub fn emoji<'data>(input: &mut Input<'data>) -> PResult<&'data str> {
+	if !starts_with_emoji(input) {
+		return Err(Fail::NoMatch);
+	}
+
+	let end = longest_code_point(input.content).ok_or(Fail::NoMatch)?;
+	Ok(input.advance(end)).trace()
+}
+
+/// The length of the longest prefix of `content` in [`CODE_POINTS`].
+///
+/// Only the first code point of a sequence can be ASCII (`#`, `*` and the digits of a keycap), so
+/// the search stops at the first ASCII code point after it, which ends nearly every emoji in prose
+/// after a single lookup.
+fn longest_code_point(content: &str) -> Option<usize> {
+	let mut longest = None;
+	for (start, ch) in content.char_indices() {
+		let end = start + ch.len_utf8();
+		if end > MAX_CODE_POINT_LEN || (start > 0 && ch.is_ascii()) {
+			break;
+		}
+		if CODE_POINTS.contains(&content[..end]) {
+			longest = Some(end);
+		}
+	}
+	longest
 }
 
 #[cfg(test)]
@@ -105,9 +78,9 @@ mod test {
 		io::{self, BufRead, BufReader},
 	};
 
-	use nom::{Finish, Parser};
+	use discord_emoji::CODE_POINTS;
 
-	use crate::test_utils::handle_nom_err;
+	use crate::test_utils::run;
 
 	use super::{EMOJI, emoji, starts_with_emoji};
 
@@ -119,6 +92,16 @@ mod test {
 				starts_with_emoji(&ch.to_string()),
 				EMOJI.contains(ch),
 				"{ch:?} (U+{byte:04X})"
+			);
+		}
+	}
+
+	#[test]
+	fn only_the_first_code_point_is_ascii() {
+		for code_point in &CODE_POINTS {
+			assert!(
+				!code_point.chars().skip(1).any(|ch| ch.is_ascii()),
+				"{code_point:?}"
 			);
 		}
 	}
@@ -163,11 +146,7 @@ mod test {
 				continue;
 			}
 
-			let (rem, res) = emoji()
-				.parse_complete((&*case.code_points).into())
-				.finish()
-				.map_err(handle_nom_err(&case.code_points))
-				.expect("unable to parse");
+			let (rem, res) = run(&case.code_points, emoji).expect("unable to parse");
 			assert_eq!(
 				rem,
 				"",

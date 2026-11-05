@@ -1,4 +1,5 @@
 #include "packingsolver/irregular/instance_builder.hpp"
+#include "irregular/instance_cache.hpp"
 
 #include <cmath>
 
@@ -60,10 +61,21 @@ DefectId InstanceBuilder::add_defect(
     return bin_type.defects.size() - 1;
 }
 
-BinTypeId InstanceBuilder::add_bin_type(
-        const Instance& original_instance,
+const Instance& InstanceBuilder::original_instance() const
+{
+    if (original_instance_ == nullptr) {
+        throw std::logic_error(
+                FUNC_SIGNATURE + ": "
+                "the original instance must be set with "
+                "'set_original_instance'.");
+    }
+    return *original_instance_;
+}
+
+BinTypeId InstanceBuilder::add_bin_type_from_original_instance(
         BinTypeId original_bin_type_id)
 {
+    const Instance& original_instance = this->original_instance();
     const BinType& bin_type = original_instance.bin_type(original_bin_type_id);
     BinTypeId bin_type_id = add_bin_type(bin_type.shape_orig);
     if ((BinTypeId)orig_to_sub_bin_type_ids_.size() <= original_bin_type_id)
@@ -401,10 +413,10 @@ void InstanceBuilder::add_item_type_allowed_rotation(
     instance_.item_types_[item_type_id].allowed_rotations.push_back({start_angle, end_angle, mirror});
 }
 
-ItemTypeId InstanceBuilder::add_item_type(
-        const Instance& original_instance,
+ItemTypeId InstanceBuilder::add_item_type_from_original_instance(
         ItemTypeId original_item_type_id)
 {
+    const Instance& original_instance = this->original_instance();
     const ItemType& item_type = original_instance.item_type(original_item_type_id);
     ItemTypeId item_type_id = add_item_type(item_type.shapes);
     set_item_type_profit(item_type_id, item_type.profit);
@@ -428,14 +440,6 @@ ItemTypeId InstanceBuilder::add_item_type(
     // their item types have been added.
     ItemType& new_item_type = instance_.item_types_[item_type_id];
     new_item_type.periodic_packings_computed = item_type.periodic_packings_computed;
-    if (original_instance_ == nullptr) {
-        original_instance_ = &original_instance;
-        for (const PeriodicItemPacking& packing: original_instance.periodic_packings())
-            if (!periodic_packing_has_single_item_type(packing))
-                original_multiple_item_types_periodic_packings_.push_back(packing);
-    } else if (original_instance_ != &original_instance) {
-        several_original_instances_ = true;
-    }
     for (const PeriodicItemPacking& packing: original_instance.periodic_packings()) {
         if (!periodic_packing_has_single_item_type(packing)
                 || packing.items[0].item_type_id != original_item_type_id) {
@@ -455,7 +459,7 @@ ItemTypeId InstanceBuilder::add_item_type(
 
     // Copy the consumption of this item type for the resources of
     // already-added bin types. Assumes the relevant bin types have already
-    // been added via 'add_bin_type(original_instance, ...)'.
+    // been added via 'add_bin_type_from_original_instance'.
     for (BinTypeId original_bin_type_id = 0;
             original_bin_type_id < (BinTypeId)orig_to_sub_bin_type_ids_.size();
             ++original_bin_type_id) {
@@ -1199,7 +1203,7 @@ Instance InstanceBuilder::build()
 
     // Compute periodic packings per item type, for the periodic-packing tree
     // search, unless already computed (e.g. copied from a source instance by
-    // add_item_type(instance, item_type_id)). Periodic blocks (tilings of
+    // add_item_type_from_original_instance). Periodic blocks (tilings of
     // these packings' unit cells, additionally bounded by a bin's
     // dimensions) are not cached here: they are recomputed fresh wherever
     // the periodic-packing tree search is invoked (see
@@ -1207,12 +1211,14 @@ Instance InstanceBuilder::build()
     // item type's available copies, which can differ across sub-instances
     // built from the same source item type.
     // Periodic packings carried over from the original instance (see
-    // add_item_type(original_instance, ...)): those of a single item type
+    // add_item_type_from_original_instance): those of a single item type
     // are already remapped; those of several item types are kept only if
     // all their item types have been added.
     instance_.periodic_packings_ = periodic_packings_;
-    if (!several_original_instances_) {
-        for (const PeriodicItemPacking& packing: original_multiple_item_types_periodic_packings_) {
+    if (original_instance_ != nullptr) {
+        for (const PeriodicItemPacking& packing: original_instance_->periodic_packings()) {
+            if (periodic_packing_has_single_item_type(packing))
+                continue;
             PeriodicItemPacking new_packing = packing;
             bool ok = true;
             for (SolutionItem& solution_item: new_packing.items) {
@@ -1463,5 +1469,108 @@ Instance InstanceBuilder::build()
         }
     }
 
+    instance_.simplified_instances_cache_ = std::make_shared<SimplifiedInstancesCache>();
+    if (original_instance_ != nullptr)
+        copy_cache_from_original_instance();
+
     return std::move(instance_);
+}
+
+void InstanceBuilder::copy_cache_from_original_instance()
+{
+    const Instance& original_instance = *original_instance_;
+
+    // Only the simplified shapes already computed are copied, without
+    // waiting for a computation in progress in another thread.
+    std::unique_lock<std::mutex> original_lock(
+            original_instance.simplified_instances_cache_->mutex,
+            std::try_to_lock);
+    if (original_lock.owns_lock()
+            && !original_instance.simplified_instances_cache_->simplified_instances.empty()) {
+        // The simplified shapes are only valid if all the item types and bin
+        // types come from the original instance, with the same scale and the
+        // same spacings, since the inflated shapes depend on them, and if the
+        // bin types have not been cropped.
+        bool valid = (instance_.parameters().scale_value
+                == original_instance.parameters().scale_value)
+            && (instance_.parameters().item_item_minimum_spacing
+                == original_instance.parameters().item_item_minimum_spacing);
+
+        std::vector<ItemTypeId> sub_to_orig_item_type_ids(instance_.number_of_item_types(), -1);
+        for (ItemTypeId original_item_type_id = 0;
+                original_item_type_id < (ItemTypeId)orig_to_sub_item_type_ids_.size();
+                ++original_item_type_id) {
+            ItemTypeId item_type_id = orig_to_sub_item_type_ids_[original_item_type_id];
+            if (item_type_id != -1)
+                sub_to_orig_item_type_ids[item_type_id] = original_item_type_id;
+        }
+        std::vector<BinTypeId> sub_to_orig_bin_type_ids(instance_.number_of_bin_types(), -1);
+        for (BinTypeId original_bin_type_id = 0;
+                original_bin_type_id < (BinTypeId)orig_to_sub_bin_type_ids_.size();
+                ++original_bin_type_id) {
+            BinTypeId bin_type_id = orig_to_sub_bin_type_ids_[original_bin_type_id];
+            if (bin_type_id != -1)
+                sub_to_orig_bin_type_ids[bin_type_id] = original_bin_type_id;
+        }
+
+        for (ItemTypeId item_type_id = 0;
+                valid && item_type_id < instance_.number_of_item_types();
+                ++item_type_id) {
+            if (sub_to_orig_item_type_ids[item_type_id] == -1)
+                valid = false;
+        }
+        for (BinTypeId bin_type_id = 0;
+                valid && bin_type_id < instance_.number_of_bin_types();
+                ++bin_type_id) {
+            BinTypeId original_bin_type_id = sub_to_orig_bin_type_ids[bin_type_id];
+            if (original_bin_type_id == -1) {
+                valid = false;
+                break;
+            }
+            const BinType& bin_type = instance_.bin_type(bin_type_id);
+            const BinType& original_bin_type = original_instance.bin_type(original_bin_type_id);
+            // A bin type cropped with 'crop_bin_type' has a smaller bounding
+            // box than the original one.
+            if (bin_type.item_bin_minimum_spacing != original_bin_type.item_bin_minimum_spacing
+                    || bin_type.aabb_orig.x_min != original_bin_type.aabb_orig.x_min
+                    || bin_type.aabb_orig.x_max != original_bin_type.aabb_orig.x_max
+                    || bin_type.aabb_orig.y_min != original_bin_type.aabb_orig.y_min
+                    || bin_type.aabb_orig.y_max != original_bin_type.aabb_orig.y_max
+                    || bin_type.defects.size() != original_bin_type.defects.size()) {
+                valid = false;
+                break;
+            }
+            for (DefectId defect_id = 0;
+                    defect_id < (DefectId)bin_type.defects.size();
+                    ++defect_id) {
+                if (bin_type.defects[defect_id].item_defect_minimum_spacing
+                        != original_bin_type.defects[defect_id].item_defect_minimum_spacing) {
+                    valid = false;
+                }
+            }
+        }
+
+        if (valid) {
+            for (const auto& original_entry:
+                    original_instance.simplified_instances_cache_->simplified_instances) {
+                const SimplifiedInstance& original_simplified_instance = original_entry.second;
+                SimplifiedInstance simplified_instance;
+                for (ItemTypeId item_type_id = 0;
+                        item_type_id < instance_.number_of_item_types();
+                        ++item_type_id) {
+                    simplified_instance.item_types.push_back(
+                            original_simplified_instance.item_types[sub_to_orig_item_type_ids[item_type_id]]);
+                }
+                for (BinTypeId bin_type_id = 0;
+                        bin_type_id < instance_.number_of_bin_types();
+                        ++bin_type_id) {
+                    simplified_instance.bin_types.push_back(
+                            original_simplified_instance.bin_types[sub_to_orig_bin_type_ids[bin_type_id]]);
+                }
+                instance_.simplified_instances_cache_->simplified_instances.insert({
+                        original_entry.first,
+                        std::move(simplified_instance)});
+            }
+        }
+    }
 }

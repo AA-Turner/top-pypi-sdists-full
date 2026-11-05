@@ -1,21 +1,11 @@
-use nom::{
-	Parser,
-	branch::alt,
-	bytes::complete::tag,
-	character::complete::one_of,
-	combinator::{opt, peek},
-	sequence::preceded,
-};
-
 use crate::{
 	Input,
 	context::Context,
-	error::ParseError,
+	error::{Fail, PResult},
 	lossless::TokenKind,
-	node::{Blocks, Elements},
+	node::Elements,
 	scope::Scope,
-	span::{Span, WithToken},
-	unparse::Unparse,
+	span::Span,
 };
 
 use super::block;
@@ -23,73 +13,46 @@ use super::block;
 pub const LINE_PREFIX: char = '>';
 pub const REST_PREFIX: &str = ">>>";
 
-/// Unparse quote content back to markdown.
-///
-/// # Errors
-/// If formatting fails
-pub fn unparse<S: Span>(content: &Blocks<S>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-	// Quotes need special handling - prefix each line with "> "
-	let content_str = content.unparse().to_string();
-	let lines: Vec<&str> = content_str.lines().collect();
-	for (i, line) in lines.iter().enumerate() {
-		if i > 0 {
-			f.write_str("\n")?;
-		}
-		write!(f, "{LINE_PREFIX} {line}")?;
-	}
-	Ok(())
-}
-
 /// Parse a quote beginning with [`REST_PREFIX`], which quotes everything after it.
 ///
 /// # Errors
 /// If the data does not begin with such a quote.
-#[must_use]
-pub fn quote_rest<'data, S, E>(
-	context: Context,
-) -> impl Parser<Input<'data>, Output = Elements<'data, S>, Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
+pub fn quote_rest<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<Elements<'data, S>> {
 	// As with `> `, exactly one space belongs to the prefix so that indentation on the first line
 	// survives into the content.
-	(
-		(tag(REST_PREFIX), one_of(" \t")).token::<S>(TokenKind::QuotePrefix),
-		block(context.with_scope(Scope::QuoteRest)),
-	)
-		.map(|(prefix, mut content): (_, Elements<'data, S>)| {
-			content.span.attach(prefix);
-			content
-		})
+	let prefix = input.token::<S, _>(TokenKind::QuotePrefix, |input| {
+		input.tag(REST_PREFIX)?;
+		input.satisfy(|ch| matches!(ch, ' ' | '\t'))
+	})?;
+	let mut quoted = block::<S>(input, &context.clone().with_scope(Scope::QuoteRest))?;
+	quoted.span.attach(prefix);
+	Ok(quoted)
 }
 
 /// Parse a quote whose every line begins with [`LINE_PREFIX`].
 ///
 /// # Errors
 /// If the data does not begin with such a quote.
-#[must_use]
-pub fn quote_line<'data, S, E>(
-	context: Context,
-) -> impl Parser<Input<'data>, Output = Elements<'data, S>, Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	// The prefix is peeked, not consumed: the block loop consumes it at the start of every line,
-	// including the first. The trailing `opt` mops up a bare `>` on the final line, which the block
-	// loop backtracks over because no block content follows it.
-	preceded(
-		peek(Scope::Quote.line_prefix()),
-		(
-			block(context.with_scope(Scope::Quote)),
-			opt(Scope::Quote.line_prefix()).token::<S>(TokenKind::QuotePrefix),
-		),
-	)
-	.map(|(mut content, prefix): (Elements<'data, S>, _)| {
-		content.span.attach(prefix);
-		content
-	})
+pub fn quote_line<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<Elements<'data, S>> {
+	// The prefix is only looked for, not consumed: the block loop consumes it at the start of
+	// every line, including the first. The last line's prefix is mopped up afterwards, for a bare
+	// `>` on the final line, which the block loop backtracks over because no block content
+	// follows it.
+	if !input.matches(|input| Scope::Quote.line_prefix(input))? {
+		return Err(Fail::NoMatch);
+	}
+	let mut quoted = block::<S>(input, &context.clone().with_scope(Scope::Quote))?;
+	let prefix = input.token::<S, _>(TokenKind::QuotePrefix, |input| {
+		Ok(input.attempt(|input| Scope::Quote.line_prefix(input))?)
+	})?;
+	quoted.span.attach(prefix);
+	Ok(quoted)
 }
 
 /// Parse a quote block.
@@ -98,24 +61,21 @@ where
 ///
 /// # Errors
 /// If the data does not begin with quote content.
-#[must_use]
-pub fn quote<'data, S, E>(
-	context: Context,
-) -> impl Parser<Input<'data>, Output = Elements<'data, S>, Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	alt((quote_line(context.clone()), quote_rest(context)))
+pub fn quote<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<Elements<'data, S>> {
+	match input.attempt(|input| quote_line(input, context))? {
+		Some(quote) => Ok(quote),
+		None => quote_rest(input, context),
+	}
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
 	use crate::{
 		bold, heading, italic, list, list_item, list_items, paragraph, spanned_vec,
-		test_utils::{handle_nom_err, resolved_blocks},
+		test_utils::{resolved_blocks, run},
 		text, underline,
 		{
 			context::Context,
@@ -127,11 +87,8 @@ mod test {
 
 	/// Parse `s` as a quote, asserting the whole input was consumed, and resolve it.
 	fn parse_quote(s: &str) -> crate::node::Blocks<'_, ()> {
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "", "unexpected input remaining for {s:?}");
 		resolved_blocks(res)
 	}
@@ -139,11 +96,8 @@ mod test {
 	#[test]
 	fn basic_quote() {
 		let s = "> foo";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(resolved_blocks(res), spanned_vec!(paragraph!("foo")));
 	}
@@ -151,11 +105,8 @@ mod test {
 	#[test]
 	fn quote_with_new_line() {
 		let s = "> foo\nbar";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "bar");
 		assert_eq!(resolved_blocks(res), spanned_vec!(paragraph!("foo")));
 	}
@@ -163,11 +114,8 @@ mod test {
 	#[test]
 	fn multi_line_quote() {
 		let s = "> foo\n> bar";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -178,11 +126,8 @@ mod test {
 	#[test]
 	fn multi_line_quote_with_empty() {
 		let s = "> foo\n>\n> bar";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -193,11 +138,8 @@ mod test {
 	#[test]
 	fn quote_at_end() {
 		let s = "> foo\n>";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(resolved_blocks(res), spanned_vec!(paragraph!("foo")));
 	}
@@ -205,11 +147,8 @@ mod test {
 	#[test]
 	fn quote_with_styling() {
 		let s = "> **foo _bob_**\n> cat __a kitty cat__";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -225,9 +164,7 @@ mod test {
 	#[test]
 	fn prefix_requires_space_or_line_end() {
 		let s = ">foo";
-		let res = quote::<(), nom::error::Error<_>>(Context::default())
-			.parse_complete(s.into())
-			.finish();
+		let res = run(s, |input| quote::<()>(input, &Context::default()));
 		assert!(res.is_err(), "`>foo` should not parse as a quote: {res:?}");
 	}
 
@@ -236,11 +173,8 @@ mod test {
 	#[test]
 	fn unquoted_line_ends_quote() {
 		let s = "> foo\nbar\n> baz";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "bar\n> baz");
 		assert_eq!(resolved_blocks(res), spanned_vec!(paragraph!("foo")));
 	}
@@ -252,10 +186,7 @@ mod test {
 		use crate::span::TrackedSpan;
 
 		let s = "> ab\n> cd";
-		let (_, res) = quote::<TrackedSpan, _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
+		let (_, res) = run(s, |input| quote::<TrackedSpan>(input, &Context::default()))
 			.expect("unable to parse");
 
 		let spans = res
@@ -274,11 +205,8 @@ mod test {
 	#[test]
 	fn rest_prefix_quotes_the_rest_of_the_content() {
 		let s = ">>> foo\nbar\nbaz";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -291,11 +219,8 @@ mod test {
 	#[test]
 	fn rest_prefix_consumes_its_space() {
 		let s = ">>> foo";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(resolved_blocks(res), spanned_vec!(paragraph!("foo")));
 	}
@@ -306,9 +231,7 @@ mod test {
 	#[test]
 	fn rest_prefix_requires_a_space() {
 		for s in [">>>foo", ">>>> foo", ">>>\nfoo", ">>>"] {
-			let res = quote::<(), nom::error::Error<_>>(Context::default())
-				.parse_complete(s.into())
-				.finish();
+			let res = run(s, |input| quote::<()>(input, &Context::default()));
 			assert!(res.is_err(), "{s:?} should not parse as a quote: {res:?}");
 		}
 	}
@@ -318,11 +241,8 @@ mod test {
 	#[test]
 	fn rest_quote_keeps_empty_lines() {
 		let s = ">>> foo\n\nbar";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -335,11 +255,8 @@ mod test {
 	#[test]
 	fn rest_quote_parses_block_rules() {
 		let s = ">>> # foo\nbar";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -351,11 +268,8 @@ mod test {
 	#[test]
 	fn heading_consumes_quoted_blank_lines() {
 		let s = "> # foo\n>\n>   \n> bar";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -366,11 +280,8 @@ mod test {
 	#[test]
 	fn rest_quote_parses_inline_rules() {
 		let s = ">>> **foo _bob_**\ncat __a kitty cat__";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -386,11 +297,8 @@ mod test {
 	#[test]
 	fn rest_quote_does_not_nest() {
 		let s = ">>> foo\n> bar\n>>> baz";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -406,11 +314,8 @@ mod test {
 	#[test]
 	fn rest_prefix_inside_a_line_quote_is_text() {
 		let s = "> >>> foo";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(resolved_blocks(res), spanned_vec!(paragraph!(">>> foo")));
 	}
@@ -482,11 +387,8 @@ mod test {
 	#[test]
 	fn unquoted_line_ends_quoted_list() {
 		let s = "> - foo\n- bar";
-		let (rem, res) = quote::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| quote::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "- bar");
 		assert_eq!(
 			resolved_blocks(res),
@@ -507,10 +409,7 @@ mod test {
 		use crate::span::TrackedSpan;
 
 		let s = "> - ab\n> - cd";
-		let (rem, res) = quote::<TrackedSpan, _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
+		let (rem, res) = run(s, |input| quote::<TrackedSpan>(input, &Context::default()))
 			.expect("unable to parse");
 		assert_eq!(rem, "");
 
@@ -535,10 +434,7 @@ mod test {
 		use crate::span::TrackedSpan;
 
 		let s = ">>> ab\ncd";
-		let (_, res) = quote::<TrackedSpan, _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
+		let (_, res) = run(s, |input| quote::<TrackedSpan>(input, &Context::default()))
 			.expect("unable to parse");
 
 		let spans = res
@@ -558,11 +454,8 @@ mod test {
 		use crate::node::block::block;
 
 		let s = "x >>> y\n>>> z";
-		let (rem, res) = block::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| block::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -580,11 +473,8 @@ mod test {
 		use crate::node::block::block;
 
 		let s = "> foo\n>>> bar";
-		let (rem, res) = block::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| block::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_blocks(res),
@@ -611,22 +501,16 @@ mod test {
 		};
 
 		let s = ">>> foo";
-		let res = parse::<(), _>(s, without(Syntax::MultilineQuote))
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, without(Syntax::MultilineQuote)).expect("unable to parse");
 		assert_eq!(res, spanned_vec!(paragraph!(">>> foo")));
-		let res = parse::<(), _>(s, without(Syntax::Quote))
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, without(Syntax::Quote)).expect("unable to parse");
 		assert_eq!(
 			res,
 			spanned_vec!(Block::Quote(spanned_vec!(paragraph!("foo"))))
 		);
 
 		let s = "> foo";
-		let res = parse::<(), _>(s, without(Syntax::Quote))
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, without(Syntax::Quote)).expect("unable to parse");
 		assert_eq!(res, spanned_vec!(paragraph!("> foo")));
 	}
 }

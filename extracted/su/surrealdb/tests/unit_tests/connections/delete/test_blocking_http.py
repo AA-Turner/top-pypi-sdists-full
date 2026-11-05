@@ -2,6 +2,7 @@ from typing import Any
 
 import pytest
 
+from surrealdb import StringRecordId
 from surrealdb.connections.blocking_http import BlockingHttpSurrealConnection
 from surrealdb.data.types.record_id import RecordID
 from surrealdb.data.types.table import Table
@@ -12,78 +13,99 @@ def record_id() -> RecordID:
     return RecordID("user", "tobie")
 
 
-def check_no_change(data: dict[str, Any], record_id) -> None:
+def check_no_change(data: dict[str, Any], record_id: RecordID) -> None:
     assert record_id == data["id"]
     assert "Tobie" == data["name"]
 
 
-def check_change(data: dict[str, Any], record_id) -> None:
+def check_change(data: dict[str, Any], record_id: RecordID) -> None:
     assert record_id == data["id"]
     assert "Jaime" == data["name"]
     assert 35 == data["age"]
 
 
 def test_debug_delete(blocking_http_connection: BlockingHttpSurrealConnection) -> None:
-    blocking_http_connection.query("DELETE user;")
-    blocking_http_connection.query("CREATE user:tobie SET name = 'Tobie';")
+    blocking_http_connection.query("DELETE user;").execute()
+    blocking_http_connection.query("CREATE user:tobie SET name = 'Tobie';").execute()
 
-    # Debug: Check what delete actually returns
-    outcome = blocking_http_connection.delete("user:tobie")
-    print(f"DEBUG: Delete outcome: {outcome}")
+    # Debug: Check what delete actually returns. delete() runs eagerly and
+    # returns the deleted record directly (no builder / .execute()).
+    outcome = blocking_http_connection.delete(StringRecordId("user:tobie")).execute()
+    print(f"DEBUG: Delete outcome: {outcome!r}")
     print(f"DEBUG: Type: {type(outcome)}")
 
     # Verify the record was actually deleted
-    outcome = blocking_http_connection.query("SELECT * FROM user;")
-    assert outcome == []
+    remaining = blocking_http_connection.query("SELECT * FROM user;").first()
+    assert remaining == []
 
 
 def test_delete_string(
     blocking_http_connection: BlockingHttpSurrealConnection, record_id: RecordID
 ) -> None:
-    blocking_http_connection.query("DELETE user;")
-    blocking_http_connection.query("CREATE user:tobie SET name = 'Tobie';")
+    blocking_http_connection.query("DELETE user;").execute()
+    blocking_http_connection.query("CREATE user:tobie SET name = 'Tobie';").execute()
 
     # Delete operation returns the deleted record
-    outcome = blocking_http_connection.delete("user:tobie")
+    outcome = blocking_http_connection.delete(StringRecordId("user:tobie")).execute()
     assert outcome is not None
     assert outcome["id"] == record_id
     assert outcome["name"] == "Tobie"
 
     # Verify the record was actually deleted
-    outcome = blocking_http_connection.query("SELECT * FROM user;")
-    assert outcome == []
+    remaining = blocking_http_connection.query("SELECT * FROM user;").first()
+    assert remaining == []
 
 
 def test_delete_record_id(
     blocking_http_connection: BlockingHttpSurrealConnection, record_id: RecordID
 ) -> None:
-    blocking_http_connection.query("DELETE user;")
-    blocking_http_connection.query("CREATE user:tobie SET name = 'Tobie';")
+    blocking_http_connection.query("DELETE user;").execute()
+    blocking_http_connection.query("CREATE user:tobie SET name = 'Tobie';").execute()
 
     # Delete operation returns the deleted record
-    outcome = blocking_http_connection.delete(record_id)
+    outcome = blocking_http_connection.delete(record_id).execute()
     assert outcome is not None
     assert outcome["id"] == record_id
     assert outcome["name"] == "Tobie"
 
     # Verify the record was actually deleted
-    outcome = blocking_http_connection.query("SELECT * FROM user;")
-    assert outcome == []
+    remaining = blocking_http_connection.query("SELECT * FROM user;").first()
+    assert remaining == []
+
+
+def test_delete_record_id_absent(
+    blocking_http_connection: BlockingHttpSurrealConnection,
+) -> None:
+    blocking_http_connection.query("DELETE user;").execute()
+
+    # Deleting an absent record returns None (matching select).
+    outcome = blocking_http_connection.delete(RecordID("user", "missing")).execute()
+    assert outcome is None
+
+
+def test_delete_string_absent(
+    blocking_http_connection: BlockingHttpSurrealConnection,
+) -> None:
+    blocking_http_connection.query("DELETE user;").execute()
+
+    # Deleting an absent "table:id" record returns None (matching select).
+    outcome = blocking_http_connection.delete(StringRecordId("user:missing")).execute()
+    assert outcome is None
 
 
 def test_delete_table(blocking_http_connection: BlockingHttpSurrealConnection) -> None:
-    blocking_http_connection.query("DELETE user;")
-    blocking_http_connection.query("CREATE user:tobie SET name = 'Tobie';")
-    blocking_http_connection.query("CREATE user:jaime SET name = 'Jaime';")
+    blocking_http_connection.query("DELETE user;").execute()
+    blocking_http_connection.query("CREATE user:tobie SET name = 'Tobie';").execute()
+    blocking_http_connection.query("CREATE user:jaime SET name = 'Jaime';").execute()
 
     # Delete all users in the table
     table = Table("user")
-    outcome = blocking_http_connection.delete(table)
+    outcome = blocking_http_connection.delete(table).execute()
     # Table delete returns list of deleted records
     assert len(outcome) == 2
     assert any(record["name"] == "Tobie" for record in outcome)
     assert any(record["name"] == "Jaime" for record in outcome)
 
     # Verify all records were deleted
-    outcome = blocking_http_connection.query("SELECT * FROM user;")
-    assert outcome == []
+    remaining = blocking_http_connection.query("SELECT * FROM user;").first()
+    assert remaining == []

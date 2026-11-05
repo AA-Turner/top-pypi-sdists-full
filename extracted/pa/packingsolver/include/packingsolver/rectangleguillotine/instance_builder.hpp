@@ -183,13 +183,35 @@ public:
             const std::vector<double>& schedule);
 
     /**
-     * Add a bin type from another bin type.
+     * Set the original instance, from which bin types and item types are
+     * added by 'add_bin_type_from_original_instance' and
+     * 'add_item_type_from_original_instance'.
      *
-     * This method is used in the column generation procedure.
+     * It is used to build sub-instances of an instance, for example in the
+     * column generation or in the sequential value correction algorithms.
+     *
+     * The original instance must remain valid until 'build' is called.
      */
-    BinTypeId add_bin_type(
-            const Instance& original_instance,
+    void set_original_instance(const Instance& original_instance) { original_instance_ = &original_instance; }
+
+    /** Add a bin type from a bin type of the original instance. */
+    BinTypeId add_bin_type_from_original_instance(
             BinTypeId original_bin_type_id);
+
+    /**
+     * Crop a bin type to its bottom-left part of dimensions 'width' x
+     * 'height'.
+     *
+     * The right and top trims and the defects are cut to the part kept.
+     *
+     * This method is used to build the sub-instances of the sequential
+     * feasibility algorithm, whose solutions are copied into the original
+     * bins.
+     */
+    void crop_bin_type(
+            BinTypeId bin_type_id,
+            Length width,
+            Length height);
 
     /** Set the number of copies of a bin type. */
     void set_bin_type_copies(
@@ -240,22 +262,25 @@ public:
     ItemTypeId add_item_type(
             Length width,
             Length height,
-            bool oriented = false,
-            StackId stack_id = -1);
+            bool oriented = false);
 
-    /**
-     * Add an item type from another item type.
-     *
-     * This method is used in the column generation procedure.
-     */
-    ItemTypeId add_item_type(
-            const Instance& original_instance,
+    /** Add an item type from an item type of the original instance. */
+    ItemTypeId add_item_type_from_original_instance(
             ItemTypeId original_item_type_id);
 
     /** Set the profit of an item type. */
     void set_item_type_profit(
             ItemTypeId item_type_id,
             Profit profit);
+
+    /**
+     * Set the stack of an item type.
+     *
+     * Either all the item types have a stack, or none of them.
+     */
+    void set_item_type_stack_id(
+            ItemTypeId item_type_id,
+            StackId stack_id);
 
     /** Set the number of copies of an item type. */
     void set_item_type_copies(
@@ -297,6 +322,13 @@ public:
 
 private:
 
+    /**
+     * Return the original instance.
+     *
+     * Throw if it has not been set with 'set_original_instance'.
+     */
+    const Instance& original_instance() const;
+
     /*
      * Private methods
      */
@@ -317,6 +349,12 @@ private:
     void build_stacks();
 
     /**
+     * Copy the cache of the original instance into the instance, for the
+     * item types and bin types which come from the original instance.
+     */
+    void copy_cache_from_original_instance();
+
+    /**
      * Number of cutting costs of the instance: one for the bin, one per
      * stage, and one for the extra cut of the non-exact cut types.
      */
@@ -334,6 +372,9 @@ private:
 
     /** Instance. */
     Instance instance_;
+
+    /** Original instance; see 'set_original_instance'. */
+    const Instance* original_instance_ = nullptr;
 
     /** Mapping from original bin type IDs to sub-instance bin type IDs. */
     std::vector<BinTypeId> orig_to_sub_bin_type_ids_;

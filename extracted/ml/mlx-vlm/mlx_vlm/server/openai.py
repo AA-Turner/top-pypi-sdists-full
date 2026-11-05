@@ -4,16 +4,19 @@ import binascii
 import gc
 import json
 import logging
+import math
+import os
 import random
 import time
 import uuid
-from contextlib import aclosing
+from contextlib import aclosing, suppress
 from datetime import datetime
 from functools import partial
 from io import BytesIO
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
+import anyio
 import mlx.core as mx
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -33,7 +36,7 @@ from ..tools import (
 )
 from ..tools.streaming import ToolCallDeltaState
 from ..utils import prepare_inputs
-from . import compaction
+from . import compaction, continuation
 from .generation import (
     GenerationMetrics,
     PromptTooLongError,
@@ -110,6 +113,37 @@ _AUDIO_REFERENCE_SUFFIXES = (".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac", ".
 _MISSING_INPUT_DETAIL = (
     "Request must include at least one non-empty message content or media input."
 )
+
+
+async def _with_keepalives(source):
+    """Send idle SSE comments while keeping the same pending producer read."""
+    interval = float(os.environ.get("MLX_VLM_STREAM_KEEPALIVE_INTERVAL", "15"))
+    if not math.isfinite(interval) or interval < 0:
+        raise ValueError("MLX_VLM_STREAM_KEEPALIVE_INTERVAL must be finite and >= 0")
+    pending = None
+    try:
+        while True:
+            if pending is None:
+                pending = asyncio.create_task(anext(source))
+            ready, _ = await asyncio.wait({pending}, timeout=interval or None)
+            if not ready:
+                yield ": keepalive\n\n"
+                continue
+            task, pending = pending, None
+            try:
+                yield task.result()
+            except StopAsyncIteration:
+                break
+    finally:
+        # Let the existing stream cleanup run even in Starlette's cancel scope.
+        with anyio.CancelScope(shield=True):
+            try:
+                if pending is not None:
+                    pending.cancel()
+                    with suppress(asyncio.CancelledError, StopAsyncIteration):
+                        await pending
+            finally:
+                await source.aclose()
 
 
 def _has_non_empty_text(value: Any) -> bool:
@@ -1136,7 +1170,8 @@ async def responses_endpoint(request: Request):
             )
             _normalize_instruction_messages(messages, openai_request.instructions)
             _ensure_effective_input(messages, images=images)
-            prompt = apply_chat_template(
+            prompt = continuation.render_prompt(
+                apply_chat_template,
                 processor,
                 config,
                 messages,
@@ -1411,6 +1446,7 @@ async def responses_endpoint(request: Request):
                         starts_in_thinking,
                         gen_args.thinking_start_token,
                         gen_args.thinking_end_token,
+                        prompt=formatted_prompt,
                     )
                     reasoning_item_id = f"rs_{uuid.uuid4().hex}"
                     streamed_reasoning = ""
@@ -1419,6 +1455,7 @@ async def responses_endpoint(request: Request):
                         # generate() blocks on _cpu_preprocess + queue.get;
                         # offload so concurrent handlers preprocess in parallel.
                         ctx, token_iter = await asyncio.to_thread(
+                            continuation.start_generation,
                             runtime.response_generator.generate,
                             formatted_prompt,
                             images if images else None,
@@ -1439,10 +1476,10 @@ async def responses_endpoint(request: Request):
                             token = await asyncio.to_thread(_next_token_resp_stream)
                             if token is None:
                                 break
-                            output_tokens += getattr(token, "token_count", 1)
                             raw_delta = token.text
                             full_text += raw_delta
                             chunk_rate = metrics.record_chunk(token)
+                            output_tokens = metrics.generated_tokens
                             thinking_delta = thinking_state.feed(
                                 raw_delta, last=bool(token.finish_reason)
                             )
@@ -1477,14 +1514,15 @@ async def responses_endpoint(request: Request):
                                 break
                     else:
                         # Fallback to stream_generate
-                        token_iterator = stream_generate(
+                        token_iterator = continuation.stream_generation(
+                            stream_generate,
                             model=model,
                             processor=processor,
                             prompt=formatted_prompt,
                             image=images,
                             vision_cache=runtime.model_cache.get("vision_cache"),
                             apc_manager=runtime.apc_manager,
-                            **gen_args.to_generate_kwargs(),
+                            args=gen_args,
                             **kwargs,
                         )
 
@@ -1551,6 +1589,7 @@ async def responses_endpoint(request: Request):
                             processor=processor,
                             starts_in_thinking=starts_in_thinking,
                             tool_delta_state=tool_delta_state,
+                            prompt=formatted_prompt,
                         )
                     )
                     for item in output_items:
@@ -1651,6 +1690,11 @@ async def responses_endpoint(request: Request):
                         token_times=metrics.token_times,
                         prompt_tps=metrics.prompt_tps,
                         generation_tps=metrics.generation_tps,
+                        decode_elapsed_s=(
+                            metrics.decode_progress.elapsed
+                            if metrics.decode_progress is not None
+                            else None
+                        ),
                         peak_memory_gb=metrics.peak_memory or None,
                         finish_reason=finish_reason,
                         image_count=len(images),
@@ -1729,7 +1773,7 @@ async def responses_endpoint(request: Request):
                     logger.debug("Responses stream closed.")
 
             return StreamingResponse(
-                stream_generator(),
+                _with_keepalives(stream_generator()),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
@@ -1816,6 +1860,7 @@ async def responses_endpoint(request: Request):
                         gen_args.thinking_end_token,
                         processor=processor,
                         starts_in_thinking=starts_in_thinking,
+                        prompt=formatted_prompt,
                     )
                 )
                 if finish_reason != "length" and output_finish_reason == "tool_calls":
@@ -2070,7 +2115,8 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
         if tool_choice is not None:
             template_kwargs["tool_choice"] = tool_choice
 
-        formatted_prompt = apply_chat_template(
+        formatted_prompt = continuation.render_prompt(
+            apply_chat_template,
             processor,
             config,
             processed_messages,
@@ -2170,6 +2216,7 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
                         if videos:
                             generate_kwargs["videos"] = videos
                         ctx, token_iter = await asyncio.to_thread(
+                            continuation.start_generation,
                             runtime.response_generator.generate,
                             formatted_prompt,
                             images if images else None,
@@ -2189,6 +2236,7 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
                             ),
                             gen_args.thinking_start_token,
                             gen_args.thinking_end_token,
+                            prompt=formatted_prompt,
                         )
                         full_output = ""  # raw output for tool call parsing
                         # Track tool-call state to suppress markup from content
@@ -2206,9 +2254,9 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
                             token = await asyncio.to_thread(_next_token)
                             if token is None:
                                 break
-                            output_tokens += getattr(token, "token_count", 1)
                             full_output += token.text
                             chunk_rate = metrics.record_chunk(token)
+                            output_tokens = metrics.generated_tokens
 
                             # Detect thinking boundaries
                             thinking_delta = thinking_state.feed(
@@ -2348,7 +2396,8 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
                             yield f"data: {chunk_data.model_dump_json()}\n\n"
                     else:
                         # Fallback to stream_generate
-                        token_iterator = stream_generate(
+                        token_iterator = continuation.stream_generation(
+                            stream_generate,
                             model=model,
                             processor=processor,
                             prompt=formatted_prompt,
@@ -2357,7 +2406,7 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
                             video=videos,
                             vision_cache=runtime.model_cache.get("vision_cache"),
                             apc_manager=runtime.apc_manager,
-                            **gen_args.to_generate_kwargs(),
+                            args=gen_args,
                             **kwargs,
                         )
 
@@ -2373,6 +2422,7 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
                             ),
                             gen_args.thinking_start_token,
                             gen_args.thinking_end_token,
+                            prompt=formatted_prompt,
                         )
                         tool_call_state = ToolCallStreamState(
                             tool_module.tool_call_start if tool_module else None,
@@ -2526,6 +2576,11 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
                         token_times=metrics.token_times,
                         prompt_tps=metrics.prompt_tps,
                         generation_tps=metrics.generation_tps,
+                        decode_elapsed_s=(
+                            metrics.decode_progress.elapsed
+                            if metrics.decode_progress is not None
+                            else None
+                        ),
                         peak_memory_gb=metrics.peak_memory or None,
                         finish_reason=finish_reason,
                         image_count=len(images),
@@ -2578,7 +2633,7 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
                     logger.debug("Chat completion stream closed.")
 
             return StreamingResponse(
-                stream_generator(),
+                _with_keepalives(stream_generator()),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
@@ -2682,6 +2737,7 @@ async def chat_completions_endpoint(request: ChatRequest, http_request: Request)
                         gen_args.thinking_end_token,
                     ),
                     processor=processor,
+                    prompt=formatted_prompt,
                 )
 
                 # Count raw generated tokens minus thinking tag tokens

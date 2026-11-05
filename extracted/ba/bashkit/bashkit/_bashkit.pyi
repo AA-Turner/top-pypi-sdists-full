@@ -614,6 +614,9 @@ class Bash:
         capture: int | None = None,
         stdout: ByteSink | None = None,
         stderr: ByteSink | None = None,
+        timeout_seconds: float | None = None,
+        output_file: str | None = None,
+        max_output_file_bytes: int | None = None,
     ) -> ExecResult:
         """Execute bash commands asynchronously.
 
@@ -621,6 +624,12 @@ class Bash:
             commands: Bash script to run (like ``bash -c "commands"``).
             on_output: Optional callback receiving chunked ``(stdout, stderr)``
                 pairs during execution. Must be synchronous.
+            timeout_seconds: Optional wall-clock cap for this call only. It can
+                only tighten the constructor ``timeout_seconds``, never extend it.
+            output_file: Optional absolute VFS path that receives combined
+                stdout+stderr, created or truncated first. Bounded by
+                ``max_output_file_bytes`` (default 10 MiB) and filesystem limits,
+                not the in-memory output caps. Not combinable with ``on_output``.
 
         Async ``custom_builtins`` callbacks run on the caller's active asyncio
         loop.
@@ -638,7 +647,15 @@ class Bash:
         """
         ...
 
-    def execute_sync(self, commands: str, on_output: OutputHandler | None = None) -> ExecResult:
+    def execute_sync(
+        self,
+        commands: str,
+        on_output: OutputHandler | None = None,
+        *,
+        timeout_seconds: float | None = None,
+        output_file: str | None = None,
+        max_output_file_bytes: int | None = None,
+    ) -> ExecResult:
         """Execute bash commands synchronously (blocking).
 
         Async external handlers use the instance's private worker loop.
@@ -658,7 +675,9 @@ class Bash:
         """
         ...
 
-    async def execute_or_throw(self, commands: str, on_output: OutputHandler | None = None) -> ExecResult:
+    async def execute_or_throw(
+        self, commands: str, on_output: OutputHandler | None = None, *, timeout_seconds: float | None = None
+    ) -> ExecResult:
         """Execute commands asynchronously; raise ``BashError`` on non-zero exit.
 
         ``on_output`` must be synchronous.
@@ -675,7 +694,9 @@ class Bash:
         """
         ...
 
-    def execute_sync_or_throw(self, commands: str, on_output: OutputHandler | None = None) -> ExecResult:
+    def execute_sync_or_throw(
+        self, commands: str, on_output: OutputHandler | None = None, *, timeout_seconds: float | None = None
+    ) -> ExecResult:
         """Execute commands synchronously; raise ``BashError`` on non-zero exit.
 
         ``on_output`` must be synchronous.
@@ -1251,6 +1272,9 @@ class BashTool:
         capture: int | None = None,
         stdout: ByteSink | None = None,
         stderr: ByteSink | None = None,
+        timeout_seconds: float | None = None,
+        output_file: str | None = None,
+        max_output_file_bytes: int | None = None,
     ) -> ExecResult:
         """Execute bash commands asynchronously.
 
@@ -1268,7 +1292,15 @@ class BashTool:
         """
         ...
 
-    def execute_sync(self, commands: str, on_output: OutputHandler | None = None) -> ExecResult:
+    def execute_sync(
+        self,
+        commands: str,
+        on_output: OutputHandler | None = None,
+        *,
+        timeout_seconds: float | None = None,
+        output_file: str | None = None,
+        max_output_file_bytes: int | None = None,
+    ) -> ExecResult:
         """Execute bash commands synchronously (blocking).
 
         Async ``custom_builtins`` callbacks run on a private loop here.
@@ -1288,7 +1320,9 @@ class BashTool:
         """
         ...
 
-    async def execute_or_throw(self, commands: str, on_output: OutputHandler | None = None) -> ExecResult:
+    async def execute_or_throw(
+        self, commands: str, on_output: OutputHandler | None = None, *, timeout_seconds: float | None = None
+    ) -> ExecResult:
         """Execute commands asynchronously; raise ``BashError`` on non-zero exit.
 
         ``on_output`` must be synchronous.
@@ -1302,7 +1336,9 @@ class BashTool:
         """
         ...
 
-    def execute_sync_or_throw(self, commands: str, on_output: OutputHandler | None = None) -> ExecResult:
+    def execute_sync_or_throw(
+        self, commands: str, on_output: OutputHandler | None = None, *, timeout_seconds: float | None = None
+    ) -> ExecResult:
         """Execute commands synchronously; raise ``BashError`` on non-zero exit.
 
         ``on_output`` must be synchronous.

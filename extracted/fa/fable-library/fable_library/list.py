@@ -59,7 +59,7 @@ from .util import (
 )
 
 
-def _expr28(gen0: TypeInfo) -> TypeInfo:
+def _expr41(gen0: TypeInfo) -> TypeInfo:
     return record_type(
         "ListModule.FSharpList",
         Array([gen0]),
@@ -82,12 +82,12 @@ class FSharpList[T](Record, EnumerableBase[Any]):
             while enumerator.System_Collections_IEnumerator_MoveNext():
                 x_1: Any = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
 
-                def _arrow27(__unit: Unit = UNIT) -> str:
+                def _arrow38(__unit: Unit = UNIT) -> str:
                     x: Any = x_1
                     match_value: Any = x
                     return (('"' + match_value) + '"') if (str(type(match_value)) == "<class 'str'>") else to_string(x)
 
-                result = (result if first else (result + "; ")) + _arrow27()
+                result = (result if first else (result + "; ")) + _arrow38()
                 first = False
         return result + "]"
 
@@ -199,10 +199,10 @@ class FSharpList[T](Record, EnumerableBase[Any]):
         return int(self.GetHashCode())
 
 
-FSharpList_reflection = _expr28
+FSharpList_reflection = _expr41
 
 
-def _expr29(gen0: TypeInfo) -> TypeInfo:
+def _expr42(gen0: TypeInfo) -> TypeInfo:
     return class_type("ListModule.ListEnumerator`1", Array([gen0]), ListEnumerator_1)
 
 
@@ -241,7 +241,7 @@ class ListEnumerator_1[T](EnumeratorBase[Any], DisposableBase):
         pass
 
 
-ListEnumerator_1_reflection = _expr29
+ListEnumerator_1_reflection = _expr42
 
 
 def ListEnumerator_1__ctor_3002E699[T](xs: FSharpList[T]) -> ListEnumerator_1[T]:
@@ -459,10 +459,10 @@ def fold[T, STATE](folder: Callable[[STATE, T], STATE], state: STATE, xs: FSharp
 
 
 def reverse[T](xs: FSharpList[T]) -> FSharpList[T]:
-    def _arrow30(acc: FSharpList[T], x: T) -> FSharpList[T]:
+    def _arrow49(acc: FSharpList[T], x: T) -> FSharpList[T]:
         return FSharpList_Cons_305B8EAC(x, acc)
 
-    return fold(_arrow30, FSharpList_get_Empty(), xs)
+    return fold(_arrow49, FSharpList_get_Empty(), xs)
 
 
 def fold_back[T, STATE](folder: Callable[[T, STATE], STATE], xs: FSharpList[T], state: STATE) -> STATE:
@@ -525,12 +525,12 @@ def unfold[STATE, T](generator: Callable[[STATE], tuple[T, STATE] | None], state
             if match_value is not None:
                 acc_mut = match_value[1]
 
-                def _arrow31(match_value: tuple[T, STATE], node: Any = node) -> FSharpList[T]:
+                def _arrow50(match_value: tuple[T, STATE], node: Any = node) -> FSharpList[T]:
                     t: FSharpList[Any] = FSharpList(match_value[0], None)
                     node.tail_ = t
                     return t
 
-                node_mut = _arrow31(match_value)
+                node_mut = _arrow50(match_value)
                 continue
 
             else:
@@ -546,33 +546,33 @@ def unfold[STATE, T](generator: Callable[[STATE], tuple[T, STATE] | None], state
 
 
 def iterate[_A](action: Callable[[_A], None], xs: FSharpList[_A]) -> None:
-    def _arrow32(unit_var: None, x: _A, action: Any = action) -> None:
+    def _arrow51(unit_var: None, x: _A, action: Any = action) -> None:
         action(x)
 
-    fold(_arrow32, None, xs)
+    fold(_arrow51, None, xs)
 
 
 def iterate2[_A, _B](action: Callable[[_A, _B], None], xs: FSharpList[_A], ys: FSharpList[_B]) -> None:
-    def _arrow33(unit_var: None, x: _A, y: _B, action: Any = action) -> None:
+    def _arrow52(unit_var: None, x: _A, y: _B, action: Any = action) -> None:
         action(x, y)
 
-    fold2(_arrow33, None, xs, ys)
+    fold2(_arrow52, None, xs, ys)
 
 
 def iterate_indexed[_A](action: Callable[[int, _A], None], xs: FSharpList[_A]) -> None:
-    def _arrow34(i: int, x: _A, action: Any = action) -> int:
+    def _arrow53(i: int, x: _A, action: Any = action) -> int:
         action(i, x)
         return (i + 1) if (i <= 2147483646) else int32(i + 1)
 
-    ignore(fold(_arrow34, 0, xs))
+    ignore(fold(_arrow53, 0, xs))
 
 
 def iterate_indexed2[_A, _B](action: Callable[[int, _A, _B], None], xs: FSharpList[_A], ys: FSharpList[_B]) -> None:
-    def _arrow35(i: int, x: _A, y: _B, action: Any = action) -> int:
+    def _arrow54(i: int, x: _A, y: _B, action: Any = action) -> int:
         action(i, x, y)
         return (i + 1) if (i <= 2147483646) else int32(i + 1)
 
-    ignore(fold2(_arrow35, 0, xs, ys))
+    ignore(fold2(_arrow54, 0, xs, ys))
 
 
 def to_seq[T](xs: FSharpList[T]) -> IEnumerable_1[T]:
@@ -604,13 +604,13 @@ def of_seq[T](xs: IEnumerable_1[T]) -> FSharpList[T]:
             while enumerator.System_Collections_IEnumerator_MoveNext():
                 x: Any = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
 
-                def _arrow36(__unit: Unit = UNIT) -> FSharpList[T]:
+                def _arrow55(__unit: Unit = UNIT) -> FSharpList[T]:
                     xs_3: FSharpList[Any] = node
                     t: FSharpList[Any] = FSharpList(x, None)
                     xs_3.tail_ = t
                     return t
 
-                node = _arrow36()
+                node = _arrow55()
         xs_5: FSharpList[Any] = node
         t_2: FSharpList[Any] = FSharpList_get_Empty()
         xs_5.tail_ = t_2
@@ -624,12 +624,12 @@ def concat[T](lists: IEnumerable_1[FSharpList[T]]) -> FSharpList[T]:
     def action(xs: FSharpList[T]) -> None:
         nonlocal node
 
-        def _arrow37(acc: FSharpList[T], x: T) -> FSharpList[T]:
+        def _arrow56(acc: FSharpList[T], x: T) -> FSharpList[T]:
             t: FSharpList[Any] = FSharpList(x, None)
             acc.tail_ = t
             return t
 
-        node = fold(_arrow37, node, xs)
+        node = fold(_arrow56, node, xs)
 
     if isinstance(lists, Array):
         iterate_1(action, lists)
@@ -659,13 +659,13 @@ def scan[STATE, T](folder: Callable[[STATE, T], STATE], state: STATE, xs: FSharp
     while not FSharpList__get_IsEmpty(xs_3):
         acc = folder(acc, FSharpList__get_Head(xs_3))
 
-        def _arrow38(__unit: Unit = UNIT) -> FSharpList[STATE]:
+        def _arrow57(__unit: Unit = UNIT) -> FSharpList[STATE]:
             xs_4: FSharpList[Any] = node
             t_2: FSharpList[Any] = FSharpList(acc, None)
             xs_4.tail_ = t_2
             return t_2
 
-        node = _arrow38()
+        node = _arrow57()
         xs_3 = FSharpList__get_Tail(xs_3)
     xs_6: FSharpList[Any] = node
     t_4: FSharpList[Any] = FSharpList_get_Empty()
@@ -678,10 +678,10 @@ def scan_back[T, STATE](folder: Callable[[T, STATE], STATE], xs: FSharpList[T], 
 
 
 def append[T](xs: FSharpList[T], ys: FSharpList[T]) -> FSharpList[T]:
-    def _arrow39(acc: FSharpList[T], x: T) -> FSharpList[T]:
+    def _arrow58(acc: FSharpList[T], x: T) -> FSharpList[T]:
         return FSharpList_Cons_305B8EAC(x, acc)
 
-    return fold(_arrow39, ys, reverse(xs))
+    return fold(_arrow58, ys, reverse(xs))
 
 
 def collect[T, U](mapping: Callable[[T], FSharpList[U]], xs: FSharpList[T]) -> FSharpList[U]:
@@ -692,13 +692,13 @@ def collect[T, U](mapping: Callable[[T], FSharpList[U]], xs: FSharpList[T]) -> F
         zs: FSharpList[Any] = mapping(FSharpList__get_Head(ys))
         while not FSharpList__get_IsEmpty(zs):
 
-            def _arrow40(__unit: Unit = UNIT) -> FSharpList[U]:
+            def _arrow59(__unit: Unit = UNIT) -> FSharpList[U]:
                 xs_1: FSharpList[Any] = node
                 t: FSharpList[Any] = FSharpList(FSharpList__get_Head(zs), None)
                 xs_1.tail_ = t
                 return t
 
-            node = _arrow40()
+            node = _arrow59()
             zs = FSharpList__get_Tail(zs)
         ys = FSharpList__get_Tail(ys)
     xs_3: FSharpList[Any] = node
@@ -736,10 +736,10 @@ def map[T, U](mapping: Callable[[T], U], xs: FSharpList[T]) -> FSharpList[U]:
 
 
 def indexed[_A](xs: FSharpList[_A]) -> FSharpList[tuple[int, _A]]:
-    def _arrow41(i: int, x: _A) -> tuple[int, _A]:
+    def _arrow60(i: int, x: _A) -> tuple[int, _A]:
         return (i, x)
 
-    return map_indexed(_arrow41, xs)
+    return map_indexed(_arrow60, xs)
 
 
 def map2[T1, T2, U](mapping: Callable[[T1, T2], U], xs: FSharpList[T1], ys: FSharpList[T2]) -> FSharpList[U]:
@@ -776,7 +776,7 @@ def map_indexed2[T1, T2, U](
             else:
                 i_mut = (i + 1) if (i <= 2147483646) else int32(i + 1)
 
-                def _arrow42(
+                def _arrow61(
                     __unit: Unit = UNIT, i: Any = i, acc: Any = acc, xs_1: Any = xs_1, ys_1: Any = ys_1
                 ) -> FSharpList[U]:
                     t: FSharpList[Any] = FSharpList(
@@ -785,7 +785,7 @@ def map_indexed2[T1, T2, U](
                     acc.tail_ = t
                     return t
 
-                acc_mut = _arrow42()
+                acc_mut = _arrow61()
                 xs_1_mut = FSharpList__get_Tail(xs_1)
                 ys_1_mut = FSharpList__get_Tail(ys_1)
                 continue
@@ -827,7 +827,7 @@ def map3[T1, T2, T3, U](
 
             else:
 
-                def _arrow43(
+                def _arrow62(
                     __unit: Unit = UNIT, acc: Any = acc, xs_1: Any = xs_1, ys_1: Any = ys_1, zs_1: Any = zs_1
                 ) -> FSharpList[U]:
                     t: FSharpList[Any] = FSharpList(
@@ -837,7 +837,7 @@ def map3[T1, T2, T3, U](
                     acc.tail_ = t
                     return t
 
-                acc_mut = _arrow43()
+                acc_mut = _arrow62()
                 xs_1_mut = FSharpList__get_Tail(xs_1)
                 ys_1_mut = FSharpList__get_Tail(ys_1)
                 zs_1_mut = FSharpList__get_Tail(zs_1)
@@ -862,12 +862,12 @@ def map_fold[STATE, T, RESULT](
     ) -> tuple[FSharpList[RESULT], STATE]:
         pattern_input: tuple[Any, Any] = mapping(tupled_arg[1], x)
 
-        def _arrow44(__unit: Unit = UNIT, tupled_arg: Any = tupled_arg) -> FSharpList[RESULT]:
+        def _arrow63(__unit: Unit = UNIT, tupled_arg: Any = tupled_arg) -> FSharpList[RESULT]:
             t: FSharpList[Any] = FSharpList(pattern_input[0], None)
             tupled_arg[0].tail_ = t
             return t
 
-        return (_arrow44(), pattern_input[1])
+        return (_arrow63(), pattern_input[1])
 
     pattern_input_1: tuple[FSharpList[Any], Any] = fold(folder, (root, state), xs)
     t_2: FSharpList[Any] = FSharpList_get_Empty()
@@ -878,10 +878,10 @@ def map_fold[STATE, T, RESULT](
 def map_fold_back[T, STATE, RESULT](
     mapping: Callable[[T, STATE], tuple[RESULT, STATE]], xs: FSharpList[T], state: STATE
 ) -> tuple[FSharpList[RESULT], STATE]:
-    def _arrow45(acc: STATE, x: T, mapping: Any = mapping) -> tuple[RESULT, STATE]:
+    def _arrow65(acc: STATE, x: T, mapping: Any = mapping) -> tuple[RESULT, STATE]:
         return mapping(x, acc)
 
-    return map_fold(_arrow45, state, reverse(xs))
+    return map_fold(_arrow65, state, reverse(xs))
 
 
 def try_pick[T, _A](f: Callable[[T], Option[_A]], xs: FSharpList[T]) -> Option[_A]:
@@ -915,10 +915,10 @@ def pick[_A, _B](f: Callable[[_A], Option[_B]], xs: FSharpList[_A]) -> _B:
 
 
 def try_find[_A](f: Callable[[_A], bool], xs: FSharpList[_A]) -> Option[_A]:
-    def _arrow46(x: _A = UNIT, f: Any = f) -> Option[_A]:
+    def _arrow67(x: _A = UNIT, f: Any = f) -> Option[_A]:
         return some(x) if f(x) else None
 
-    return try_pick(_arrow46, xs)
+    return try_pick(_arrow67, xs)
 
 
 def find[_A](f: Callable[[_A], bool], xs: FSharpList[_A]) -> _A:
@@ -1041,21 +1041,21 @@ def partition[T](f: Callable[[T], bool], xs: FSharpList[T]) -> tuple[FSharpList[
         racc: FSharpList[Any] = tupled_arg[1]
         if f(x):
 
-            def _arrow58(__unit: Unit = UNIT, x: Any = x) -> FSharpList[T]:
+            def _arrow69(__unit: Unit = UNIT, x: Any = x) -> FSharpList[T]:
                 t: FSharpList[Any] = FSharpList(x, None)
                 lacc.tail_ = t
                 return t
 
-            return (_arrow58(), racc)
+            return (_arrow69(), racc)
 
         else:
 
-            def _arrow59(__unit_1: Unit = UNIT, x: Any = x) -> FSharpList[T]:
+            def _arrow70(__unit_1: Unit = UNIT, x: Any = x) -> FSharpList[T]:
                 t_2: FSharpList[Any] = FSharpList(x, None)
                 racc.tail_ = t_2
                 return t_2
 
-            return (lacc, _arrow59())
+            return (lacc, _arrow70())
 
     pattern_input_1: tuple[FSharpList[Any], FSharpList[Any]] = fold(folder, (root1, root2), xs)
     t_4: FSharpList[Any] = FSharpList_get_Empty()
@@ -1085,10 +1085,10 @@ def choose[T, U](f: Callable[[T], Option[U]], xs: FSharpList[T]) -> FSharpList[U
 
 
 def contains[T](value: T, xs: FSharpList[T], eq: IEqualityComparer_1[Any]) -> bool:
-    def _arrow60(v: T = UNIT, value: Any = value, eq: Any = eq) -> bool:
+    def _arrow74(v: T = UNIT, value: Any = value, eq: Any = eq) -> bool:
         return eq.Equals(value, v)
 
-    return try_find_index(_arrow60, xs) is not None
+    return try_find_index(_arrow74, xs) is not None
 
 
 def initialize[T](n: int, f: Callable[[int], T]) -> FSharpList[T]:
@@ -1099,13 +1099,13 @@ def initialize[T](n: int, f: Callable[[int], T]) -> FSharpList[T]:
     node: FSharpList[Any] = root
     for i in range(0, (n - 1) if (n >= -2147483647) else int32(n - 1), 1):
 
-        def _arrow61(__unit: Unit = UNIT, f: Any = f) -> FSharpList[T]:
+        def _arrow76(__unit: Unit = UNIT, f: Any = f) -> FSharpList[T]:
             xs: FSharpList[Any] = node
             t: FSharpList[Any] = FSharpList(f(i), None)
             xs.tail_ = t
             return t
 
-        node = _arrow61()
+        node = _arrow76()
     xs_2: FSharpList[Any] = node
     t_2: FSharpList[Any] = FSharpList_get_Empty()
     xs_2.tail_ = t_2
@@ -1113,10 +1113,10 @@ def initialize[T](n: int, f: Callable[[int], T]) -> FSharpList[T]:
 
 
 def replicate[_A](n: int, x: _A) -> FSharpList[_A]:
-    def _arrow62(_arg: int, x: Any = x) -> _A:
+    def _arrow80(_arg: int, x: Any = x) -> _A:
         return x
 
-    return initialize(n, _arrow62)
+    return initialize(n, _arrow80)
 
 
 def reduce[T](f: Callable[[T, T], T], xs: FSharpList[T]) -> T:
@@ -1136,10 +1136,10 @@ def reduce_back[T](f: Callable[[T, T], T], xs: FSharpList[T]) -> T:
 
 
 def for_all[_A](f: Callable[[_A], bool], xs: FSharpList[_A]) -> bool:
-    def _arrow63(acc: bool, x: _A, f: Any = f) -> bool:
+    def _arrow82(acc: bool, x: _A, f: Any = f) -> bool:
         return f(x) if acc else False
 
-    return fold(_arrow63, True, xs)
+    return fold(_arrow82, True, xs)
 
 
 def for_all2[T1, T2](f_mut: Callable[[T1, T2], bool], xs_mut: FSharpList[T1], ys_mut: FSharpList[T2]) -> bool:
@@ -1212,7 +1212,7 @@ def exists2[T1, T2](f_mut: Callable[[T1, T2], bool], xs_mut: FSharpList[T1], ys_
 
 
 def unzip[_A, _B](xs: FSharpList[tuple[_A, _B]]) -> tuple[FSharpList[_A], FSharpList[_B]]:
-    def _arrow64(
+    def _arrow88(
         tupled_arg: tuple[_A, _B], tupled_arg_1: tuple[FSharpList[_A], FSharpList[_B]]
     ) -> tuple[FSharpList[_A], FSharpList[_B]]:
         return (
@@ -1220,11 +1220,11 @@ def unzip[_A, _B](xs: FSharpList[tuple[_A, _B]]) -> tuple[FSharpList[_A], FSharp
             FSharpList_Cons_305B8EAC(tupled_arg[1], tupled_arg_1[1]),
         )
 
-    return fold_back(_arrow64, xs, (FSharpList_get_Empty(), FSharpList_get_Empty()))
+    return fold_back(_arrow88, xs, (FSharpList_get_Empty(), FSharpList_get_Empty()))
 
 
 def unzip3[_A, _B, _C](xs: FSharpList[tuple[_A, _B, _C]]) -> tuple[FSharpList[_A], FSharpList[_B], FSharpList[_C]]:
-    def _arrow65(
+    def _arrow91(
         tupled_arg: tuple[_A, _B, _C], tupled_arg_1: tuple[FSharpList[_A], FSharpList[_B], FSharpList[_C]]
     ) -> tuple[FSharpList[_A], FSharpList[_B], FSharpList[_C]]:
         return (
@@ -1233,21 +1233,21 @@ def unzip3[_A, _B, _C](xs: FSharpList[tuple[_A, _B, _C]]) -> tuple[FSharpList[_A
             FSharpList_Cons_305B8EAC(tupled_arg[2], tupled_arg_1[2]),
         )
 
-    return fold_back(_arrow65, xs, (FSharpList_get_Empty(), FSharpList_get_Empty(), FSharpList_get_Empty()))
+    return fold_back(_arrow91, xs, (FSharpList_get_Empty(), FSharpList_get_Empty(), FSharpList_get_Empty()))
 
 
 def zip[_A, _B](xs: FSharpList[_A], ys: FSharpList[_B]) -> FSharpList[tuple[_A, _B]]:
-    def _arrow66(x: _A, y: _B) -> tuple[_A, _B]:
+    def _arrow94(x: _A, y: _B) -> tuple[_A, _B]:
         return (x, y)
 
-    return map2(_arrow66, xs, ys)
+    return map2(_arrow94, xs, ys)
 
 
 def zip3[_A, _B, _C](xs: FSharpList[_A], ys: FSharpList[_B], zs: FSharpList[_C]) -> FSharpList[tuple[_A, _B, _C]]:
-    def _arrow67(x: _A, y: _B, z: _C) -> tuple[_A, _B, _C]:
+    def _arrow95(x: _A, y: _B, z: _C) -> tuple[_A, _B, _C]:
         return (x, y, z)
 
-    return map3(_arrow67, xs, ys, zs)
+    return map3(_arrow95, xs, ys, zs)
 
 
 def sort_with[T](comparer: Callable[[T, T], int], xs: FSharpList[T]) -> FSharpList[T]:
@@ -1257,75 +1257,75 @@ def sort_with[T](comparer: Callable[[T, T], int], xs: FSharpList[T]) -> FSharpLi
 
 
 def sort[T](xs: FSharpList[T], comparer: IComparer_1[T]) -> FSharpList[T]:
-    def _arrow68(x: T, y: T, comparer: Any = comparer) -> int:
+    def _arrow96(x: T, y: T, comparer: Any = comparer) -> int:
         return comparer.Compare(x, y)
 
-    return sort_with(_arrow68, xs)
+    return sort_with(_arrow96, xs)
 
 
 def sort_by[T, U](projection: Callable[[T], U], xs: FSharpList[T], comparer: IComparer_1[U]) -> FSharpList[T]:
-    def _arrow69(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> int:
+    def _arrow97(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> int:
         return comparer.Compare(projection(x), projection(y))
 
-    return sort_with(_arrow69, xs)
+    return sort_with(_arrow97, xs)
 
 
 def sort_descending[T](xs: FSharpList[T], comparer: IComparer_1[T]) -> FSharpList[T]:
-    def _arrow70(x: T, y: T, comparer: Any = comparer) -> int:
+    def _arrow98(x: T, y: T, comparer: Any = comparer) -> int:
         return int32(comparer.Compare(x, y) * -1)
 
-    return sort_with(_arrow70, xs)
+    return sort_with(_arrow98, xs)
 
 
 def sort_by_descending[T, U](
     projection: Callable[[T], U], xs: FSharpList[T], comparer: IComparer_1[U]
 ) -> FSharpList[T]:
-    def _arrow71(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> int:
+    def _arrow99(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> int:
         return int32(comparer.Compare(projection(x), projection(y)) * -1)
 
-    return sort_with(_arrow71, xs)
+    return sort_with(_arrow99, xs)
 
 
 def sum[T](xs: FSharpList[T], adder: IGenericAdder_1[T]) -> T:
-    def _arrow72(acc: T, x: T, adder: Any = adder) -> T:
+    def _arrow100(acc: T, x: T, adder: Any = adder) -> T:
         return adder.Add(acc, x)
 
-    return fold(_arrow72, adder.GetZero(), xs)
+    return fold(_arrow100, adder.GetZero(), xs)
 
 
 def sum_by[T, U](f: Callable[[T], U], xs: FSharpList[T], adder: IGenericAdder_1[U]) -> U:
-    def _arrow73(acc: U, x: T, f: Any = f, adder: Any = adder) -> U:
+    def _arrow101(acc: U, x: T, f: Any = f, adder: Any = adder) -> U:
         return adder.Add(acc, f(x))
 
-    return fold(_arrow73, adder.GetZero(), xs)
+    return fold(_arrow101, adder.GetZero(), xs)
 
 
 def max_by[T, U](projection: Callable[[T], U], xs: FSharpList[T], comparer: IComparer_1[U]) -> T:
-    def _arrow74(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> T:
+    def _arrow102(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> T:
         return y if (comparer.Compare(projection(y), projection(x)) > 0) else x
 
-    return reduce(_arrow74, xs)
+    return reduce(_arrow102, xs)
 
 
 def max[T](xs: FSharpList[T], comparer: IComparer_1[T]) -> T:
-    def _arrow75(x: T, y: T, comparer: Any = comparer) -> T:
+    def _arrow103(x: T, y: T, comparer: Any = comparer) -> T:
         return y if (comparer.Compare(y, x) > 0) else x
 
-    return reduce(_arrow75, xs)
+    return reduce(_arrow103, xs)
 
 
 def min_by[T, U](projection: Callable[[T], U], xs: FSharpList[T], comparer: IComparer_1[U]) -> T:
-    def _arrow76(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> T:
+    def _arrow104(x: T, y: T, projection: Any = projection, comparer: Any = comparer) -> T:
         return x if (comparer.Compare(projection(y), projection(x)) > 0) else y
 
-    return reduce(_arrow76, xs)
+    return reduce(_arrow104, xs)
 
 
 def min[T](xs: FSharpList[T], comparer: IComparer_1[T]) -> T:
-    def _arrow77(x: T, y: T, comparer: Any = comparer) -> T:
+    def _arrow105(x: T, y: T, comparer: Any = comparer) -> T:
         return x if (comparer.Compare(y, x) > 0) else y
 
-    return reduce(_arrow77, xs)
+    return reduce(_arrow105, xs)
 
 
 def average[T](xs: FSharpList[T], averager: IGenericAverager_1[T]) -> T:
@@ -1349,12 +1349,12 @@ def average_by[T, U](f: Callable[[T], U], xs: FSharpList[T], averager: IGenericA
 
     count: int = 0
 
-    def _arrow78(acc: U, x: T, f: Any = f, averager: Any = averager) -> U:
+    def _arrow109(acc: U, x: T, f: Any = f, averager: Any = averager) -> U:
         nonlocal count
         count = (count + 1) if (count <= 2147483646) else int32(count + 1)
         return averager.Add(acc, f(x))
 
-    total: Any = fold(_arrow78, averager.GetZero(), xs)
+    total: Any = fold(_arrow109, averager.GetZero(), xs)
     return averager.DivideByInt(total, count)
 
 
@@ -1370,21 +1370,21 @@ def all_pairs[T1, T2](xs: FSharpList[T1], ys: FSharpList[T2]) -> FSharpList[tupl
     root: FSharpList[tuple[Any, Any]] = FSharpList_get_Empty()
     node: FSharpList[tuple[Any, Any]] = root
 
-    def _arrow81(x: T1 = UNIT, ys: Any = ys) -> None:
-        def _arrow80(y: T2 = UNIT) -> None:
+    def _arrow116(x: T1 = UNIT, ys: Any = ys) -> None:
+        def _arrow115(y: T2 = UNIT) -> None:
             nonlocal node
 
-            def _arrow79(__unit: Unit = UNIT) -> FSharpList[tuple[T1, T2]]:
+            def _arrow114(__unit: Unit = UNIT) -> FSharpList[tuple[T1, T2]]:
                 xs_1: FSharpList[tuple[Any, Any]] = node
                 t: FSharpList[tuple[Any, Any]] = FSharpList((x, y), None)
                 xs_1.tail_ = t
                 return t
 
-            node = _arrow79()
+            node = _arrow114()
 
-        iterate(_arrow80, ys)
+        iterate(_arrow115, ys)
 
-    iterate(_arrow81, xs)
+    iterate(_arrow116, xs)
     xs_3: FSharpList[tuple[Any, Any]] = node
     t_2: FSharpList[tuple[Any, Any]] = FSharpList_get_Empty()
     xs_3.tail_ = t_2
@@ -1441,12 +1441,12 @@ def take[T](count: int, xs: FSharpList[T]) -> FSharpList[T]:
             else:
                 i_mut = (i - 1) if (i >= -2147483647) else int32(i - 1)
 
-                def _arrow82(__unit: Unit = UNIT, acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
+                def _arrow119(__unit: Unit = UNIT, acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
                     t: FSharpList[Any] = FSharpList(FSharpList__get_Head(xs_1), None)
                     acc.tail_ = t
                     return t
 
-                acc_mut = _arrow82()
+                acc_mut = _arrow119()
                 xs_1_mut = FSharpList__get_Tail(xs_1)
                 continue
 
@@ -1471,12 +1471,12 @@ def take_while[T](predicate: Callable[[T], bool], xs: FSharpList[T]) -> FSharpLi
 
             else:
 
-                def _arrow83(__unit: Unit = UNIT, acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
+                def _arrow120(__unit: Unit = UNIT, acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
                     t: FSharpList[Any] = FSharpList(FSharpList__get_Head(xs_1), None)
                     acc.tail_ = t
                     return t
 
-                acc_mut = _arrow83()
+                acc_mut = _arrow120()
                 xs_1_mut = FSharpList__get_Tail(xs_1)
                 continue
 
@@ -1502,12 +1502,12 @@ def truncate[T](count: int, xs: FSharpList[T]) -> FSharpList[T]:
             else:
                 i_mut = (i - 1) if (i >= -2147483647) else int32(i - 1)
 
-                def _arrow84(__unit: Unit = UNIT, acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
+                def _arrow123(__unit: Unit = UNIT, acc: Any = acc, xs_1: Any = xs_1) -> FSharpList[T]:
                     t: FSharpList[Any] = FSharpList(FSharpList__get_Head(xs_1), None)
                     acc.tail_ = t
                     return t
 
-                acc_mut = _arrow84()
+                acc_mut = _arrow123()
                 xs_1_mut = FSharpList__get_Tail(xs_1)
                 continue
 
@@ -1707,10 +1707,10 @@ def random_shuffle_by[T](randomizer: Callable[[], float], xs: FSharpList[T]) -> 
 
 
 def random_shuffle_with[T](random: Any, xs: FSharpList[T]) -> FSharpList[T]:
-    def _arrow85(__unit: Unit = UNIT, random: Any = random) -> float:
+    def _arrow145(__unit: Unit = UNIT, random: Any = random) -> float:
         return random_double(random)
 
-    return random_shuffle_by(_arrow85, xs)
+    return random_shuffle_by(_arrow145, xs)
 
 
 def random_shuffle[T](xs: FSharpList[T]) -> FSharpList[T]:
@@ -1718,14 +1718,17 @@ def random_shuffle[T](xs: FSharpList[T]) -> FSharpList[T]:
 
 
 def random_choice_by[T](randomizer: Callable[[], float], xs: FSharpList[T]) -> T:
+    if is_empty(xs):
+        Operators_InvalidArg("source", SR_inputSequenceEmpty)
+
     return random_choice_by_1(randomizer, to_array(xs))
 
 
 def random_choice_with[T](random: Any, xs: FSharpList[T]) -> T:
-    def _arrow86(__unit: Unit = UNIT, random: Any = random) -> float:
+    def _arrow149(__unit: Unit = UNIT, random: Any = random) -> float:
         return random_double(random)
 
-    return random_choice_by(_arrow86, xs)
+    return random_choice_by(_arrow149, xs)
 
 
 def random_choice[T](xs: FSharpList[T]) -> T:
@@ -1737,10 +1740,10 @@ def random_choices_by[T](randomizer: Callable[[], float], count: int, xs: FSharp
 
 
 def random_choices_with[T](random: Any, count: int, xs: FSharpList[T]) -> FSharpList[T]:
-    def _arrow87(__unit: Unit = UNIT, random: Any = random) -> float:
+    def _arrow151(__unit: Unit = UNIT, random: Any = random) -> float:
         return random_double(random)
 
-    return random_choices_by(_arrow87, count, xs)
+    return random_choices_by(_arrow151, count, xs)
 
 
 def random_choices[T](count: int, xs: FSharpList[T]) -> FSharpList[T]:
@@ -1752,10 +1755,10 @@ def random_sample_by[T](randomizer: Callable[[], float], count: int, xs: FSharpL
 
 
 def random_sample_with[T](random: Any, count: int, xs: FSharpList[T]) -> FSharpList[T]:
-    def _arrow88(__unit: Unit = UNIT, random: Any = random) -> float:
+    def _arrow153(__unit: Unit = UNIT, random: Any = random) -> float:
         return random_double(random)
 
-    return random_sample_by(_arrow88, count, xs)
+    return random_sample_by(_arrow153, count, xs)
 
 
 def random_sample[T](count: int, xs: FSharpList[T]) -> FSharpList[T]:

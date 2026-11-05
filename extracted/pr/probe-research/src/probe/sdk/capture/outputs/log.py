@@ -25,14 +25,8 @@ _ENCODED_RUN = re.compile(r"[A-Za-z0-9+/_-]{24,}={0,2}")
 
 
 def log_enabled() -> bool:
-    """``PROBE_CAPTURE_LOG`` (on), and never for a run whose working directory
-    or script is at `.probe.config` `hash`: such a run records identities only,
-    and a script over excluded data commonly prints its records."""
-    if (os.environ.get(LOG_ENV) or "").strip().lower() in _OFF:
-        return False
-    from ...recording_rules import recording_rules as _exclusions
-
-    return not _exclusions.run_identity_only()
+    """``PROBE_CAPTURE_LOG`` (on)."""
+    return (os.environ.get(LOG_ENV) or "").strip().lower() not in _OFF
 
 
 def in_process_log_supported() -> bool:

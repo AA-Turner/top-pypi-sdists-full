@@ -32,6 +32,8 @@ jobs:
         run: cargo bench --bench '*' -- --baseline=main --save-summary=pretty-json | tee bench-comparison.txt
         env:
           GUNGRAUN_COLOR: never
+      - name: Annotate results
+        run: .github/workflows/bench-annotate.sh
       - name: Upload comparison
         uses: actions/upload-artifact@v4
         with:

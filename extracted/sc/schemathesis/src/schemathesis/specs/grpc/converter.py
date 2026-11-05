@@ -445,8 +445,7 @@ def _map_rules(
         elif key_field.type in INTEGER_BOUNDS and keys.kind in NUMERIC_RULES:
             # Integer keys travel as strings, so the allowed values are listed.
             choices = _integer_choices(INTEGER_BOUNDS[key_field.type], keys.rules)
-            if choices:
-                mapping["propertyNames"] = {"enum": [str(value) for value in choices]}
+            mapping["propertyNames"] = {"enum": [str(value) for value in choices]}
     values = rules.get("values")
     if isinstance(values, FieldConstraints):
         _value_rules(mapping["additionalProperties"], _scalar_field(value_field), values)
@@ -455,15 +454,13 @@ def _map_rules(
 
 
 def _range(schema: JsonSchemaObject, rules: dict[str, RuleValue]) -> None:
+    outside = _outside_range(rules)
+    if outside is not None:
+        (low, low_keyword), (high, high_keyword) = outside
+        _add(schema, {"anyOf": [{low_keyword: low}, {high_keyword: high}]})
+        return
     lower = _bound(rules, "gt", "exclusiveMinimum", "gte", "minimum")
     upper = _bound(rules, "lt", "exclusiveMaximum", "lte", "maximum")
-    if lower is not None and upper is not None:
-        (low, low_keyword), (high, high_keyword) = lower, upper
-        exclusive = low_keyword.startswith("exclusive") or high_keyword.startswith("exclusive")
-        if high < low or (high == low and exclusive):
-            # An upper bound below the lower one admits the values outside the range.
-            _add(schema, {"anyOf": [{low_keyword: low}, {high_keyword: high}]})
-            return
     if lower is not None:
         value, keyword = lower
         if keyword == "minimum":
@@ -476,6 +473,15 @@ def _range(schema: JsonSchemaObject, rules: dict[str, RuleValue]) -> None:
             _at_most(schema, keyword, value)
         else:
             _add(schema, {keyword: value})
+
+
+def _outside_range(rules: dict[str, RuleValue]) -> tuple[tuple[float, str], tuple[float, str]] | None:
+    """Lower and upper bounds when the upper one lies below the lower one, which admits the values outside them."""
+    lower = _bound(rules, "gt", "exclusiveMinimum", "gte", "minimum")
+    upper = _bound(rules, "lt", "exclusiveMaximum", "lte", "maximum")
+    if lower is not None and upper is not None and upper[0] < lower[0]:
+        return lower, upper
+    return None
 
 
 def _bound(
@@ -516,8 +522,7 @@ def _integer_choices(bounds: tuple[int, int], rules: dict[str, RuleValue]) -> li
     gt, gte, lt, lte = (rules.get(name) for name in ("gt", "gte", "lt", "lte"))
     low = gt + 1 if isinstance(gt, int) else gte if isinstance(gte, int) else None
     high = lt - 1 if isinstance(lt, int) else lte if isinstance(lte, int) else None
-    if low is not None and high is not None and low > high:
-        # An upper bound below the lower one admits the values outside the range.
+    if low is not None and high is not None and _outside_range(rules) is not None:
         ranges = [(minimum, high), (low, maximum)]
     else:
         ranges = [(minimum if low is None else max(minimum, low), maximum if high is None else min(maximum, high))]
@@ -794,14 +799,13 @@ def message_to_json(message: Message, pool: DescriptorPool) -> JsonValue:
     nested: dict[str, JsonValue] = {}
     for field, value in message.ListFields():
         item_type = field.message_type
-        is_map = False
-        if item_type is not None and item_type.GetOptions().map_entry:
-            is_map = True
-            item_type = item_type.fields_by_name["value"].message_type
+        entry = map_entry(field)
+        if entry is not None:
+            item_type = entry.fields_by_name["value"].message_type
         # Extensions render with the plain fields, as only regular fields can be cleared by name.
         if item_type is None or field.is_extension:
             continue
-        if is_map:
+        if entry is not None:
             # JSON spells boolean map keys in lowercase.
             nested[field.json_name] = {
                 str(key).lower() if isinstance(key, bool) else str(key): message_to_json(item, pool)
@@ -854,11 +858,11 @@ def rewrite_json(
     rewritten = {}
     for key, item in value.items():
         member = fields.get(key) or _extension(message_type, key)
-        nested = None if member is None else member.message_type
+        entry = None if member is None else map_entry(member)
         if member is None:
             rewritten[key] = item
-        elif nested is not None and nested.GetOptions().map_entry and isinstance(item, dict):
-            values = nested.fields_by_name["value"]
+        elif entry is not None and isinstance(item, dict):
+            values = entry.fields_by_name["value"]
             rewritten[key] = {name: _rewrite_field(entry, values, leaf, depth) for name, entry in item.items()}
         elif member.is_repeated and isinstance(item, list):
             rewritten[key] = [_rewrite_field(entry, member, leaf, depth) for entry in item]

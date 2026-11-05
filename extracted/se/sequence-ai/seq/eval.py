@@ -67,7 +67,6 @@ def eval(
     policy: Any,
     benchmark: Any,
     *,
-    member: str | None = None,
     adapter: Any = None,
     tasks: list[str] | str | None = None,
     trials: int | dict[str, int] | str | None = None,
@@ -86,16 +85,15 @@ def eval(
 ) -> EvalReport | EvalEstimate | str:
     """Evaluate the deployed `policy` on the registered `benchmark`.
 
-    `policy` may be a planner instead: the eval runs the policy it plans for, the planner beside it, asked for each
-    episode's step on the robot's clock - every_s of the episode's own time, however fast it runs - and its steps kept
-    in the report's episodes and their replays. `member` names which of its members= the eval runs, needed only when it
-    plans for more than one - as `sequence_ai.connect("<planner>", policy=...)` names it for a robot.
+    A policy with a `@seq.plan` plans in the eval on the robot's clock - every_s of the episode's own time, however
+    fast it runs - and its plans are kept in the report's episodes and their replays; the report's `plan` says how many
+    and what their model calls cost.
 
     `policy` is a deployment name (or what `seq.deploy` returned); `benchmark` a registered benchmark's name or its
     `@seq.benchmark` class. `adapter` maps the sim to the policy's own inputs and outputs: a registered adapter
-    ("name@vN", or "name" for its latest), or a `@seq.adapter` class or "./my_adapter.py:MyAdapter" file, registered
-    first (the same code is the version it already is). The other arguments select and bound the run exactly as the
-    `seq eval run` flags of the same names do.
+    ("name@vN", or "name" for its latest), or a `@seq.adapter` class or "./my_adapter_user.py:MyAdapter_user" file,
+    registered first (the same code is the version it already is). The other arguments select and bound the run exactly
+    as the `seq eval run` flags of the same names do.
 
     Which episodes run (`seq.benchmark_tasks(benchmark)` lists the tasks and their seeds): `tasks` only these of the
     benchmark's tasks (all of them when left out); then each chosen task's seeds - `trials` how many times it runs:
@@ -133,9 +131,7 @@ def eval(
     at_least_one(("policy_machines=", policy_machines), ("benchmark_machines=", benchmark_machines))
     body = {
 
-
         "model": _policy_name(policy),
-        **({"policy": str(member)} if member else {}),
         "benchmark": _benchmark_name(benchmark),
         "adapter": _adapter_ref(adapter, api_key=api_key, base_url=base_url),
 

@@ -7,7 +7,11 @@
 //!
 //! Every [`Node`] spans exactly its children, which are contiguous and in document order.
 
-use std::{borrow::Cow, iter::once};
+use std::{
+	borrow::Cow,
+	fmt::{self, Display, Formatter},
+	iter::once,
+};
 
 use url::Url;
 
@@ -19,7 +23,6 @@ use crate::{
 		modifier::ModifierKind,
 	},
 	span::{Span, TrackedSpan},
-	unparse::Unparse,
 };
 
 /// A node of the lossless tree: what some region of the source means, and the tokens and nodes
@@ -91,8 +94,9 @@ pub enum Unit {
 	CodePoint,
 }
 
-impl Unparse for Node<'_> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+/// Writes the tokens out in order, which reproduces the source exactly.
+impl Display for Node<'_> {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		self.tokens().try_for_each(|token| f.write_str(token.text))
 	}
 }
@@ -280,12 +284,10 @@ mod test {
 	use pretty_assertions::assert_eq;
 
 	use super::{Child, LinkKind, Node, NodeKind, QuoteKind, Side, Token, TokenKind, Unit};
-	use crate::{
-		Options, error::Error, node::modifier::ModifierKind, parse_lossless, unparse::unparse,
-	};
+	use crate::{Options, node::modifier::ModifierKind, parse_lossless};
 
 	fn parsed(s: &str) -> Node<'_> {
-		parse_lossless::<Error<'_>>(s, Options::default())
+		parse_lossless(s, Options::default())
 			.unwrap_or_else(|err| panic!("unable to parse {s:?}: {err}"))
 	}
 
@@ -342,7 +344,7 @@ mod test {
 	/// `s` writes back exactly, and its tree holds the invariants.
 	fn round_trips(s: &str) {
 		let node = parsed(s);
-		assert_eq!(unparse(&node), s);
+		assert_eq!(node.to_string(), s);
 		assert_eq!((node.span.start, node.span.end), (0, s.len()));
 		check(&node, s);
 	}
@@ -391,6 +393,7 @@ mod test {
 		"<:pepe:873227248453443624> <a:pepe:007> 🦶 :foot: :foot::skin-tone-2:",
 		"https://example.com discord.gg/abc <https://discord.com> dev://branch/main",
 		"[text](https://example.com/) [t](<https://a.b> \"x\") [t](https://a.b  \"x\")",
+		r#"[t](https://a.b "say \"hi\" \\ \x") [t](https://a.b "\")"#,
 		"[**b** [nested] \\*](https://a.b) [_a_](https://example.com/_x_)",
 		"<a@b.c> <+1 555 555 5555>",
 		"# heading one\n## heading two\n### heading three",
@@ -523,7 +526,7 @@ mod test {
 				..
 			}
 		));
-		assert_eq!(unparse(inner), "*a*");
+		assert_eq!(inner.to_string(), "*a*");
 	}
 
 	#[test]
@@ -638,6 +641,40 @@ mod test {
 				..
 			}
 		));
+	}
+
+	/// A link written without a scheme has the text it was written as, where a URL token would be.
+	#[test]
+	fn schemaless_links_are_their_text() {
+		let s = "discord.gg/abc <discord.gg/abc> https://a.b";
+		round_trips(s);
+		let node = parsed(s);
+		let paragraph = child(&node, 0);
+		assert_eq!(
+			layout(child(paragraph, 0)),
+			[Err(NodeKind::Text("discord.gg/abc".into()))]
+		);
+		assert_eq!(
+			layout(child(paragraph, 2)),
+			[
+				Ok((TokenKind::LinkOpen, "<")),
+				Err(NodeKind::Text("discord.gg/abc".into())),
+				Ok((TokenKind::LinkClose, ">")),
+			]
+		);
+		assert_eq!(
+			layout(child(paragraph, 4)),
+			[Ok((TokenKind::Url, "https://a.b"))]
+		);
+	}
+
+	/// A masked link whose text reads as a link is one run of text, written back as it came.
+	#[test]
+	fn a_spoof_is_text() {
+		let s = "[https://example.com/](https://example.com/) [**https://a.b**](https://c.d \"x\")";
+		round_trips(s);
+		let node = parsed(s);
+		assert_eq!(layout(child(&node, 0)), [Err(NodeKind::Text(s.into()))]);
 	}
 
 	/// Converted, every span still finds its token's text, counting the way the host does.

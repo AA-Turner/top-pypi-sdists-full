@@ -380,8 +380,15 @@ def _get_text_document(tool: str, args: dict, payload: dict) -> tuple[list, str]
     if view == "summary":
         for key in ("project_summary", "experiment_summary"):
             doc = data.get(key)
-            if isinstance(doc, dict) and isinstance(doc.get("document"), str):
-                return prefix + [key, "document"], doc["document"]
+            if not isinstance(doc, dict):
+                continue
+            # The page AND its person block (what `--summary` replaces): page the whole JSON,
+            # as for sub-notes, so neither text can fall out of a first-page context.
+            if isinstance(doc.get("markdown"), str) and doc.get("document"):
+                return None
+            for field in ("markdown", "document"):
+                if isinstance(doc.get(field), str):
+                    return prefix + [key, field], doc[field]
     if view == "readme":
         doc = data.get("readme")
         if isinstance(doc, dict) and isinstance(doc.get("markdown"), str):
@@ -484,6 +491,12 @@ def page(
         }
         if args.get("view") == "summary" and isinstance(data.get("notes"), dict):
             context["notes"] = data["notes"]
+        for key in ("project_summary", "experiment_summary"):
+            if args.get("view") == "summary" and path and isinstance(data.get(key), dict):
+                # Which version, who edited it, `markdown: null` + `unreadable` on a withheld
+                # page: everything but the text being paged (`path[-1]`). Paged as whole JSON
+                # (no `path`), the summary is in the content itself.
+                context[key] = {k: v for k, v in data[key].items() if k != path[-1]}
         if args.get("view") == "readme" and isinstance(data.get("readme"), dict):
             # Which repo and commit the text is from: everything but the text.
             context["readme"] = {k: v for k, v in data["readme"].items() if k != "markdown"}
@@ -547,6 +560,12 @@ def page(
     if context is not None and not budget.fits(candidate(offset + 1)):
         # The version stays (a few tokens): no card carries it, and a writer pins to it.
         version = {"notes_version": context["notes_version"]} if "notes_version" in context else {}
+        for key in ("project_summary", "experiment_summary"):
+            if isinstance(context.get(key), dict):
+                # Which version, and a withheld page's warning: never dropped with the rest.
+                version[key] = {
+                    k: v for k, v in context[key].items() if k in ("version", "markdown", "unreadable")
+                }
         context = {"omitted": True, "read_more": 'view="card"', **version}
 
     # Token count is not monotonic in characters. Binary sizing only selects a

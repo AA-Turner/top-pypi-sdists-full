@@ -4,11 +4,12 @@
 In one sentence: the gateway's GET /v1/account/usage sums your machines' windows into GPU card-hours (seconds x cards /
 3600) per hour or day, every bucket of the window (empty ones as zero) with what its machines cost - GPU, CPU and memory,
 what the balance was charged for them - optionally split by deployment, card type (a machine with no card reads CPU) or
-kind of machine (policy workers, evals, build checks, weight copies) → over this billing period (the UTC month so far)
-unless --since / --until name another window, in UTC days and hours, the bill's own → printed as a table with a bar per
-bucket, or as CSV, or returned. `--policy` keeps one policy's rows, and adds what its robots did over the window: their
-acts, errors and round trips, and how many of their action chunks came on time. A robot's key, which may read its own
-policy's use and nothing of its account's, reads it per UTC day from the policy's own usage instead.
+kind of machine (policy workers, evals, build checks, weight copies, builds, benchmark shells) → over this billing
+period (the UTC month so far) unless --since / --until name another window, in UTC days and hours, the bill's own →
+printed as a table with a bar per bucket, or as CSV, or returned. `--policy` keeps one policy's rows, and adds what its
+robots did over the window: their acts, errors and round trips, and how many of their action chunks came on time. A
+robot's key, which may read its own policy's use and nothing of its account's, reads it per UTC day from the policy's
+own usage instead.
 
 WHY one command: `seq usage`, `seq billing export` and `seq policy usage` each read the account's use their own way, over
 a window and a zone of their own - the last 24 hours in this machine's zone, two dates, the last 30 days - so the same
@@ -33,7 +34,7 @@ BAR = 28
 
 
 _KIND = {"serving": "policy workers", "eval": "evals", "check": "build checks", "weights": "weight copies",
-         "build": "builds"}
+         "build": "builds", "shell": "benchmark shells"}
 
 CSV_COLUMNS = ("start", "group", "card_hours", "cost_usd")
 

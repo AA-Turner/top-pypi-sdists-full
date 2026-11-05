@@ -571,9 +571,9 @@ class TestFlushRecordsSinglePass:
         assert "hour=11" in remote_keys[1], "second attempt should be for hour11"
         assert "hour=10" in remote_keys[2], "third attempt should be trailing hour10"
         # The trailing hour10 record reached a new file (different local path from the first h10).
-        assert (
-            call_args[0][0] != call_args[2][0]
-        ), "trailing hour10 record must be in a new file, not the failed-upload file"
+        assert call_args[0][0] != call_args[2][0], (
+            "trailing hour10 record must be in a new file, not the failed-upload file"
+        )
 
     @pytest.mark.asyncio
     async def test_out_of_order_records_writes_second_file_for_same_hour(
@@ -739,9 +739,9 @@ class TestLogSinkFanOut:
 
 
 @contextmanager
-def _store_sink_adapters() -> (
-    Generator[tuple[AtlanLoggerAdapter, AtlanLoggerAdapter], None, None]
-):
+def _store_sink_adapters() -> Generator[
+    tuple[AtlanLoggerAdapter, AtlanLoggerAdapter], None, None
+]:
     """Yield ``(sink_owner, other)`` with the real loguru store sink registered.
 
     ``sink_owner`` is constructed first, so loguru's ``_log_sink`` is bound to
@@ -1773,6 +1773,41 @@ class TestExtractExceptionAttributes:
         attrs = _extract_exception_attributes(mock.Mock(type=t, value=v, traceback=tb))
         assert attrs["exception.message"] == "Preflight failed: bad secret"
 
+    def test_the_temporal_check_does_not_import_temporalio(self):
+        """With ``temporalio.exceptions`` not loaded, no exception can be a
+        ``FailureError``: the check falls through to ``str()`` and leaves the
+        module unloaded, so the handler on an API-only pod never pays for
+        Temporal by logging an exception (FND-4257)."""
+        try:
+            raise ValueError("boom")
+        except ValueError:
+            t, v, tb = sys.exc_info()
+        with mock.patch.dict(sys.modules):
+            sys.modules.pop("temporalio.exceptions", None)
+            attrs = _extract_exception_attributes(
+                mock.Mock(type=t, value=v, traceback=tb)
+            )
+            assert "temporalio.exceptions" not in sys.modules
+        assert attrs["exception.message"] == "boom"
+
+    def test_a_half_imported_temporal_module_is_not_a_failure(self):
+        """``sys.modules`` holds a module before its body has run. Another
+        thread's first import of ``temporalio.exceptions`` can expose it with no
+        ``FailureError`` bound yet; the record must still be exported, with
+        ``str()`` as its message, not dropped on an ``AttributeError``."""
+        import types
+
+        try:
+            raise ValueError("boom")
+        except ValueError:
+            t, v, tb = sys.exc_info()
+        half_imported = types.ModuleType("temporalio.exceptions")
+        with mock.patch.dict(sys.modules, {"temporalio.exceptions": half_imported}):
+            attrs = _extract_exception_attributes(
+                mock.Mock(type=t, value=v, traceback=tb)
+            )
+        assert attrs["exception.message"] == "boom"
+
 
 class TestFormatExceptionStacktrace:
     def test_none_returns_empty_string(self):
@@ -2423,9 +2458,9 @@ class TestInterceptHandlerStdlibBridge:
             "process",
             "processName",
         ):
-            assert (
-                built_in in _LOGRECORD_RESERVED_ATTRS
-            ), f"{built_in} should be a reserved LogRecord attribute"
+            assert built_in in _LOGRECORD_RESERVED_ATTRS, (
+                f"{built_in} should be a reserved LogRecord attribute"
+            )
 
     def test_caller_extras_forwarded_to_loguru_bind(self) -> None:
         """A stdlib ``logger.log(..., extra={"outcome": "success"})`` call
@@ -2716,8 +2751,10 @@ class TestSecondaryWorkflowLogsExporter:
                 "application_sdk.observability.logger_adaptor.OTEL_WORKFLOW_LOGS_ENDPOINT",
                 secondary_endpoint,
             ),
+            # Patched at its source: the adaptor imports the exporter on first
+            # use rather than at module level (FND-4257).
             mock.patch(
-                "application_sdk.observability.logger_adaptor.OTLPLogExporter"
+                "opentelemetry.exporter.otlp.proto.grpc._log_exporter.OTLPLogExporter"
             ) as mock_exporter,
             mock.patch(
                 "application_sdk.observability.logger_adaptor.BatchLogRecordProcessor"
@@ -3090,9 +3127,9 @@ class TestReplayLogSuppression:
         adapter.metric("should-suppress-metric")
         adapter.tracing("should-suppress-tracing")
 
-        assert not any(
-            "should-suppress" in m for m in emitted
-        ), f"Expected no emission during replay, got: {emitted}"
+        assert not any("should-suppress" in m for m in emitted), (
+            f"Expected no emission during replay, got: {emitted}"
+        )
 
     def test_emits_when_not_replaying(self):
         """Log methods must emit normally when predicate returns False."""
@@ -3103,9 +3140,9 @@ class TestReplayLogSuppression:
 
         adapter.info("live-log")
 
-        assert any(
-            "live-log" in m for m in emitted
-        ), f"Expected 'live-log' in emissions, got: {emitted}"
+        assert any("live-log" in m for m in emitted), (
+            f"Expected 'live-log' in emissions, got: {emitted}"
+        )
 
     def test_emits_when_predicate_is_none(self):
         """No predicate set (default outside Temporal) → normal emission."""
@@ -3114,9 +3151,9 @@ class TestReplayLogSuppression:
 
         adapter.info("outside-temporal-log")
 
-        assert any(
-            "outside-temporal-log" in m for m in emitted
-        ), f"Expected 'outside-temporal-log' in emissions, got: {emitted}"
+        assert any("outside-temporal-log" in m for m in emitted), (
+            f"Expected 'outside-temporal-log' in emissions, got: {emitted}"
+        )
 
     def test_log_during_replay_true_overrides_suppression(self):
         """When log_during_replay=True the guard is bypassed even during replay."""
@@ -3128,9 +3165,9 @@ class TestReplayLogSuppression:
 
         adapter.info("replay-with-opt-in")
 
-        assert any(
-            "replay-with-opt-in" in m for m in emitted
-        ), f"Expected emission with log_during_replay=True, got: {emitted}"
+        assert any("replay-with-opt-in" in m for m in emitted), (
+            f"Expected emission with log_during_replay=True, got: {emitted}"
+        )
 
     def test_suppression_is_per_emission_not_one_shot(self):
         """Guard evaluates live per call: suppressed on replay, emitted on live."""
@@ -3151,12 +3188,12 @@ class TestReplayLogSuppression:
 
         adapter.info("after-replay")  # should emit
 
-        assert not any(
-            "during-replay" in m for m in emitted
-        ), f"Expected 'during-replay' suppressed, got: {emitted}"
-        assert any(
-            "after-replay" in m for m in emitted
-        ), f"Expected 'after-replay' emitted, got: {emitted}"
+        assert not any("during-replay" in m for m in emitted), (
+            f"Expected 'during-replay' suppressed, got: {emitted}"
+        )
+        assert any("after-replay" in m for m in emitted), (
+            f"Expected 'after-replay' emitted, got: {emitted}"
+        )
 
     def test_intercept_handler_suppressed_during_replay(self):
         """The stdlib bridge (InterceptHandler) also drops records during replay."""
@@ -3186,9 +3223,9 @@ class TestReplayLogSuppression:
             )
             handler.emit(record)
 
-        assert (
-            not emitted
-        ), f"Expected InterceptHandler to suppress during replay, got: {emitted}"
+        assert not emitted, (
+            f"Expected InterceptHandler to suppress during replay, got: {emitted}"
+        )
         mock_loguru.opt.assert_not_called()
 
     def test_default_log_during_replay_is_false(self):

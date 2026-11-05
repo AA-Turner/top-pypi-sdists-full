@@ -45,7 +45,7 @@ import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import typesafe_carla.carla as carla
 import hydra
@@ -72,10 +72,17 @@ from autoware_carla_scenario.autoware_stack.launcher import AutowareLauncher
 from autoware_carla_scenario.batch_report import print_summary as _print_summary
 from autoware_carla_scenario.canvas import use_canvas
 from autoware_carla_scenario.conditions import ScenarioResult
-from autoware_carla_scenario.constants import DEFAULT_TM_PORT, tick_multiple
+from autoware_carla_scenario.constants import DEFAULT_TM_PORT
 from autoware_carla_scenario.maps import resolve_map_paths
 from autoware_carla_scenario.odd.route import PlannedRoute, RouteError
-from autoware_carla_scenario.odd.sampler import ODD_CASE_KEY, OddCase, decode_case
+from autoware_carla_scenario.odd.sampler import (
+    ODD_CASE_KEY,
+    OddCase,
+    check_sample_settings,
+    decode_case,
+    seed_setting,
+    whole_number_setting,
+)
 from autoware_carla_scenario.prepare.pool import BackendPool
 from autoware_carla_scenario.rerun import (
     RerunConversion,
@@ -83,7 +90,9 @@ from autoware_carla_scenario.rerun import (
     RerunUnavailableError,
 )
 from autoware_carla_scenario.rerun import report as rerun_report
+from autoware_carla_scenario.coordinate.snap import check_ray_distances
 from autoware_carla_scenario.run_timeout import run_timeout_seconds
+from autoware_carla_scenario.scenario_config import EntityConfig
 from autoware_carla_scenario.seed import DEFAULT_SEED, set_run_seed
 from autoware_carla_scenario.server import fog_density_scale_args
 from autoware_carla_scenario.t4 import T4Recorder, T4Settings, T4UnavailableError
@@ -106,6 +115,7 @@ from autoware_carla_scenario.registry import (
     BuildScenarioFn,
     get_conf_dirs,
     get_scenario_builder,
+    get_scenario_classes,
     get_scenario_registry,
     load_scenario_plugins,
     register_conf_dir,
@@ -250,10 +260,7 @@ def build_ego_and_spawn(
     :meth:`~autoware_carla_scenario.BaseScenario.register_route_to_goal` refuses
     an ego that still has nowhere to go.
     """
-    ground_projection = GroundProjectionConfig(
-        ray_distance_upper=float(cfg.entity.ground_projection_ray_distance_upper),
-        ray_distance_lower=float(cfg.entity.ground_projection_ray_distance_lower),
-    )
+    ground_projection = build_ground_projection(cfg)
     ego = EgoConfig(
         spawn_location=SpawnTransform(
             carla.Transform(carla.Location(x=0.0, y=0.0, z=0.0))
@@ -267,6 +274,36 @@ def build_ego_and_spawn(
         waypoint_poses=build_waypoint_poses(cfg),
     )
     return ego, build_spawn_pose(cfg), ground_projection
+
+
+#: The config keys of the ground-projection ray (:func:`build_ground_projection`).
+_RAY_UPPER_KEY = "entity.ground_projection_ray_distance_upper"
+_RAY_LOWER_KEY = "entity.ground_projection_ray_distance_lower"
+
+
+def build_ground_projection(cfg: DictConfig) -> GroundProjectionConfig:
+    """The :class:`GroundProjectionConfig` of *cfg*'s
+    ``entity.ground_projection_ray_distance_upper`` and ``_lower``.
+
+    Raises:
+        ValueError: naming the key, for a value that is not a number, is
+            negative or not finite, or a ray of no length (both zero): a ray
+            that cannot hit leaves every pose at its estimate (#1416).
+    """
+    entity = cfg.get("entity") or {}
+    distances: list[float] = []
+    for key, default in (
+        (_RAY_UPPER_KEY, EntityConfig.ground_projection_ray_distance_upper),
+        (_RAY_LOWER_KEY, EntityConfig.ground_projection_ray_distance_lower),
+    ):
+        value = entity.get(key.split(".", 1)[1], default)
+        try:
+            distances.append(float(value))
+        except (TypeError, ValueError):
+            raise ValueError(f"{key} must be a number, got {value!r}") from None
+    upper, lower = distances
+    check_ray_distances(upper, lower, _RAY_UPPER_KEY, _RAY_LOWER_KEY)
+    return GroundProjectionConfig(ray_distance_upper=upper, ray_distance_lower=lower)
 
 
 def build_spawn_pose(cfg: DictConfig) -> Lanelet2Pose:
@@ -369,8 +406,24 @@ def build_autoware_launcher(cfg: DictConfig) -> AutowareLauncher | None:
     configuration yields the same launcher, so a batch's egos and its queue
     share it.
 
+    The group holds the keys of both launcher types at once (the shipped
+    config does), and each type takes its own; a key neither type reads
+    (``+autoware.launcher.stop_timout_s=60``) is refused, whatever the type,
+    rather than leaving the default in place.
+
+    The settings the launcher of the type reads are checked too, naming the
+    key: ``stop_timeout_s`` must be a finite number above 0, and the docker
+    launcher's ``ros_domain_ids`` a list of ROS domain ids (ints from 0 to
+    232).  The argument lists (``launch``, ``colcon_args``, ``docker_args``,
+    ``command``) must be lists, not strings, of strings or numbers; ``env``
+    and ``mounts`` mappings of strings or numbers; ``bridge_parameters`` a
+    mapping.  :func:`check_batch_configs` calls this, so a batch or a sweep is
+    refused for any of these before its first scenario starts.
+
     Raises:
-        ValueError: If ``autoware.launcher.type`` names an unknown launcher.
+        ValueError: If ``autoware.launcher.type`` names an unknown launcher,
+            the group holds a key no launcher reads, or a setting the type
+            reads is refused, naming it.
     """
     ego_cfg = cfg.get("ego") or {}
     if str(ego_cfg.get("entity", "autopilot")) != "autoware":
@@ -380,6 +433,28 @@ def build_autoware_launcher(cfg: DictConfig) -> AutowareLauncher | None:
     if launcher_cfg is None:
         return None
     settings = _to_dict(launcher_cfg)
+
+    from autoware_carla_scenario.autoware_stack import (  # noqa: PLC0415
+        CommandAutowareLauncher,
+        DockerAutowareConfig,
+        DockerAutowareLauncher,
+    )
+
+    docker_fields = set(DockerAutowareConfig.__dataclass_fields__)
+    known = (
+        {"type"}
+        | docker_fields
+        | {"command", "env", "stop_timeout_s", "bridge_parameters"}
+    )
+    unknown = sorted(set(settings) - known)
+    if unknown:
+        msg = (
+            "Unknown autoware.launcher key(s): "
+            f"{[f'autoware.launcher.{name}' for name in unknown]}. "
+            f"Known keys: {sorted(known)}"
+        )
+        raise ValueError(msg)
+
     kind = str(settings.pop("type", "none"))
     if kind == "none":
         return None
@@ -389,38 +464,176 @@ def build_autoware_launcher(cfg: DictConfig) -> AutowareLauncher | None:
     if cached is not None:
         return cached
 
-    from autoware_carla_scenario.autoware_stack import (  # noqa: PLC0415
-        CommandAutowareLauncher,
-        DockerAutowareConfig,
-        DockerAutowareLauncher,
-    )
-
     launcher: AutowareLauncher
-    if kind == "docker":
-        fields = DockerAutowareConfig.__dataclass_fields__
-        options = {k: v for k, v in settings.items() if k in fields}
-        options["workspace"] = Path(str(options.get("workspace", "~/autoware")))
-        for name in ("launch", "colcon_args", "docker_args", "ros_domain_ids"):
-            if name in options:
-                options[name] = tuple(options[name] or ())
-        if "bridge_parameters" in options:
-            options["bridge_parameters"] = dict(options["bridge_parameters"] or {})
-        launcher = DockerAutowareLauncher(DockerAutowareConfig(**options))
-    elif kind == "command":
-        launcher = CommandAutowareLauncher(
-            tuple(str(arg) for arg in settings.get("command") or ()),
-            env={str(k): str(v) for k, v in (settings.get("env") or {}).items()},
-            stop_timeout_s=float(settings.get("stop_timeout_s", 20.0)),
-            bridge_parameters=dict(settings.get("bridge_parameters") or {}),
-        )
-    else:
+    if kind not in ("docker", "command"):
         msg = (
             f"Unknown autoware.launcher.type: {kind!r}. "
             "Expected one of: 'none', 'docker', 'command'."
         )
         raise ValueError(msg)
+    stop_timeout_s = _launcher_stop_timeout_s(settings)
+    if kind == "docker":
+        options = {k: v for k, v in settings.items() if k in docker_fields}
+        options["workspace"] = Path(str(options.get("workspace", "~/autoware")))
+        # Absent is empty, refused naming the key.
+        options.setdefault("launch", ())
+        # The settings' types are checked here, naming the key (the
+        # _launcher_* helpers do); their values by the config, below.
+        for name in ("launch", "colcon_args", "docker_args"):
+            if name in options:
+                options[name] = _launcher_str_list(name, options[name])
+        for name in ("mounts", "env"):
+            if name in options:
+                options[name] = _launcher_str_mapping(name, options[name])
+        options["ros_domain_ids"] = _launcher_ros_domain_ids(settings)
+        options["stop_timeout_s"] = stop_timeout_s
+        if "bridge_parameters" in options:
+            options["bridge_parameters"] = _launcher_bridge_parameters(settings)
+    else:
+        argv = _launcher_str_list("command", settings.get("command"))
+        env = _launcher_str_mapping("env", settings.get("env"))
+        bridge_parameters = _launcher_bridge_parameters(settings)
+    try:
+        if kind == "docker":
+            launcher = DockerAutowareLauncher(DockerAutowareConfig(**options))
+        else:
+            launcher = CommandAutowareLauncher(
+                argv,
+                env=env,
+                stop_timeout_s=stop_timeout_s,
+                bridge_parameters=bridge_parameters,
+            )
+    except ValueError as exc:
+        # The configs' own refusals name the field; this is the group.
+        raise ValueError(f"autoware.launcher.{exc}") from None
     _AUTOWARE_LAUNCHERS[key] = launcher
     return launcher
+
+
+def _launcher_stop_timeout_s(settings: dict[str, Any]) -> float:
+    """``autoware.launcher.stop_timeout_s`` of *settings*, checked: a finite
+    number of seconds -- an int or a float, not a bool, a string or null --
+    above 0, as the bridge's timeouts are.  Each launcher type reads it.
+
+    A NaN never times out (``Popen.wait(timeout=nan)``), so a stack that
+    ignores ``SIGINT`` would never be escalated and the batch would hang; 0 or
+    less skips the grace the stack is given to stop.
+
+    Raises:
+        ValueError: naming the key.
+    """
+    value = settings.get("stop_timeout_s", 20.0)
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value <= 0
+    ):
+        raise ValueError(
+            "autoware.launcher.stop_timeout_s must be a finite number > 0 "
+            f"(got {value!r})"
+        )
+    return float(value)
+
+
+def _launcher_str_list(name: str, value: object) -> tuple[str, ...]:
+    """``autoware.launcher.<name>``, a list of arguments, checked: a list (or a
+    tuple) of strings or numbers, each made a ``str``; null or absent is empty.
+
+    ``launch``, ``colcon_args``, ``docker_args`` and ``command`` are read
+    through it.  A string is refused rather than taken as one argument or
+    split: Python would iterate it into characters (``docker_args:
+    '--shm-size=8g'`` became ``('-', '-', 's', ...)``), and neither reading is
+    safe -- ``'ros2 launch x y'`` may be one argument (a ``bash -c`` script)
+    or four, and only the author knows which.  An element that is a list, a
+    mapping, null or a boolean is refused too: its ``str()`` (``"['a']"``,
+    ``"None"``, ``"True"``) is never the argument that was meant.
+
+    Raises:
+        ValueError: naming the key.
+    """
+    if value is None:
+        return ()
+    if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple)):
+        raise ValueError(
+            f"autoware.launcher.{name} must be a list of arguments, not "
+            f"{type(value).__name__} {value!r}: write "
+            f"'autoware.launcher.{name}=[a,b,c]' (a list item may hold spaces "
+            "when quoted)"
+        )
+    for index, item in enumerate(value):
+        if isinstance(item, bool) or not isinstance(item, (str, int, float)):
+            raise ValueError(
+                f"autoware.launcher.{name}[{index}] must be a string or a number, "
+                f"not {type(item).__name__} {item!r}"
+            )
+    return tuple(str(item) for item in value)
+
+
+def _launcher_str_mapping(name: str, value: object) -> dict[str, str]:
+    """``autoware.launcher.<name>`` (``env``, ``mounts``), checked: a mapping
+    whose values are strings or numbers, each made a ``str``; null or absent is
+    empty.  A value that is null, a boolean, a list or a mapping is refused, as
+    :func:`_launcher_str_list` refuses such an argument.
+
+    Raises:
+        ValueError: naming the key.
+    """
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(
+            f"autoware.launcher.{name} must be a mapping, not "
+            f"{type(value).__name__} {value!r}"
+        )
+    for key, item in value.items():
+        if isinstance(item, bool) or not isinstance(item, (str, int, float)):
+            raise ValueError(
+                f"autoware.launcher.{name}.{key} must be a string or a number, "
+                f"not {type(item).__name__} {item!r}"
+            )
+    return {str(key): str(item) for key, item in value.items()}
+
+
+def _launcher_bridge_parameters(settings: dict[str, Any]) -> dict[str, Any]:
+    """``autoware.launcher.bridge_parameters`` of *settings*: a mapping of ROS
+    parameters (values of any type: ``use_sim_time: true``); null or absent is
+    none.
+
+    Raises:
+        ValueError: naming the key.
+    """
+    value = settings.get("bridge_parameters")
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(
+            "autoware.launcher.bridge_parameters must be a mapping of ROS "
+            f"parameters, not {type(value).__name__} {value!r}"
+        )
+    return dict(value)
+
+
+def _launcher_ros_domain_ids(settings: dict[str, Any]) -> tuple[int, ...]:
+    """``autoware.launcher.ros_domain_ids`` of *settings*, checked: a list of
+    ints (not bools) from 0 to 232, the ``ROS_DOMAIN_ID`` range ROS 2 can use
+    (:class:`~autoware_carla_scenario.autoware_stack.DockerAutowareConfig`
+    checks the range); null or absent is none.
+
+    Raises:
+        ValueError: naming the key.
+    """
+    value = settings.get("ros_domain_ids")
+    if value is None:
+        return ()
+    if not isinstance(value, (list, tuple)) or any(
+        isinstance(item, bool) or not isinstance(item, int) for item in value
+    ):
+        raise ValueError(
+            "autoware.launcher.ros_domain_ids must be a list of ROS domain ids, "
+            f"whole numbers from 0 to 232 (got {value!r})"
+        )
+    return tuple(value)
 
 
 def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
@@ -433,8 +646,8 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
 
     Raises:
         ValueError: If ``cfg.ego.entity`` names an unknown entity, or a setting
-            of the entity's group is out of range (a NaN timeout, say), naming
-            the key.
+            of the entity's group is out of range (a NaN timeout, say) or not
+            one the group defines (``autoware.timout_s``), naming the key.
     """
     ego_cfg = cfg.get("ego") or {}
     entity = str(ego_cfg.get("entity", "autopilot"))
@@ -459,17 +672,24 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
             GrpcAutowareBridgeServer,
         )
 
+        from autoware_carla_scenario.utils.config import (  # noqa: PLC0415
+            checked_options,
+        )
+
         autoware_cfg = cfg.get("autoware")
+        # The group is the bridge's settings plus ``launcher``, which
+        # build_autoware_launcher reads; any other key is a typo
+        # (``+autoware.timout_s=30``) that would leave the default in place.
         try:
-            bridge_cfg = AutowareBridgeConfig(
-                **{
-                    key: value
-                    for key, value in (
-                        _to_dict(autoware_cfg) if autoware_cfg is not None else {}
-                    ).items()
-                    if key in AutowareBridgeConfig.__dataclass_fields__
-                }
+            bridge_options = checked_options(
+                AutowareBridgeConfig,
+                _to_dict(autoware_cfg) if autoware_cfg is not None else {},
+                ignore={"launcher"},
             )
+        except ValueError as exc:
+            raise ValueError(f"autoware: {exc}") from None
+        try:
+            bridge_cfg = AutowareBridgeConfig(**bridge_options)
         except ValueError as exc:
             raise ValueError(f"autoware.{exc}") from None
         # autostart=False: in a batch every scenario is built before the first
@@ -499,7 +719,8 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
             raise ValueError(msg)
 
         driver_dict = _with_fog_density_scale(_to_dict(driver_cfg), cfg)
-        control = ControlConfig.from_mapping(driver_dict.get("control", {}))
+        # ``driver.control: null`` means the default gains, as ``ros2.control`` does.
+        control = ControlConfig.from_mapping(driver_dict.get("control") or {})
         bridge_dict = driver_dict.get("bridge")
         if bridge_dict is None:
             return CarlaDriverEntity(
@@ -550,10 +771,13 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
             )
             raise ValueError(msg)
 
-        if (cfg.get("server") or {}).get("max_tick_rate_hz") is None:
+        if not _paced(cfg):
             # Freshness is judged in simulation time while the nodes publish on
             # the wall clock: unpaced, a 10 Hz node's commands land more than
             # stale_s apart and its source flaps between fresh and stale.
+            # A run refuses a rate that is not a finite positive number
+            # (check_run_config); built without that check, the runner reads
+            # one as uncapped, so it is warned of as unset is.
             logger.warning(
                 "ego.entity=ros2 without server.max_tick_rate_hz: the run is not "
                 "paced to real time, so ROS 2 nodes may look stale; set "
@@ -588,15 +812,17 @@ def build_ego_entity(cfg: DictConfig) -> EgoVehicle | None:
     raise ValueError(msg)
 
 
-def _legacy_traffic_manager_options(cfg: DictConfig) -> dict[str, int]:
+def _legacy_traffic_manager_options(cfg: DictConfig) -> dict[str, Any]:
     """Return the TrafficManager options a config predating the group states.
 
     Only ``traffic_manager.port`` was ever settable that way, and a config that
-    does not set it means the framework default.
+    does not set it means the framework default.  The port is passed on as
+    given, so :class:`TrafficManagerBackendConfig` refuses a bool, a float or
+    a string rather than this turning ``true`` into port 1 (#1423).
     """
     legacy = cfg.get("traffic_manager")
     port = None if legacy is None else legacy.get("port")
-    return {} if port is None else {"port": int(port)}
+    return {} if port is None else {"port": port}
 
 
 def build_traffic_backend(cfg: DictConfig) -> TrafficBackend:
@@ -775,9 +1001,63 @@ def run_scenario_with_queue(
     return results[0]
 
 
-def _optional_float(value: object) -> float | None:
-    """Read an optional numeric config value that may be absent or null."""
-    return None if value is None else float(value)  # type: ignore[arg-type]
+def _server_number(
+    cfg: DictConfig, key: str, default: float | None, *, positive: bool
+) -> float | None:
+    """``server.<key>`` of *cfg* (*default* when absent), checked: *None* for
+    null, else a finite number -- an int or a float, not a bool -- that is
+    above 0 when *positive*, at least 0 otherwise.
+
+    Raises:
+        ValueError: naming the key.
+    """
+    value = (cfg.get("server") or {}).get(key, default)
+    if value is None:
+        return None
+    bound = "> 0" if positive else ">= 0"
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or (value <= 0 if positive else value < 0)
+    ):
+        raise ValueError(
+            f"server.{key} must be a finite number {bound} (got {value!r})"
+        )
+    return float(value)
+
+
+def _cooldown_seconds(cfg: DictConfig) -> float:
+    """``server.cooldown_seconds``, checked: a finite number of seconds, 0 or
+    more.  A NaN or negative cooldown used to be read as none.
+
+    Raises:
+        ValueError: naming the key.
+    """
+    cooldown = _server_number(cfg, "cooldown_seconds", 0.0, positive=False)
+    if cooldown is None:
+        raise ValueError(
+            "server.cooldown_seconds must be a finite number >= 0 (got None)"
+        )
+    return cooldown
+
+
+def _max_tick_rate_hz(cfg: DictConfig) -> float | None:
+    """``server.max_tick_rate_hz``, checked: null (uncapped) or a finite rate
+    above 0.  The runner used to read a NaN or non-positive rate as uncapped.
+
+    Raises:
+        ValueError: naming the key.
+    """
+    return _server_number(cfg, "max_tick_rate_hz", None, positive=True)
+
+
+def _paced(cfg: DictConfig) -> bool:
+    """Whether *cfg*'s ``server.max_tick_rate_hz`` caps the tick rate."""
+    try:
+        return _max_tick_rate_hz(cfg) is not None
+    except ValueError:
+        return False
 
 
 def world_reset_settings(cfg: DictConfig) -> tuple[str, int]:
@@ -785,13 +1065,17 @@ def world_reset_settings(cfg: DictConfig) -> tuple[str, int]:
 
     Raises:
         ValueError: naming the key, when ``world_reset`` is neither ``reload``
-            nor ``soft`` or ``reload_every`` is negative.
+            nor ``soft``, or ``reload_every`` is not a whole number (``2`` or
+            ``2.0``; not ``2.5`` or a boolean) or is negative.
     """
     from ..world_reset import RESET_RELOAD, check_world_reset  # noqa: PLC0415
 
     server = cfg.get("server") or {}
     world_reset = str(server.get("world_reset", RESET_RELOAD) or RESET_RELOAD)
-    reload_every = int(server.get("reload_every", 0) or 0)
+    # null is 0, as it always was.
+    reload_every = (
+        whole_number_setting("server.reload_every", server.get("reload_every", 0)) or 0
+    )
     try:
         check_world_reset(world_reset, reload_every)
     except ValueError as exc:
@@ -800,8 +1084,14 @@ def world_reset_settings(cfg: DictConfig) -> tuple[str, int]:
 
 
 def _fog_density_scale(cfg: DictConfig) -> float | None:
-    """``server.fog_density_scale``, or *None* to keep the server's own."""
-    return _optional_float((cfg.get("server") or {}).get("fog_density_scale"))
+    """``server.fog_density_scale``, or *None* to keep the server's own.
+
+    Raises:
+        ValueError: naming the key, unless it is null or a finite number
+            above 0, as a LiDAR's own ``fog_density_scale`` must be: without
+            a LiDAR a NaN would reach the server's command line.
+    """
+    return _server_number(cfg, "fog_density_scale", None, positive=True)
 
 
 def server_extra_args(cfg: DictConfig) -> list[str]:
@@ -974,19 +1264,18 @@ def build_t4scene_exporter(*cfgs: DictConfig) -> T4SceneExporter | None:
     ``step_s`` and ``max_distance_m``; ``None`` otherwise.
 
     Raises:
-        ValueError: ``t4scene.step_s`` is not a positive multiple of the tick,
-            or ``t4scene.max_distance_m`` is not positive and finite.
+        ValueError: ``t4scene.step_s`` is a bool, not a number or not a
+            positive multiple of the tick, or ``t4scene.max_distance_m`` is a
+            bool, not a number or not positive and finite.
     """
     for cfg in cfgs:
         t4scene_cfg = cfg.get("t4scene") or {}
         if not t4scene_cfg.get("enabled", False):
             continue
-        step_s = float(t4scene_cfg.get("step_s", 0.1))
-        tick_multiple(step_s, "t4scene.step_s")
         # Handed over as read: the exporter refuses a bool, which float()
-        # would turn into 1 m.
+        # would turn into a 1 s step or a 1 m distance (#1502, #1231).
         return T4SceneExporter(
-            step_s=step_s,
+            step_s=t4scene_cfg.get("step_s", 0.1),
             max_distance_m=t4scene_cfg.get("max_distance_m", 100.0),
         )
     return None
@@ -1284,31 +1573,83 @@ def _has_sweep(cfg: DictConfig) -> bool:
     )
 
 
-def _expand_batch(scenario_names: list[str], overrides: list[str]) -> list[BatchCase]:
+def _expand_batch(
+    scenario_names: list[str],
+    overrides: list[str],
+    *,
+    documents: dict[str, Any] | None = None,
+) -> list[BatchCase]:
     """Every concrete case of *scenario_names*, in order: each scenario's sweep
     expanded the way the lanelet sweeper expands it (``sweep.constraints``,
     ``sweep.route``, ``sweep.odd_sample``), a scenario without one as itself.
 
     Scenarios that draw from one ODD go on from each other's draws: a later
     one aims at what the earlier ones left uncovered (``strategy: coverage``)
-    and does not draw their values again."""
+    and does not draw their values again.
+
+    Exits 1 before anything runs when a scenario's config sets a value its
+    runs would refuse, or it is composed on another map than its document
+    names (:func:`check_batch_configs`, checked before its sweep reads any
+    map), its ``controls:`` are invalid,
+    its sweep is invalid (a ``sweep.case_index`` past its cases, a constraint
+    or binding that does not parse, a Lanelet2 map that is missing, unreadable
+    or cannot be resolved, ...: the ``ValueError`` expand_config
+    refuses it with) or its sweep expands to no case, as the lanelet sweeper
+    refuses one (#1407): every such scenario is reported, each named, since a
+    batch missing a scenario it was asked for must not look like a complete
+    one. A scenario without a sweep is one case, never refused.
+    ``HYDRA_FULL_ERROR=1`` raises an invalid sweep's error, or a refused
+    config value's, instead.  *documents* are the scenario documents already
+    loaded, by name (:func:`check_scenario_maps`), filled here."""
     from ..odd.controls import ControlsError, format_diagnostics  # noqa: PLC0415
     from ..odd.sampler import OddDraws  # noqa: PLC0415
-    from ..sweeper.expand import expand_config  # noqa: PLC0415 -- loads Lanelet2
+    from ..sweeper.expand import (  # noqa: PLC0415 -- loads Lanelet2
+        EMPTY_SWEEP_MESSAGE,
+        expand_config,
+    )
 
     drawn = OddDraws()
     cases: list[BatchCase] = []
+    # Each refused scenario's lines, in order: all of them are reported.
+    errors: list[str] = []
     for name in scenario_names:
+        # Composed outside the try: a ValueError there is no sweep's.
+        cfg = _compose_config(name, overrides)
         try:
-            expanded = expand_config(
-                _compose_config(name, overrides), overrides, drawn=drawn
-            )
+            # Before the sweep resolves, fetches or searches any map, as the
+            # lanelet sweeper checks its config before it expands it: one
+            # composed on another map than its document names would be
+            # searched on that one (#1428), and a value every case would
+            # refuse is refused once its map is read (#1430).  What only a
+            # case's own overrides set is checked once the cases are composed
+            # (run_batch).
+            check_batch_configs([cfg], [name], documents=documents)
+        except RunConfigError as exc:
+            if os.environ.get("HYDRA_FULL_ERROR") == "1":
+                raise
+            message = str(exc)
+            if not message.startswith(f"{name}: "):
+                message = f"{name}: {message}"
+            errors.append(f"Error: {message}")
+            continue
+        try:
+            expanded = expand_config(cfg, overrides, drawn=drawn)
         except ControlsError as exc:
-            for line in format_diagnostics(exc.diagnostics, name):
-                print(line, file=sys.stderr)  # noqa: T201
-            sys.exit(1)
+            errors.extend(format_diagnostics(exc.diagnostics, name))
+            continue
+        except ValueError as exc:
+            if os.environ.get("HYDRA_FULL_ERROR") == "1":
+                raise
+            errors.append(f"Error: {name}: {exc}")
+            continue
         logger.info("%s: %d case(s)", name, len(expanded))
+        if not expanded:
+            errors.append(f"Error: {name}: {EMPTY_SWEEP_MESSAGE}")
         cases.extend((name, case) for case in expanded)
+    if errors:
+        for line in errors:
+            print(line, file=sys.stderr)  # noqa: T201
+        sys.exit(1)
     return cases
 
 
@@ -1366,22 +1707,23 @@ def _log_batch_plan(
     logger.info(sep)
 
 
-def _make_batch_output_dir() -> Path:
-    """Create a Hydra-style timestamped output directory for batch runs.
+def _reserve_output_dir(root: str) -> Path:
+    """Create a Hydra-style timestamped directory under *root* that is this
+    run's alone, and return it relative to the working directory.
 
-    The directory is this batch's alone: it is created with ``mkdir``, which
-    fails when it exists, so two batches started in the same second never
-    share one (#1223).  The first gets ``HH-MM-SS``, the next ``HH-MM-SS-1``,
-    then ``HH-MM-SS-2``, and so on.
+    The directory is created with ``mkdir``, which fails when it exists, so
+    two runs started in the same second never share one (#1223, #1359).  The
+    first gets ``<root>/YYYY-MM-DD/HH-MM-SS``, the next ``HH-MM-SS-1``, then
+    ``HH-MM-SS-2``, and so on.
 
-    Returns:
-        Absolute path to the created directory
-        (e.g. ``outputs/2026-03-13/12-00-00/``).
+    Relative, as Hydra's own ``outputs/...`` and ``multirun/...`` defaults
+    are, so it can be handed to Hydra as an override whatever characters the
+    working directory's path holds.
     """
     from datetime import datetime  # noqa: PLC0415
 
     now = datetime.now()  # noqa: DTZ005
-    day = Path("outputs") / now.strftime("%Y-%m-%d")
+    day = Path(root) / now.strftime("%Y-%m-%d")
     day.mkdir(parents=True, exist_ok=True)
     name = now.strftime("%H-%M-%S")
     suffix = 0
@@ -1392,7 +1734,81 @@ def _make_batch_output_dir() -> Path:
         except FileExistsError:
             suffix += 1
             continue
-        return output_dir.resolve()
+        return output_dir
+
+
+def _make_batch_output_dir() -> Path:
+    """Create a Hydra-style timestamped output directory for batch runs.
+
+    The directory is this batch's alone (:func:`_reserve_output_dir`): two
+    batches started in the same second never share one (#1223).  The first
+    gets ``HH-MM-SS``, the next ``HH-MM-SS-1``, then ``HH-MM-SS-2``, and so on.
+
+    Returns:
+        Absolute path to the created directory
+        (e.g. ``outputs/2026-03-13/12-00-00/``).
+    """
+    return _reserve_output_dir("outputs").resolve()
+
+
+#: Hydra's command-line flags that print something and run no job: a run
+#: directory reserved for them would be left empty.
+_HYDRA_NO_JOB_FLAGS = (
+    "--help",
+    "-h",
+    "--hydra-help",
+    "--version",
+    "--cfg",
+    "-c",
+    "--info",
+    "-i",
+    "--shell-completion",
+    "-sc",
+)
+
+
+def _sets_hydra_key(argv: list[str], key: str) -> bool:
+    """Return ``True`` when an override in *argv* sets *key* (``key=``,
+    ``+key=``, ``++key=`` or ``~key``)."""
+    for arg in argv:
+        name = arg.lstrip("+~").split("=", 1)[0]
+        if name == key:
+            return True
+    return False
+
+
+def _reserve_hydra_output_dir(argv: list[str]) -> tuple[list[str], Path | None]:
+    """Reserve this Hydra run's output directory before Hydra starts (#1359).
+
+    Hydra's defaults, ``outputs/<date>/<time>`` for a run and
+    ``multirun/<date>/<time>`` for a sweep, are created with ``exist_ok``:
+    two runs started in the same second would share one.  This creates the
+    directory exclusively, as a batch's is (:func:`_reserve_output_dir`), and
+    returns *argv* with a ``hydra.run.dir`` (or, for ``--multirun``,
+    ``hydra.sweep.dir``) override naming it, and the directory.
+
+    *argv* is returned unchanged, with ``None``, when it sets that directory
+    itself (the UI runner's ``hydra.run.dir=multirun/<date>/<time>/<i>``, a
+    user's own) or asks Hydra for something other than a job (``--help``,
+    ``--cfg``, ...).
+    """
+    if any(arg.split("=", 1)[0] in _HYDRA_NO_JOB_FLAGS for arg in argv[1:]):
+        return argv, None
+    multirun = _multirun_requested_in_argv(argv)
+    key = "hydra.sweep.dir" if multirun else "hydra.run.dir"
+    if _sets_hydra_key(argv, key):
+        return argv, None
+    reserved = _reserve_output_dir("multirun" if multirun else "outputs")
+    return [*argv, f"{key}={reserved.as_posix()}"], reserved
+
+
+def _remove_if_empty(directory: Path) -> None:
+    """Remove *directory* when nothing was written in it (Hydra refused the
+    overrides before its job started); keep it otherwise."""
+    try:
+        directory.rmdir()
+    except OSError:
+        pass
 
 
 def _batch_queue(
@@ -1410,8 +1826,8 @@ def _batch_queue(
     (:func:`build_rerun_converter`); the first config's ``t4`` writes each
     case as a T4 dataset (:func:`build_t4_recorder`).
     """
-    cooldown = float(first_cfg.server.get("cooldown_seconds", 0.0))
-    cooldown_max_retries = _cooldown_max_retries(first_cfg)
+    cooldown = _cooldown_seconds(first_cfg)
+    max_retries = cooldown_max_retries(first_cfg)
     world_reset, reload_every = world_reset_settings(first_cfg)
     return ScenarioQueue(
         host=first_cfg.server.host,
@@ -1423,9 +1839,9 @@ def _batch_queue(
         lanelet2_path=map_paths.lanelet2_path,
         map_name=map_paths.name,
         cooldown_seconds=cooldown,
-        cooldown_max_retries=cooldown_max_retries,
+        cooldown_max_retries=max_retries,
         output_dir=output_dir,
-        max_tick_rate_hz=_optional_float(first_cfg.server.get("max_tick_rate_hz")),
+        max_tick_rate_hz=_max_tick_rate_hz(first_cfg),
         projector_type=map_paths.projector_type,
         traffic_backend=build_traffic_backend(first_cfg),
         odd=_odd_spec(first_cfg),
@@ -1441,17 +1857,41 @@ def _batch_queue(
     )
 
 
-def _cooldown_max_retries(cfg: DictConfig) -> int:
-    """``server.cooldown_max_retries``, checked.
+def cooldown_max_retries(cfg: DictConfig) -> int:
+    """``server.cooldown_max_retries``, checked: a whole number (``2`` or
+    ``2.0``; not ``1.9``, a boolean or null), 0 or more.
 
     Raises:
-        ValueError: naming the key, when it is negative: a zero-attempt loop
-            would record every scenario as errored without running it.
+        ValueError: naming the key, when it is not a whole number, or when it
+            is negative: a zero-attempt loop would record every scenario as
+            errored without running it.
     """
-    retries = int((cfg.get("server") or {}).get("cooldown_max_retries", 0))
-    if retries < 0:
-        raise ValueError(f"server.cooldown_max_retries must be >= 0, got {retries}")
+    value = (cfg.get("server") or {}).get("cooldown_max_retries", 0)
+    retries = whole_number_setting("server.cooldown_max_retries", value, minimum=0)
+    if retries is None:
+        raise ValueError(
+            f"server.cooldown_max_retries must be a whole number, got {value!r}"
+        )
     return retries
+
+
+def _check_port_setting(cfg: DictConfig, section: str) -> None:
+    """Refuse ``{section}.port`` of *cfg* unless it is a TCP port: an integer
+    (not a bool) within 1-65535.  Unset or null is left to the reader, as it
+    was.  Without this a port of 0, 70000 or ``true`` reaches the CARLA client
+    and is refused only once a server is up.
+
+    Raises:
+        ValueError: naming the key.
+    """
+    node = cfg.get(section)
+    port = None if node is None else node.get("port")
+    if port is None:
+        return
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise ValueError(
+            f"{section}.port must be an integer within 1-65535 (got {port!r})"
+        )
 
 
 def _check_batch_queue_settings(cfg: DictConfig) -> None:
@@ -1462,11 +1902,13 @@ def _check_batch_queue_settings(cfg: DictConfig) -> None:
         ValueError: naming the key, for a server, traffic or Autoware launcher
             setting the queue would refuse.
     """
-    server = cfg.get("server") or {}
-    float(server.get("cooldown_seconds", 0.0))
-    _cooldown_max_retries(cfg)
-    _optional_float(server.get("max_tick_rate_hz"))
+    _check_port_setting(cfg, "server")
+    _check_port_setting(cfg, "traffic_manager")
+    _cooldown_seconds(cfg)
+    cooldown_max_retries(cfg)
+    _max_tick_rate_hz(cfg)
     world_reset_settings(cfg)
+    # server.fog_density_scale, checked whether or not a LiDAR reads it.
     server_extra_args(cfg)
     build_traffic_backend(cfg)
     build_autoware_launcher(cfg)
@@ -1564,35 +2006,124 @@ def check_batch_map(configs: list[DictConfig], labels: list[str] | None = None) 
             )
 
 
+def check_scenario_maps(
+    configs: list[DictConfig],
+    labels: list[str] | None = None,
+    *,
+    documents: dict[str, Any] | None = None,
+) -> None:
+    """Refuse a case whose declarative scenario names a map of its own that
+    the composed config is not on (#1424).
+
+    An exported scenario package whose document names its map by
+    ``map.source`` or ``map.directory`` ships that map as a group of its own,
+    ``map=<id>_map``
+    (:func:`~autoware_carla_scenario.authoring.hydra_config.own_map_group`).
+    The ``map`` group is composed after the ``scenario`` one, so a run that
+    leaves the override out composes the default group, whose keys win over
+    the ones the scenario's config writes: the run would load another map's
+    Lanelet2 and OpenDRIVE, and every lanelet id the document names would be
+    one of that map's.  The composed ``map`` is therefore compared with the
+    document's, the document the package registered with its builder
+    (:func:`~autoware_carla_scenario.registry.register_scenario_document`),
+    as :func:`~autoware_carla_scenario.authoring.hydra_config.own_map_mismatch`
+    compares them.  A scenario with no registered document, or one on a
+    built-in group, is not checked; neither is one whose document cannot be
+    loaded, which its builder refuses with its own message.
+
+    Args:
+        configs: The cases' configs.
+        labels: The cases' names, for the message; none for a single run.
+        documents: The documents already loaded, by scenario name, filled
+            here: a batch shares one across its checks, so each scenario's
+            document is loaded once.
+
+    Raises:
+        RunConfigError: naming the scenario, what differs and the
+            ``map=<id>_map`` to run it with.
+    """
+    from autoware_carla_scenario.authoring.hydra_config import (  # noqa: PLC0415
+        scenario_map_refusal,
+    )
+
+    names = labels if labels is not None else []
+    # Loaded once a scenario, however many of the batch's cases run it.
+    loaded: dict[str, Any] = {} if documents is None else documents
+    for i, cfg in enumerate(configs):
+        refusal = scenario_map_refusal(cfg, loaded)
+        if refusal is None:
+            continue
+        prefix = f"{names[i]}: " if i < len(names) else ""
+        raise RunConfigError(f"{prefix}{refusal}")
+
+
 def check_batch_configs(
-    configs: list[DictConfig], labels: list[str] | None = None
+    configs: list[DictConfig],
+    labels: list[str] | None = None,
+    *,
+    documents: dict[str, Any] | None = None,
 ) -> None:
     """Refuse the configs of a batch's cases for the values a run reads of its
     config before it starts, building nothing that starts (no queue, no CARLA,
     no Autoware, no Rerun or T4 writer) and needing no map.
 
     First that the cases share a map (:func:`check_batch_map`, which names
-    them by *labels*).
+    them by *labels*), and that a declarative scenario's case is on the map
+    its document names (:func:`check_scenario_maps`).
 
     The ``rerun``, ``t4``, ``driver`` and ``t4scene`` settings, as the batch
-    reads them (:func:`_check_batch_writer_settings`); each case's timeout and
-    ``odd_case``; and the server, traffic and Autoware launcher settings its
+    reads them (:func:`_check_batch_writer_settings`); each case's timeout,
+    seeds (``seed``, ``sweep.odd_sample.seed`` and ``.count``),
+    ``background_traffic`` (:func:`background_traffic_settings`),
+    ``environment`` (:func:`environment_settings`) and the form of its
+    ``rules`` (:func:`_check_weather_rules`), ``driver`` settings of an
+    ``ego.entity=carla_driver`` case (:func:`_check_driver_settings`), ``ros2``
+    settings of an ``ego.entity=ros2`` case (:func:`_check_ros2_settings`), the
+    ``backends`` settings of the backends this package ships
+    (:func:`_check_backend_settings`), the ``scenario`` settings its config
+    class refuses (:func:`_check_scenario_config`) and ``odd_case``; and the server, traffic and Autoware launcher settings its
     queue is built from (:func:`_batch_queue`, :func:`run_scenario`), once for
-    each distinct set of them.  A SLURM batch is refused for these before
-    anything is submitted (each task would only refuse them on its node), and
-    a lanelet sweep before any case is forked (each case would refuse them in
-    turn).
+    each distinct set of them.  A batch is refused for these before any
+    scenario is built or the map is resolved (#1430): a local one would refuse
+    them only once its queue was built, a SLURM one only on its nodes, once
+    submitted; and a lanelet sweep before any case is forked (each case would
+    refuse them in turn).
+
+    Args:
+        configs: The cases' configs.
+        labels: The cases' names: a value a case is refused for is headed by
+            its name (``<label>: ...``), as the map checks head theirs; none
+            for a single run.
+        documents: The scenario documents already loaded, by name, shared
+            with :func:`check_scenario_maps` (and filled by it).
 
     Raises:
         RunConfigError: naming the key of the first value refused.
     """
     check_batch_map(configs, labels)
-    queue_settings: set[str] = set()
+    check_scenario_maps(configs, labels, documents=documents)
     try:
+        # The batch's: read off the first case enabling each writer.
         _check_batch_writer_settings(configs)
-        for cfg in configs:
+    except RunConfigError:
+        raise
+    except ValueError as exc:
+        raise RunConfigError(str(exc)) from exc
+    names = labels if labels is not None else []
+    queue_settings: set[str] = set()
+    for i, cfg in enumerate(configs):
+        try:
             run_timeout_seconds(cfg)
+            _check_seeds(cfg)
+            background_traffic_settings(cfg)
+            environment_settings(cfg)
+            _check_weather_rules(cfg)
+            _check_driver_settings(cfg)
+            _check_ros2_settings(cfg)
+            _check_backend_settings(cfg)
+            _check_scenario_config(cfg)
             _odd_case(cfg)
+            build_ground_projection(cfg)
             # Once a distinct setting: a sweep's cases mostly share them.  The
             # ego's entity too: build_autoware_launcher reads the launcher only
             # for an ``ego.entity=autoware`` case.
@@ -1611,10 +2142,11 @@ def check_batch_configs(
             if key not in queue_settings:
                 queue_settings.add(key)
                 _check_batch_queue_settings(cfg)
-    except RunConfigError:
-        raise
-    except ValueError as exc:
-        raise RunConfigError(str(exc)) from exc
+        except ValueError as exc:
+            # Named by its case, as the map checks name it: every case of a
+            # batch is checked, and the one refused need not be the first.
+            prefix = f"{names[i]}: " if i < len(names) else ""
+            raise RunConfigError(f"{prefix}{exc}") from exc
 
 
 def check_run_config(cfg: DictConfig) -> None:
@@ -1688,6 +2220,12 @@ def run_batch(
 
     With ``launcher=slurm`` the cases run as SLURM array tasks instead
     (docs/slurm.md); *wait* overrides ``launcher.wait`` (``--no-wait``).
+
+    Raises:
+        RunConfigError: a config value a case would refuse
+            (:func:`check_batch_configs`), before any scenario is built or the
+            map is resolved.  The ``scenario`` CLI prints it as an ``Error:``
+            line and exits 1.
     """
     from ..slurm.settings import (  # noqa: PLC0415
         launcher_requested_in_argv,
@@ -1701,8 +2239,10 @@ def run_batch(
         except RuntimeError as exc:
             print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
             sys.exit(2)
+    # Each scenario's document, loaded once for every check of the batch.
+    documents: dict[str, Any] = {}
     if expand:
-        cases = _expand_batch(scenario_names, overrides)
+        cases = _expand_batch(scenario_names, overrides, documents=documents)
     else:
         cases = [(name, list(overrides)) for name in scenario_names]
     # Labelled before resuming, so a case keeps the name it had in the run
@@ -1743,9 +2283,19 @@ def run_batch(
     # the queue is built on the first case's (#1241).
     try:
         check_batch_map(configs, labels)
+        # And that each case is on the map its document names, if it has one.
+        check_scenario_maps(configs, labels, documents=documents)
     except RunConfigError as exc:
         print(f"Error: {exc}")  # noqa: T201
         sys.exit(1)
+    # Before any scenario is built (build_ego_and_spawn reads it), naming the
+    # key and the case: a ray that cannot hit spawns nothing (#1416).
+    for label, cfg in zip(labels, configs):
+        try:
+            build_ground_projection(cfg)
+        except ValueError as exc:
+            print(f"Error: {label}: {exc}")  # noqa: T201
+            sys.exit(1)
 
     # One launcher for the whole batch: the queue prepares it (and puts its
     # logs in the batch's output directory) and every ego starts its stacks
@@ -1772,6 +2322,15 @@ def run_batch(
     if wait is not None and launcher != "slurm":
         print("Error: --no-wait is for launcher=slurm only")  # noqa: T201
         sys.exit(1)
+
+    # Every value a case reads of its config before it starts (the queue's
+    # server, traffic and Autoware launcher settings, the run timeout, the
+    # writers' settings, ...), for every case, before anything is built or the
+    # map is resolved: a local batch would refuse it only once its queue was
+    # built, and a SLURM task only on its node, once the batch was submitted
+    # (#977, #1430).  Raised, as RunConfigError: the CLI reports it as an
+    # ``Error:`` line (_dispatch).
+    check_batch_configs(configs, labels, documents=documents)
 
     # Before anything is built: a batch asking for Rerun recordings without
     # the extra installed is refused at once (RerunUnavailableError).  Under
@@ -1816,12 +2375,6 @@ def run_batch(
     check_odd(_odd_spec(first_cfg), typecheck_mode(first_cfg))
 
     map_paths = resolve_map_paths(first_cfg.map)
-    # Refused here, before a SLURM submission or CARLA starts.
-    world_reset_settings(first_cfg)
-    if launcher == "slurm":
-        # What the local queue refuses below, for every case: a task would
-        # only refuse it on its node, once the batch was submitted.
-        check_batch_configs(configs, labels)
 
     # Batch mode bypasses @hydra.main, so we create the output directory
     # ourselves following Hydra's timestamped convention.
@@ -1903,9 +2456,127 @@ def config_seed(cfg: DictConfig) -> int | None:
     actions, ``background_traffic`` and the driver policy that name no seed of
     their own; and the cases a sweep draws from the ODD.  A config that predates
     the key (an exported scenario package's) leaves the scenario its own seed.
+
+    Raises:
+        ValueError: When it is not a non-negative whole number
+            (:func:`~autoware_carla_scenario.odd.sampler.seed_setting`):
+            ``1.9`` and ``true`` are not seed 1.
     """
-    value = cfg.get("seed")
-    return None if value is None else int(value)
+    return seed_setting("seed", cfg.get("seed"))
+
+
+def _check_seeds(cfg: DictConfig) -> None:
+    """Refuse the run's ``seed`` and its sweep's ``odd_sample`` ``seed`` and
+    ``count`` unless each is a whole number (a seed not negative, a count at
+    least 1), naming the key, as expanding the sweep and building the scenario
+    would refuse them.
+
+    Raises:
+        ValueError: naming the key of the value refused.
+    """
+    config_seed(cfg)
+    odd_sample = OmegaConf.select(cfg, "sweep.odd_sample")
+    if isinstance(odd_sample, DictConfig):
+        check_sample_settings(odd_sample)
+
+
+def _check_driver_settings(cfg: DictConfig) -> None:
+    """Refuse the ``driver`` settings of an ``ego.entity=carla_driver`` case
+    as :func:`build_ego_entity` would (``driver.random_seed``, a LiDAR's
+    ``noise_seed``, ...), building only the config: nothing dials a policy.
+
+    Raises:
+        ValueError: When :class:`~autoware_carla_scenario.driver.DriverClientConfig`
+            refuses them.
+    """
+    if str((cfg.get("ego") or {}).get("entity", "autopilot")) != "carla_driver":
+        return
+    driver_cfg = cfg.get("driver")
+    if driver_cfg is None:
+        return  # Refused, with its remedy, by build_ego_entity.
+    from autoware_carla_scenario.driver import DriverClientConfig  # noqa: PLC0415
+
+    DriverClientConfig.from_mapping(_with_fog_density_scale(_to_dict(driver_cfg), cfg))
+
+
+def _check_ros2_settings(cfg: DictConfig) -> None:
+    """Refuse the ``ros2`` settings of an ``ego.entity=ros2`` case as
+    :func:`build_ego_entity` would (``ros2.domain_id`` above 232, a quoted
+    ``priority``, ...), building only the configs: nothing joins a DDS domain,
+    which the entity first does once the ego has spawned.
+
+    Raises:
+        ValueError: When :class:`~autoware_carla_scenario.ros2.Ros2EgoConfig`
+            or the trajectory follower's ``ros2.control`` refuses them, headed
+            ``ros2:``.
+    """
+    if str((cfg.get("ego") or {}).get("entity", "autopilot")) != "ros2":
+        return
+    ros2_cfg = cfg.get("ros2")
+    if ros2_cfg is None:
+        return  # Refused, with its remedy, by build_ego_entity.
+    from autoware_carla_scenario.driver import ControlConfig  # noqa: PLC0415
+    from autoware_carla_scenario.ros2 import Ros2EgoConfig  # noqa: PLC0415
+
+    ros2_dict = _to_dict(ros2_cfg)
+    try:
+        ControlConfig.from_mapping(ros2_dict.get("control") or {})
+        Ros2EgoConfig.from_mapping(ros2_dict)
+    except ValueError as exc:
+        raise ValueError(f"ros2: {exc}") from None
+
+
+def _check_backend_settings(cfg: DictConfig) -> None:
+    """Refuse the ``backends`` settings of a backend this package ships
+    (``backends.ardy``) as the queue's preparer would once a scenario needed
+    it (``startup_timeout_s: -1``, ``pull: sometimes``, ``docker_args`` as a
+    string, ...): its ``from_settings`` only reads them -- it pulls no image
+    and starts no container.  A backend of another package is built, and its
+    settings checked, by the preparer.
+
+    Raises:
+        ValueError: naming the key (``backends.<name>.<key>``).
+    """
+    backends_cfg = cfg.get("backends")
+    if backends_cfg is None:
+        return
+    if not isinstance(backends_cfg, DictConfig):
+        raise ValueError(f"backends must be a mapping, got {backends_cfg!r}")
+    from autoware_carla_scenario.pedestrian.ardy import ArdyBackend  # noqa: PLC0415
+
+    for backend in (ArdyBackend,):
+        name = backend.backend_name
+        settings = backends_cfg.get(name)
+        if settings is None:
+            continue
+        if not isinstance(settings, DictConfig):
+            raise ValueError(f"backends.{name} must be a mapping, got {settings!r}")
+        backend.from_settings(_to_dict(settings))
+
+
+def _check_scenario_config(cfg: DictConfig) -> None:
+    """Build the config of a scenario registered with
+    :func:`~autoware_carla_scenario.register_scenario`, as its builder does,
+    so its ``__post_init__`` refuses a value (``scenario.nade_is_probability``
+    above 1, #1458) before anything starts.  Nothing is built of a scenario
+    with a custom builder or a declarative one.
+
+    Raises:
+        ValueError: When the scenario's config class refuses a value.
+    """
+    scenario = cfg.get("scenario")
+    if not isinstance(scenario, DictConfig) or scenario.get("name") is None:
+        return
+    classes = get_scenario_classes(str(scenario.name))
+    if classes is None:
+        return
+    _, config_cls = classes
+    try:
+        config_cls(**_to_dict(scenario))
+    except TypeError:
+        # A key the class does not take: the build refuses it, with the
+        # scenario's own context.
+        return
 
 
 def build_scenario(
@@ -1990,35 +2661,68 @@ def add_environment(cfg: DictConfig, scenario: BaseScenario) -> None:
             finite, or outside the range its argument takes); the message
             names the key.
     """
-    from autoware_carla_scenario.actions.environment import (  # noqa: PLC0415
-        _refusal,
-    )
     from autoware_carla_scenario.weather_rules import (  # noqa: PLC0415
         use_weather_rules,
     )
 
+    # Any: EnvironmentAction takes its other arguments by keyword too.
+    settings: dict[str, Any] = dict(environment_settings(cfg))
     env_cfg = cfg.get("environment")
     raw = {} if env_cfg is None else _to_dict(env_cfg)
-    use_weather_rules(_rules_locations(raw.pop("rules", None)))
-    settings: dict[str, Any] = {}
-    for key, value in raw.items():
-        if value is None:
-            continue
-        try:
-            number = float(value)
-        except (TypeError, ValueError):
-            raise ValueError(
-                f"environment.{key} must be a number, got {value!r}"
-            ) from None
-        refusal = _refusal(str(key), number)
-        if refusal != "":
-            raise ValueError(f"environment.{key} {refusal}")
-        settings[str(key)] = number
+    use_weather_rules(_rules_locations(raw.get("rules")))
     if not settings:
         return
     from autoware_carla_scenario import EnvironmentAction  # noqa: PLC0415
 
     scenario.register_init(EnvironmentAction(**settings, label="config.environment"))
+
+
+def environment_settings(cfg: DictConfig) -> dict[str, float]:
+    """The config's ``environment`` settings but ``rules``, checked: the ones
+    set, by name, each a number (an int or a float; not a boolean or a
+    string, which ``float()`` would read) that
+    :class:`~autoware_carla_scenario.EnvironmentAction` takes.
+
+    Raises:
+        ValueError: naming the key, as :func:`add_environment` documents.
+    """
+    from autoware_carla_scenario.actions.environment import (  # noqa: PLC0415
+        _refusal,
+    )
+
+    env_cfg = cfg.get("environment")
+    raw = {} if env_cfg is None else _to_dict(env_cfg)
+    raw.pop("rules", None)
+    settings: dict[str, float] = {}
+    for key, value in raw.items():
+        if value is None:
+            continue
+        # A bool is an int to Python, and ``float("15")`` would read a string.
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"environment.{key} must be a number, got {value!r}")
+        number = float(value)
+        refusal = _refusal(str(key), number)
+        if refusal != "":
+            raise ValueError(f"environment.{key} {refusal}")
+        settings[str(key)] = number
+    return settings
+
+
+def _check_weather_rules(cfg: DictConfig) -> None:
+    """Refuse the config's ``environment.rules`` when it is not of the form
+    :func:`add_environment` reads (a file, or ``{default, vehicles}`` of
+    files), reading no rule file.
+
+    Raises:
+        ValueError: An ``openodd.RulesError`` naming the key.
+    """
+    from autoware_carla_scenario.weather_rules import (  # noqa: PLC0415
+        check_weather_rules,
+    )
+
+    env_cfg = cfg.get("environment")
+    raw = {} if env_cfg is None else _to_dict(env_cfg)
+    check_weather_rules(raw.get("rules"))
 
 
 def _rules_locations(spec: Any) -> Any:
@@ -2044,6 +2748,95 @@ def _rules_locations(spec: Any) -> Any:
     return where(spec)
 
 
+class BackgroundTraffic(NamedTuple):
+    """The ``background_traffic`` settings a run reads as numbers, checked
+    (:func:`background_traffic_settings`)."""
+
+    #: ``seed``; ``None`` follows the run's.
+    seed: int | None
+    initial_vehicles: int
+    #: ``None``: no limit.
+    max_vehicles: int | None
+    vehicles_per_minute: float
+    speed_kmh: float
+    min_gap_m: float
+
+
+def background_traffic_settings(cfg: DictConfig) -> BackgroundTraffic | None:
+    """The numbers of the config's ``background_traffic``, checked; ``None``
+    when it is off (``enabled`` false or the block absent), when none is read.
+
+    ``seed``, ``source.initial_vehicles`` and ``source.max_vehicles`` are
+    whole numbers, not negative (``2`` or ``2.0``; not ``1.9``, a boolean or
+    a string that is no integer: ``int()`` alone would read ``1.9`` and
+    ``true`` as 1); ``seed`` and ``max_vehicles`` may be null (the run's
+    seed, no limit), and a null ``initial_vehicles`` places none.
+    ``source.speed_kmh`` is finite and at least 1 km/h
+    (:func:`~autoware_carla_scenario.traffic.base.check_background_speed`),
+    and ``source.vehicles_per_minute`` and ``source.min_gap_m`` finite and
+    not negative.  Read by :func:`add_background_traffic` and checked up
+    front by :func:`check_batch_configs`.
+
+    Raises:
+        ValueError: naming the key of the first value refused.
+    """
+    background = cfg.get("background_traffic")
+    if background is None or not background.get("enabled", False):
+        return None
+    settings = _to_dict(background)
+    source = settings.get("source") or {}
+    seed = seed_setting("background_traffic.seed", settings.get("seed"))
+    initial = whole_number_setting(
+        "background_traffic.source.initial_vehicles",
+        source.get("initial_vehicles", 0),
+        minimum=0,
+    )
+    max_vehicles = whole_number_setting(
+        "background_traffic.source.max_vehicles",
+        source.get("max_vehicles"),
+        minimum=0,
+    )
+    # Refused here, naming the key, whether or not a source is built from it:
+    # 0 would be traffic that never moves (#967).
+    speed_value = source.get("speed_kmh", 30.0)
+    try:
+        speed_kmh = check_background_speed(float(str(speed_value)))
+    except ValueError as exc:
+        raise ValueError(
+            f"background_traffic.source.speed_kmh: {speed_value!r} is not a "
+            f"background speed ({exc})"
+        ) from exc
+
+    def finite_amount(key: str, default: float) -> float:
+        # Refused here, naming the key: NaN would fail `rate > 0` and be
+        # dropped without a word, infinity would crash the run (#1321).
+        value = source.get(key, default)
+        try:
+            amount = float(str(value))
+        except ValueError as exc:
+            raise ValueError(
+                f"background_traffic.source.{key}: {value!r} is not a number"
+            ) from exc
+        if not math.isfinite(amount) or amount < 0:
+            raise ValueError(
+                f"background_traffic.source.{key}: {value!r} must be finite "
+                "and not negative"
+            )
+        return amount
+
+    min_gap_m = finite_amount("min_gap_m", 15.0)
+    rate = finite_amount("vehicles_per_minute", 0.0)
+    return BackgroundTraffic(
+        seed=seed,
+        # null places none, as 0 does.
+        initial_vehicles=initial or 0,
+        max_vehicles=max_vehicles,
+        vehicles_per_minute=rate,
+        speed_kmh=speed_kmh,
+        min_gap_m=min_gap_m,
+    )
+
+
 def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
     """Register the run's background traffic on *scenario*, when it asks for any.
 
@@ -2063,58 +2856,28 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
     placed during initialization.
 
     Raises:
-        ValueError: If ``source.speed_kmh`` is not a number, not finite, or
-            below 1 km/h (:func:`~autoware_carla_scenario.traffic.base.check_background_speed`),
-            or ``source.vehicles_per_minute`` or ``source.min_gap_m`` is not a
-            number, not finite, or negative.
+        ValueError: naming the key, for a value
+            :func:`background_traffic_settings` refuses.
     """
-    background = cfg.get("background_traffic")
-    if background is None or not background.get("enabled", False):
+    checked = background_traffic_settings(cfg)
+    if checked is None:
         return
-    settings = _to_dict(background)
+    settings = _to_dict(cfg["background_traffic"])
     source = settings.get("source") or {}
     sink = settings.get("sink") or {}
     # null (the default) follows the run's seed, the scenario's.
-    seed_value = settings.get("seed")
-    seed = scenario.random_seed if seed_value is None else int(seed_value)
+    seed = scenario.random_seed if checked.seed is None else checked.seed
 
     def until(seconds: object, label: str) -> ElapsedTimeCondition | None:
         if seconds is None:
             return None
         return ElapsedTimeCondition(float(str(seconds)), label=label)
 
-    max_vehicles = source.get("max_vehicles")
+    max_vehicles = checked.max_vehicles
     constraints = source.get("constraints") or []
-    # Refused here, naming the key, whether or not a source is built from it:
-    # 0 would be traffic that never moves (#967).
-    speed_value = source.get("speed_kmh", 30.0)
-    try:
-        speed_kmh = check_background_speed(float(str(speed_value)))
-    except ValueError as exc:
-        raise ValueError(
-            f"background_traffic.source.speed_kmh: {speed_value!r} is not a "
-            f"background speed ({exc})"
-        ) from exc
-
-    def finite_amount(key: str, default: float) -> float:
-        # Refused here, naming the key: NaN would fail `rate > 0` below and be
-        # dropped without a word, infinity would crash the run (#1321).
-        value = source.get(key, default)
-        try:
-            amount = float(str(value))
-        except ValueError as exc:
-            raise ValueError(
-                f"background_traffic.source.{key}: {value!r} is not a number"
-            ) from exc
-        if not math.isfinite(amount) or amount < 0:
-            raise ValueError(
-                f"background_traffic.source.{key}: {value!r} must be finite "
-                "and not negative"
-            )
-        return amount
-
-    min_gap_m = finite_amount("min_gap_m", 15.0)
-    rate = finite_amount("vehicles_per_minute", 0.0)
+    speed_kmh = checked.speed_kmh
+    min_gap_m = checked.min_gap_m
+    rate = checked.vehicles_per_minute
 
     def source_action(
         *, initial: int, rate: float, seed: int, label: str
@@ -2123,7 +2886,7 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
             constraints,
             initial_vehicles=initial,
             vehicles_per_minute=rate,
-            max_vehicles=None if max_vehicles is None else int(max_vehicles),
+            max_vehicles=max_vehicles,
             speed_kmh=speed_kmh,
             min_gap_m=min_gap_m,
             blueprint=source.get("blueprint"),
@@ -2136,7 +2899,7 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
             ),
         )
 
-    initial = int(source.get("initial_vehicles", 0))
+    initial = checked.initial_vehicles
     if constraints and initial > 0:
         scenario.register_init(
             source_action(
@@ -2216,7 +2979,7 @@ def _queue_retries(cfg: DictConfig) -> int:
 
     if os.environ.get(SWEEPER_OWNS_RETRIES_ENV):
         return 0
-    return int(cfg.server.get("cooldown_max_retries", 0))
+    return cooldown_max_retries(cfg)
 
 
 def _run_scenario(
@@ -2231,7 +2994,7 @@ def _run_scenario(
     check_odd(_odd_spec(cfg), typecheck_mode(cfg))
 
     map_paths = resolve_map_paths(cfg.map)
-    cooldown = float(cfg.server.get("cooldown_seconds", 0.0))
+    cooldown = _cooldown_seconds(cfg)
     cooldown_max_retries = _queue_retries(cfg)
     world_reset, reload_every = world_reset_settings(cfg)
 
@@ -2260,7 +3023,7 @@ def _run_scenario(
         # The runner's own fail-safe: the queue default (60 s) is shorter than
         # an Autoware stack needs to localize, route and engage.
         timeout_seconds=run_timeout_seconds(cfg),
-        max_tick_rate_hz=_optional_float(cfg.server.get("max_tick_rate_hz")),
+        max_tick_rate_hz=_max_tick_rate_hz(cfg),
         projector_type=map_paths.projector_type,
         traffic_backend=build_traffic_backend(cfg),
         odd=_odd_spec(cfg),
@@ -2524,6 +3287,15 @@ def _dispatch(resume_from: int) -> None:
         except (ScenarioTypeError, RerunUnavailableError, T4UnavailableError) as exc:
             print(exc, file=sys.stderr)  # noqa: T201
             sys.exit(2)
+        except RunConfigError as exc:
+            # A config value a case would refuse (check_batch_configs), before
+            # anything was built: the key's line, not a traceback (#1430).  A
+            # configuration error, exit 1, as a single run's is and as the
+            # batch's other refusals are; HYDRA_FULL_ERROR=1 raises it.
+            if os.environ.get("HYDRA_FULL_ERROR") == "1":
+                raise
+            print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
+            sys.exit(1)
     else:
         if no_wait:
             print("Error: --no-wait is for launcher=slurm only")  # noqa: T201
@@ -2535,7 +3307,14 @@ def _dispatch(resume_from: int) -> None:
         # this process (tests, an embedding runner).
         _multirun_failed.clear()
         _multirun_ran.clear()
-        _hydra_main()
+        # This run's own output directory, reserved before Hydra creates
+        # Hydra's timestamped one with exist_ok (#1359).
+        sys.argv, reserved = _reserve_hydra_output_dir(sys.argv)
+        try:
+            _hydra_main()
+        finally:
+            if reserved is not None:
+                _remove_if_empty(reserved)
         _exit_if_multirun_failed()
 
 

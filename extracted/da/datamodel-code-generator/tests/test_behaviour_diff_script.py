@@ -156,6 +156,55 @@ CLASSIFY_CASES = {
         "tests/data/jsonschema/person.json",
         [],
     ),
+    "generation_refused_broken_output": (
+        Side(
+            generated=True,
+            signature={"package": {"main": {"import_error": "SyntaxError: invalid syntax (main.py, line 7)"}}},
+        ),
+        Side(generated=False, message="Error: Cannot import the module 'class' from module 'main'"),
+        "tests/data/jsonschema/keyword_directory_reference",
+        [],
+    ),
+    "generation_refused_output_with_working_module": (
+        Side(
+            generated=True,
+            signature={
+                "package": {
+                    "main": {"import_error": "SyntaxError: invalid syntax (main.py, line 7)"},
+                    "other": KEY_MAP_BEFORE,
+                }
+            },
+        ),
+        Side(generated=False, message="Error: Cannot import the module 'class' from module 'main'"),
+        "tests/data/jsonschema/keyword_sibling_reference",
+        [],
+    ),
+    "generation_refused_output_working_below_keyword": (
+        Side(
+            generated=True,
+            signature={
+                "package": {
+                    "main": {"import_error": "SyntaxError: invalid syntax (main.py, line 7)"},
+                    "class.k": KEY_MAP_BEFORE,
+                }
+            },
+        ),
+        Side(generated=False, message="Error: Cannot import the module 'class' from module 'main'"),
+        "tests/data/jsonschema/keyword_package_reference",
+        [],
+    ),
+    "generation_refused_output_without_signature": (
+        Side(generated=True, signature={"import_error": "signature timed out after 60s", "signature_failed": True}),
+        Side(generated=False, message="Error: Cannot import the module 'class' from module 'main'"),
+        "tests/data/jsonschema/keyword_slow_reference",
+        [],
+    ),
+    "generation_refused_working_output": (
+        Side(generated=True, signature=KEY_MAP_BEFORE),
+        Side(generated=False, message="Error: Cannot import the module 'class' from module 'main'"),
+        "tests/data/jsonschema/keyword_file_name_reference",
+        [],
+    ),
     "both_fail": (Side(generated=False), Side(generated=False), "tests/data/jsonschema/broken.json", []),
     "import_fixed": (
         Side(generated=True, signature={"import_error": "NameError: name 'Node' is not defined"}),
@@ -693,6 +742,14 @@ SIGNATURE_CASES: dict[str, tuple[str, dict[str, str], list[dict[str, Any]] | Non
             )
         },
         [{"id": "v0", "payload": {"count": 1, "items": ["a"]}}, {"id": "i0", "payload": {"count": "x"}}],
+    ),
+    "stub_beside_module": (
+        "pydantic_v2.BaseModel",
+        {
+            "model.py": "from mcp_types._wire_base import WireModel\n\n\nclass Model(WireModel):\n    name: str\n",
+            "mcp_types/_wire_base.py": "from pydantic import BaseModel\n\n\nclass WireModel(BaseModel):\n    pass\n",
+        },
+        None,
     ),
     "import_error": ("pydantic_v2.BaseModel", {"model.py": "from missing_module import Thing\n"}, None),
     "validation_time_constraint_errors": (

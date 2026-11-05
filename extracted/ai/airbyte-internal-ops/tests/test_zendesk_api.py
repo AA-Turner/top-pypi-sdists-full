@@ -78,6 +78,55 @@ def test_request_422_error_includes_only_safe_details(
 
 
 @pytest.mark.unit
+def test_request_403_reports_forbidden_with_safe_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        status_code = 403
+
+        def json(self) -> dict[str, object]:
+            return {"error": "Forbidden", "description": "jane@example.com cannot"}
+
+    monkeypatch.setattr(
+        zendesk_api.requests,
+        "request",
+        lambda *args, **kwargs: _Response(),
+    )
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    with pytest.raises(ZendeskAPIError) as exc_info:
+        zendesk_api._request(creds, "PUT", "/tickets/1.json")
+
+    message = str(exc_info.value)
+    assert message == (
+        "Zendesk PUT /tickets/1.json was forbidden (403): the Zendesk user lacks "
+        "permission for this action. Error: Forbidden."
+    )
+    assert "jane@example.com" not in message
+
+
+@pytest.mark.unit
+def test_request_401_reports_authentication_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Response:
+        status_code = 401
+
+        def json(self) -> dict[str, object]:
+            return {}
+
+    monkeypatch.setattr(
+        zendesk_api.requests,
+        "request",
+        lambda *args, **kwargs: _Response(),
+    )
+    creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
+
+    with pytest.raises(ZendeskAPIError, match="authentication failed \\(401\\)"):
+        zendesk_api._request(creds, "GET", "/tickets/1.json")
+
+
+@pytest.mark.unit
 def test_request_non_json_error_has_no_summary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -520,12 +569,13 @@ def test_set_ticket_tcm_total_score_rejects_invalid_total_before_requests(
 @pytest.mark.parametrize(
     "status,expected_message",
     [
-        pytest.param("closed", "doesn't allow edits to Closed tickets", id="closed"),
-        pytest.param("open", "Only Solved tickets", id="open"),
-        pytest.param("pending", "Only Solved tickets", id="pending"),
+        pytest.param("new", "Only Solved or Closed tickets", id="new"),
+        pytest.param("open", "Only Solved or Closed tickets", id="open"),
+        pytest.param("pending", "Only Solved or Closed tickets", id="pending"),
+        pytest.param("hold", "Only Solved or Closed tickets", id="hold"),
     ],
 )
-def test_set_ticket_tcm_total_score_rejects_non_solved_tickets(
+def test_set_ticket_tcm_total_score_rejects_unsolved_tickets(
     monkeypatch: pytest.MonkeyPatch,
     status: str,
     expected_message: str,
@@ -538,7 +588,7 @@ def test_set_ticket_tcm_total_score_rejects_non_solved_tickets(
     monkeypatch.setattr(
         zendesk_api,
         "_put",
-        lambda *args, **kwargs: pytest.fail("non-Solved tickets must not update"),
+        lambda *args, **kwargs: pytest.fail("unsolved tickets must not update"),
     )
 
     creds = ZendeskCredentials(subdomain="s", email="e@a.io", api_token="t")
@@ -647,15 +697,17 @@ def test_set_ticket_tcm_total_score_overwrites_existing_value(
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("status", ["solved", "closed"])
 def test_set_ticket_tcm_total_score_sets_only_score_field(
     monkeypatch: pytest.MonkeyPatch,
+    status: str,
 ) -> None:
     captured: dict[str, object] = {}
     monkeypatch.setattr(
         zendesk_api,
         "get_ticket",
         lambda *args: {
-            "status": "solved",
+            "status": status,
             "updated_at": "2025-01-01T00:00:00Z",
             "custom_fields": [
                 {"id": zendesk_api.TCM_TOTAL_SCORE_FIELD_ID, "value": None}
@@ -941,7 +993,7 @@ def test_set_zendesk_tcm_total_score_tool_reports_api_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def _raise(ticket_id: int, total: int) -> None:
-        raise ZendeskAPIError("Only Solved tickets are scored and written.")
+        raise ZendeskAPIError("Only Solved or Closed tickets are scored and written.")
 
     monkeypatch.setattr(zendesk_ops, "set_ticket_tcm_total_score", _raise)
 
@@ -957,7 +1009,7 @@ def test_set_zendesk_tcm_total_score_tool_reports_api_error(
     assert result.run_id == "tcm-run-123"
     assert result.total == 11
     assert result.changed is False
-    assert "Only Solved tickets" in result.message
+    assert "Only Solved or Closed tickets" in result.message
 
 
 @pytest.mark.unit

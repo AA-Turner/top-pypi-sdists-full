@@ -436,9 +436,14 @@ class SeeqONNXClient(ONNXClient):
         self._telemetry.track(EventConstants.EVENT_NAME_ARCHIVE, props)
 
 
-APP_JS_PATTERN = r'/(assets|js)/track.service[^"]*\.js'
+# Keep in sync with constants.py (AddOnManager) and _helper.py (data-lab-env-mgr).
+APP_JS_PATTERN = r'/(assets|js)/(app|track\.service)[^"]*\.js'
 TOKEN_PATTERN = r'\.init\("([^"]+)",\s*\{[^}]*api_host:"([^"]+)"'
 CONFIG_UPDATE_INTERVAL_SECONDS = 15 * 60  # 15 minutes
+TELEMETRY_HOST = 'https://telemetry.seeq.com/mixpanel'
+LICENSE_MIXPANEL_SECTION = "Mixpanel"
+LICENSE_MIXPANEL_TOKEN = "Workbench Token"
+CONFIG_MIXPANEL_TOKEN = "Features/Mixpanel/Token"
 
 
 class EventConstants:
@@ -483,14 +488,24 @@ def _extract_token_from_host(host: str, timeout: int = 10) -> Tuple[Optional[str
                 if token_match:
                     break
             if not token_match:
-                raise Exception("No match for token")
+                warnings.warn(f"No Mixpanel token found in the webserver bundle at {host}.")
+                return None, None
             return token_match.group(1), token_match.group(2)
 
     except requests.exceptions.RequestException as e:
-        warnings.warn(f"Request failed: {e}")
+        warnings.warn(f"Could not read the Mixpanel token from {host}: {e}")
     except Exception as e:
-        warnings.warn(f"Unexpected error: {e}")
+        warnings.warn(f"Unexpected error reading the Mixpanel token from {host}: {e}")
     return None, None
+
+
+def _extract_token_from_license(host: str, spy_session: requests.Session, timeout: int = 10) -> Optional[str]:
+    try:
+        url = urljoin(host, "api/system/license")
+        configuration = spy_session.get(url, timeout=timeout).json().get("configuration") or {}
+        return configuration.get(LICENSE_MIXPANEL_SECTION, {}).get(LICENSE_MIXPANEL_TOKEN) or None
+    except Exception:
+        return None
 
 
 def rate_limit(interval_seconds):
@@ -519,14 +534,22 @@ class Telemetry:
         self._is_telemetry_anonymized = True
         self._server_version = None
         self._token = None
+        self._config_token = None
         self._track_url = None
         self._user = None
         self._initialized = False
 
+    def _resolve_token(self) -> Tuple[Optional[str], Optional[str]]:
+        token = _extract_token_from_license(self._host, self._spy_session, timeout=self._timeout) or self._config_token
+        if token:
+            return token, TELEMETRY_HOST
+        # Servers older than Features/Mixpanel/Token only have the token in the webserver bundle.
+        return _extract_token_from_host(self._host, timeout=self._timeout)
+
     def _ensure_initialized(self) -> None:
         if self._initialized:
             return
-        token, telemetry_host = _extract_token_from_host(self._host, timeout=self._timeout)
+        token, telemetry_host = self._resolve_token()
         if not token or not telemetry_host:
             raise RuntimeError(f"Unable to determine telemetry endpoint for host: {self._host}")
         user = self._get_username()
@@ -553,6 +576,7 @@ class Telemetry:
             configs = {c['path']: c['value'] for c in response.get("configurationOptions", [])}
             self._is_telemetry_enabled = configs.get('Features/Telemetry/Enabled', False)
             self._is_telemetry_anonymized = configs.get('Features/Telemetry/Anonymized', True)
+            self._config_token = configs.get(CONFIG_MIXPANEL_TOKEN)
             self._server_version = response.get("version")
         except Exception:
             warnings.warn('Failed to update telemetry configuration options.')

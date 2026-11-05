@@ -7,6 +7,7 @@ namespace packingsolver
 namespace irregular
 {
 
+/** Simplified shape and simplified inflated shape. */
 struct SimplifiedShape
 {
     ShapeWithHoles shape;
@@ -14,6 +15,7 @@ struct SimplifiedShape
     ShapeWithHoles shape_inflated;
 };
 
+/** Simplified shapes of a bin type. */
 struct SimplifiedBinType
 {
     std::vector<SimplifiedShape> borders;
@@ -21,11 +23,13 @@ struct SimplifiedBinType
     std::vector<SimplifiedShape> defects;
 };
 
+/** Simplified shapes of an item type. */
 struct SimplifiedItemType
 {
     std::vector<SimplifiedShape> shapes;
 };
 
+/** Simplified shapes of an instance; see 'shape_simplification'. */
 struct SimplifiedInstance
 {
     std::vector<SimplifiedItemType> item_types;

@@ -131,7 +131,11 @@ pub async fn upload_to_gcs_or_skip(
     tx: TransferCtx<'_>,
 ) -> Result<UploadStatus, GcsUploadError> {
     let scheduler = &super::scheduler_for(tx, multipart);
-    let client = create_gcs_client(stage_info, tx.http_client).await?;
+    let client = create_gcs_client(
+        stage_info,
+        tx.http.and_then(cloud_http::StorageHttp::reqwest),
+    )
+    .await?;
     let key = format!("{}{filename}", stage_info.key_prefix);
     let using_presigned_url = stage_info.presigned_url.is_some();
     let refresher = tx.refresher;
@@ -342,7 +346,11 @@ async fn gcs_get_with_refresh(
     per_file_index: usize,
     tx: TransferCtx<'_>,
 ) -> Result<reqwest::Response, GcsDownloadError> {
-    let client = create_gcs_client(stage_info, tx.http_client).await?;
+    let client = create_gcs_client(
+        stage_info,
+        tx.http.and_then(cloud_http::StorageHttp::reqwest),
+    )
+    .await?;
     let key = format!("{}{filename}", stage_info.key_prefix);
     // Either presigned-URL source enables the 400-handling: the URL may
     // have expired and reissuing it produces a fresh signature. The
@@ -1231,10 +1239,9 @@ pub(super) async fn gcs_get_streaming(
 }
 
 /// Parses the `sfc-digest` and (for CSE) the `encryptiondata` / `matdesc` GCS
-/// user-metadata headers into a [`CseDownloadInfo`] — `Some` for a
-/// client-side-encrypted object (where the content digest must ride alongside
-/// the encryption headers), `None` for SSE / raw objects. Shared by the single
-/// streamed GET and the ranged-download path.
+/// user-metadata headers into a [`CseDownloadInfo`] — `Some` when the object
+/// carries encryption headers (with or without a digest), `None` otherwise.
+/// Shared by the single streamed GET and the ranged-download path.
 fn parse_gcs_cse_info(
     headers: &reqwest::header::HeaderMap,
 ) -> Result<Option<CseDownloadInfo>, GcsDownloadError> {
@@ -1253,22 +1260,13 @@ fn parse_gcs_cse_info(
     let material_desc: MaterialDescription =
         serde_json::from_str(&mat_desc_str).context(gcs_download_error::DeserializationSnafu)?;
 
-    // Git-stage objects on GCS carry encryption headers but no sfc-digest.
-    let Some(digest) = digest else {
-        // TODO(SNOW-4115038): missing digest currently writes raw bytes.
-        // Legacy Python/JDBC/Node fail the GET when encryption_material is set
-        // and unwrap/decrypt cannot succeed.
-        tracing::debug!("GCS encryptiondata present but sfc-digest absent; returning raw bytes");
-        return Ok(None);
-    };
-
     Ok(Some(CseDownloadInfo {
         metadata: EncryptedFileMetadata {
             encrypted_key: enc_data.wrapped_content_key.encrypted_key,
             iv: enc_data.content_encryption_iv,
             material_desc,
         },
-        digest: Some(digest),
+        digest,
     }))
 }
 
@@ -1288,7 +1286,11 @@ async fn gcs_try_ranged_download(
     spill_target: cloud_http::CloudSpillTarget<'_>,
     tx: TransferCtx<'_>,
 ) -> Result<Option<CloudStreamingDownload>, GcsDownloadError> {
-    let client = create_gcs_client(stage_info, tx.http_client).await?;
+    let client = create_gcs_client(
+        stage_info,
+        tx.http.and_then(cloud_http::StorageHttp::reqwest),
+    )
+    .await?;
     let key = format!("{}{filename}", stage_info.key_prefix);
 
     let make_attempt = |base: &StageInfo| {
@@ -1982,7 +1984,7 @@ mod tests {
             use_regional_url: overrides.use_regional_url,
             use_s3_regional_url: false,
             tls_config: crate::tls::config::TlsConfig::default(),
-            crl_manager: crate::crl::CrlManager::new(),
+            crl_manager: crate::crl::CrlManager::new().connection_crl(),
             root_store_provider: crate::tls::RootStoreProvider::new(),
             proxy_config: crate::tls::config::ProxyConfig::default(),
             storage_account: None,

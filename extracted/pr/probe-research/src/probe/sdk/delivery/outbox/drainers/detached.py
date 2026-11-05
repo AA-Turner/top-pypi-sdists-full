@@ -1,15 +1,12 @@
-"""DetachedDrainer (Drainer): fork `python -m probe.sdk.outbox_worker` when work is queued and nobody holds the lease, with the credential env it needs."""
+"""`maybe_spawn`: ask the Probe service to drain a queue when work is queued and nobody holds its lease
+(plan D8, task 19), with the credentials its writes need (D11). No fork, no local drain: with no
+service the journal waits for the next ask. The name stays: callers across the CLI kick through it."""
 
 from __future__ import annotations
 
 import os
-import subprocess
-import sys
 import time
 
-from .....foundation.os_backend import os_backend as oscompat
-from .....foundation.safe_warn import safe_warn as _diagnostics
-from probe.sdk.delivery.outbox.drainer import Drainer, DrainerKind
 from probe.sdk.delivery.outbox.lease import _lease_is_free
 from probe.sdk.delivery.outbox.linger import _has_queued_op
 from probe.sdk.delivery.status_fields import StatusField
@@ -174,16 +171,15 @@ SIDE_SPAWN_GRACE_SECONDS = 5.0
 
 
 def maybe_spawn(directory: str | None = None, *, credential_env: dict | None = None) -> bool:
-    """Fork a detached worker when there is work and nobody owns the lease.
+    """Ask the service to drain the queue when there is work and nobody owns its lease.
 
-    O(1) by requirement: this runs after every enqueue and every CLI invocation (`probe log`
-    in training loops), so it reads ONLY status.json plus one lock probe, never the op files
-    (perf review: the old pending() parsed the whole queue), plus for adopted credential
-    queues one stat and (with adoptions) one listing (`_adopted_credential_queues`). When
-    status.json reads zero it also lists ``ops/`` to the first op (`_has_queued_op`).
-    ``credential_env``: a token the caller holds only in code, set in the worker's environment
-    alone, so its writes go out after the caller exits (R5, #2041); never sent to the service.
-    Returns True when a worker was spawned.
+    Cheap checks first: status.json plus one lock probe, never the op files, plus for adopted
+    credential queues one stat and (with adoptions) one listing (`_adopted_credential_queues`).
+    When status.json reads zero it also lists ``ops/`` to the first op (`_has_queued_op`).
+    ``credential_env``: a token the caller holds only in code, sent with the request into that
+    drain's environment alone (plan D11; R5, #2041). Blocks while the service starts (at most
+    `handoff.START_WAIT_S`): a training loop asks from `ServiceDrainer`'s thread, never its own.
+    Returns True when the service started a drain for it.
     """
     from ...journal.journal import Journal
 
@@ -229,121 +225,109 @@ def maybe_spawn(directory: str | None = None, *, credential_env: dict | None = N
     if journal.paused:
         return child_spawned
     if not _lease_is_free(journal):
-        # A worker owns delivery, maybe an OLDER release that never looks in the waiting room.
-        # Waiting uploads still need a promoter: the child finds the drain lock taken and only
-        # promotes (see `run`).
+        # A drain owns delivery, maybe an OLDER release's that never looks in the waiting room.
+        # Waiting uploads still need a promoter: the service's drain finds the drain lock taken
+        # and only promotes (see `run`).
         if not (waiting and _lease_is_free(journal, str(journal.promote_lease))):
             return child_spawned
-    elif not credential_env:
-        # A Probe service runs here and starts this worker as its own child (plan Q5): same
-        # module, interpreter, folder and environment but no credential. The lease stays the
-        # one-worker guard. STARTED is a spawn (the caller's kick throttle arms on it);
-        # RUNNING is a drainer at the lease, as the held branch above. With no service, an
-        # older one or a refusal, fork as before.
-        handed = _hand_to_service(journal)
-        if handed is not None:
-            from probe.foundation.service_api.vocabularies import BackgroundState
+    from probe.foundation.service_api.vocabularies import BackgroundState
 
-            if handed == BackgroundState.STARTED:
-                return True
-            if handed == BackgroundState.RUNNING:
-                return child_spawned
-    # PROBE_* env credentials inherit (T4 decision), except a copy of the stored login
-    # (`_worker_env`). PROBE_OUTBOX_WORKER marks the worker: its clients print no delivery
-    # notices (plan 1.7) and no Kubernetes notice (1.5) into drainer.log. Then no worker:
-    # the next kick, or `probe outbox drain`, delivers.
-    child = _spawn_detached(journal, [str(journal.dir)], {**_worker_env(), **(credential_env or {})})
-    if child is False:
-        return child_spawned
-    return _spawn_took(child, journal) or child_spawned
+    return request_drain(journal, credential_env) == BackgroundState.STARTED or child_spawned
 
 
-class DetachedDrainer(Drainer):
-    """The detached worker kind (parity F1): each write probes the worker lease with ONE
-    non-blocking flock and runs `maybe_spawn`'s checks (status.json, listings, pause, the
-    service hand-off) only when nobody holds it. Never throttled while a worker lives: a
-    worker exiting between two writes would strand the writer's last op (prod smoke
-    2026-08-06). A spawn arms `kick_interval`, so the writes while the child starts and
-    takes the lease do not fork it twice. While the lease is held, the side queues that
-    worker may not serve are kicked at most every `SIDE_KICK_SECONDS`."""
-
-    kind = DrainerKind.WORKER
-
-    def __init__(self, directory, *, credential_env: dict | None = None) -> None:
-        super().__init__(directory, can_fork=True, credential_env=credential_env)
-        self.kick_interval = 1.0
-        self.kicked_at = float("-inf")
-        self.side_kicked_at = float("-inf")
-        self._lease = os.path.join(self.directory, ".worker.lock")
-        self._waiting = os.path.join(self.directory, "waiting")
-
-    def wake(self) -> None:
-        now = time.monotonic()
-        if now - self.kicked_at < self.kick_interval:
-            return
-        try:
-            if self._worker_delivers():
-                if now - self.side_kicked_at >= SIDE_KICK_SECONDS:
-                    from ...journal.journal import Journal
-
-                    self.side_kicked_at = now
-                    if kick_side_queues(Journal(self.directory)):
-                        # A side worker takes a moment to start and take its lease: no second
-                        # fork for it meanwhile (final review of #3794).
-                        self.side_kicked_at = now + SIDE_SPAWN_GRACE_SECONDS
-                return
-            if maybe_spawn(self.directory, **_with_credential(self.credential_env)):
-                self.kicked_at = time.monotonic()
-        except Exception:  # noqa: BLE001 -- best-effort; run end is the barrier
-            pass
-
-    def kick(self, *, force: bool = False) -> None:
-        if force:
-            super().kick(force=True)
-        else:
-            self.wake()
-
-    def _worker_delivers(self) -> bool:
-        """A worker holds the lease and no upload waits for a promoter (an older worker may not
-        promote, `maybe_spawn`): one flock, plus one listing only while the lease is held."""
-        if _lease_is_free(None, self._lease):
-            return False
-        try:
-            return not any(name.endswith(".json") for name in os.listdir(self._waiting))
-        except OSError:
-            return True
+#: An `outbox.drain` ask's answer, at most (the service answers within its own 2 s).
+DRAIN_ASK_S = 5.0
 
 
-def _spawn_detached(journal, args: list, env: dict):
-    """`python -m probe.sdk.delivery.outbox <args>`, detached, output to ``journal``'s
-    drainer.log; what Popen returned, or False when it could not start. 0o600 explicitly:
-    the log carries drain errors and tracebacks and the journal's everything-0o600 invariant
-    must not depend on the umask. O_NOFOLLOW: a `drainer.log` symlink (planted in a shared
-    directory) must not redirect the output (review of #2054)."""
+def request_drain(journal, credential_env: dict | None = None) -> str | None:
+    """Ask the service to drain `journal`'s folder (`outbox.drain`, plan D8): its answer's state
+    (`BackgroundState`), or None when no service took it (none could start, a refusal): the
+    journal waits for the next ask. Its environment: this process's settings and credentials
+    (`_drain_env`, plus `credential_env`), into that drain's environment only (D11). Never raises."""
+    from probe.foundation.service_api import handoff
+    from probe.foundation.service_api.wire import Method
+
+    parameters = {"dir": os.path.abspath(str(journal.dir)), "env": {**_drain_env(), **(credential_env or {})}}
     try:
-        log_fd = os.open(
-            journal.dir / _LOG_NAME,
-            os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0),
-            0o600,
-        )
-    except OSError:
+        answer = handoff.request(Method.OUTBOX_DRAIN, parameters, timeout=DRAIN_ASK_S)
+    except Exception:  # noqa: BLE001 -- no service (or a broken one): the journal waits on disk
+        return None
+    if isinstance(answer, dict) and answer.get("accepted") is True:
+        note_key_handed(credential_env)
+        return answer.get("state")
+    return None
+
+
+#: In-code keys a service took (an accepted `outbox.drain` carrying one, or `credentials.hold`):
+#: fingerprint -> which start of the service took it (`handoff.get_start_id`). A service that
+#: restarted since lost it from memory (M5); a close whose key never got there says so (D21).
+_HANDED_KEYS: dict = {}
+
+
+def note_key_handed(credential_env: dict | None) -> None:
+    from probe.foundation.service_api import handoff
+
+    from ..drain.credentials import credential_fingerprint
+
+    if credential_env:
+        fingerprint = credential_fingerprint(credential_env.get("PROBE_TOKEN"), credential_env.get("PROBE_INGEST_TOKEN"))
+        if fingerprint:
+            _HANDED_KEYS[fingerprint] = handoff.get_start_id()
+
+
+def key_handed(credential_env: dict | None) -> bool:
+    """Whether the service as it runs now (its start id) holds the key `credential_env` holds (no
+    key: True)."""
+    from probe.foundation.service_api import handoff
+
+    from ..drain.credentials import credential_fingerprint
+
+    if not credential_env:
+        return True
+    fingerprint = credential_fingerprint(credential_env.get("PROBE_TOKEN"), credential_env.get("PROBE_INGEST_TOKEN"))
+    return fingerprint is None or (
+        fingerprint in _HANDED_KEYS and _HANDED_KEYS[fingerprint] == handoff.get_start_id())
+
+
+#: `credentials.hold`'s answer, at most (it starts the service where none runs).
+HOLD_ASK_S = 10.0
+
+
+def hold_key(credential_env: dict | None) -> bool:
+    """Hand an in-code key to the service (`credentials.hold`, plan D21): held in its memory for
+    its queue's drains, also after this process exits. True when it took it. Never raises."""
+    from probe.foundation.service_api import handoff
+    from probe.foundation.service_api.wire import Method
+
+    from ..drain.credentials import credential_fingerprint
+
+    env = {k: v for k, v in (credential_env or {}).items() if k in ("PROBE_TOKEN", "PROBE_INGEST_TOKEN", "PROBE_BASE_URL")}
+    fingerprint = credential_fingerprint(env.get("PROBE_TOKEN"), env.get("PROBE_INGEST_TOKEN"))
+    if fingerprint is None:
         return False
     try:
-        return subprocess.Popen(  # noqa: S603 -- our own interpreter, our own module
-            [sys.executable, "-m", "probe.sdk.outbox_worker", *args],
-            stdin=subprocess.DEVNULL,
-            stdout=log_fd,
-            stderr=log_fd,
-            # Survives the parent CLI's exit and Ctrl-C: a new session on POSIX, a detached new
-            # process group on Windows.
-            **oscompat.DETACHED,
-            close_fds=True,
-            env=env,
-        )
-    except OSError:
+        answer = handoff.request(Method.CREDENTIALS_HOLD, {"fingerprint": fingerprint, "env": env}, timeout=HOLD_ASK_S)
+    except Exception:  # noqa: BLE001 -- no service: the next ask carries the key again
         return False
-    finally:
-        os.close(log_fd)
+    if isinstance(answer, dict) and answer.get("held") is True:
+        _HANDED_KEYS[fingerprint] = handoff.get_start_id()
+        return True
+    return False
+
+
+def _drain_env() -> dict:
+    """What the service's drain needs of this process's environment (`_worker_env`'s rules for
+    credentials): its settings by `runtime_env_name`, without what would change the service's
+    own interpreter (PYTHON*, LD_*, DYLD_*, a venv or conda's), and its Probe credentials."""
+    from .....foundation.service_api.env import CREDENTIAL_ENV, runtime_env_name
+
+    own = ("PYTHON", "LD_", "DYLD_", "VIRTUAL_ENV", "CONDA_")
+    return {
+        name: value
+        for name, value in _worker_env().items()
+        if (name in CREDENTIAL_ENV or (runtime_env_name(name) and not name.startswith(own)))
+        and value and "\0" not in value
+    }
 
 
 #: Fingerprints of env tokens a client in THIS process found to be copies of the stored login
@@ -372,12 +356,15 @@ def _worker_env() -> dict:
     worker reads that login itself: the same token today, a re-login's tomorrow. Inherited,
     the copy was matched first on every pass (`journal._settings_for_op`) and a dead one
     held the job's writes for good (a customer's Mac, 2026-10-23). Any other env
-    credential inherits: the only way the worker can hold it."""
+    credential inherits: the only way the worker can hold it. Its events say this
+    process's worker surface (`sdk`, or a worker's own when a worker starts one, S4)."""
+    from ..... import analytics as telemetry
     from ....agent_session import EVENT_AT_ENV, RUN_PROCESS_ENV
     from ..drain.credentials import credential_fingerprint
     from ...transport.transport import _IDEMPOTENCY_ENV
 
-    env = {**os.environ, "PROBE_OUTBOX_WORKER": "1"}
+    env = {**os.environ, "PROBE_OUTBOX_WORKER": "1",
+           telemetry.WORKER_SURFACE_ENV: telemetry.get_worker_surface().value}
     # A daemon command's PROBE_IDEMPOTENCY_KEY numbers ITS writes; a worker numbering its
     # replays from the same base reuses those keys for other writes, which the server
     # refuses (422) and the drain dead-letters.
@@ -436,60 +423,8 @@ def _worker_env() -> dict:
     return env
 
 
-def _hand_to_service(journal) -> str | None:
-    """The running Probe service's answer when it took this queue's drain
-    (`service_handoff.drain`: "started" or "running"), else None. A credential queue (#2035)
-    or a folder inside one never goes: its worker needs the environment credential that
-    named it, which never crosses the socket; nor does a worker's own kick. Never raises;
-    bounded (`client.HANDOFF_BUDGET_S`)."""
-    from ...ops.ops import CREDENTIAL_NAMESPACE
-
-    if CREDENTIAL_NAMESPACE in journal.dir.parts or os.environ.get("PROBE_OUTBOX_WORKER"):
-        return None
-    try:
-        from . import service_handoff
-
-        return service_handoff.drain(str(journal.dir))
-    except Exception:  # noqa: BLE001 -- a hand-off may never break an enqueue
-        return None
-
-
-#: How often `spawn_past_a_kill` looks at the lease while a killed worker goes.
-_KILLED_LEASE_POLL_SECONDS = 0.005
-
-
 def spawn_past_a_kill(directory: str, *, wait: float) -> bool:
-    """`maybe_spawn` for a process whose workers were just SIGKILLed (a Ray trial's actor at exit): wait
-    up to ``wait`` seconds for their lease to be let go, then kick. A lease still held is a live
-    sibling's, which delivers this queue."""
-    from ...journal.journal import Journal
-
-    journal = Journal(directory)
-    if journal.dir.is_dir():
-        deadline = time.monotonic() + wait
-        while not _lease_is_free(journal) and time.monotonic() < deadline:
-            time.sleep(_KILLED_LEASE_POLL_SECONDS)
+    """`maybe_spawn` for a Ray trial's actor at exit. The drain is the service's child, which Ray's
+    kill of the actor's own children never reaches, so there is no lease to wait for (`wait`
+    is kept for its callers)."""
     return maybe_spawn(directory)
-
-
-def _spawn_took(child, journal) -> bool:
-    """Whether the forked worker is alive, not merely forked: one non-blocking poll, and a short grace
-    only if it already died (an interpreter that cannot import probe exits at once)."""
-    try:
-        if child.poll() is None:
-            return True
-        # It exited already. Give the lease a beat to appear: a fast, successful
-        # drain-and-exit looks like a failed start at this instant, and calling that a failure
-        # would warn on healthy runs.
-        time.sleep(0.05)
-        if not _lease_is_free(journal):
-            return True
-        _diagnostics.warn(
-            "probe: the outbox worker exited immediately "
-            f"(rc={child.returncode}); queued writes are not being delivered. "
-            f"See {journal.dir / _LOG_NAME}, or run `probe outbox drain`."
-        )
-        return False
-    except Exception:  # noqa: BLE001 -- a liveness probe may never break enqueue
-        return True
-from probe.sdk.delivery.outbox.drainer import _with_credential  # noqa: E402 -- pieces need each other; the front door loads this one first

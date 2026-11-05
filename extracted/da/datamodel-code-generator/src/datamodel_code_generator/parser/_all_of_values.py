@@ -29,7 +29,7 @@ from datamodel_code_generator._model_keys import FIELDLESS_SITE_KEY
 from datamodel_code_generator._regex_syntax import is_portable_pattern
 from datamodel_code_generator._url_redaction import named_location
 from datamodel_code_generator.model._decisions.enum_kind import holds_inherited_member_value, holds_member_value
-from datamodel_code_generator.model.enum import Enum, IntEnum, StrEnum
+from datamodel_code_generator.model.enum import Enum, enum_value_base
 from datamodel_code_generator.parser._intersection import (
     all_of_member_row,
     common_types,
@@ -593,7 +593,7 @@ def collect_all_of_value_parts(
             return False
         member = (
             parser._merge_ref_with_schema(  # noqa: SLF001
-                item, named_location(schema.schema_location, "allOf", row="legacy-unredacted-locations")
+                item, named_location(schema.schema_location, "allOf")
             )
             if resolve_refs
             else item
@@ -769,9 +769,7 @@ def reference_site_value(
     written = parser._temporary_constraint_values(obj, parser.get_ref_data_type(refs[0])) if layered else {}  # noqa: SLF001
     target = intersect_typed_value_parts(parser, target_parts, None)
     intersection = _enum_narrowed_by_part_consts(
-        intersect_typed_value_parts(
-            parser, parts, named_location(obj.schema_location, "allOf", row="legacy-unredacted-locations")
-        ),
+        intersect_typed_value_parts(parser, parts, named_location(obj.schema_location, "allOf")),
         parts,
         const_support=parser.schema_features.const_support,
     )
@@ -834,9 +832,7 @@ def all_of_reference_value_schema(parser: AllOfValuesHost, obj: JsonSchemaObject
     target = intersect_typed_value_parts(parser, target_parts, None)
     if layers_on_reference(parser, target, constraints):
         return None
-    intersection = intersect_typed_value_parts(
-        parser, parts, named_location(obj.schema_location, "allOf", row="legacy-unredacted-locations")
-    )
+    intersection = intersect_typed_value_parts(parser, parts, named_location(obj.schema_location, "allOf"))
     if len(refs) == 1 and parser._enforced_value_keywords(intersection) == parser._enforced_value_keywords(target):  # noqa: SLF001
         return parser._schema_object({"$ref": refs[0]})  # noqa: SLF001
     return intersection
@@ -1429,12 +1425,7 @@ def patterns_need_holder_engine(parser: AllOfValuesHost, schema: JsonSchemaObjec
                 if isinstance(pattern := value.get("pattern"), str):
                     patterns.append(pattern)
                 if any(
-                    needs_engine(
-                        parser.data_model_root_type,
-                        pattern,
-                        parser.target_python_version,
-                        parser.target_pydantic_version,
-                    )
+                    needs_engine(parser.data_model_root_type, pattern, parser.target_pydantic_version)
                     for pattern in patterns
                 ):
                     return True
@@ -1494,9 +1485,7 @@ def all_of_enum_site_schema(parser: AllOfValuesHost, obj: JsonSchemaObject) -> J
     if not parser.config.use_site_models_for_constrained_refs:
         return None
     intersection = _enum_narrowed_by_part_consts(
-        intersect_typed_value_parts(
-            parser, parts, named_location(obj.schema_location, "allOf", row="legacy-unredacted-locations")
-        ),
+        intersect_typed_value_parts(parser, parts, named_location(obj.schema_location, "allOf")),
         parts,
         const_support=parser.schema_features.const_support,
     )
@@ -1516,7 +1505,8 @@ def merged_enum_fails(parser: AllOfValuesHost, enums: Sequence[JsonSchemaObject]
     """Return whether the enum merged from ``enums``, in the class of the first, takes a member it cannot hold.
 
     A class with a value base (``IntEnum``, ``StrEnum``) cannot hold a member its value type does not hold; a
-    ``StrEnum`` holds only a str, as ``extract_inherited_enum`` decides.
+    ``StrEnum`` holds only a str, as ``extract_inherited_enum`` decides by the class alone (``enum_value_base``, row
+    ``legacy-merged-enum-specialized-only``).
     ``extract_inherited_enum`` leaves out the members it cannot construct (``holds_inherited_member_value``), so
     the merge imports; this decides only whether a site whose parts admit no value in common takes its first part,
     as it did when the merge failed at import. A ``None`` member counts unless ``legacy-all-of-null-as-written``. An
@@ -1526,7 +1516,7 @@ def merged_enum_fails(parser: AllOfValuesHost, enums: Sequence[JsonSchemaObject]
     if parser.should_parse_enum_as_literal(first) or parser._reads_enum_as_const(first):  # noqa: SLF001
         return False
     enum_class = parser._get_enum_model_class(parser._get_enum_type(first), first.enum)[0]  # noqa: SLF001
-    value_type = "int" if issubclass(enum_class, IntEnum) else "str" if issubclass(enum_class, StrEnum) else None
+    value_type = enum_value_base(enum_class, row="legacy-merged-enum-specialized-only")
     keep = parser.config.keep_enum_member_values
     return value_type is not None and any(
         parser._null_mode.type_excludes_member_null  # noqa: SLF001
@@ -1678,7 +1668,7 @@ def ref_member_narrows_literals(
         return False
     merged = parser._schema_literal_values(  # noqa: SLF001
         parser._merge_ref_with_schema(  # noqa: SLF001
-            member, named_location(site.schema_location, "allOf", row="legacy-unredacted-locations")
+            member, named_location(site.schema_location, "allOf")
         )
     )
     return (

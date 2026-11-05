@@ -15,9 +15,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..run.run import Run
 from probe.sdk.artifact.record_formats.lines import _LINE_SUFFIXES, preview_sample
 from probe.sdk.catalog.hosting import MANIFEST_SECONDS, host
-from probe.sdk.catalog.identity import Prepared, registration_body, run_file_spec
+from probe.sdk.catalog.identity import Prepared, registration_body, run_file_spec, to_display_path
 from probe.sdk.catalog.catalog import _send
-from probe.sdk.catalog.manifest import _levels
 from probe.sdk.catalog.refs import DatasetRef, check_name, composition_parts, is_moving_ref
 from probe.sdk.catalog.server import (
     _say,
@@ -37,20 +36,14 @@ PREVIEW_PREFIX = ".probe/previews/"
 
 
 def _previewable(prepared: Prepared) -> str | None:
-    """The file a preview is cut from: the dataset, or a folder's first line-record/Parquet file in path order. `on` paths only."""
-    on, *_ = _levels()
-    if prepared.local is None or prepared.level != on:
+    """The file a preview is cut from: the dataset, or a folder's first line-record/Parquet file in path order."""
+    if prepared.local is None:
         return None
     if prepared.manifest is None:
         return prepared.local
-    from ..recording_rules import recording_rules as exclusions
-
-    checker = exclusions.checker(hot=True)
     for f in sorted(prepared.manifest.files, key=lambda f: f.relpath):
         ext = os.path.splitext(f.relpath)[1].lower()
-        if ext not in _LINE_SUFFIXES + (".parquet",):
-            continue
-        if getattr(checker.check(f.full, is_dir=False), "level", on) == on:
+        if ext in _LINE_SUFFIXES + (".parquet",):
             return f.full
     return None
 
@@ -78,10 +71,8 @@ def upload_preview(send: Any, prepared: Prepared, dataset_file_id: str) -> bool:
                 os.unlink(tmp)
             except OSError:
                 pass
-        from .. import probe_config as pc
-
         _say(
-            f"probe: uploaded a {records}-row preview of {pc.shown(source_path)}; "
+            f"probe: uploaded a {records}-row preview of {to_display_path(source_path)}; "
             "preview=False (--no-preview) to stop"
         )
         return True

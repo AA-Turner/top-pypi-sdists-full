@@ -6,8 +6,8 @@ The facts class for vyos
 this file validates each subset of facts and selectively
 calls the appropriate facts gathering function
 """
-from __future__ import absolute_import, division, print_function
 
+from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
@@ -29,6 +29,9 @@ from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.firew
 )
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.firewall_rules.firewall_rules import (
     Firewall_rulesFacts,
+)
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.ha.ha import (
+    HaFacts,
 )
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.hostname.hostname import (
     HostnameFacts,
@@ -56,6 +59,9 @@ from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.lldp_
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.logging_global.logging_global import (
     Logging_globalFacts,
 )
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.nat.nat import (
+    NatFacts,
+)
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.ntp_global.ntp_global import (
     Ntp_globalFacts,
 )
@@ -80,7 +86,13 @@ from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.snmp_
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.static_routes.static_routes import (
     Static_routesFacts,
 )
-
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.vpn_ipsec.vpn_ipsec import (
+    Vpn_ipsecFacts,
+)
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.vpn_ipsec_s2s.vpn_ipsec_s2s import (
+    Vpn_ipsec_s2sFacts,
+)
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.vrf.vrf import VrfFacts
 
 FACT_LEGACY_SUBSETS = dict(default=Default, neighbors=Neighbors, config=Config)
 FACT_RESOURCE_SUBSETS = dict(
@@ -93,6 +105,7 @@ FACT_RESOURCE_SUBSETS = dict(
     firewall_rules=Firewall_rulesFacts,
     firewall_global=Firewall_globalFacts,
     firewall_interfaces=Firewall_interfacesFacts,
+    ha=HaFacts,
     ospfv3=Ospfv3Facts,
     ospfv2=Ospfv2Facts,
     ospf_interfaces=Ospf_interfacesFacts,
@@ -102,8 +115,12 @@ FACT_RESOURCE_SUBSETS = dict(
     prefix_lists=Prefix_listsFacts,
     logging_global=Logging_globalFacts,
     ntp_global=Ntp_globalFacts,
+    nat=NatFacts,
     snmp_server=Snmp_serverFacts,
     hostname=HostnameFacts,
+    vrf=VrfFacts,
+    vpn_ipsec=Vpn_ipsecFacts,
+    vpn_ipsec_s2s=Vpn_ipsec_s2sFacts,
 )
 
 

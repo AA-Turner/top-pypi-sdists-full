@@ -5,6 +5,7 @@
 
 from __future__ import absolute_import, division, print_function
 
+
 __metaclass__ = type
 
 """
@@ -31,9 +32,7 @@ def _get_parameters(data):
 
 def _tmplt_ospf_int_delete(config_data):
     params = _get_parameters(config_data["address_family"])
-    command = (
-        "protocols " + params[0] + " interface {name}".format(**config_data)
-    )
+    command = "protocols " + params[0] + " interface {name}".format(**config_data)
 
     return command
 
@@ -81,10 +80,7 @@ def _tmplt_ospf_int_auth_md5(config_data):
 def _tmplt_ospf_int_auth_md5_delete(config_data):
     params = _get_parameters(config_data["address_family"])
     command = (
-        "protocols "
-        + params[0]
-        + " interface {name}".format(**config_data)
-        + " authentication"
+        "protocols " + params[0] + " interface {name}".format(**config_data) + " authentication"
     )
 
     return command
@@ -128,12 +124,7 @@ def _tmplt_ospf_int_dead_interval(config_data):
 
 def _tmplt_ospf_int_mtu_ignore(config_data):
     params = _get_parameters(config_data["address_family"])
-    command = (
-        "protocols "
-        + params[0]
-        + " interface {name}".format(**config_data)
-        + " mtu-ignore"
-    )
+    command = "protocols " + params[0] + " interface {name}".format(**config_data) + " mtu-ignore"
 
     return command
 
@@ -212,12 +203,7 @@ def _tmplt_ospf_int_instance(config_data):
 
 def _tmplt_ospf_int_passive(config_data):
     params = _get_parameters(config_data["address_family"])
-    command = (
-        "protocols "
-        + params[0]
-        + " interface {name}".format(**config_data)
-        + " passive"
-    )
+    command = "protocols " + params[0] + " interface {name}".format(**config_data) + " passive"
 
     return command
 
@@ -239,8 +225,7 @@ class Ospf_interfacesTemplate14(NetworkTemplate):
                 \s+protocols
                 \s+(?P<proto>ospf|ospfv3)
                 \s+interface
-                \s+(?P<name>\S+)
-                *$""",
+                \s+(?P<name>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "remval": _tmplt_ospf_int_delete,
@@ -265,8 +250,7 @@ class Ospf_interfacesTemplate14(NetworkTemplate):
                 \s+(?P<name>\S+)
                 \s+authentication
                 \s+plaintext-password
-                \s+(?P<text>\S+)
-                *$""",
+                \s+(?P<text>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "setval": _tmplt_ospf_int_auth_password,
@@ -297,8 +281,7 @@ class Ospf_interfacesTemplate14(NetworkTemplate):
                 \s+key-id
                 \s+(?P<id>\d+)
                 \s+md5-key
-                \s+(?P<text>\S+)
-                *$""",
+                \s+(?P<text>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "setval": _tmplt_ospf_int_auth_md5,
@@ -458,8 +441,7 @@ class Ospf_interfacesTemplate14(NetworkTemplate):
                 \s+interface
                 \s+(?P<name>\S+)
                 \s+network
-                \s+(?P<val>\S+)
-                *$""",
+                \s+(?P<val>\S+)\s*$""",
                 re.VERBOSE,
             ),
             "setval": _tmplt_ospf_int_network,

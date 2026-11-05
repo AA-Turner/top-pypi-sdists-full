@@ -594,15 +594,25 @@ class SweepConfig:
     list of constraint dicts; it holds one key, the parameter swept (a
     second is refused when the sweep is expanded).  ``bindings`` maps a target key
     (e.g. ``ego.spawn_s``) to a binding dict that auto-derives the value.
-    ``odd_sample`` draws the settings of each case from the ODD.
+    ``odd_sample`` draws the settings of each case from the ODD.  ``exclude``
+    maps a key to the values a case may not end with on it, once its bindings
+    are applied.
     """
 
     constraints: dict[str, Any] = field(default_factory=dict)
     bindings: dict[str, Any] = field(default_factory=dict)
+    #: Key -> values a case is dropped for holding there after its bindings:
+    #: ``ego.spawn_lanelet_id: ${map.no_3d_model_lanelet_ids}`` keeps the
+    #: lanelet a ``stop_line_offset`` walks the spawn back onto off a lanelet
+    #: CARLA does not draw, which a constraint on the pick cannot see.
+    exclude: dict[str, Any] = field(default_factory=dict)
 
     #: Hard timeout (seconds) per job.  If a single scenario run exceeds
     #: this duration (e.g. CARLA hangs), it is forcefully interrupted and
-    #: the sweep continues with the next lanelet.  0 disables the timeout.
+    #: the sweep continues with the next lanelet.  0 disables the timeout;
+    #: ``null`` means the default (120).  Whole seconds, at most 2**31 - 1: a
+    #: fraction, a negative value, NaN, infinity or a larger value is refused
+    #: (exit 2) before any case runs.
     job_timeout_seconds: int = 120
 
     #: 1-indexed job number to resume from.  Jobs before this index are

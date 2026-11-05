@@ -273,7 +273,7 @@ class TextLoader:
     def _yaml_to_string(cls, binary_data: bytes) -> str:
         import yaml
 
-        docs = yaml.load_all(binary_data, Loader=yaml.Loader)
+        docs = yaml.load_all(binary_data, Loader=yaml.SafeLoader)
         return "\n\n\n".join(
             [
                 "\n\n".join(cls._extract_content_from_py_structure(loaded_yaml))

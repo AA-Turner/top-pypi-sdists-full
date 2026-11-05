@@ -12,7 +12,7 @@ from mistralai.vibe_agents.session_workflow.commands import (
     ReasoningEffort,
     SessionWorkflowCommand,
 )
-from mistralai.vibe_agents.session_workflow.identity import OrgTier, Principal
+from mistralai.vibe_agents.session_workflow.identity import Principal
 from mistralai.vibe_agents.session_workflow.providers import normalize_provider_name
 from mistralai.vibe_agents.session_workflow.skills import RequestedSkillInput
 from mistralai.vibe_agents.session_workflow.toolsets import ToolsetInput
@@ -36,7 +36,13 @@ class SessionWorkflowSubscription(BaseModel):
 
 
 class SessionAgentCustomization(BaseModel):
-    """Caller-owned Agent customization for one Session."""
+    """Per-session overrides of an Agent's settings: the ``agent=`` of ``Agent.start_session``.
+
+    ``additional_instructions`` append to the Agent's instructions; ``model`` and ``reasoning_effort``
+    override its completion defaults. A field left out keeps the Agent's value; ``None`` for ``model`` or
+    ``reasoning_effort`` and unknown keys raise a validation error. ``agent=`` also takes the same keys as a
+    dict.
+    """
 
     # Strict on purpose: a request model the control plane validates. Clients read
     # sessions through forward-compatible models (``_internal.wire_models``) instead.
@@ -89,7 +95,7 @@ class WorkflowUserMessage(BaseModel):
     """
 
     message: list[dict[str, JsonValue]] = Field(min_length=1)
-    # Only the model reads them.
+    # The model gets them with the message; history records each as a context entry.
     context_messages: list[dict[str, JsonValue]] = Field(default_factory=list)
     # Set by the control plane: the correlation id and the tracing the policy resolved.
     metadata: CommandMetadata | None = None
@@ -103,10 +109,8 @@ class SessionWorkflowInitialTurn(WorkflowUserMessage):
 
 
 class SessionStartIntent(BaseModel):
-    # TODO: Clarify Principal's authority in the workflow contract. It
-    # currently travels as durable caller/tenant identity, while dispatch also
-    # sends identity headers; document which layer workflows and activities
-    # should trust for user, system, and integration-started sessions.
+    # Caller-asserted: anyone allowed to start the Workflow chooses it. The Agents SDK worker never
+    # trusts it and takes the caller from the execution's attested identity instead.
     principal: Principal
     initial_command: SessionWorkflowCommand | None = None
     # Selects the event protocol for this session. None or "legacy_task_protocol"
@@ -150,18 +154,6 @@ class SessionWorkflowStartInput(SessionStartIntent):
     # field below), the same convention nuage's app-context carriers use.
     model_config = ConfigDict(validate_by_name=True)
 
-    # The completion gateway band this Session's model calls are scheduled in, resolved by
-    # the producer from the caller's customer record at start time.
-    #
-    # Declared on the workflow payload rather than on SessionStartIntent so that no
-    # client-reachable model can carry it: SessionStartIntent is the base of
-    # StartAgentSessionInput, and Principal -- the other candidate home -- is a client-supplied
-    # request field checked only for tenant-id equality. A caller that could name its own band
-    # could name its own scheduling priority.
-    #
-    # Resolved once, so a tier change mid-Session only takes effect on the next Session.
-    # None means the producer did not resolve one; the runtime then uses DEFAULT_ORG_TIER.
-    org_tier: OrgTier | None = None
     session_id: UUID
     application_id: UUID
     application_name: str
@@ -172,29 +164,28 @@ class SessionWorkflowStartInput(SessionStartIntent):
     # Trusted Session-control-plane creation only; not part of public SessionStartIntent.
     child_session: dict[str, JsonValue] | None = None
     # The Session Tree's subagent policy, resolved by the control plane: the Agent's default for
-    # a root; children get the root's value. Server-owned like ``org_tier``. None means this
-    # Session cannot create subagents.
+    # a root; children get the root's value. None means this Session cannot create subagents. A
+    # worker honours it, and ``child_session``, only for an Agent that declares subagents.
     subagent_policy: SubagentPolicy | None = None
     # Marks a fresh workflow execution as a resurrection of a Session whose prior
-    # execution died (see the nuage session_rehydration module). Server-owned, like
-    # ``org_tier`` above: only the control plane (vibe_agents) sets it, when it
-    # rebuilds a start input from a durable session row for a send that found the
-    # prior execution dead. No client-reachable model carries it - SessionStartIntent
-    # is the base of StartAgentSessionInput, and the transport-side boundary
-    # (vibe_agents start API schemas) never exposes this field. SkipJsonSchema only
-    # hides it from generated schemas; the actual protection is that no public start
-    # request model has the field. The __-prefixed serialization alias mirrors
-    # nuage's other server-owned wire keys (``__temporary_session_state``).
+    # execution died (see the nuage session_rehydration module). Server-owned: only the
+    # control plane (vibe_agents) sets it, when it rebuilds a start input from a durable
+    # session row for a send that found the prior execution dead. No client-reachable
+    # model carries it - SessionStartIntent is the base of StartAgentSessionInput, and
+    # the transport-side boundary (vibe_agents start API schemas) never exposes this
+    # field. SkipJsonSchema only hides it from generated schemas; the actual protection
+    # is that no public start request model has the field. The __-prefixed serialization
+    # alias mirrors nuage's other server-owned wire keys (``__temporary_session_state``).
     is_session_resurrection: SkipJsonSchema[bool] = Field(
         default=False,
         alias="__is_session_resurrection",
     )
-    # The ``SharedWorkerAgentSpec`` a shared worker runs for this Session, as JSON. Server-owned
-    # for the same reason as ``org_tier``: the control plane builds it from the Agent the Session
-    # was started on, so the Session keeps that definition across continue-as-new and resurrection
-    # even after the Agent is redeployed. Untyped here so that a spec this worker cannot read
-    # fails the Session when the worker validates it, instead of failing to decode the whole
-    # input. None for every Agent whose definition lives in its worker's code.
+    # The ``SharedWorkerAgentSpec`` a shared worker runs for this Session, as JSON. Server-owned:
+    # the control plane builds it from the Agent the Session was started on, so the Session keeps
+    # that definition across continue-as-new and resurrection even after the Agent is redeployed.
+    # Untyped here so that a spec this worker cannot read fails the Session when the worker
+    # validates it, instead of failing to decode the whole input. None for every Agent whose
+    # definition lives in its worker's code.
     shared_worker_agent: SkipJsonSchema[dict[str, JsonValue] | None] = None
     # A Worker that predates this field ignores it and starts idle. The control plane never sets
     # it together with initial_command.

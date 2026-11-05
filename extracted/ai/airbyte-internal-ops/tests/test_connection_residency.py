@@ -44,11 +44,15 @@ def _metadata_response(status_code: int, text: str) -> Mock:
 
 
 @pytest.mark.unit
-def test_metadata_request_error_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("error", [requests.ConnectionError, requests.Timeout])
+def test_metadata_request_error_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    error: type[requests.RequestException],
+) -> None:
     """A missing metadata server cannot authorize EU retrieval."""
-    session = _mock_metadata_session(monkeypatch, side_effect=requests.ConnectionError)
+    session = _mock_metadata_session(monkeypatch, side_effect=error())
 
-    assert residency.is_running_on_eu_runner() is False
+    assert residency.is_running_in_eu_region() is False
     session.get.assert_called_once()
 
 
@@ -58,38 +62,50 @@ def test_metadata_request_error_fails_closed(monkeypatch: pytest.MonkeyPatch) ->
     [
         (
             "projects/1/zones/europe-west9-b",
-            residency.EU_RUNNER_SERVICE_ACCOUNT,
+            "connector-regression-eu-job@internal-airbyte-ai-infra.iam.gserviceaccount.com",
             True,
         ),
-        ("projects/1/zones/us-west3-a", residency.EU_RUNNER_SERVICE_ACCOUNT, False),
         (
-            "projects/1/zones/europe-west9-a",
-            "another-service-account@example.com",
+            "projects/1/zones/us-west3-a",
+            "connector-regression-eu-job@internal-airbyte-ai-infra.iam.gserviceaccount.com",
             False,
         ),
-        ("projects/1/zones/europe-west1-b", residency.EU_RUNNER_SERVICE_ACCOUNT, False),
+        (
+            "projects/1/zones/europe-west9-a",
+            "gcp-workstations@prod-ab-cloud-proj.iam.gserviceaccount.com",
+            True,
+        ),
+        (
+            "projects/1/zones/us-west1-a",
+            "gcp-workstations@prod-ab-cloud-proj.iam.gserviceaccount.com",
+            False,
+        ),
+        ("projects/1/zones/europe-west1-b", "other@example.com", False),
+        ("projects/1/zones/europe-west90-a", "other@example.com", False),
+        ("", "other@example.com", False),
+        ("unknown", "other@example.com", False),
+        ("  projects/1/zones/europe-west9-c\n", "other@example.com", True),
     ],
 )
-def test_metadata_identity_and_zone(
+def test_metadata_zone_independent_of_service_account(
     monkeypatch: pytest.MonkeyPatch,
     zone: str,
     service_account: str,
     expected: bool,
 ) -> None:
-    """Only the configured zone and job service account authorize EU retrieval."""
+    """Only location is checked, regardless of the VM's service account."""
     responses = [
         _metadata_response(200, zone),
         _metadata_response(200, service_account),
     ]
     session = _mock_metadata_session(monkeypatch, responses=responses)
 
-    assert residency.is_running_on_eu_runner() is expected
-    assert session.get.call_count == 2
-    assert all(
-        call.kwargs["headers"] == {"Metadata-Flavor": "Google"}
-        and call.kwargs["timeout"] == 2
-        and call.kwargs["allow_redirects"] is False
-        for call in session.get.call_args_list
+    assert residency.is_running_in_eu_region() is expected
+    session.get.assert_called_once_with(
+        f"{residency._METADATA_URL}/zone",
+        headers={"Metadata-Flavor": "Google"},
+        timeout=2,
+        allow_redirects=False,
     )
 
 
@@ -102,7 +118,7 @@ def test_non_200_metadata_response_fails_closed(
         monkeypatch, responses=[_metadata_response(503, "")]
     )
 
-    assert residency.is_running_on_eu_runner() is False
+    assert residency.is_running_in_eu_region() is False
     session.get.assert_called_once()
 
 
@@ -122,7 +138,7 @@ def test_metadata_response_without_flavor_header_fails_closed(
         ],
     )
 
-    assert residency.is_running_on_eu_runner() is False
+    assert residency.is_running_in_eu_region() is False
     session.get.assert_called_once()
 
 
@@ -134,7 +150,7 @@ def test_metadata_redirect_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None
         responses=[_metadata_response(302, "projects/1/zones/europe-west9-b")],
     )
 
-    assert residency.is_running_on_eu_runner() is False
+    assert residency.is_running_in_eu_region() is False
     session.get.assert_called_once()
 
 
@@ -150,13 +166,12 @@ def test_metadata_session_ignores_proxy_environment(
         monkeypatch,
         responses=[
             _metadata_response(200, "projects/1/zones/europe-west9-b"),
-            _metadata_response(200, residency.EU_RUNNER_SERVICE_ACCOUNT),
         ],
     )
 
-    assert residency.is_running_on_eu_runner() is True
+    assert residency.is_running_in_eu_region() is True
     assert session.trust_env is False
-    assert session.get.call_count == 2
+    assert session.get.call_count == 1
     assert all(
         call.kwargs["allow_redirects"] is False for call in session.get.call_args_list
     )

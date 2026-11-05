@@ -26,7 +26,7 @@ requires = ["setuptools", "wheel", "Cython>=3.1"]
 
 [project]
 name = "nvtx"
-version = "0.2.16"
+version = "0.2.17"
 description="Python NVTX - Python code annotation library"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -54,7 +54,7 @@ License = "https://nvidia.github.io/NVTX/LICENSE.txt"
 Issues = "https://github.com/NVIDIA/NVTX/issues"
 
 [project.optional-dependencies]
-test = ["pytest", "setuptools"]
+test = ["pytest", "setuptools", "pandas"]
 docs = ["sphinx", "nvidia_sphinx_theme"]
 
 [tool.setuptools.package-data]

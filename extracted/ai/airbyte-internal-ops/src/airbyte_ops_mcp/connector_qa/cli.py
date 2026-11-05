@@ -8,7 +8,7 @@ import asyncer
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from airbyte_ops_mcp.connector_ops.utils import (
-    Connector,  # type: ignore
+    Connector,
 )
 from airbyte_ops_mcp.connector_qa.checks import ENABLED_CHECKS
 from airbyte_ops_mcp.connector_qa.consts import (
@@ -39,7 +39,7 @@ async def run_checks_for_connector(
     async with asyncer.create_task_group() as check_task_group:
         for check in check_to_run:
             soon_check_results.append(
-                check_task_group.soonify(asyncer.asyncify(check.run))(connector)
+                check_task_group.soonify(asyncer.asyncify(check.run))(connector)  # ty: ignore[invalid-argument-type]
             )
     check_results = [r.value for r in soon_check_results]
     for check_result in check_results:
@@ -179,7 +179,7 @@ async def generate_documentation(output_file: Path) -> None:
         checks_by_category.setdefault(check.category, []).append(check)
 
     jinja_env = Environment(
-        loader=PackageLoader(__package__, "templates"),
+        loader=PackageLoader(__package__, "templates"),  # ty: ignore[invalid-argument-type]
         autoescape=select_autoescape(),
         trim_blocks=False,
         lstrip_blocks=True,

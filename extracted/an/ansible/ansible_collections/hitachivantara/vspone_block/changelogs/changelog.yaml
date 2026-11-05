@@ -1761,3 +1761,29 @@ releases:
     fragments:
     - release-4.8.3.yml
     release_date: '2026-09-18'
+  4.8.4:
+    changes:
+      minor_changes:
+      - Updated README.md with Ansible Automation Hub installation instructions for Red Hat customers and clarified Ansible Galaxy installation guidance for community users.
+      - Corrected deprecation warning text in meta/runtime.yml for hv_journal_volume_facts and hv_journal_volume.
+      release_summary: 'Documentation and metadata updates required for Red Hat certification.
+
+        '
+    fragments:
+    - release-4.8.4.yml
+    release_date: '2026-10-22'
+  4.9:
+    changes:
+      major_changes:
+      - Added bulk volume operation support for the "hv_vsp_one_volume" module.
+      - Added bulk server operation support for the "hv_vsp_one_server" module.
+      - Added SSL support for all Ansible modules.
+      - Improved Ansible telemetry user consent handling. Consent is enabled by default, and users are prompted up to three times with an option to withdraw consent. Users can withdraw consent by running `accept_user_consent.yml`; consent remains enabled until explicitly withdrawn.
+      - Improved "hv_resource_group" operation performance, significantly reducing processing time by 80%.
+      release_summary: 'The following features and enhancements are new to VSP One
+        Block Storage Modules for Red Hat Ansible:
+
+        '
+    fragments:
+    - release-4.9.0.yml
+    release_date: '2027-01-15'

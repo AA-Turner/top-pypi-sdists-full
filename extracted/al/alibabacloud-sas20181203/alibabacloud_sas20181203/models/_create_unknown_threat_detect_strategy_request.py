@@ -15,16 +15,16 @@ class CreateUnknownThreatDetectStrategyRequest(DaraModel):
     ):
         # The asset selection identifier.
         self.asset_selection_type = asset_selection_type
-        # The number of days after the model is initially created before the learning phase ends.
+        # The number of days to continue learning after the model is initially created.
         self.duration_days_after_init = duration_days_after_init
-        # The number of days after which the model ends when no new processes are added.
+        # The number of days without new processes before the model stops.
         self.duration_days_after_stop = duration_days_after_stop
-        # The policy name.
+        # The Policy Name.
         self.name = name
         # The whitelist mode. Valid values:
         # 
-        # - **hash**: process hash
-        # - **path**: process path
+        # - **hash**: The process hash.
+        # - **path**: The process path.
         self.study_mode = study_mode
 
     def validate(self):

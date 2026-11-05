@@ -705,19 +705,25 @@ fn build_ssm_data(
                         continue;
                     }
                     if cd.data_type == crate::record::DataType::String {
-                        // Multidim string arrays: the whole cell (shape
-                        // header + filled flag + length-prefixed strings) is
-                        // written into the string buckets as the cell's
-                        // content, referenced by a 12-byte (bucket, offset,
-                        // len) cell like a scalar variable string
-                        // (SSMStringHandler::put(Array<String>&, handleShape)).
+                        // Multidim string arrays: the whole cell is written
+                        // into the string buckets as the cell's content,
+                        // referenced by a 12-byte (bucket, offset, len)
+                        // cell like a scalar variable string
+                        // (SSMStringHandler::put(Array<String>&,
+                        // handleShape)). A variable-shape cell stores
+                        // `[ndim][dims][filled flag]` before the strings; a
+                        // fixed-shape one stores the strings only — casacore
+                        // (SSMDirColumn's string path) reconstructs the
+                        // shape from the column descriptor, so a header here
+                        // makes the column unreadable by casacore (#28).
                         let content =
-                            crate::ssm::encode_string_array_content(arr).map_err(|e| {
-                                TableCreateError::Io(std::io::Error::other(format!(
-                                    "encode {}.{}: {e}",
-                                    desc.name, cd.name
-                                )))
-                            })?;
+                            crate::ssm::encode_string_array_content(arr, cd.shape.as_deref())
+                                .map_err(|e| {
+                                    TableCreateError::Io(std::io::Error::other(format!(
+                                        "encode {}.{}: {e}",
+                                        desc.name, cd.name
+                                    )))
+                                })?;
                         let (bucket, offset) = str_buckets.put(&content);
                         has_strings = true;
                         let mut cell = vec![0u8; 12];
@@ -1205,6 +1211,21 @@ fn desc_equal_on_disk(a: &crate::tabledesc::TableDesc, b: &crate::tabledesc::Tab
 }
 
 fn read_table_dir(path: &std::path::Path) -> Result<DataFiles, TableDatError> {
+    // A MultiFile (or MultiHDF5) table keeps every data manager's bytes
+    // inside one `table.mf`/`table.mfh5` container (ColumnSet.cc), so the
+    // per-manager files this reader mmaps do not exist. Name the container
+    // instead of surfacing a bare missing-file os error about `table.f0`
+    // (issue #33).
+    for container in ["table.mf", "table.mfh5"] {
+        if path.join(container).is_file() {
+            return Err(TableDatError::Storage(format!(
+                "{} uses the unsupported MultiFile container ({}) — casacure \
+                 reads tables with per-manager data files only",
+                path.display(),
+                container
+            )));
+        }
+    }
     // Gated for reading: a same-process writer's patch/rewrite phases hold
     // the gate for writing, so an open never parses a half-written file
     // set (whole-file rewrites are atomic renames regardless).
@@ -2051,6 +2072,56 @@ impl Table {
             });
         }
         Ok(v.rows[startrow as usize..end as usize].to_vec())
+    }
+
+    /// Whether the cell of `col_idx` at `row` holds a value (casacore's
+    /// `TableColumn::isDefined`, the engine under python-casacore's
+    /// `iscelldefined`): a scalar column is defined in every row (the
+    /// `Undefined` option is not modelled — cells read as their default,
+    /// issue #8), a fixed-shape array column likewise (`ColumnDesc::
+    /// isFixedShape` implies a value per row), and a variable-shape array
+    /// cell is defined only when the storage manager holds an array for
+    /// the row (`isShapeDefined`).
+    pub fn is_cell_defined(&self, col_idx: usize, row: u64) -> Result<bool, TableReadError> {
+        if let Some(v) = &self.view {
+            let src = self.view_row(v, col_idx, row)?;
+            return v.source.is_cell_defined(col_idx, src);
+        }
+        // Under the flush gate for reading, like `getcell`.
+        let flush_gate = crate::flushgate::gate(&self.path);
+        let _gate_r = flush_gate.read().unwrap();
+        let src = self.column_source(col_idx)?;
+        let desc = &self.dat.desc.columns[col_idx];
+        self.cell_defined_from(&src, desc, row)
+    }
+
+    /// The storage-level definedness of one cell ([`Table::is_cell_defined`]).
+    fn cell_defined_from(
+        &self,
+        src: &ColumnSource<'_>,
+        desc: &crate::tabledesc::ColumnDesc,
+        row: u64,
+    ) -> Result<bool, TableReadError> {
+        match desc.kind {
+            crate::tabledesc::ColumnKind::Scalar(_) | crate::tabledesc::ColumnKind::Record => {
+                return Ok(true);
+            }
+            crate::tabledesc::ColumnKind::Array => {}
+        }
+        let fixed = desc.shape.as_deref().is_some_and(|s| !s.is_empty());
+        if fixed {
+            return Ok(true);
+        }
+        match *src {
+            ColumnSource::Ssm { file, spec, within } => {
+                crate::ssm::is_array_cell_defined(file, spec, within, desc, row).map_err(Into::into)
+            }
+            // casacure reads IncrementalStMan scalars only (an ISM array
+            // column is not supported on read at all), so every ISM cell
+            // casacure can serve is defined.
+            ColumnSource::Ism { .. } => Ok(true),
+            ColumnSource::Tsm { file } => file.is_cell_defined(desc, row).map_err(Into::into),
+        }
     }
 
     /// Drop the data files' mapped pages (`MADV_DONTNEED`) after a bulk read

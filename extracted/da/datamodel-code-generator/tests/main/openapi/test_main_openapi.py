@@ -488,7 +488,12 @@ def test_main_openapi_discriminator_integer_mapping_use_enum(output_file: Path) 
     reason="Installed black doesn't support the old style",
 )
 def test_main_openapi_discriminator_float_mapping(output_file: Path) -> None:
-    """Unsupported discriminator enum values keep their mapping string values."""
+    """Write a union whose mapping keys name float values without ``discriminator=``, keeping the Enums of its tags.
+
+    The keys ``'1.5'`` and ``'3.5'`` name the members ``1.5`` and ``3.5``, which no ``Literal`` holds, so the union is a
+    plain one, as for float ``const`` tags. Up to 0.88.0 the variants were tagged ``Literal['1.5']``, which rejected
+    ``{"kind": 1.5}`` and accepted the string the schema rejects (#5091).
+    """
     run_main_and_assert(
         input_path=OPEN_API_DATA_PATH / "discriminator_float_mapping.yaml",
         output_path=output_file,
@@ -497,6 +502,50 @@ def test_main_openapi_discriminator_float_mapping(output_file: Path) -> None:
         expected_file=EXPECTED_OPENAPI_PATH / "discriminator" / "float_mapping.py",
         extra_args=["--target-python-version", "3.10", "--output-model-type", "pydantic_v2.BaseModel"],
     )
+    for kind, expected_repr in (
+        (1.5, "Base(root=Foo(kind=<Kind.number_1_5: 1.5>))"),
+        (3.5, "Base(root=Bar(kind=<Kind1.number_3_5: 3.5>))"),
+    ):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="discriminator_float_mapping",
+            model_name="Base",
+            valid_json=json.dumps({"kind": kind}),
+            invalid_json=json.dumps({"kind": "1.5"}),
+            expected_error_type="enum",
+            expected_repr=expected_repr,
+        )
+
+
+def test_main_openapi_discriminator_mapping_declared_in_other_document(output_file: Path) -> None:
+    """Tag the variants by a mapping that another document declares, whose paths its own directory resolves.
+
+    ``a/openapi.yaml`` holds the union through a ``$ref`` to ``Pet`` of ``b/base.yaml``, whose mapping paths
+    ``./sub/../cat.yaml``, ``./dog.yaml`` and ``../a/cat.yaml`` are relative to ``b``: ``c`` names ``CatModel`` of
+    ``b/cat.yaml`` and ``e`` names ``Cat`` of ``a/cat.yaml``, as the union reads them. Up to 0.88.0 the paths were
+    resolved against ``a``, where the union is held, so ``c`` and ``e`` both named ``Cat`` and ``CatModel`` was tagged
+    by its file name, ``Literal['cat.yaml#']``: a payload tagged ``c`` decoded as ``Cat`` and none decoded as
+    ``CatModel`` (#6159).
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "discriminator_mapping_other_document" / "a" / "openapi.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--allow-remote-refs", "--disable-timestamp", "--formatters", "builtin"],
+        force_exec_validation=True,
+    )
+    for tag, extra, model in (("c", "x", "CatModel"), ("d", "y", "Dog"), ("e", "a_only", "Cat")):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="discriminator_mapping_other_document",
+            model_name="Owner",
+            valid_json=json.dumps({"pet": {"pet_type": tag, extra: "1"}}),
+            invalid_json=json.dumps({"pet": {"pet_type": f"{'cat' if tag != 'd' else 'dog'}.yaml#"}}),
+            expected_error_type="union_tag_invalid",
+            expected_attribute_path=("pet", "pet_type"),
+            expected_attribute_value=tag,
+            expected_repr=f"Owner(pet={model}(pet_type='{tag}', {extra}='1'))",
+        )
 
 
 @pytest.mark.skipif(
@@ -4476,12 +4525,26 @@ def test_main_openapi_date_class(date_class: str, expected_output: str, output_f
     )
 
 
-def test_main_models_not_found(capsys: pytest.CaptureFixture, output_file: Path) -> None:
-    """Test OpenAPI generation with models not found error."""
+@pytest.mark.parametrize(
+    ("input_name", "extra_args"),
+    [
+        pytest.param("no_components.yaml", [], id="default"),
+        pytest.param("no_components.yaml", ["--treat-dot-as-module"], id="treat-dot-as-module"),
+        pytest.param("paths_external_ref", ["--treat-dot-as-module"], id="treat-dot-as-module-directory"),
+    ],
+)
+def test_main_models_not_found(
+    capsys: pytest.CaptureFixture, output_file: Path, input_name: str, extra_args: list[str]
+) -> None:
+    """Test OpenAPI generation with models not found error.
+
+    ``--treat-dot-as-module`` has no package to write either, and fails the same way (#6087).
+    """
     run_main_and_assert(
-        input_path=OPEN_API_DATA_PATH / "no_components.yaml",
+        input_path=OPEN_API_DATA_PATH / input_name,
         output_path=output_file,
         input_file_type="openapi",
+        extra_args=extra_args,
         expected_exit=Exit.ERROR,
         capsys=capsys,
         expected_stderr_contains="Models not found in the input data",
@@ -6253,6 +6316,50 @@ def test_main_openapi_json_pointer(output_file: Path) -> None:
         input_file_type="openapi",
         assert_func=assert_file_content,
         expected_file="json_pointer.py",
+    )
+
+
+def test_main_openapi_json_pointer_through_scalar(output_file: Path) -> None:
+    """A pointer through a scalar names nothing, as a missing member does."""
+    with warnings.catch_warnings(record=True) as warning_records:
+        warnings.simplefilter("always", DanglingRefWarning)
+        run_main_and_assert(
+            input_path=OPEN_API_DATA_PATH / "json_pointer_through_scalar.yaml",
+            output_path=output_file,
+            input_file_type="openapi",
+            assert_func=assert_file_content,
+        )
+
+    assert_warnings_contain(warning_records, "#/x-ext/k/j", "#/x-ext/items/0/j")
+
+
+@pytest.mark.parametrize("scopes", [[], ["--openapi-scopes", "schemas", "api"]], ids=["models", "api-scope"])
+def test_main_openapi_pointer_into_document_with_integer_top_level_key(output_file: Path, scopes: list[str]) -> None:
+    """Read the member a pointer names of a document whose top level has an integer key, `404:` (#6092).
+
+    The root of a document that a pointer enters is read by its string keys, so the integer key beside the member is
+    no schema error; up to 0.88.0 the root was validated as a schema and the generation stopped with a validation error.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "pointer_into_integer_keyed_document" / "openapi.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[
+            *scopes,
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="openapi_pointer_into_integer_keyed_document",
+        model_name="Reply",
+        valid_json='{"code": "abc"}',
+        invalid_json='{"code": "abcd"}',
+        expected_error_type="string_too_long",
     )
 
 
@@ -9853,7 +9960,10 @@ def test_main_openapi_use_operation_id_as_name_not_found_operation_id(
         expected_exit=Exit.ERROR,
         extra_args=["--use-operation-id-as-name", "--openapi-scopes", "paths", "schemas", "parameters"],
         capsys=capsys,
-        expected_stderr_contains="All operations must have an operationId when --use_operation_id_as_name is set.",
+        expected_stderr_contains=(
+            "All operations must have an operationId when --use-operation-id-as-name is set. "
+            "The following path was missing an operationId: pets\n"
+        ),
     )
 
 
@@ -10028,7 +10138,7 @@ def test_main_custom_file_header_duplicate_options(
             custom_file_header,
         ],
         capsys=capsys,
-        expected_stderr_contains="`--custom_file_header_path` can not be used with `--custom_file_header`.",
+        expected_stderr_contains="`--custom-file-header-path` can not be used with `--custom-file-header`.",
     )
 
 
@@ -11724,6 +11834,24 @@ def test_main_openapi_item_schema(output_file: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "scopes",
+    [
+        pytest.param(["schemas", "paths", "requestbodies"], id="paths-and-request-bodies"),
+        pytest.param(["api"], id="api"),
+    ],
+)
+def test_main_openapi_item_schema_beside_null_schema(scopes: list[str], output_file: Path) -> None:
+    """Read the itemSchema of a media type object whose schema is null, as one with no schema."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "item_schema_null_schema.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        extra_args=["--disable-timestamp", "--openapi-scopes", *scopes],
+    )
+
+
 def test_main_openapi_item_schema_requires_32(output_file: Path) -> None:
     """Test OpenAPI 3.1 ignores OpenAPI 3.2 itemSchema in media type objects."""
     run_main_and_assert(
@@ -11859,6 +11987,60 @@ def test_main_openapi_one_of_body_without_member_types_beside_properties() -> No
         formatters=[Formatter.BUILTIN],
     )
     assert_output(str(parser.parse()))
+
+
+@pytest.mark.parametrize("scope", ["paths", "api"])
+def test_main_openapi_responses_object_extensions_are_no_responses(scope: str, output_file: Path) -> None:
+    """Leave the `x-` extensions of a Responses Object out of the responses, in the paths scope and the api scope.
+
+    OpenAPI lets a Responses Object be extended with specification extensions. Up to 0.88.0 both walks read
+    `x-note: internal` as a response and refused the document.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "responses_extensions.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--openapi-scopes", "schemas", scope],
+    )
+
+
+@pytest.mark.parametrize("scope", ["paths", "api"])
+def test_main_openapi_responses_object_extension_holding_an_object_is_a_response(scope: str, output_file: Path) -> None:
+    """Keep reading an `x-` extension of a Responses Object that holds an object as a response (legacy row).
+
+    The paths scope and the api scope have generated the models of its content since their releases, so they still do,
+    while `x-note: internal` beside it is skipped.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "responses_object_extension.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--openapi-scopes", "schemas", scope],
+    )
+
+
+def test_main_openapi_paths_header_override_is_case_insensitive() -> None:
+    """An operation's header overrides the path item's one that another case spells, as in the `api` scope.
+
+    Header names are case-insensitive (RFC 9110), so `parse_operation` gets the operation's `x-request-id` alone. A
+    query parameter is case-sensitive: `trace` and `Trace` stay two parameters. Up to 0.88.0 the paths scope handed
+    on `X-Request-Id` beside `x-request-id`.
+    """
+    seen: list[str] = []
+
+    class _OperationParametersParser(OpenAPIParser):
+        """Records the parameters each operation reaches parse_operation with."""
+
+        def parse_operation(self, raw_operation: dict[str, Any], path: list[str], **kwargs: Any) -> None:
+            seen.append(f"{path[-1]}: {[(item['name'], item['in']) for item in raw_operation.get('parameters', [])]}")
+            super().parse_operation(raw_operation, path, **kwargs)
+
+    _OperationParametersParser(
+        OPEN_API_DATA_PATH / "parameter_header_case.yaml",
+        openapi_scopes=[OpenAPIScope.Paths],
+        formatters=[Formatter.BUILTIN],
+    ).parse()
+    assert_output("\n".join(seen))
 
 
 def test_webhooks_ref_with_external_schema(output_file: Path) -> None:
@@ -14338,6 +14520,17 @@ def test_main_openapi_include_paths_without_leading_slash(output_file: Path) -> 
     )
 
 
+@pytest.mark.parametrize("pattern", [pytest.param("/PETS*", id="upper-case"), pytest.param("/pets\\*", id="backslash")])
+def test_main_openapi_include_paths_match_case_and_slash_on_every_os(output_file: Path, pattern: str) -> None:
+    """Match ``--openapi-include-paths`` with letter case and backslashes as written, so no OS selects ``/pets``."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "body_and_parameters.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--openapi-scopes", "paths", "schemas", "--openapi-include-paths", pattern, "--disable-timestamp"],
+    )
+
+
 @pytest.mark.parametrize(
     "scope_args",
     [
@@ -14361,6 +14554,35 @@ def test_main_openapi_paths_keys_that_are_not_path_items(output_file: Path, scop
         output_path=output_file,
         input_file_type="openapi",
         extra_args=[*scope_args, "--output-model-type", "pydantic_v2.BaseModel", "--disable-timestamp"],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "scope_args",
+    [
+        pytest.param(["--openapi-scopes", "paths", "parameters"], id="paths"),
+        pytest.param(["--openapi-scopes", "paths", "parameters", "--openapi-include-paths", "/pets"], id="include"),
+    ],
+)
+def test_main_openapi_paths_parameters_by_local_reference(output_file: Path, scope_args: list[str]) -> None:
+    """Resolve a ``$ref`` in the ``parameters`` of every path inside the document, as the API scope does."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "paths_parameters_local_ref.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[*scope_args, "--output-model-type", "pydantic_v2.BaseModel", "--disable-timestamp"],
+        force_exec_validation=True,
+    )
+
+
+def test_main_openapi_paths_parameters_object_is_a_path_item(output_file: Path) -> None:
+    """Read an object under the ``parameters`` key of ``paths`` as a path item, which declares no parameter of /pets."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "paths_parameters_path_item.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--openapi-scopes", "paths", "parameters", "--disable-timestamp"],
         force_exec_validation=True,
     )
 
@@ -14750,6 +14972,316 @@ def test_main_openapi_anchor_refs(output_file: Path) -> None:
         valid_json='{"label": "a", "size": 1}',
         invalid_json='{"size": "one"}',
         expected_error_type="int_parsing",
+    )
+
+
+def test_main_openapi_anchor_refs_in_referenced_object_documents(output_file: Path) -> None:
+    """Resolve plain-name references to the $anchor of a schema that a document a reference names as an object holds.
+
+    A document named at its root as a Parameter, Request Body, Response or Path Item Object holds that object, so the
+    schemas the object holds declare its anchors, one below an `$id` included; up to 0.88.0 generation failed with
+    "Unresolved $id reference" (#6036).
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "anchor_object_documents" / "api.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[
+            "--openapi-scopes",
+            "schemas",
+            "paths",
+            "parameters",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="openapi_anchor_refs_in_referenced_object_documents",
+        model_name="NotesPostRequest",
+        valid_json='{"title": "a", "subtitle": "b"}',
+        invalid_json=json.dumps({"subtitle": "x" * 21}),
+        expected_error_type="string_too_long",
+    )
+
+
+def test_main_openapi_anchor_refs_in_path_item_document(output_file: Path) -> None:
+    """Resolve a plain-name reference in the Path Item Object a reference names, to the schema that holds the anchor.
+
+    The schema of a parameter in a list declares an `$id`, so the reference to its anchor is rewritten at a position in
+    a list (it stopped the run with a TypeError). The Reference Object beside it holds no schema, so the `$id` and
+    `$anchor` of its ignored `schema` name no resource and the reference reads the anchor of the parameter above it.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "anchor_object_documents" / "held_by_path_item" / "api.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[
+            "--openapi-scopes",
+            "schemas",
+            "paths",
+            "parameters",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="openapi_anchor_refs_in_path_item_document",
+        model_name="TagsGetParametersQuery",
+        valid_json='{"tag": {"label": "ab", "alias": "cd"}}',
+        invalid_json=json.dumps({"tag": {"alias": "x" * 6}}),
+        expected_error_type="string_too_long",
+    )
+
+
+def test_main_openapi_anchor_refs_in_path_item_document_that_holds_itself(output_file: Path) -> None:
+    """Resolve a plain-name reference in a Path Item Object that a callback of its own operation holds again.
+
+    A YAML alias makes the object reach itself through the callback, so the walk of the schemas it holds descends into
+    each object once on its path; it ran to the recursion limit and stopped the run.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "anchor_object_documents" / "held_by_cyclic_path_item" / "api.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[
+            "--openapi-scopes",
+            "schemas",
+            "paths",
+            "parameters",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="openapi_anchor_refs_in_path_item_document_that_holds_itself",
+        model_name="EventsGetParametersQuery",
+        valid_json='{"event": {"kind": "ab", "again": "cd"}}',
+        invalid_json=json.dumps({"event": {"again": "x" * 9}}),
+        expected_error_type="string_too_long",
+    )
+
+
+def test_main_openapi_reference_object_siblings(output_file: Path) -> None:
+    """Read a parameter, request body or response with `$ref` and other members as the object it references (#6072).
+
+    OpenAPI ignores the other members of a Reference Object, also when they set a `schema`, a `name` or `content`;
+    up to 0.88.0 such a parameter was dropped or renamed and such a body or response was read from its own `content`.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "reference_object_siblings" / "api.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[
+            "--openapi-scopes",
+            "schemas",
+            "paths",
+            "parameters",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="openapi_reference_object_siblings",
+        model_name="NotesGetParametersQuery",
+        valid_json='{"limit": 100, "page": 1}',
+        invalid_json='{"limit": 101}',
+        expected_error_type="less_than_equal",
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="openapi_reference_object_siblings_request",
+        model_name="TagsPostRequest",
+        valid_json='{"title": "a"}',
+        invalid_json=json.dumps({"title": "x" * 21}),
+        expected_error_type="string_too_long",
+    )
+
+
+def test_main_openapi_json_pointer_boolean_key(output_file: Path) -> None:
+    """A pointer token names no boolean YAML key equal to its integer (`true:`), so the reference stays unresolved."""
+    with pytest.warns(DanglingRefWarning, match=r"Unresolved local \$ref"):
+        run_main_and_assert(
+            input_path=OPEN_API_DATA_PATH / "json_pointer_boolean_key.yaml",
+            output_path=output_file,
+            input_file_type="openapi",
+            extra_args=[
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--formatters",
+                "builtin",
+                "--disable-timestamp",
+            ],
+        )
+
+
+def test_main_openapi_json_pointer_integer_keys(output_file: Path) -> None:
+    """Resolve JSON pointers through maps whose unquoted YAML keys (`200:`) load as integers (#6073).
+
+    A token names the integer key it spells when the map has no such string key, with and without an escaped `/` in
+    the pointer; up to 0.88.0 both references resolved to `Any` with an unresolved `$ref` warning.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "json_pointer_integer_keys.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin", "--disable-timestamp"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="openapi_json_pointer_integer_keys",
+        model_name="Created",
+        valid_json='{"code": "ab"}',
+        invalid_json='{"code": "abc"}',
+        expected_error_type="string_too_long",
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="openapi_json_pointer_integer_keys_ok",
+        model_name="Ok",
+        valid_json='{"a": 1}',
+        invalid_json='{"a": "one"}',
+        expected_error_type="int_parsing",
+    )
+
+
+_HELD_AFTER_POINTER = OPEN_API_DATA_PATH / "anchor_object_documents" / "held_after_pointer"
+_HELD_AFTER_POINTER_ARGS = [
+    "--openapi-scopes",
+    "schemas",
+    "paths",
+    "parameters",
+    "--output-model-type",
+    "pydantic_v2.BaseModel",
+    "--formatters",
+    "builtin",
+    "--disable-timestamp",
+]
+
+
+@pytest.mark.parametrize(
+    ("input_name", "model_name", "valid_json", "invalid_json", "expected_error_type"),
+    [
+        pytest.param(
+            "api.yaml",
+            "NotesGetParametersQuery",
+            '{"page": {"size": 1, "limit": 2}}',
+            '{"page": {"limit": "two"}}',
+            "int_parsing",
+            id="parameter",
+        ),
+        pytest.param(
+            "request_body_api.yaml",
+            "NotesPostRequest",
+            '{"title": "a", "subtitle": "b"}',
+            json.dumps({"subtitle": "x" * 21}),
+            "string_too_long",
+            id="request-body",
+        ),
+    ],
+)
+def test_main_openapi_anchor_refs_in_object_document_loaded_by_pointer(
+    output_file: Path,
+    input_name: str,
+    model_name: str,
+    valid_json: str,
+    invalid_json: str,
+    expected_error_type: str,
+) -> None:
+    """Resolve a plain-name reference in an object document that a pointer into it loaded first.
+
+    A component schema takes a member of the document by a JSON pointer, which loads the document before the reference
+    that names its root as a Parameter or Request Body Object holds it, so the anchors of the schemas the object holds
+    were not indexed and generation failed with "Unresolved $id reference" (#6070). The run parses again with the
+    role known when the document loads, as where the reference loads the document.
+    """
+    run_main_and_assert(
+        input_path=_HELD_AFTER_POINTER / input_name,
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=_HELD_AFTER_POINTER_ARGS,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=f"openapi_anchor_refs_loaded_by_pointer_{input_name.removesuffix('.yaml')}",
+        model_name=model_name,
+        valid_json=valid_json,
+        invalid_json=invalid_json,
+        expected_error_type=expected_error_type,
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_name", "extra_args"),
+    [
+        pytest.param("two_documents_api.yaml", [], id="two-documents"),
+        pytest.param("id_api.yaml", [], id="dangling-fallback"),
+        pytest.param("id_api.yaml", ["--strict-refs"], id="strict-refs"),
+        pytest.param("collapse_cycle_api.yaml", ["--collapse-root-models"], id="collapse-cycle"),
+    ],
+)
+def test_main_openapi_object_documents_loaded_by_pointer_parse_again(
+    output_file: Path, monkeypatch: pytest.MonkeyPatch, input_name: str, extra_args: list[str]
+) -> None:
+    """Parse again until no reference holds a document loaded before as a new role, and report each warning once.
+
+    The parameter document stops the first parse, the request body document the second, which knows the parameter's
+    role, and the third knows both; the warning of the unknown format, which the first parse gives, and the warning of
+    the Decimal default, which only the last one reaches, are each reported once. A run that completes parses once, so
+    the pointer below the `$id` of a parameter document keeps its fallback model and its warning, and only the run that
+    --strict-refs stops parses again, where the pointer names the schema the `$id` holds. A parse again that stops
+    before a cycle of root models it would collapse parses once more with every circular root model kept named, with
+    the role known. One generation is recorded, so the second one of the formatter parity check is left out.
+    """
+    monkeypatch.delenv("DATAMODEL_CODE_GENERATOR_CHECK_BUILTIN_FORMATTER_PARITY", raising=False)
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=_HELD_AFTER_POINTER / input_name,
+            output_path=output_file,
+            input_file_type="openapi",
+            extra_args=[*_HELD_AFTER_POINTER_ARGS, *extra_args],
+        )
+    assert_output(
+        "".join(
+            f"{record.category.__name__}: {record.message}\n"
+            for record in recorded
+            if issubclass(record.category, UserWarning)
+        )
+    )
+
+
+def test_main_openapi_anchor_refs_in_object_document_loaded_by_pointer_unresolved(
+    output_file: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Stop with the error of the parse again where a reference names an anchor no schema of the document declares.
+
+    The role the reference recorded indexes the anchors the parameter's schema declares, and the parse again records
+    no new role, so the run stops with the error that parse gives.
+    """
+    run_main_and_assert(
+        input_path=_HELD_AFTER_POINTER / "missing_anchor_api.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        expected_exit=Exit.ERROR,
+        extra_args=_HELD_AFTER_POINTER_ARGS,
+        capsys=capsys,
+        expected_stderr_contains="Unresolved $id reference '#count' in scope 'missing_anchor_parameter.yaml'.",
     )
 
 
@@ -15998,4 +16530,110 @@ def test_main_openapi_ref_components_as_definitions(output_file: Path, extra_arg
         valid_json=json.dumps({"tree": {"children": [{"children": []}]}, "grove": {}, "byName": {"a": {}}}),
         invalid_json=json.dumps({"trees": [{"children": [1]}]}),
         expected_error_type="model_type",
+    )
+
+
+def test_main_openapi_collapse_root_models_package_init(output_dir: Path) -> None:
+    """Import a model that collapse inlines into a package ``__init__`` from the package above, as a reference does.
+
+    ``pkg/__init__.py`` inlines ``other.Root`` and types the dict key ``other.KindKey`` by its root type, which name
+    models of the top-level module ``third``; up to 0.88.0 it wrote ``from . import third``, which does not import
+    (#5465).
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "collapse_root_models_package_init.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=["--collapse-root-models", "--disable-timestamp", "--formatters", "builtin"],
+    )
+
+
+def test_main_openapi_generic_base_class_other_packages(output_dir: Path) -> None:
+    """Import the generated base class from the module that writes it, as a base class of another module is imported.
+
+    The base class is written to ``c/d.py``; up to 0.88.0 ``a/b.py`` and ``top.py`` wrote ``from .d import
+    BaseModel``, which does not import (#5594).
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "generic_base_class_other_packages.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--use-generic-base-class",
+            "--extra-fields",
+            "forbid",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+    )
+
+
+def test_main_openapi_discriminator_typed_mapping_keys(output_file: Path) -> None:
+    """Tag a variant with the value of its tag property's type that a mapping key names.
+
+    A mapping key is text, so ``'1'`` and ``'-2'`` of an integer property name ``1`` and ``-2``, ``'true'`` of a boolean
+    ``True``, and ``'0'`` and ``'10'`` of a number ``0`` and ``10``; up to 0.88.0 the variants were tagged
+    ``Literal['1']``, which rejected every payload the schema accepts (#5091). The keys ``'0.5'`` and ``'2.5e-1'`` name
+    floats, which no ``Literal`` holds, so that union is a plain one. ``ByIntegerAgain`` and ``ByBooleanAgain`` read
+    the keys as the ``Literal`` values the first unions wrote, so they agree with them on every tag.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "discriminator_typed_mapping_keys.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--disable-timestamp", "--formatters", "builtin"],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="discriminator_typed_mapping_keys",
+        model_name="Holder",
+        valid_json=json.dumps({
+            "integer": {"code": -2, "extra": "x"},
+            "boolean": {"ok": False, "reason": "r"},
+            "whole": {"level": 10.0, "boost": 1},
+            "fraction": {"share": 0.25, "note": "n"},
+            "integerAgain": {"code": 1},
+            "booleanAgain": {"ok": True},
+        }),
+        invalid_json=json.dumps({"integer": {"code": "1"}}),
+        expected_error_type="union_tag_invalid",
+        expected_repr=(
+            "Holder(integer=ByInteger(root=Two(code=-2, extra='x')), "
+            "boolean=ByBoolean(root=No(ok=False, reason='r')), "
+            "whole=ByWholeNumber(root=High(level=10, boost=1)), "
+            "fraction=ByFraction(root=Quarter(share=0.25, note='n')), "
+            "integerAgain=ByIntegerAgain(root=One(code=1)), "
+            "booleanAgain=ByBooleanAgain(root=Yes(ok=True)))"
+        ),
+    )
+
+
+def test_main_openapi_discriminator_typed_mapping_keys_msgspec(output_file: Path) -> None:
+    """Tag msgspec Structs with the integers the mapping keys of an integer or a number property name (#5091).
+
+    msgspec takes no bool or float tag, so the unions whose keys name booleans or floats are left untagged, with the
+    warning that msgspec cannot decode them; up to 0.88.0 they were tagged ``tag='true'`` and ``tag='0.5'``, which
+    decode only the strings.
+    """
+    with pytest.warns(
+        UserWarning, match=r"msgspec cannot decode the union By(Boolean|BooleanAgain|Fraction):"
+    ) as records:
+        run_main_and_assert(
+            input_path=OPEN_API_DATA_PATH / "discriminator_typed_mapping_keys.yaml",
+            output_path=output_file,
+            input_file_type="openapi",
+            extra_args=[
+                "--output-model-type",
+                "msgspec.Struct",
+                "--use-msgspec-tagged-unions",
+                "--disable-timestamp",
+                "--formatters",
+                "builtin",
+            ],
+            force_exec_validation=True,
+        )
+    assert_output(
+        "".join(f"{record.message}\n" for record in records if record.category is UserWarning), name="warnings"
     )

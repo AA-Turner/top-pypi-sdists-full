@@ -410,6 +410,22 @@ class CometRestApiException(CometException):
             )
 
 
+class ViewNameTakenError(CometRestApiException, ValueError):
+    """A view could not be created because its name is already in use.
+
+    Raised by ``API.create_view`` and ``APIExperiment.create_view``. It is both
+    a ``CometRestApiException``, the error these methods raised for a taken
+    name before, and a ``ValueError``, so either kind of handler catches it.
+    """
+
+    def __init__(self, error: CometRestApiException, message: str):
+        super().__init__(error.method, error.response)
+        self.message = message
+
+    def __str__(self):
+        return self.message
+
+
 class CometRestApiValueError(CometRestApiException):
     def __init__(self, method, message, response):
         super(CometRestApiValueError, self).__init__(method, response)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RestrictedPython
-Version: 8.5
+Version: 9.0
 Summary: RestrictedPython is a defined subset of the Python language which allows to provide a program input into a trusted environment.
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -14,7 +14,6 @@ Classifier: Development Status :: 6 - Mature
 Classifier: Programming Language :: Python
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -23,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Security
 Classifier: Typing :: Typed
-Requires-Python: <3.16,>=3.10
+Requires-Python: <3.16,>=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Provides-Extra: test
@@ -117,6 +116,15 @@ This example directly executed in Python could harm your system.
     Traceback (most recent call last):
     ImportError: __import__ not found
 
+.. warning::
+
+   RestrictedPython ships no ``__import__`` implementation on purpose.
+   If you provide one, you move the security boundary out of RestrictedPython
+   and into your own import policy.
+   See `Security considerations
+   <https://restrictedpython.readthedocs.io/en/latest/usage/security_considerations.html>`_
+   before doing so.
+
 Contributing to RestrictedPython
 --------------------------------
 
@@ -126,6 +134,23 @@ the documentation `Contributing page
 
 Changes
 =======
+
+9.0 (2026-11-04)
+----------------
+
+- Remove ``bytes``, ``sorted``, ``tuple`` and ``zip`` from ``safe_builtins``
+  and do not add ``reversed``: all of them iterate their argument in C,
+  bypassing the ``_getiter_`` guard. Applications which need them have to
+  provide wrappers calling ``_getiter_``.
+  (`#335 <https://github.com/zopefoundation/RestrictedPython/issues/335>`_)
+
+- Add a "Security considerations" documentation page. It explains why the guards
+  only cover attribute access written in the restricted source, and why
+  providing an ``__import__`` implementation hands the security boundary to the
+  import policy of the calling application.
+
+- Drop support for Python 3.10.
+
 
 8.5 (2026-08-19)
 ----------------
@@ -161,7 +186,7 @@ Changes
 - Disallow ``mode="function"`` in ``compile_restricted`` (it never worked).
 
 - Prevent access to ``string.Formatter`` and its unsafe traversal methods via
-  ``safer_getattr``.
+  ``safer_getattr``. (CVE-2026-76825)
 
 8.3 (2026-06-16)
 ----------------

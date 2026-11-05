@@ -2361,6 +2361,7 @@ def convert_active_directory_engine_to_porcelain(plumbing):
         plumbing.max_backoff_duration)
     porcelain.name = (plumbing.name)
     porcelain.node_selector = (plumbing.node_selector)
+    porcelain.path_credentials = (plumbing.path_credentials)
     porcelain.policy = convert_secret_engine_policy_to_porcelain(
         plumbing.policy)
     porcelain.public_key = (plumbing.public_key)
@@ -2396,6 +2397,7 @@ def convert_active_directory_engine_to_plumbing(porcelain):
         convert_duration_to_plumbing(porcelain.max_backoff_duration))
     plumbing.name = (porcelain.name)
     plumbing.node_selector = (porcelain.node_selector)
+    plumbing.path_credentials = (porcelain.path_credentials)
     plumbing.policy.CopyFrom(
         convert_secret_engine_policy_to_plumbing(porcelain.policy))
     plumbing.public_key = (porcelain.public_key)
@@ -11986,6 +11988,7 @@ def convert_mysql_engine_to_porcelain(plumbing):
     porcelain.name = (plumbing.name)
     porcelain.node_selector = (plumbing.node_selector)
     porcelain.password = (plumbing.password)
+    porcelain.path_credentials = (plumbing.path_credentials)
     porcelain.policy = convert_secret_engine_policy_to_porcelain(
         plumbing.policy)
     porcelain.port = (plumbing.port)
@@ -12014,6 +12017,7 @@ def convert_mysql_engine_to_plumbing(porcelain):
     plumbing.name = (porcelain.name)
     plumbing.node_selector = (porcelain.node_selector)
     plumbing.password = (porcelain.password)
+    plumbing.path_credentials = (porcelain.path_credentials)
     plumbing.policy.CopyFrom(
         convert_secret_engine_policy_to_plumbing(porcelain.policy))
     plumbing.port = (porcelain.port)
@@ -13811,6 +13815,7 @@ def convert_postgres_engine_to_porcelain(plumbing):
     porcelain.name = (plumbing.name)
     porcelain.node_selector = (plumbing.node_selector)
     porcelain.password = (plumbing.password)
+    porcelain.path_credentials = (plumbing.path_credentials)
     porcelain.policy = convert_secret_engine_policy_to_porcelain(
         plumbing.policy)
     porcelain.port = (plumbing.port)
@@ -13838,6 +13843,7 @@ def convert_postgres_engine_to_plumbing(porcelain):
     plumbing.name = (porcelain.name)
     plumbing.node_selector = (porcelain.node_selector)
     plumbing.password = (porcelain.password)
+    plumbing.path_credentials = (porcelain.path_credentials)
     plumbing.policy.CopyFrom(
         convert_secret_engine_policy_to_plumbing(porcelain.policy))
     plumbing.port = (porcelain.port)
@@ -18358,6 +18364,7 @@ def convert_sqlserver_engine_to_porcelain(plumbing):
     porcelain.name = (plumbing.name)
     porcelain.node_selector = (plumbing.node_selector)
     porcelain.password = (plumbing.password)
+    porcelain.path_credentials = (plumbing.path_credentials)
     porcelain.policy = convert_secret_engine_policy_to_porcelain(
         plumbing.policy)
     porcelain.port = (plumbing.port)
@@ -18386,6 +18393,7 @@ def convert_sqlserver_engine_to_plumbing(porcelain):
     plumbing.name = (porcelain.name)
     plumbing.node_selector = (porcelain.node_selector)
     plumbing.password = (porcelain.password)
+    plumbing.path_credentials = (porcelain.path_credentials)
     plumbing.policy.CopyFrom(
         convert_secret_engine_policy_to_plumbing(porcelain.policy))
     plumbing.port = (porcelain.port)

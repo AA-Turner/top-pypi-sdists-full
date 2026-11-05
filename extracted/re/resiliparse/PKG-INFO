@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: Resiliparse
-Version: 2.0.0
-Requires-Dist: fastwarc==2.0.0
+Version: 2.0.1
+Requires-Dist: fastwarc==2.0.1
 Requires-Dist: resiliparse[beam,cli] ; extra == 'all'
 Requires-Dist: apache-beam[aws]>=2.37.0 ; python_full_version < '3.14' and extra == 'beam'
 Requires-Dist: boto3>=1.9 ; extra == 'beam'

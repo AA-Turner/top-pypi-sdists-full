@@ -10,6 +10,7 @@ Public API:
     testmu.<helper>(...)  — helper functions (execute_js, vision_query, etc.)
 """
 
+import importlib
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 
 # Old private paths (testmu._vars, testmu._helpers.x, …) alias the v4 modules.
@@ -62,8 +63,19 @@ _router.load_impls()
 globals().update(_router.build_public_namespace())
 _router.install_heal()
 
+# Host calls of the v4 JS-dialog listener: one implementation, not routed.
+# Served by __getattr__ below, so this module imports no mode package itself.
+_DIALOG_HOST_CALLS = frozenset({
+    "DialogQueue", "dialog_armed", "disarm_dialogs", "ensure_dialog_listener",
+    "set_dialog_mode_provider", "take_dialog_events", "wait_for_dialog_answer",
+})
+
 if TYPE_CHECKING:  # the real objects, for type checkers and IDEs
     from testmu._v4 import *  # noqa: F401,F403
+    from testmu._v4._helpers.dialog import (  # noqa: F401
+        DialogQueue, dialog_armed, disarm_dialogs, ensure_dialog_listener,
+        set_dialog_mode_provider, take_dialog_events, wait_for_dialog_answer,
+    )
     from testmu._v4 import (  # noqa: F401
         api_calls_query, clear_api_call_log,
         devtoolsConsoleQuery, devtoolsCookiesQuery, devtoolsNetworkQuery,
@@ -75,6 +87,8 @@ if TYPE_CHECKING:  # the real objects, for type checkers and IDEs
 
 def __getattr__(name):
     """``testmu._vars`` etc. as attributes: see testmu._aliases."""
+    if name in _DIALOG_HOST_CALLS:
+        return getattr(importlib.import_module("testmu._v4._helpers.dialog"), name)
     return _aliases.package_getattr(name)
 
 

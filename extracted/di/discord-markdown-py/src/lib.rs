@@ -2,14 +2,11 @@
 #![cfg_attr(test, allow(clippy::similar_names))]
 #![doc = include_str!("../README.md")]
 
-use std::{
-	collections::HashSet,
-	fmt::{Debug, Display},
-};
+use std::{collections::HashSet, fmt::Debug};
 
 use context::Context;
 pub use context::{DEFAULT_FUEL, Options};
-use nom::{Finish, Parser, combinator::all_consuming};
+use error::{Error, Fail};
 
 use node::Blocks;
 use range::Unmatched;
@@ -32,8 +29,6 @@ pub mod span;
 pub mod syntax;
 #[cfg(test)]
 mod test_utils;
-/// Convert nodes back into markdown.
-pub mod unparse;
 /// Parsing utilities.
 pub mod util;
 
@@ -43,23 +38,16 @@ pub mod macros;
 pub use input::Input;
 use span::Span;
 use tracing::Level;
-pub use unparse::unparse;
-
-use crate::error::ParseError;
 
 /// Parse markdown content.
 ///
 /// # Errors
 /// If parsing fails. Ideally this should never happen, since all content is markdown content.
 #[tracing::instrument(ret, err, level = Level::DEBUG)]
-pub fn parse<'data, S, E>(
+pub fn parse<'data, S: Span>(
 	data: impl Into<Input<'data>> + Debug,
 	options: Options,
-) -> Result<Blocks<'data, S>, E>
-where
-	S: Span,
-	E: ParseError<'data> + Display,
-{
+) -> Result<Blocks<'data, S>, Error> {
 	parse_rounds(&data.into(), options, |parsed, unmatched| {
 		range::resolve(
 			parsed.value,
@@ -75,19 +63,16 @@ where
 }
 
 /// Parse markdown content into a [`lossless`] tree, which holds every byte of `data` and writes
-/// back into exactly it with [`unparse()`]. Modifiers pair as they do in [`parse`], but nothing is
+/// back into exactly it with its [`Display`](std::fmt::Display) implementation. Modifiers pair as they do in [`parse`], but nothing is
 /// normalized.
 ///
 /// # Errors
 /// As [`parse`].
 #[tracing::instrument(ret, err, level = Level::DEBUG)]
-pub fn parse_lossless<'data, E>(
+pub fn parse_lossless<'data>(
 	data: impl Into<Input<'data>> + Debug,
 	options: Options,
-) -> Result<lossless::Node<'data>, E>
-where
-	E: ParseError<'data> + Display,
-{
+) -> Result<lossless::Node<'data>, Error> {
 	let input = data.into();
 	let source = range::lossless::Source {
 		text: input.content,
@@ -111,15 +96,11 @@ where
 /// its line is a paragraph, so `finish` rejects it and the input is parsed again without it. Each
 /// round settles at least one, and the rounds share one fuel tank. Past the last, whatever is left
 /// stays where it stands.
-fn parse_rounds<'data, S, E, T>(
+fn parse_rounds<'data, S: Span, T>(
 	input: &Input<'data>,
 	options: Options,
 	mut finish: impl FnMut(node::Elements<'data, S>, Unmatched) -> Result<T, Vec<range::delim::Offset>>,
-) -> Result<T, E>
-where
-	S: Span,
-	E: ParseError<'data> + Display,
-{
+) -> Result<T, Error> {
 	const ROUNDS: usize = 4;
 
 	let mut disabled = HashSet::new();
@@ -127,10 +108,12 @@ where
 
 	for round in 1..=ROUNDS {
 		context = context.with_disabled_openers(&disabled);
-		let parsed = all_consuming(node::block::block(context.clone()))
-			.parse_complete(input.clone())
-			.finish()?
-			.1;
+		let mut rest = *input;
+		let parsed = match node::block::block(&mut rest, &context) {
+			Ok(parsed) if rest.is_empty() => parsed,
+			Err(Fail::OutOfFuel) => return Err(Error::OutOfFuel),
+			Ok(_) | Err(Fail::NoMatch) => return Err(Error::Parse { offset: rest.start }),
+		};
 
 		let unmatched = if round < ROUNDS {
 			Unmatched::Reject
@@ -153,7 +136,6 @@ mod test {
 	use crate::error::Error;
 	use crate::node::{Block, Inline};
 	use crate::syntax::{Syntax, SyntaxSet};
-	use crate::test_utils::handle_nom_err;
 	use crate::{
 		bold, code, code_block, heading, italic, link, list, list_item, paragraph, spanned_vec,
 		spoiler, text, underline,
@@ -174,7 +156,7 @@ mod test {
 	fn fuel_exhaustion_fails_the_parse() {
 		let s = "**bold** and _italic_";
 
-		let err = parse::<(), Error<'_>>(
+		let err = parse::<()>(
 			s,
 			Options {
 				fuel: 1,
@@ -184,8 +166,25 @@ mod test {
 		.expect_err("one unit cannot cover a line and its inline parse");
 		assert_eq!(err, Error::OutOfFuel);
 
-		parse::<(), Error<'_>>(s, Options::default())
-			.expect("the same input parses with the default budget");
+		parse::<()>(s, Options::default()).expect("the same input parses with the default budget");
+	}
+
+	/// A URL that does not validate is abandoned work like any other, so every scan for one costs
+	/// fuel. A run of text can hold a candidate at each scheme in it, and each one reads on to the
+	/// end of the run, so a parse that counted only the inline invocation around them would let a
+	/// longer run cost quadratically more for the same fuel.
+	#[test]
+	fn url_scans_cost_fuel() {
+		let s = "https://^".repeat(400);
+		let options = |fuel| Options {
+			fuel,
+			..Default::default()
+		};
+
+		let err = parse::<()>(&*s, options(100)).expect_err("each candidate should cost fuel");
+		assert_eq!(err, Error::OutOfFuel);
+
+		parse::<()>(&*s, options(1_000)).expect("a unit per candidate should be enough");
 	}
 
 	/// The worst 4000-character inputs the timeout tests know about stay far inside
@@ -205,7 +204,7 @@ mod test {
 			let used = (1..=5)
 				.map(|n| DEFAULT_FUEL / 10 * n)
 				.find(|&fuel| {
-					parse::<(), Error<'_>>(
+					parse::<()>(
 						&*s,
 						Options {
 							fuel,
@@ -223,6 +222,31 @@ mod test {
 		}
 	}
 
+	/// Lines are what plausible content pays for, so a message of nothing but the shortest lines is
+	/// the most a user can send without trying to be expensive, and it fits in a tenth of
+	/// [`DEFAULT_FUEL`]. A parse that runs dry fails outright, so a default this content outgrew
+	/// would stop real messages rendering.
+	#[test]
+	fn default_fuel_covers_line_heavy_message_content() {
+		let ten_percent = Options {
+			fuel: DEFAULT_FUEL / 10,
+			..Default::default()
+		};
+
+		// Discord's message limit is 4000 characters.
+		for s in [
+			"\n".repeat(4_000),
+			"a\n".repeat(2_000),
+			"# h\n".repeat(1_000),
+			"||a||\n".repeat(666),
+		] {
+			assert!(s.chars().count() <= 4_000);
+			parse::<()>(&*s, ten_percent).unwrap_or_else(|err| {
+				panic!("{s:.20?}… does not fit in a tenth of the default budget: {err}")
+			});
+		}
+	}
+
 	/// Escape sequences are independent of one another.
 	///
 	/// A backslash the parser cannot use as an escape -- before an ASCII alphanumeric, before
@@ -233,9 +257,7 @@ mod test {
 	fn escapes_are_independent() {
 		// The control: no unusable backslash anywhere.
 		let s = r"a \* b \* c";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(res, spanned_vec![paragraph!(text!(r"a * b * c"))]);
 
 		// The same escapes, followed by a backslash that cannot be used as one. The `\*` pair
@@ -245,9 +267,7 @@ mod test {
 			("a \\* b \\* c \\", "a * b * c \\"),
 			("a \\* b \\* c \\ ", "a * b * c \\ "),
 		] {
-			let res = parse::<(), _>(s, Options::default())
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let res = parse::<()>(s, Options::default()).expect("unable to parse");
 			assert_eq!(
 				res,
 				spanned_vec![paragraph!(Inline::Text(expected.into()))],
@@ -257,9 +277,7 @@ mod test {
 
 		// ...and preceded by one, which has always worked: the run restarts after it.
 		let s = r"regex \d+ then \_escaped\_";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(
 			res,
 			spanned_vec![paragraph!(text!(r"regex \d+ then _escaped_"))]
@@ -289,18 +307,14 @@ mod test {
 				spanned_vec![link!("dev://branch/main", [text!("branch")])],
 			),
 		] {
-			let res = parse::<(), _>(s, Options::default())
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let res = parse::<()>(s, Options::default()).expect("unable to parse");
 			assert_eq!(
 				res,
 				spanned_vec![Block::Paragraph(expected)],
 				"unexpected output for {s:?}"
 			);
 
-			let res = parse::<(), _>(s, without_dev)
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let res = parse::<()>(s, without_dev).expect("unable to parse");
 			assert_eq!(
 				res,
 				spanned_vec![paragraph!(Inline::Text(s.into()))],
@@ -313,39 +327,30 @@ mod test {
 	#[test]
 	fn dev_link_with_an_unrouted_domain_is_text() {
 		let s = "dev://nonsense/foo";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(res, spanned_vec![paragraph!(Inline::Text(s.into()))]);
 	}
 
 	#[test]
 	fn flattened_compound_test() {
 		let s = r"**_bar_baz**";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(res, spanned_vec![paragraph!(bold!("_bar_baz"))]);
 	}
 
 	#[test]
 	fn flattened_compound_test2() {
 		let s = r"**baz****baab**";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(res, spanned_vec![paragraph!(bold!("bazbaab"))]);
 	}
 
 	/// Both italic syntaxes write the same node, so one delimiter nests inside the other. The
-	/// inner wrapper applies nothing, and keeping it would round trip as an underline, since
-	/// italics always unparse to `_`.
+	/// inner wrapper applies nothing, so it is dropped.
 	#[test]
 	fn flattened_nested_italic_test() {
 		for s in ["_*a*_", "*_a_*"] {
-			let res = parse::<(), _>(s, Options::default())
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let res = parse::<()>(s, Options::default()).expect("unable to parse");
 			assert_eq!(
 				res,
 				spanned_vec![paragraph!(italic!("a"))],
@@ -403,9 +408,7 @@ mod test {
 				)],
 			),
 		] {
-			let res = parse::<(), _>(s, without(disabled))
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let res = parse::<()>(s, without(disabled)).expect("unable to parse");
 			assert_eq!(
 				res, expected,
 				"unexpected output for {s:?} without {disabled:?}"
@@ -459,9 +462,7 @@ mod test {
 				syntaxes: SyntaxSet::all() - disabled,
 				..Default::default()
 			};
-			let res = parse::<(), _>(s, options)
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let res = parse::<()>(s, options).expect("unable to parse");
 			assert_eq!(
 				res, expected,
 				"unexpected output for {s:?} without {disabled:?}"
@@ -473,9 +474,7 @@ mod test {
 	#[test]
 	fn flattened_nested_italic_merges_its_siblings_test() {
 		let s = "_a *b* c_";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(res, spanned_vec![paragraph!(italic!("a b c"))]);
 	}
 
@@ -483,9 +482,7 @@ mod test {
 	#[test]
 	fn flattened_nested_italic_through_bold_test() {
 		let s = "*a **b _c_ d** e*";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(
 			res,
 			spanned_vec![paragraph!(italic!(
@@ -503,9 +500,7 @@ mod test {
 		use crate::span::TrackedSpan;
 
 		let s = r"**baz****baab**";
-		let res = parse::<TrackedSpan, _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<TrackedSpan>(s, Options::default()).expect("unable to parse");
 
 		let paragraph = &res.value[0];
 		let Block::Paragraph(content) = &paragraph.value else {
@@ -529,9 +524,7 @@ mod test {
 	#[test]
 	fn should_not_match_heading_inside_text() {
 		let s = "there is text here with a # but it shouldn't match headings!";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(
 			res,
 			spanned_vec![paragraph!(
@@ -543,18 +536,14 @@ mod test {
 	#[test]
 	fn left_arrow() {
 		let s = "<";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(res, spanned_vec![paragraph!("<")]);
 	}
 
 	#[test]
 	fn block_content_inside_modifier() {
 		let s = "||\n# test\nstuff goes here\n```js\nconst a = '2'\n```\n||";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(
 			res,
 			spanned_vec![
@@ -569,9 +558,7 @@ mod test {
 	#[test]
 	fn a_modifier_opened_mid_paragraph_covers_a_following_list() {
 		let s = "foo ||\n- a\n- b||";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		assert_eq!(
 			res,
 			spanned_vec![
@@ -587,9 +574,7 @@ mod test {
 	#[test]
 	fn blocks_cannot_be_nested_in_other_blocks_via_middleman_inline_node() {
 		let s = "- content ||\n# test||";
-		let res = parse::<(), _>(s, Options::default())
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let res = parse::<()>(s, Options::default()).expect("unable to parse");
 		// the spoiler reaches from the list into the heading, but neither block holds the other
 		assert_eq!(
 			res,
@@ -605,9 +590,7 @@ mod test {
 	#[test]
 	fn quoted_lists_are_cohesive_through_the_public_api() {
 		for s in ["> - foo\n>   - bar\n> - baz", ">>> - foo\n  - bar\n- baz"] {
-			let res = parse::<(), _>(s, Options::default())
-				.map_err(handle_nom_err(s))
-				.expect("unable to parse");
+			let res = parse::<()>(s, Options::default()).expect("unable to parse");
 			assert_eq!(
 				res,
 				spanned_vec![Block::Quote(spanned_vec![list!(-[
@@ -629,9 +612,7 @@ mod test {
 		] {
 			let s = c.repeat(2_000);
 			// Checking for timeouts
-			let _ = parse::<(), _>(&*s, Options::default())
-				.map_err(handle_nom_err(&s))
-				.expect("unable to parse");
+			let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 		}
 	}
 
@@ -647,9 +628,7 @@ mod test {
 			let open_s = open_c.repeat(2_000);
 			let close_s = close_c.repeat(2_000);
 			let s = open_s + "x" + &close_s;
-			let _ = parse::<(), _>(&*s, Options::default())
-				.map_err(handle_nom_err(&s))
-				.expect("unable to parse");
+			let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 		}
 	}
 
@@ -677,9 +656,7 @@ mod test {
 			"*a **b** ".repeat(440),
 			nested,
 		] {
-			let _ = parse::<(), _>(&*s, Options::default())
-				.map_err(handle_nom_err(&s))
-				.expect("unable to parse");
+			let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 		}
 	}
 
@@ -696,9 +673,7 @@ mod test {
 			"**a\n__a\n~~a\n||a\n".repeat(235) + "a||\na~~\na__\na**",
 			"*1. a\n".repeat(660) + "a*",
 		] {
-			let _ = parse::<(), _>(&*s, Options::default())
-				.map_err(handle_nom_err(&s))
-				.expect("unable to parse");
+			let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 		}
 	}
 
@@ -716,9 +691,7 @@ mod test {
 			"*_".repeat(1_000) + "x" + &"_*".repeat(1_000),
 			"**".repeat(1_000) + "x" + &"*".repeat(1_998),
 		] {
-			let _ = parse::<(), _>(&*s, Options::default())
-				.map_err(handle_nom_err(&s))
-				.expect("unable to parse");
+			let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 		}
 	}
 
@@ -739,9 +712,7 @@ mod test {
 			syntaxes: SyntaxSet::all() - Syntax::ITALIC,
 			..Default::default()
 		};
-		let _ = parse::<(), _>(&*s, options)
-			.map_err(handle_nom_err(&s))
-			.expect("unable to parse");
+		let _ = parse::<()>(&*s, options).expect("unable to parse");
 	}
 
 	#[test]
@@ -756,9 +727,7 @@ mod test {
 			let open_s = open_c.repeat(2_000);
 			let close_s = close_c.repeat(1_000);
 			let s = open_s + "x" + &close_s;
-			let _ = parse::<(), _>(&*s, Options::default())
-				.map_err(handle_nom_err(&s))
-				.expect("unable to parse");
+			let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 		}
 		for (i, open_c) in opens.iter().enumerate() {
 			let close_c = closes[i];
@@ -766,9 +735,7 @@ mod test {
 			let open_s = open_c.repeat(1_000);
 			let close_s = close_c.repeat(2_000);
 			let s = open_s + "x" + &close_s;
-			let _ = parse::<(), _>(&*s, Options::default())
-				.map_err(handle_nom_err(&s))
-				.expect("unable to parse");
+			let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 		}
 	}
 
@@ -778,21 +745,81 @@ mod test {
 	fn bracket_paren_repeats() {
 		// Pure "](" — no '[' start, each position fails the first-byte check in O(1)
 		let s = "](".repeat(2_000);
-		let _ = parse::<(), _>(&*s, Options::default())
-			.map_err(handle_nom_err(&s))
-			.expect("unable to parse");
+		let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 
 		// One '[' followed by many "](" — balanced scan finds span_len=2, one link attempt
 		let s = "[".to_string() + &"](".repeat(2_000);
-		let _ = parse::<(), _>(&*s, Options::default())
-			.map_err(handle_nom_err(&s))
-			.expect("unable to parse");
+		let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 
 		// Many '[' then many "](" — each '[' position does O(n) balanced scan, one link attempt
 		let s = "[".repeat(2_000) + &"](".repeat(2_000);
-		let _ = parse::<(), _>(&*s, Options::default())
-			.map_err(handle_nom_err(&s))
-			.expect("unable to parse");
+		let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
+	}
+
+	/// A `(` in a link that never closes used to be retried by every group around it, each of
+	/// which re-scanned every level inside it: 25 of them took ~0.8s. Fuel did not bound this,
+	/// since a scan only costs one unit however much it backtracks inside. Nesting this deep also
+	/// overflows the stack of a scan that recurses into each group.
+	///
+	/// An autolink reaches the same scan: a `>` anywhere in the input lets one be tried at each
+	/// `<`, whose URL is scanned whether or not it has a scheme.
+	#[test]
+	#[cfg_attr(debug_assertions, timeout(3000))]
+	#[cfg_attr(not(debug_assertions), timeout(1000))]
+	fn unclosed_link_paren_repeats() {
+		// Discord's message limit is 4000 characters.
+		for s in [
+			"https://a.b/".to_string() + &"(".repeat(3_985) + "x",
+			"https://a.b/".to_string() + &"(".repeat(3_985) + "x](",
+			"https://a.b/".to_string() + &"(a".repeat(1_990),
+			// every group closes but the innermost holds a space, which ends the link
+			"https://a.b/".to_string() + &"(".repeat(1_990) + "x y" + &")".repeat(1_990),
+			"https://a.b/".to_string() + &"(()".repeat(1_329),
+			"<https://a.b/".to_string() + &"(".repeat(3_985) + ">",
+			"[a](https://a.b/".to_string() + &"(".repeat(3_980) + ")",
+			// a masked link at every `[`, each with the whole run of groups as its URL
+			"[".repeat(999) + &"x](".repeat(1_000) + ")",
+			"a>b<".to_string() + &"(".repeat(3_990),
+			"a>b<".to_string() + &"@(".repeat(1_995),
+		] {
+			assert!(s.len() <= 4_000);
+			let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
+		}
+	}
+
+	/// Link detection in plain text, and the guard on a masked link's text, read every URL
+	/// candidate in a run. Each candidate here fails, and each one used to be scanned to the end
+	/// of its run and handed whole to the URL parser, which made a run of them quadratic: ~0.7s
+	/// for each 63k-character run in a release build. Far past the message limit, so as in
+	/// [`refused_pairs_repeat`], only release builds are fast enough for a size that shows it.
+	/// Every candidate is now decided by its authority or the first `\` in its path.
+	///
+	/// Masked links nested within the message limit, each level with a link segment, once ran the
+	/// guard over the same candidates at every level, which made the same runs cubic.
+	#[test]
+	#[cfg_attr(debug_assertions, timeout(3000))]
+	#[cfg_attr(not(debug_assertions), timeout(1000))]
+	fn url_candidate_repeats() {
+		let n = if cfg!(debug_assertions) { 1_000 } else { 4_000 };
+		for candidate in [
+			// a host the URL parser turns down
+			"https://^",
+			// a scheme that needs `dev_links`
+			"dev://a/",
+			// a backslash that ends the authority, or one later in the path
+			"https://a\\",
+			"https://a/\\",
+			// a schemaless host with a port
+			"discord.gg:1/",
+		] {
+			let run = candidate.repeat(n);
+			let nested = "[".repeat(150)
+				+ &candidate.repeat(2_000 / candidate.len())
+				+ &"](http://a)".repeat(150);
+			for s in [run.clone(), format!("[{run}](http://a)"), nested] {
+				let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
+			}
+		}
 	}
 
 	/// An escape the text parser does not recognise used to abort the whole text run, which the
@@ -802,25 +829,19 @@ mod test {
 	#[cfg_attr(debug_assertions, timeout(3000))]
 	#[cfg_attr(not(debug_assertions), timeout(1000))]
 	fn unrecognised_escape_repeats() {
-		// A backslash at the end of the input, which `escaped_transform` rejects outright.
+		// A backslash at the end of the input, which nom's `escaped_transform` rejected outright.
 		let s = "x".repeat(4_000) + "\\";
-		let _ = parse::<(), _>(&*s, Options::default())
-			.map_err(handle_nom_err(&s))
-			.expect("unable to parse");
+		let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 
 		// A backslash before a character that cannot be escaped.
 		for tail in ["\\y", "\\ ", "\\\n"] {
 			let s = "x".repeat(4_000) + tail;
-			let _ = parse::<(), _>(&*s, Options::default())
-				.map_err(handle_nom_err(&s))
-				.expect("unable to parse");
+			let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 		}
 
 		// Many unrecognised escapes, each one ending a run the next has to rescan.
 		let s = "x".repeat(20) + "\\y";
 		let s = s.repeat(200);
-		let _ = parse::<(), _>(&*s, Options::default())
-			.map_err(handle_nom_err(&s))
-			.expect("unable to parse");
+		let _ = parse::<()>(&*s, Options::default()).expect("unable to parse");
 	}
 }

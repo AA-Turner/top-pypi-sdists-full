@@ -56,13 +56,6 @@ def _is_code_capture(row: dict) -> bool:
     return normalize_artifact_kind(str(row.get("kind") or ""))[0] in _CODE_CAPTURE_KINDS
 
 
-def _config_checker():
-    """A `.probe.config` checker for one walk (`probe_config.Checker`)."""
-    from ...recording_rules import recording_rules as _exclusions
-
-    return _exclusions.checker(hot=True)
-
-
 # -- listing ---------------------------------------------------------------------------
 #: `(rules root, capture root)` pairs already warned about (once per process).
 _UNREACHABLE_WARNED: set[tuple[str, str]] = set()
@@ -115,10 +108,6 @@ def _walk(
     own = _owndirs.current().within(os.path.realpath(root))
     found: dict[str, tuple[int, int]] = {}
     cut = len(root.rstrip(os.sep)) + 1
-    # A researcher's `.probe.config`: a folder at `off` is never entered (git's
-    # rule); one at `read` is, for an `@probe on` line inside, and each file
-    # is checked. Nothing excluded is listed.
-    config = _config_checker()
     stack = [root]
     while stack:
         directory = stack.pop()
@@ -140,9 +129,7 @@ def _walk(
                             and entry.path not in pseudo
                             and not _snapshot.is_tagged_cache_dir(entry.path)
                         ):
-                            if (ignore is not None and ignore.ignored(entry.path, is_dir=True, capture_root=root)) or config.closed(
-                                entry.path
-                            ):
+                            if ignore is not None and ignore.ignored(entry.path, is_dir=True, capture_root=root):
                                 if counts is not None:
                                     counts["probeignore"] = counts.get("probeignore", 0) + 1
                                 continue
@@ -150,9 +137,7 @@ def _walk(
                         continue
                     if not entry.is_file(follow_symlinks=False):
                         continue
-                    if (ignore is not None and ignore.ignored(entry.path, capture_root=root)) or config.check(
-                        entry.path, is_dir=False
-                    ).excluded:
+                    if ignore is not None and ignore.ignored(entry.path, capture_root=root):
                         if counts is not None:
                             counts["probeignore"] = counts.get("probeignore", 0) + 1
                         continue

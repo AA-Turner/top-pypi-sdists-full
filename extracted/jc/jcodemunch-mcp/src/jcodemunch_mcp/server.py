@@ -1257,6 +1257,9 @@ _COMPACT_STRIP_PARAMS: dict[str, set[str]] = {
         # makes the next person shave again. Removing an advanced param from
         # the minimal surface is the fix the budget was designed to take.
         "verify_against",
+        # `class_body="full"` is the escape hatch from the class outline, the
+        # same shape as the bounds above; the handler honours it when passed.
+        "class_body",
     },
     # v1.108.231: `degeneracy_cutoff` is an escape hatch for callers who want the
     # pre-.231 volume back, not a core retrieval control. get_dead_code_v2 is a
@@ -2289,7 +2292,7 @@ def _build_tools_list(
         ),
         Tool(
             name="get_symbol_source",
-            description="Read or show the source code of a function, class or method: the full source of one symbol (symbol_id → flat object) or many (symbol_ids[] → {symbols, errors}). Supports verify, context_lines, fqn (PHP FQN via PSR-4), and an optional bounded mode that caps returned source for large symbols/batches.",
+            description="Read or show the source code of a function, class or method: one symbol (symbol_id → flat object) or many (symbol_ids[] → {symbols, errors}); a class comes back as a method outline. Supports verify, context_lines, fqn (PHP FQN via PSR-4), and a bounded mode for large symbols/batches.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -2341,6 +2344,12 @@ def _build_tools_list(
                     "max_source_bytes": {
                         "type": "integer",
                         "description": "Bounded mode: UTF-8-safe per-symbol byte cap on the returned source. Verify still hashes the full body."
+                    },
+                    "class_body": {
+                        "type": "string",
+                        "enum": ["outline", "full"],
+                        "description": "A class: 'outline' (default) collapses each method to its signature (source_outline: true); 'full' returns the whole body.",
+                        "default": "outline"
                     },
                     "max_total_source_bytes": {
                         "type": "integer",
@@ -5781,6 +5790,18 @@ def _normalize_order_args(action: str, args: dict) -> dict:
     return out
 
 
+def _refused_as_disabled(name: str, repo: Optional[str]) -> bool:
+    """Would ``call_tool`` refuse ``name`` for ``repo`` because it is turned off?
+
+    The call-time rule and the suggestion pool both ask this, so ``order``
+    never suggests what it would refuse, and keeps suggesting a tier control a
+    user listed but that still runs (issue #299's safety net).
+    """
+    allow_disable_tier = config_module.get("allow_disabling_tier_controls", False, repo=repo)
+    protected = frozenset() if allow_disable_tier else _UNDISABLEABLE_TOOLS
+    return name not in protected and config_module.is_tool_disabled(name, repo=repo)
+
+
 async def _handle_order(arguments: dict) -> list[TextContent] | CallToolResult:
     """order(action, args): validate against the catalog + charter gate, then
     re-enter the normal pipeline for the resolved action."""
@@ -5789,7 +5810,10 @@ async def _handle_order(arguments: dict) -> list[TextContent] | CallToolResult:
     if not isinstance(args, dict):
         return _error_call_result(json.dumps({"error": "order 'args' must be an object."}, indent=2))
     allow = bool(arguments.get("allow_state_change", False))
-    err = _counter.order_gate(action, _catalog_names(), allow)
+    names = _catalog_names()
+    repo = args.get("repo") if isinstance(args.get("repo"), str) else None
+    suggest = {n for n in names if not _refused_as_disabled(n, repo)}
+    err = _counter.order_gate(action, names, allow, suggest_from=suggest)
     if err is not None:
         return _error_call_result(json.dumps({"error": err, "tool": "order"}, indent=2))
     return await call_tool(action, _normalize_order_args(action, dict(args)))
@@ -6245,14 +6269,25 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
         # rejection happens here since schema is global (can't be changed per-project).
         # `allow_disabling_tier_controls=true` lets users opt out of the
         # _UNDISABLEABLE_TOOLS safety net (issue #299).
-        allow_disable_tier = config_module.get("allow_disabling_tier_controls", False, repo=repo_arg)
-        protected_at_call = frozenset() if allow_disable_tier else _UNDISABLEABLE_TOOLS
-        if name not in protected_at_call and config_module.is_tool_disabled(name, repo=repo_arg):
+        if _refused_as_disabled(name, repo_arg):
+            source = config_module.disabled_tool_source(name, repo=repo_arg)
+            where = (
+                "this project's .jcodemunch.jsonc" if source == "project"
+                else "the global config.jsonc"
+            )
+            # On the counter surface a hidden tool is named the way it is called.
+            label = (
+                _counter.as_order_call(name) if _effective_surface() == "counter"
+                else f"Tool '{name}'"
+            )
+            ships = (
+                " It ships turned off; the package's default list names it."
+                if config_module.ships_disabled(name) else ""
+            )
             return _fail(json.dumps({
                 "error": (
-                    f"Tool '{name}' is disabled in this project's configuration. "
-                    f"Project-level tool disabling is set via the 'disabled_tools' key "
-                    f"in the .jcodemunch.jsonc file. Remove '{name}' from 'disabled_tools' to re-enable."
+                    f"{label} is turned off: it is listed in 'disabled_tools' in {where}.{ships} "
+                    f"Ask the user whether to turn it back on; do not edit that setting yourself."
                 )
             }, indent=2))
 
@@ -6489,6 +6524,7 @@ async def _call_tool_impl(name: str, arguments: dict) -> list[TextContent] | Cal
                     max_source_lines=arguments.get("max_source_lines"),
                     max_source_bytes=arguments.get("max_source_bytes"),
                     max_total_source_bytes=arguments.get("max_total_source_bytes"),
+                    class_body=arguments.get("class_body", "outline"),
                 )
             )
         elif name == "search_symbols":

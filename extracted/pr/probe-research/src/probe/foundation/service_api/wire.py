@@ -71,11 +71,17 @@ class Method:
     #: service that event's record-keeping routes, to run once by its id
     #: (plan D36): `hooks.queue`.
     HOOKS_QUEUE = "hooks.queue"
+    #: pi's extension applied (or could not apply) an answer of `hooks.run` v2 that named a
+    #: delivery receipt: its daemon messages count as shown only now (`hooks.ack`).
+    HOOKS_ACK = "hooks.ack"
     #: The tap asks the service to record a session itself (plan A2): register
     #: it, and run its recorder on a thread here instead of a `tap watch`.
     SESSION_RECORD = "session.record"
     SESSION_RECORDING = "session.recording"
     SESSION_FINISH = "session.finish"
+    #: pi's session state, as `probe session initialize` gives it, run by the service (service-only
+    #: task 16): the extension spawns no CLI of its own.
+    SESSION_INITIALIZE = "session.initialize"
     #: `probe capture off` for one agent: finish every recorder this service
     #: runs for that harness, as `session.finish` does for one session.
     RECORDERS_FINISH = "recorders.finish"
@@ -94,6 +100,9 @@ class Method:
     MAILBOX_POST = "mailbox.post"
     MAILBOX_CLAIM = "mailbox.claim"
     MAILBOX_ANSWER = "mailbox.answer"
+    #: The inbox messages pi's idle poller showed: the service tells Probe (`reads_hook.report_delivered`,
+    #: from its own copy of the routes), so the extension makes no network call of its own.
+    MAILBOX_DELIVERED = "mailbox.delivered"
     #: The desktop app's management requests (`probe desktop request --json`'s
     #: request in, its v1 envelope out), answered by a child of the service.
     DESKTOP_REQUEST = "desktop.request"
@@ -109,6 +118,9 @@ class Method:
     #: that asked, one child per plugin folder at most every few seconds,
     #: instead of a detached fetch per tool call.
     STATUSLINE_REFRESH = "statusline.refresh"
+    #: A status line's segment, drawn by the service from its own state (service-only plan D14):
+    #: the status-line command only forwards its payload and prints the answer.
+    STATUSLINE_RENDER = "statusline.render"
     #: The team note's sync (`probe notes sync`, and a session start's `probe
     #: agent-rules refresh`): once per machine, debounced, instead of a
     #: detached `probe` per session per hook event.
@@ -116,6 +128,36 @@ class Method:
     #: An approved import's worker (`probe.cli.import_jobs`), started and
     #: watched by the service instead of detached from the CLI.
     IMPORT_START = "import.start"
+    #: The `probe` command, run by the service in a child of its warm CLI host, with the
+    #: caller's own terminal (service-only D5; `service/commands/DESIGN.md`).
+    CLI_RUN = "cli.run"
+    #: A signal the shim got (SIGINT, SIGTERM, SIGHUP, SIGWINCH, SIGTSTP, SIGCONT), for its command.
+    CLI_SIGNAL = "cli.signal"
+    #: A training process's one network call (plan D10): the service sends the HTTP
+    #: request the SDK packaged and answers with the response (`sdk/delivery/transport/relay`).
+    API_CALL = "api.call"
+    #: Hash files a training process opened, passed as fds (plan D20, T43): sha256,
+    #: newlines or edge digests, in a niced child (`sdk/delivery/service/hashing`).
+    FILES_HASH = "files.hash"
+    #: An in-code key, held in the service's memory for drains of its queue (plan D21).
+    CREDENTIALS_HOLD = "credentials.hold"
+
+
+#: The outbox journal versions a service reads with its own drain (plan D8): the frozen
+#: v1 contract in `sdk/delivery/journal/DESIGN.md`. `service.hello` reports them as
+#: `outbox_journals`; a client writes one of them.
+OUTBOX_JOURNALS = (1,)
+
+#: Params that say a request's fds follow it (`files.hash`, `api.call` with a file
+#: body): the service pauses the line reader, sends the `fds` event, takes them.
+FDS_FIELD = "fds"
+#: The event a service sends when it is ready for a request's fds.
+FDS_READY_TOPIC = "fds.ready"
+#: To the one `api.call` caller whose answer streams into its `body_sink` (H3): `{id, bytes}`
+#: written so far, at least every second, so its wait goes on while the body comes.
+API_PROGRESS_TOPIC = "api.progress"
+#: At most this many fds with one request (SCM_MAX_FD is 253 on Linux).
+MAX_FDS = 250
 
 
 #: The methods this service answers. Every other name is `-32601`.
@@ -139,9 +181,11 @@ METHODS = frozenset(
         Method.HOOKS_HOST,
         Method.HOOKS_RUN,
         Method.HOOKS_QUEUE,
+        Method.HOOKS_ACK,
         Method.SESSION_RECORD,
         Method.SESSION_RECORDING,
         Method.SESSION_FINISH,
+        Method.SESSION_INITIALIZE,
         Method.RECORDERS_FINISH,
         Method.RUN_HOLD,
         Method.RUN_RELEASE,
@@ -149,13 +193,20 @@ METHODS = frozenset(
         Method.MAILBOX_POST,
         Method.MAILBOX_CLAIM,
         Method.MAILBOX_ANSWER,
+        Method.MAILBOX_DELIVERED,
         Method.DESKTOP_REQUEST,
         Method.OUTBOX_DRAIN,
         Method.BOX_WATCH,
         Method.TELEMETRY_SEND,
         Method.STATUSLINE_REFRESH,
+        Method.STATUSLINE_RENDER,
         Method.NOTES_SYNC,
         Method.IMPORT_START,
+        Method.CLI_RUN,
+        Method.CLI_SIGNAL,
+        Method.API_CALL,
+        Method.FILES_HASH,
+        Method.CREDENTIALS_HOLD,
     }
 )
 

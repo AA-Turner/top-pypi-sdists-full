@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "atlan-application-sdk-conformance"
-version = "0.53.1"
+version = "0.54.0"
 description = "Conformance suite, remediation programs, and CLI for the Atlan Application SDK"
 license = "Apache-2.0"
 authors = [
@@ -72,12 +72,22 @@ testpaths = ["tests"]
 # scaffolds bootstrap force-writes into consumer repos (FND-445), which
 # have to stay lint-clean under configs stricter than this repo's.
 # Pinned exactly — an unpinned linter makes that guard's verdict a
-# function of cache age rather than of the files it checks.
+# function of cache age rather than of the files it checks. Must equal the
+# root dev group's pin and the ruff-pre-commit rev (FND-4247, enforced by
+# .github/scripts/tests/test_lint_guards.py).
 [dependency-groups]
 dev = ["ruff==0.17.3"]
 
+[tool.ruff.lint]
+# This file is the nearest ruff config for packages/conformance/, so the root
+# pyproject's [tool.ruff.lint] never applies here. Spelled out for the same
+# reasons as the root: pin the rule set across ruff bumps, and sort imports
+# with ruff (`I`), which replaced isort repo-wide in FND-4247.
+select = ["E4", "E7", "E9", "F", "I"]
+
 [tool.ruff.format]
-exclude = ["conformance/bootstrap/templates/renovate.json"]
+# *.md: same reason as the root pyproject (ruff 0.17 formats Markdown code blocks).
+exclude = ["conformance/bootstrap/templates/renovate.json", "*.md"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["G004", "PLC0415", "F841", "T201"]
@@ -91,6 +101,16 @@ exclude = ["conformance/bootstrap/templates/renovate.json"]
 # command. The rewrite is silent, changes no version or hash, and makes CI fail at dependency
 # install with `401 Unauthorized` once committed. See the longer note in the repo-root
 # pyproject.toml; D012/D013 in this very suite are what enforce it fleet-wide.
+# The `test` extra's atlan-application-sdk resolves from this checkout, not
+# PyPI (FND-4256). 19 test files import application_sdk, and the parity tests
+# (tests/test_app_name_alignment.py) compare conformance's copied helpers with
+# the SDK's: against a PyPI lock they checked whichever release that lock last
+# pinned, not the code beside them. Editable so a source change is seen without
+# a rebuild. [tool.uv.sources] is never published metadata, so the released
+# wheel still declares a plain `atlan-application-sdk[sql]` requirement.
+[tool.uv.sources]
+atlan-application-sdk = { path = "../..", editable = true }
+
 [[tool.uv.index]]
 name = "pypi"
 url = "https://pypi.org/simple"

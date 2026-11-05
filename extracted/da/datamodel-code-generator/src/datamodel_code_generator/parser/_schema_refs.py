@@ -35,8 +35,8 @@ from datamodel_code_generator._graph import reach
 from datamodel_code_generator._json_pointer import escape_token, join_pointer
 from datamodel_code_generator._json_schema import REF_PRE_PASS_FIELDS, REF_PRE_PASS_POSITIONS, SCHEMA_SHAPES
 from datamodel_code_generator._records import record
-from datamodel_code_generator._scc import strongly_connected_components
-from datamodel_code_generator._url_redaction import named_location, redact_reference
+from datamodel_code_generator._scc import find_circular_sccs, strongly_connected_components
+from datamodel_code_generator._url_redaction import named_location
 from datamodel_code_generator.parser._intersection import concatenating_row
 from datamodel_code_generator.parser._schema_graph import (
     DocumentId,
@@ -97,6 +97,7 @@ __all__ = [
     "get_ref_raw_schema",
     "graph",
     "has_ref_cycle",
+    "hold_document_root",
     "intersect_ref_siblings",
     "intersect_ref_siblings_schema",
     "is_local_ref",
@@ -237,6 +238,7 @@ class SchemaRefsHost(Protocol):
     _dynamic_scope_pointer: str
     _dynamic_specialization_paths: set[tuple[str, ...]]
     _dynamic_specializations: dict[tuple[_TargetNode, frozenset[tuple[str, str]]], Reference]
+    _document_roles: dict[str, dict[str, None]]
     _embedded_resources: dict[tuple[str, str], dict[str, str]]
     _false_schema_refs: set[str] | None
     _has_embedded_schema_resources: bool
@@ -244,6 +246,7 @@ class SchemaRefsHost(Protocol):
     _recursive_anchor_index: dict[tuple[str, ...], list[str]]
     _ref_data_type_facts: dict[str, tuple[Any, bool]]
     _ref_target_dumps: dict[tuple[_TargetNode, str], tuple[dict[str, Any], str]]
+    _roles_recorded_after_preparation: bool
     _schema_resource_cache: dict[str, tuple[dict[str, Any], dict[str, Any]]]
     _schema_resource_locations: dict[str, str]
     _schema_resource_path_parts: dict[str, list[str]]
@@ -474,9 +477,34 @@ def get_ref_raw_schema(parser: SchemaRefsHost, resolved_ref: str) -> dict[str, Y
     return read_ref_value(parser, resolved_ref)
 
 
-def ref_file_document(parser: SchemaRefsHost, file_part: str) -> dict[str, YamlValue]:
-    """Return the loaded document the file part of a reference key names: the document being parsed when it is empty."""
-    return parser._get_ref_body(file_part) if file_part else parser.raw_obj  # noqa: SLF001
+def hold_document_root(parser: SchemaRefsHost, file_part: str, role: str) -> None:
+    """Record that a reference names the root of the document at ``file_part`` as an OpenAPI object of ``role``.
+
+    The root holds the object the reference's position expects (OpenAPI: "a document containing a referenceable
+    Object at its root based on the expected type of the reference"), so the schemas of that object are resources of
+    the document (``_schema_documents.implicit_schema_resources``). The reference records it where it is followed,
+    before it loads the document. A document that a pointer into it loaded first was prepared without the role, whose
+    resources a reference may then not find: the run notes it, and a run that fails parses again with every role known
+    from the start (``document_roles_to_seed``).
+    """
+    document = parser._schema_resource_document([file_part])  # noqa: SLF001
+    roles = parser._document_roles.setdefault(document, {})  # noqa: SLF001
+    if role not in roles and document in parser._schema_resource_cache:  # noqa: SLF001
+        parser._roles_recorded_after_preparation = True  # noqa: SLF001
+    roles[role] = None
+
+
+def ref_file_document(parser: SchemaRefsHost, file_part: str, role: str | None = None) -> dict[str, YamlValue]:
+    """Return the loaded document the file part of a reference key names: the document being parsed when it is empty.
+
+    A reference that names the root of another document as an OpenAPI object passes its ``role``
+    (``hold_document_root``).
+    """
+    if not file_part:
+        return parser.raw_obj
+    if role is not None:
+        hold_document_root(parser, file_part, role)
+    return parser._get_ref_body(file_part)  # noqa: SLF001
 
 
 def read_ref_value(parser: SchemaRefsHost, resolved_ref: str) -> dict[str, YamlValue] | YamlValue:
@@ -910,7 +938,7 @@ def analysis_ref_target(parser: SchemaRefsHost, document: str, file_part: str, r
     registry, so the result does not depend on which documents were parsed first, and references
     mapped to Python packages are not followed.
     """
-    if ref == "#" or ref.startswith("#/"):
+    if ref.startswith("#") and not _is_plain_name_fragment(ref):
         return f"{file_part}{ref}"
     if parser._resolve_external_ref_mapping(ref) is not None:  # noqa: SLF001
         return None
@@ -1170,7 +1198,7 @@ def merge_ref_with_schema(parser: SchemaRefsHost, obj: JsonSchemaObject, where: 
         parser,
         ref_dict,
         current_dict,
-        where or named_location(obj.schema_location, redact_reference(obj.ref), row="legacy-unredacted-locations"),
+        where or named_location(obj.schema_location, obj.ref),
         siblings_are_parts=parser._ref_siblings_are_parts_of(obj),  # noqa: SLF001
         holder=obj,
         target_ref=resolved_ref,
@@ -1247,10 +1275,7 @@ def is_ref_circular(parser: SchemaRefsHost, resolved_ref: str) -> bool:
     """
     if resolved_ref in parser._circular_ref_cache:  # noqa: SLF001
         return parser._circular_ref_cache[resolved_ref]  # noqa: SLF001
-    try:
-        result = has_ref_cycle(parser, resolved_ref)
-    except (Error, NotImplementedError, OSError, ValueError):
-        result = True
+    result = has_ref_cycle(parser, resolved_ref)
     parser._circular_ref_cache[resolved_ref] = result  # noqa: SLF001
     return result
 
@@ -1260,58 +1285,97 @@ def ref_cycle_document(parser: SchemaRefsHost, ref_to_check: str) -> Generator[o
     file_part, _, fragment = ref_to_check.partition("#")
     with parser._ref_file_context(file_part):  # noqa: SLF001
         raw_doc = ref_file_document(parser, file_part)
-        yield get_model_by_path(raw_doc, [p for p in fragment.split("/") if p]) if fragment else raw_doc
+        yield (
+            get_model_by_path(raw_doc, [p for p in fragment.split("/") if p], refuse_scalar=True)
+            if fragment
+            else raw_doc
+        )
+
+
+class _RefCycleFrame(NamedTuple):
+    """A reference the cycle walk follows: the resolution context of its document and the schemas left to walk there."""
+
+    ref: str
+    document: Generator[object, None, None]
+    nodes: list[dict[str, Any] | list[Any]]
 
 
 def has_ref_cycle(parser: SchemaRefsHost, target: str) -> bool:
-    """Check if the schema at target reaches a reference back to target.
+    """Check if the schema at target reaches a reference back to target, and record what the walk learned.
 
-    References are followed depth first, each one once, on an explicit stack: a frame per followed reference
-    holds the resolution context of its document and the schemas left to walk there, so any chain length works.
-    Reaching a boolean, number or null schema counts as a cycle, since it has no keywords to merge.
+    Reaching a boolean, number or null schema counts as a cycle, since it has no keywords to merge, and so does
+    reaching a document or pointer that cannot be loaded. Every reference on the stack at that point reaches it, so
+    each is circular. A walk that ends without finding one followed a graph with no such schema: there a reference
+    is circular exactly when it lies on a cycle. Both are recorded in ``_circular_ref_cache``, so a chain of aliases
+    is walked once instead of once per alias, and a reference recorded as not circular is not walked again.
     """
-    visited: set[str] = set()
-    frames: list[tuple[Generator[object, None, None], list[dict[str, Any] | list[Any]]]] = []
+    edges: dict[str, set[str]] = {}
+    frames: list[_RefCycleFrame] = []
     try:
-        if push_ref_cycle_frame(parser, target, visited, frames):
-            return True
-        while frames:
-            if not (nodes := frames[-1][1]):
-                frames.pop()[0].close()
-                continue
-            if isinstance(node := nodes.pop(), list):
-                nodes.extend(item for item in reversed(node) if isinstance(item, (dict, list)))
-                continue
-            nodes.extend(reversed(list(_iter_ref_walk_children(node))))
-            if isinstance(ref_value := node.get("$ref"), str):
-                try:
-                    resolved = parser._ref_path(ref_value)  # noqa: SLF001
-                except (Error, ValueError):
-                    resolved = ref_value
-                if resolved == target:
-                    return True
-                if resolved not in visited and push_ref_cycle_frame(parser, resolved, visited, frames):
-                    return True
+        circular = walk_ref_cycle(parser, target, edges, frames)
+    except (Error, NotImplementedError, OSError, ValueError):
+        circular = True
     finally:
+        stack = [frame.ref for frame in frames]
         while frames:
-            frames.pop()[0].close()
+            frames.pop().document.close()
+    cache = parser._circular_ref_cache  # noqa: SLF001
+    if circular:
+        cache.update(dict.fromkeys(stack, True))
+    else:
+        cache.update(dict.fromkeys(edges, False))
+        cache.update(dict.fromkeys(chain.from_iterable(find_circular_sccs(edges)), True))
+    return circular
+
+
+def walk_ref_cycle(
+    parser: SchemaRefsHost, target: str, edges: dict[str, set[str]], frames: list[_RefCycleFrame]
+) -> bool:
+    """Follow the references from target depth first, each one once, and return whether the walk met a cycle.
+
+    A frame per followed reference sits on an explicit stack, so any chain length works. ``edges`` collects the
+    references each followed reference holds, except those recorded as not circular, which no cycle passes through.
+    """
+    cache = parser._circular_ref_cache  # noqa: SLF001
+    if push_ref_cycle_frame(parser, target, edges, frames):
+        return True
+    while frames:
+        if not (nodes := frames[-1].nodes):
+            frames.pop().document.close()
+            continue
+        if isinstance(node := nodes.pop(), list):
+            nodes.extend(item for item in reversed(node) if isinstance(item, (dict, list)))
+            continue
+        nodes.extend(reversed(list(_iter_ref_walk_children(node))))
+        if isinstance(ref_value := node.get("$ref"), str):
+            try:
+                resolved = parser._ref_path(ref_value)  # noqa: SLF001
+            except (Error, ValueError):
+                resolved = ref_value
+            if resolved == target:
+                return True
+            if cache.get(resolved) is False:
+                continue
+            edges[frames[-1].ref].add(resolved)
+            if resolved not in edges and push_ref_cycle_frame(parser, resolved, edges, frames):
+                return True
     return False
 
 
 def push_ref_cycle_frame(
     parser: SchemaRefsHost,
     ref_to_check: str,
-    visited: set[str],
-    frames: list[tuple[Generator[object, None, None], list[dict[str, Any] | list[Any]]]],
+    edges: dict[str, set[str]],
+    frames: list[_RefCycleFrame],
 ) -> bool:
     """Enter the resolution context of ref_to_check and push a frame with the schema it names.
 
     Returns whether that schema is a boolean, number or null, which has no keywords to walk.
     """
-    visited.add(ref_to_check)
+    edges[ref_to_check] = set()
     document = ref_cycle_document(parser, ref_to_check)
     raw_obj = next(document)
-    frames.append((document, [raw_obj] if isinstance(raw_obj, (dict, list)) else []))
+    frames.append(_RefCycleFrame(ref_to_check, document, [raw_obj] if isinstance(raw_obj, (dict, list)) else []))
     return not isinstance(raw_obj, (dict, list, str))
 
 

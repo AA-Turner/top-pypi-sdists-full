@@ -2,6 +2,7 @@ from collections.abc import Generator
 
 import pytest
 
+from surrealdb import StringRecordId
 from surrealdb.connections.blocking_ws import BlockingWsSurrealConnection
 
 
@@ -9,10 +10,10 @@ from surrealdb.connections.blocking_ws import BlockingWsSurrealConnection
 def setup_table(
     blocking_ws_connection: BlockingWsSurrealConnection,
 ) -> Generator[None, None, None]:
-    blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_test;")
-    blocking_ws_connection.query("DEFINE TABLE session_txn_test SCHEMALESS;")
+    blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_test;").execute()
+    blocking_ws_connection.query("DEFINE TABLE session_txn_test SCHEMALESS;").execute()
     yield
-    blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_test;")
+    blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_test;").execute()
 
 
 def test_attach_returns_uuid(
@@ -34,16 +35,16 @@ def test_new_session_use_query_create_select(
         connection_params["namespace"],
         connection_params["database_name"],
     )
-    result = session.query("SELECT * FROM session_txn_test;")
+    result = session.query("SELECT * FROM session_txn_test;").first()
     assert isinstance(result, list)
     assert len(result) == 0
 
     session.create(
-        "session_txn_test:one",
+        StringRecordId("session_txn_test:one"),
         {"name": "session-created", "value": 1},
     )
 
-    selected = session.select("session_txn_test:one")
+    selected = session.select(StringRecordId("session_txn_test:one")).execute()
     assert selected is not None
     if isinstance(selected, list) and len(selected) >= 1:
         rec = selected[0] if isinstance(selected[0], dict) else selected
@@ -73,11 +74,11 @@ def test_two_sessions_isolated(
     )
 
     session_a.create(
-        "session_txn_test:from_a",
+        StringRecordId("session_txn_test:from_a"),
         {"name": "from-session-a"},
     )
     session_b.create(
-        "session_txn_test:from_b",
+        StringRecordId("session_txn_test:from_b"),
         {"name": "from-session-b"},
     )
 
@@ -90,12 +91,10 @@ def test_two_sessions_isolated(
         456,
     )
 
-    res_a = session_a.query("RETURN $var;")
-    res_b = session_b.query("RETURN $var;")
-    assert isinstance(res_a, int)
-    assert isinstance(res_b, int)
-    assert res_a == [123]
-    assert res_b == [456]
+    res_a = session_a.query("RETURN $var;").first()
+    res_b = session_b.query("RETURN $var;").first()
+    assert res_a == 123
+    assert res_b == 456
 
     session_a.close_session()
     session_b.close_session()

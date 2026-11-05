@@ -181,6 +181,12 @@ options:
     type: str
     required: true
     aliases: [domain]
+notes:
+  - The Cloudflare API matches the record content case-insensitively when looking up existing records.
+    For O(type=TXT), a record whose value differs from O(value) only in letter case may be considered as already present,
+    and left unchanged, unless O(solo=true). With O(state=absent), such a record is deleted.
+  - Cloudflare stores O(type=TXT) values longer than 255 characters split into several quoted strings.
+    The module may not find an existing record with such a value, so it may fail or report a change on every run.
 """
 
 EXAMPLES = r"""
@@ -448,6 +454,10 @@ from ansible.module_utils.basic import AnsibleModule, env_fallback
 from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.urls import fetch_url
 
+# record types whose existing records are matched by comparing their data locally
+# instead of filtering by content in the Cloudflare API
+DATA_MATCHED_TYPES = ("CAA", "SRV", "TLSA")
+
 
 def lowercase_string(param):
     return param.lower() if isinstance(param, str) else param
@@ -678,20 +688,35 @@ class CloudflareAPI:
         if record:
             query["name"] = record
         if value:
-            query["content"] = value
+            query["content.exact"] = value
         if query:
             api_call += f"?{urlencode(query)}"
 
         records, status = self._cf_api_call(api_call)
         return records
 
+    def record_data_matches(self, rr):
+        data = rr["data"]
+        if self.type == "SRV":
+            return (data["weight"], data["port"], data["target"].rstrip(".").lower()) == (
+                self.weight,
+                self.port,
+                self.value,
+            )
+        if self.type == "TLSA":
+            return (data["usage"], data["selector"], data["matching_type"], data["certificate"].lower()) == (
+                self.cert_usage,
+                self.selector,
+                self.hash_type,
+                self.value.lower(),
+            )
+        return (data["flags"], data["tag"], data["value"]) == (self.flag, self.tag, self.value)
+
     def delete_dns_records(self, solo):
         records = []
         content = self.value
         search_record = self.record
         if self.type == "SRV":
-            if not (self.value is None or self.value == ""):
-                content = join_str("\t", self.weight, self.port, self.value)
             search_record = join_str(".", self.service, self.proto, self.record)
         elif self.type == "DS":
             if not (self.value is None or self.value == ""):
@@ -700,21 +725,25 @@ class CloudflareAPI:
             if not (self.value is None or self.value == ""):
                 content = join_str(" ", self.algorithm, self.hash_type, self.value.upper())
         elif self.type == "TLSA":
-            if not (self.value is None or self.value == ""):
-                content = join_str("\t", self.cert_usage, self.selector, self.hash_type, self.value)
             search_record = join_str(".", self.port, self.proto, self.record)
-        if solo:
+        if solo or self.type in DATA_MATCHED_TYPES:
             search_value = None
         else:
             search_value = content
 
         zone_id = self._get_zone_id(self.zone)
         records = self.get_dns_records(self.zone, self.type, search_record, search_value)
+        if not solo and self.type in DATA_MATCHED_TYPES and self.value:
+            records = [rr for rr in records if self.record_data_matches(rr)]
 
         deleted_records = []
         for rr in records:
             if solo:
-                if not ((rr["type"] == self.type) and (rr["name"] == search_record) and (rr["content"] == content)):
+                if self.type in DATA_MATCHED_TYPES:
+                    keep = self.record_data_matches(rr)
+                else:
+                    keep = (rr["type"] == self.type) and (rr["name"] == search_record) and (rr["content"] == content)
+                if not keep:
                     self.changed = True
                     deleted_records.append(rr)
                     if not self.module.check_mode:
@@ -778,7 +807,7 @@ class CloudflareAPI:
                 "ttl": self.ttl,
                 "data": srv_data,
             }
-            search_value = join_str("\t", self.weight, self.port, self.value)
+            search_value = None
             search_record = join_str(".", self.service, self.proto, self.record)
 
         if self.type == "DS":
@@ -839,7 +868,7 @@ class CloudflareAPI:
                 "data": tlsa_data,
                 "ttl": self.ttl,
             }
-            search_value = join_str("\t", self.cert_usage, self.selector, self.hash_type, self.value)
+            search_value = None
 
         if self.type == "CAA":
             for attr in [self.flag, self.tag, self.value]:
@@ -863,23 +892,14 @@ class CloudflareAPI:
 
         zone_id = self._get_zone_id(self.zone)
         records = self.get_dns_records(self.zone, self.type, search_record, search_value)
+        if self.type in DATA_MATCHED_TYPES:
+            records = [rr for rr in records if self.record_data_matches(rr)]
         # in theory this should be impossible as cloudflare does not allow
         # the creation of duplicate records but lets cover it anyways
         if len(records) > 1:
-            # As Cloudflare API cannot filter record containing quotes
-            # CAA records must be compared locally
-            if self.type == "CAA":
-                for rr in records:
-                    if (
-                        rr["data"]["flags"] == caa_data["flags"]
-                        and rr["data"]["tag"] == caa_data["tag"]
-                        and rr["data"]["value"] == caa_data["value"]
-                    ):
-                        return rr, rr, self.changed
-            else:
-                self.module.fail_json(
-                    msg="More than one record already exists for the given attributes. That should be impossible, please open an issue!"
-                )
+            self.module.fail_json(
+                msg="More than one record already exists for the given attributes. That should be impossible, please open an issue!"
+            )
         # record already exists, check if it must be updated
         if len(records) == 1:
             cur_record = records[0]

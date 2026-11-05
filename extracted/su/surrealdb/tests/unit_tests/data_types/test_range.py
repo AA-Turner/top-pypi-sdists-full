@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
@@ -5,6 +6,8 @@ import pytest
 from surrealdb.connections.async_ws import AsyncWsSurrealConnection
 from surrealdb.data import cbor
 from surrealdb.data.types.range import BoundExcluded, BoundIncluded, Range
+from surrealdb.data.types.record_id import RecordID
+from surrealdb.types import Value
 
 
 # Unit tests for Bound classes
@@ -84,6 +87,80 @@ def test_range_equality() -> None:
     assert range1 == range2
     assert range1 != range3
     assert range1 != range4
+
+
+# Unit tests for hashability (issue #9)
+def test_bound_included_hashable() -> None:
+    """BoundIncluded defines __eq__, so it must be hashable and consistent."""
+    bound1 = BoundIncluded(5)
+    bound2 = BoundIncluded(5)
+    assert hash(bound1) == hash(bound2)
+    assert bound1 in {bound2}
+    assert {bound1: "value"}[BoundIncluded(5)] == "value"
+
+
+def test_bound_excluded_hashable() -> None:
+    """BoundExcluded defines __eq__, so it must be hashable and consistent."""
+    bound1 = BoundExcluded(5)
+    bound2 = BoundExcluded(5)
+    assert hash(bound1) == hash(bound2)
+    assert bound1 in {bound2}
+    assert {bound1: "value"}[BoundExcluded(5)] == "value"
+
+
+def test_range_hashable() -> None:
+    """Range defines __eq__, so it must be hashable and consistent."""
+    range1 = Range(BoundIncluded(1), BoundExcluded(10))
+    range2 = Range(BoundIncluded(1), BoundExcluded(10))
+    assert hash(range1) == hash(range2)
+    assert range1 in {range2}
+    assert {range1: "value"}[Range(BoundIncluded(1), BoundExcluded(10))] == "value"
+
+
+# Unit tests for __str__ (SurrealQL rendering)
+def test_range_str_inclusive_inclusive() -> None:
+    """Test rendering an inclusive/inclusive range as SurrealQL."""
+    range_obj = Range(BoundIncluded(1), BoundIncluded(10))
+    assert str(range_obj) == "1..=10"
+
+
+def test_range_str_inclusive_exclusive() -> None:
+    """Test rendering an inclusive-start/exclusive-end range as SurrealQL."""
+    range_obj = Range(BoundIncluded(1), BoundExcluded(10))
+    assert str(range_obj) == "1..10"
+
+
+def test_range_str_exclusive_exclusive() -> None:
+    """Test rendering an exclusive/exclusive range as SurrealQL."""
+    range_obj = Range(BoundExcluded(0), BoundExcluded(100))
+    assert str(range_obj) == "0>..100"
+
+
+def test_range_str_exclusive_inclusive() -> None:
+    """Test rendering an exclusive-start/inclusive-end range as SurrealQL."""
+    range_obj = Range(BoundExcluded(0), BoundIncluded(100))
+    assert str(range_obj) == "0>..=100"
+
+
+def test_range_str_string_bounds() -> None:
+    """Test rendering a range with string bounds as SurrealQL."""
+    range_obj = Range(BoundIncluded("a"), BoundIncluded("z"))
+    assert str(range_obj) == "a..=z"
+
+
+def test_record_id_with_range_str() -> None:
+    """Test that a RecordID with a Range id renders valid SurrealQL, not a
+    Python dataclass repr."""
+    record_id = RecordID("user", Range(BoundIncluded(1), BoundIncluded(10)))
+    assert str(record_id) == "user:1..=10"
+    assert "Range(" not in str(record_id)
+
+
+def test_record_id_with_range_str_exclusive_end() -> None:
+    """Test RecordID rendering for an inclusive-start/exclusive-end range."""
+    record_id = RecordID("user", Range(BoundIncluded(1), BoundExcluded(10)))
+    assert str(record_id) == "user:1..10"
+    assert "Range(" not in str(record_id)
 
 
 # Unit tests for encoding
@@ -208,11 +285,13 @@ def test_range_in_object_roundtrip() -> None:
 
 # Database fixture
 @pytest.fixture
-async def surrealdb_connection():  # type: ignore[misc]
-    url = "ws://localhost:8000/rpc"
+async def surrealdb_connection(
+    ws_url: str,
+) -> AsyncGenerator[AsyncWsSurrealConnection, None]:
+    url = ws_url
     password = "root"
     username = "root"
-    vars_params = {"username": username, "password": password}
+    vars_params: dict[str, Value] = {"username": username, "password": password}
     database_name = "test_db"
     namespace = "test_ns"
     connection = AsyncWsSurrealConnection(url)
@@ -234,7 +313,7 @@ async def test_range_inclusive_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE range_tests:test1 SET range_val = $val;",
         vars={"val": range_obj},
     )
-    result = await surrealdb_connection.query("SELECT * FROM range_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM range_tests;").first()
     assert result[0]["range_val"] == range_obj
 
 
@@ -246,7 +325,7 @@ async def test_range_exclusive_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE range_tests:test2 SET range_val = $val;",
         vars={"val": range_obj},
     )
-    result = await surrealdb_connection.query("SELECT * FROM range_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM range_tests;").first()
     assert result[0]["range_val"] == range_obj
 
 
@@ -258,7 +337,7 @@ async def test_range_mixed_bounds_db_roundtrip(surrealdb_connection: Any) -> Non
         "CREATE range_tests:test3 SET range_val = $val;",
         vars={"val": range_obj},
     )
-    result = await surrealdb_connection.query("SELECT * FROM range_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM range_tests;").first()
     assert result[0]["range_val"] == range_obj
 
 
@@ -270,7 +349,7 @@ async def test_string_range_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE range_tests:test4 SET range_val = $val;",
         vars={"val": range_obj},
     )
-    result = await surrealdb_connection.query("SELECT * FROM range_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM range_tests;").first()
     assert result[0]["range_val"] == range_obj
 
 
@@ -285,7 +364,7 @@ async def test_multiple_ranges_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE range_tests:test5 SET r1 = $range1, r2 = $range2;",
         vars=ranges,
     )
-    result = await surrealdb_connection.query("SELECT * FROM range_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM range_tests;").first()
     assert result[0]["r1"] == ranges["range1"]
     assert result[0]["r2"] == ranges["range2"]
 
@@ -302,5 +381,5 @@ async def test_range_in_array_db_roundtrip(surrealdb_connection: Any) -> None:
         "CREATE range_tests:test6 SET ranges = $val;",
         vars={"val": ranges_array},
     )
-    result = await surrealdb_connection.query("SELECT * FROM range_tests;")
+    result = await surrealdb_connection.query("SELECT * FROM range_tests;").first()
     assert result[0]["ranges"] == ranges_array

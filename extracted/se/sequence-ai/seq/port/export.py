@@ -75,8 +75,8 @@ def _select(reg: Any, trials: int | None, tasks: list[str] | None) -> list[Episo
 
 def export(ref: str, out: str, *, trials: int | None = None, tasks: list[str] | None = None,
            progress: Callable[[str], None] | None = None, rollout_steps: int = STEPS) -> dict:
-    """Export `ref` (file.py:Class, or module:Class), a CPU MuJoCo or SAPIEN benchmark of one world an instance, to the
-    scene bundle `out`. Runs where the benchmark's simulator is installed (its own image, or your machine): its
+    """Export `ref` (file.py:Class, or module:Class), a CPU MuJoCo or SAPIEN benchmark stepping one world at a time, to
+    the scene bundle `out`. Runs where the benchmark's simulator is installed (its own image, or your machine): its
     constructor with no policy evaluated - init='s "{policy.<field>}" left to its defaults, as at the platform's
     registration check - then its @seq.reset for each episode. A MuJoCo benchmark's episodes are also run
     `rollout_steps` physics steps on this MuJoCo (0: not) for `seq port compare`. Returns the manifest it wrote."""
@@ -93,7 +93,7 @@ def export(ref: str, out: str, *, trials: int | None = None, tasks: list[str] | 
     reg = benchmark_registration(cls)
     if reg.worlds is not None:
         raise PortError(f"{reg.name} is already vectorized (@seq.concurrent(sizes=[{reg.worlds}]) on its @seq.step); "
-                        "export runs a CPU benchmark of one world an instance (reset(task, seed))")
+                        "export runs a CPU benchmark that steps one world at a time (reset(task, seed))")
     episodes = _select(reg, trials, tasks)
     started = time.monotonic()
 

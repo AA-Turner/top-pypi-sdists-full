@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-postgresql
-Version: 9.1.1
+Version: 10.0.0
 Summary: Postgresql fixtures and fixture factories for Pytest.
 Keywords: fixture,postgresql,pytest,tests
 Author: Grzegorz Śliwiński
@@ -16,24 +16,24 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
 Requires-Dist: mirakuru>=2.6.0
 Requires-Dist: packaging
 Requires-Dist: port-for>=0.7.3
 Requires-Dist: psycopg>=3.0.0
-Requires-Dist: pytest>=8.2
+Requires-Dist: pytest>=8.4
 Requires-Dist: aiofiles>=23.0 ; extra == 'async'
 Requires-Dist: pytest-asyncio>=1.4 ; extra == 'async'
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Source, https://github.com/dbfixtures/pytest-postgresql
 Project-URL: Bug Tracker, https://github.com/dbfixtures/pytest-postgresql/issues
-Project-URL: Changelog, https://github.com/dbfixtures/pytest-postgresql/blob/v9.1.1/CHANGES.rst
+Project-URL: Changelog, https://github.com/dbfixtures/pytest-postgresql/blob/v10.0.0/CHANGES.rst
 Provides-Extra: async
 Description-Content-Type: text/x-rst
 

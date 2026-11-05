@@ -24,29 +24,45 @@ def _status_for_system_exit(code: object, in_flight: BaseException | None) -> tu
     return ("completed" if exit_code == 0 else "failed"), exit_code
 
 
-#: A child's exit reported as a RUN status.
+#: A child's exit reported as a RUN status: `probe exec`'s launcher, and a wrapper's
+#: ``finish(exit_code=)``.
 #:
 #: SIGINT IS A DECISION, NOT A DEFECT. `fluent.py` already says so for the
 #: in-process path -- it maps KeyboardInterrupt to 'canceled' -- but `execute`
 #: mapped purely on "is the code zero", so Ctrl-C under `probe exec` closed the
 #: run 'failed' and mailed the researcher a crash notice about a run they had
-#: just stopped themselves. That lands in the client-reported bucket, which is
-#: otherwise the trustworthy 85% of crash alerts.
+#: just stopped themselves. Both spellings: `subprocess.run` reports a signalled
+#: child as -N; a shell in between reports 128+N.
 #:
-#: BOTH SPELLINGS. `subprocess.run` reports a signalled child as -N; a shell in
-#: between reports 128+N. Ctrl-C therefore arrives as -2 or 130 depending on
-#: what was wrapped.
+#: SO IS A STOP FROM ANOTHER PROCESS OF THIS USER ON THIS MACHINE (an agent's or a
+#: person's `kill`). This reverses #1843's "a `kill` from another session alerts"
+#: for that case only: a scheduler's preemption, an eviction, a supervisor's stop,
+#: another user's kill and an out-of-memory kill still end 'failed' and alert.
+#: Only a direct signal death (-N) is judged; 137/143 are ordinary exit codes a
+#: shell or `docker run` in between passes on, so they stay 'failed'.
 #:
-#: SIGTERM IS DELIBERATELY NOT HERE. A scheduler preempting a job, an eviction,
-#: a `kill` from another session -- those are exactly the deaths a researcher
-#: does NOT already know about, and they are the case the crash email exists
-#: for. Only the interrupt the person typed is a decision.
-def _status_for_exit(returncode: int) -> str:
+#: * -15: the launcher cannot see who sent it; the child's own verdict does
+#:   (``note``, from `preempt.read_exit_note`). Without one: 'failed'.
+#: * -9: no sender is recorded anywhere for SIGKILL. 'canceled' only when this
+#:   machine's out-of-memory counter was readable at both ends and did not move
+#:   (``is_oom_unchanged``, `launch/oom.py`); a risen or unreadable one is 'failed',
+#:   and so is a child that noted 'failed' before it was killed.
+def _status_for_exit(
+    returncode: int, *, note: str | None = None, is_oom_unchanged: bool = False
+) -> str:
     import signal as _signal
 
     if returncode == 0:
         return "completed"
     if returncode in (-_signal.SIGINT, 128 + int(_signal.SIGINT)):
+        return "canceled"
+    if note == "failed":
+        # The child saw a stop that alerts (its parent, the platform); a SIGKILL that followed
+        # (an escalation) does not make it deliberate.
+        return "failed"
+    if returncode == -_signal.SIGTERM and note == "canceled":
+        return "canceled"
+    if returncode == -int(getattr(_signal, "SIGKILL", 9)) and is_oom_unchanged:
         return "canceled"
     return "failed"
 

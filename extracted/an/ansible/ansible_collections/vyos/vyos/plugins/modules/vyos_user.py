@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 # (c) 2017, Ansible by Red Hat, inc
@@ -55,7 +54,7 @@ options:
         description:
         - The username to be configured on the VyOS device. This argument accepts a string
           value and is mutually exclusive with the C(aggregate) argument.
-        required: True
+        required: true
         type: str
       full_name:
         description:
@@ -118,6 +117,8 @@ options:
             - ecdsa-sha2-nistp384
             - ssh-ed25519
             - ecdsa-sha2-nistp521
+            - sk-ecdsa-sha2-nistp256@openssh.com
+            - sk-ssh-ed25519@openssh.com
 
   name:
     description:
@@ -205,12 +206,12 @@ commands:
 """
 
 import re
+import shlex
 
 from copy import deepcopy
 from functools import partial
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.six import iteritems
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.utils import (
     remove_default_spec,
 )
@@ -277,7 +278,8 @@ def spec_to_commands(updates, module):
                 add(
                     commands,
                     want,
-                    "authentication plaintext-password %s" % want["configured_password"],
+                    "authentication plaintext-password %s"
+                    % shlex.quote(want["configured_password"]),
                 )
 
     return commands
@@ -364,6 +366,8 @@ def get_param_value(key, item, module):
     # if key doesn't exist in the item, get it from module.params
     if not item.get(key):
         value = module.params[key]
+    else:
+        value = item.get(key)
 
     # validate the param value (if validator func exists)
     validator = globals().get("validate_%s" % key)
@@ -424,7 +428,7 @@ def update_objects(want, have):
         if item is None:
             updates.append((entry, {}))
         elif item:
-            for key, value in iteritems(entry):
+            for key, value in entry.items():
                 if value and value != item[key]:
                     updates.append((entry, item))
     return updates
@@ -445,6 +449,8 @@ def main():
                 "ecdsa-sha2-nistp384",
                 "ssh-ed25519",
                 "ecdsa-sha2-nistp521",
+                "sk-ecdsa-sha2-nistp256@openssh.com",
+                "sk-ssh-ed25519@openssh.com",
             ],
         ),
     )
@@ -453,7 +459,8 @@ def main():
         full_name=dict(),
         configured_password=dict(no_log=True),
         encrypted_password=dict(no_log=False),
-        update_password=dict(default="always", choices=["on_create", "always"]),
+        # Explicit no_log=False: unset no_log triggers Ansible PASSWORD_MATCH on *password* names.
+        update_password=dict(default="always", choices=["on_create", "always"], no_log=False),
         state=dict(default="present", choices=["present", "absent"]),
         public_keys=dict(type="list", elements="dict", options=public_key_spec),
     )

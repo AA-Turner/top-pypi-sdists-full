@@ -9,7 +9,7 @@ from .union import Union, narrow, tagged_union
 from .util import UNIT
 
 
-def _expr21(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr20(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return union_type(
         "FSharp.Core.FSharpChoice`2",
         Array([gen0, gen1]),
@@ -37,7 +37,7 @@ class Choice2Of2[T1, T2](_FSharpChoice_2[T1, T2]):
 
 type FSharpChoice_2[T1, T2] = Choice1Of2[T1, T2] | Choice2Of2[T1, T2]
 
-FSharpChoice_2_reflection = _expr21
+FSharpChoice_2_reflection = _expr20
 
 
 def _expr22(gen0: TypeInfo, gen1: TypeInfo, gen2: TypeInfo) -> TypeInfo:

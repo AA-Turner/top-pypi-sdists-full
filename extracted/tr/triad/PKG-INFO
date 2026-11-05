@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: triad
-Version: 1.0.2
+Version: 1.0.3
 Summary: A collection of python utils for Fugue projects
 Author-email: The Fugue Development Team <hello@fugue.ai>
 License-Expression: Apache-2.0
@@ -9,14 +9,13 @@ Keywords: fugue,utilities
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy
@@ -24,6 +23,7 @@ Requires-Dist: pandas>=2
 Requires-Dist: six
 Requires-Dist: pyarrow>=6.0.1
 Requires-Dist: fsspec>=2022.5.0
+Requires-Dist: packaging
 Provides-Extra: ciso8601
 Requires-Dist: ciso8601; extra == "ciso8601"
 Dynamic: license-file
@@ -49,6 +49,11 @@ pip install triad
 
 
 ## Release History
+
+### 1.0.3
+
+* Support Python 3.15
+* Drop support for Python 3.9 and 3.10
 
 ### 1.0.2
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: teptris
-Version: 0.3.24.0
+Version: 0.3.25.0
 Summary: TOML for Python at libteptris speed (native C extension, no fallback)
 License: MIT
 Project-URL: Repository, https://github.com/leptris/teptris-py

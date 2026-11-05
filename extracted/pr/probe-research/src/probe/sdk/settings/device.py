@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import os
 import secrets
 import socket
 import subprocess
@@ -31,6 +32,9 @@ from ...foundation.tls.tls import ssl_context
 _START_PATH = "/auth/device/code"
 _TOKEN_PATH = "/auth/device/token"
 _SLOW_DOWN_BACKOFF = 5
+#: Set (by the Probe service, for a fenced caller's command, D25): the sign-in link is printed and
+#: no browser opened, as on a machine without one.
+NO_BROWSER_ENV = "PROBE_NO_BROWSER"
 
 
 @lru_cache(maxsize=1)
@@ -252,7 +256,7 @@ def device_authorize(
             _prompt_observer(prompt)
         if on_prompt is not None:
             on_prompt(prompt)
-        if open_browser:
+        if open_browser and not os.environ.get(NO_BROWSER_ENV):
             try:
                 webbrowser.open(prompt.verification_uri_complete)
             except webbrowser.Error:

@@ -175,8 +175,8 @@ class DisabledRun:
         ref._done.set()
         return ref
 
-    def finish(self, status: str = "completed", **kw: Any) -> None:
-        self.status = status
+    def finish(self, status: str | None = None, **kw: Any) -> None:
+        self.status = status or "completed"
         from .launch import open_runs as _open_runs
 
         _open_runs.closed(self)  # one run fewer open (F5 binding)

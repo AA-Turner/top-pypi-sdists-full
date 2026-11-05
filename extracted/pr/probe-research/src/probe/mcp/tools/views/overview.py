@@ -1,4 +1,4 @@
-"""Overview and summary views: the saved page, the authored Markdown and its version history."""
+"""Overview and summary views: the saved page, the Summary tab as Markdown and its version history."""
 
 from __future__ import annotations
 from typing import Any
@@ -23,6 +23,16 @@ _SUMMARY_HISTORY_ROW_FIELDS = (
     "session_title",
     "size_chars",
 )
+
+#: The summary fields a summary view returns beside `markdown` (GET …/summary).
+_SUMMARY_FIELDS = ("version", "edited_at", "edited_by")
+
+#: The server's 404 detail for a page withheld from this caller (summary/router.py
+#: `_refuse_withheld`, 0223). Any other 404 is a different failure and is raised, not relabeled.
+_WITHHELD_DETAIL = "summary not found"
+
+#: What a withheld summary says. Never "": that reads as an empty Summary (chat 731cc3d6).
+_SUMMARY_UNREADABLE = "The Summary page is withheld from you (it covers work you cannot see); it is not empty."
 
 #: One summary version (GET …/summary/versions/{v}), `markdown` last.
 _SUMMARY_VERSION_FIELDS = (
@@ -197,42 +207,61 @@ class OverviewViewsMixin:
         )
 
     def _view_project_summary(self, entity: dict, request: _Req) -> _ViewData:
-        """Compatibility-shaped project read for authored Overview Markdown."""
         return self._view_entity_summary(EntityType.PROJECT, entity)
 
     def _view_experiment_summary(self, entity: dict, request: _Req) -> _ViewData:
-        """The experiment's authored, dashboard-visible Markdown document.
-
-        The experiment detail carries it (`document`, a block of the Overview
-        page; server X21); a row read from a list does not, and this view
-        then reads it on its own -- one request, only when asked for."""
-        if "document" not in entity:
-            entity = {
-                **entity,
-                "document": self.source.experiment_document(
-                    str(entity["id"]), project_id=entity.get("project_id")
-                ),
-            }
         return self._view_entity_summary(EntityType.EXPERIMENT, entity)
 
-    @staticmethod
-    def _view_entity_summary(kind: str, entity: dict) -> _ViewData:
-        """Return visible authored Markdown without conflating it with Notes.
+    def _view_entity_summary(self, kind: str, entity: dict) -> _ViewData:
+        """The dashboard's Summary tab as text: the Overview page as Markdown (GET …/summary),
+        the page `overview` returns as HTML with its chart data. A person's blocks are quoted
+        between `<!-- kept: hN -->` markers; charts and diagrams are `<!-- kept: fN -->`
+        placeholders. `markdown == ""` is a page with no summary. Distinct from Notes.
 
-        ``project_summary`` remains the project payload key for compatibility;
-        the experiment and run variants use their own nouns. The semantics are
-        identical: one complete visible document, distinct from the entity's
-        private operational Notes. It lives INSIDE the Overview page, as a
-        block the page's AI writer may not rewrite, so what comes back is the
-        page's rendering of it rather than the bytes anyone sent.
+        NOT the page writer's `summary` (app/generation/agent/views/readers/summaries.py), which
+        reads only the person-written block so a regeneration never reads its own output.
 
         0220: PROJECT AND EXPERIMENT ONLY. A run was never on the page lane, so
         when the column went there was nothing left for its `summary` view to
         read and the view went with it -- rather than answering "" for ever.
         """
-        noun = str(kind)
-        payload = {f"{noun}_summary": {"document": entity.get("document") or ""}}
+        try:
+            read = self._fetch_summary(kind, entity)
+        except errors.NotFoundError as exc:
+            if exc.detail != _WITHHELD_DETAIL:
+                raise
+            summary: dict[str, Any] = {"markdown": None, "unreadable": _SUMMARY_UNREADABLE}
+        else:
+            read = read if isinstance(read, dict) else {}
+            summary = {key: read.get(key) for key in _SUMMARY_FIELDS}
+            summary["markdown"] = read.get("markdown") or ""
+        # The person-written block on its own, the one `--summary` writes: an agent that reads
+        # before replacing it must never write the whole page back into it. Quoted in `markdown`.
+        document = self._get_summary_document(kind, entity)
+        if document:
+            summary["document"] = document
+        payload: dict[str, Any] = {f"{kind}_summary": summary}
         caveat = _notes_excerpt(entity.get("notes"))
         if caveat is not None:
             payload["notes"] = caveat
         return _ViewData(payload=payload)
+
+    def _fetch_summary(self, kind: str, entity: dict) -> Any:
+        """GET …/summary. An experiment moved since its card was read answers a plain 404 at the
+        old project: asked again without one, the SDK finds where it lives now."""
+        project_id = _experiment_project_id(entity)
+        try:
+            return self.source.summary(kind, str(entity["id"]), project_id=project_id)
+        except errors.NotFoundError as exc:
+            if kind != EntityType.EXPERIMENT or project_id is None or exc.detail == _WITHHELD_DETAIL:
+                raise
+            return self.source.summary(kind, str(entity["id"]), project_id=None)
+
+    def _get_summary_document(self, kind: str, entity: dict) -> str:
+        """The page's person-written block (`document`). An experiment row read from a list
+        does not carry it (server X21), so it is read on its own."""
+        if "document" in entity or kind != EntityType.EXPERIMENT:
+            return entity.get("document") or ""
+        return self.source.experiment_document(
+            str(entity["id"]), project_id=_experiment_project_id(entity)
+        ) or ""

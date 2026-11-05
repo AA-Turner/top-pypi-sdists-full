@@ -10,7 +10,7 @@ class DescribeVersionConfigRequest(DaraModel):
         resource_directory_account_id: int = None,
         source_ip: str = None,
     ):
-        # The Alibaba Cloud account ID that uses the Security Center service.  
+        # The Alibaba Cloud account ID that uses Security Center.  
         # > Invoke the [GetUser](https://help.aliyun.com/document_detail/28681.html) operation to obtain this parameter.
         self.resource_directory_account_id = resource_directory_account_id
         # The source IP address.

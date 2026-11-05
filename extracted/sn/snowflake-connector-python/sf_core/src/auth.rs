@@ -1,5 +1,9 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use base64::Engine as _;
+use base64::engine::general_purpose::{STANDARD as BASE64, URL_SAFE_NO_PAD};
 use serde::Serialize;
-use snafu::{Location, ResultExt, Snafu};
+use snafu::{Location, OptionExt, ResultExt, Snafu};
 
 use crate::config::rest_parameters::{LoginMethod, LoginParameters};
 use crate::sensitive::SensitiveString;
@@ -31,7 +35,6 @@ pub enum Credentials {
     },
     Jwt {
         username: String,
-        token: SensitiveString,
     },
     Pat {
         username: String,
@@ -53,110 +56,109 @@ pub enum Credentials {
 }
 
 #[derive(Debug, Serialize)]
-struct Claim {
-    sub: String,
-    iss: String,
+struct Claim<'a> {
+    sub: &'a str,
+    iss: &'a str,
     iat: i64,
     exp: i64,
 }
 
-fn generate_jwt_token(
-    account: &str,
-    username: &str,
-    private_key: &str,
-    passphrase: Option<&str>,
-) -> Result<String, AuthError> {
-    use aws_lc_rs::encoding::AsDer;
-    use aws_lc_rs::signature::KeyPair;
-    use base64::Engine as _;
-    use base64::engine::general_purpose::{STANDARD as BASE64, URL_SAFE_NO_PAD};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let key = crate::crypto::private_key::load_rsa_key(private_key.as_bytes(), passphrase)
-        .context(InvalidPrivateKeyFormatSnafu)?;
-
-    // Snowflake matches the `iss` fingerprint against SHA-256 of the *SPKI*
-    // (X.509 SubjectPublicKeyInfo) DER -- the same bytes
-    // `openssl rsa -pubin -outform DER` emits. `PublicKeyX509Der` is that
-    // encoding; the PKCS#1 `RSAPublicKey` form would hash to something the
-    // server does not recognise.
-    let spki = key
-        .public_key()
-        .as_der()
-        .context(PublicKeyExtractionSnafu)?;
-    let fingerprint = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, spki.as_ref());
-    let public_key_b64 = BASE64.encode(fingerprint.as_ref());
-
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .context(SystemTimeSnafu)?
-        .as_secs() as i64;
-
-    // Normalize the account name to just the account locator (first segment before any dots).
-    // Per Snowflake documentation, the JWT `iss` field must use the account locator without
-    // region information, and both account and username must be uppercase.
-    // See: https://docs.snowflake.com/en/developer-guide/sql-api/authenticating#using-key-pair-authentication
-    // Format: <account_locator>.<user>.SHA256:<public_key_fingerprint>
-    // Example: "driverspreprod6.preprod6.us-west-2.aws" -> "DRIVERSPREPROD6"
-    let account_locator = extract_account_locator(account);
-
-    let sub = format!("{}.{}", account_locator, username.to_uppercase());
-    let iss = format!("{sub}.SHA256:{public_key_b64}");
-    let claim = Claim {
-        sub,
-        iss,
-        iat: now,
-        exp: now + 120,
-    };
-
-    // The JWS is assembled here rather than through the `jwt` crate, whose
-    // signing traits are implemented only for OpenSSL keys (`PKeyWithDigest`).
-    // Same shape as `rest::snowflake::oauth::dpop`, which hand-builds its proof
-    // for a different reason.
-    let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256","typ":"JWT"}"#);
-    let claims = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&claim).context(JWTSerializeSnafu)?);
-    let signing_input = format!("{header}.{claims}");
-
-    let mut signature = vec![0u8; key.public_modulus_len()];
-    key.sign(
-        &aws_lc_rs::signature::RSA_PKCS1_SHA256,
-        &aws_lc_rs::rand::SystemRandom::new(),
-        signing_input.as_bytes(),
-        &mut signature,
-    )
-    .context(JWTSignSnafu)?;
-
-    Ok(format!(
-        "{signing_input}.{}",
-        URL_SAFE_NO_PAD.encode(&signature)
-    ))
+pub(crate) struct KeyPairJwt {
+    key: crate::crypto::private_key::SigningKey,
+    sub: String,
+    iss: String,
+    jwt_timeout_secs: i64,
 }
 
-// Runs synchronously on the connect path so JWT signing completes before the
-// rustls/aws-lc TLS client is built. The `create_credentials` PrivateKey arm
-// still uses `spawn_blocking`; moving pre-build signing to the blocking pool
-// initializes OpenSSL after TLS on Windows and breaks key-pair connect there.
-pub fn prebuild_private_key_credentials(
+impl KeyPairJwt {
+    fn load(
+        account: &str,
+        username: &str,
+        private_key: &str,
+        passphrase: Option<&str>,
+        jwt_timeout_secs: i64,
+    ) -> Result<Self, AuthError> {
+        let key = crate::crypto::private_key::load_signing_key(private_key.as_bytes(), passphrase)
+            .context(InvalidPrivateKeyFormatSnafu)?;
+        let spki = key
+            .public_key_spki_der()
+            .context(PublicKeyExtractionSnafu)?;
+        let fingerprint = aws_lc_rs::digest::digest(&aws_lc_rs::digest::SHA256, spki.as_ref());
+        let sub = format!(
+            "{}.{}",
+            extract_account_locator(account),
+            username.to_uppercase()
+        );
+        let iss = format!("{sub}.SHA256:{}", BASE64.encode(fingerprint.as_ref()));
+        Ok(Self {
+            key,
+            sub,
+            iss,
+            jwt_timeout_secs,
+        })
+    }
+
+    pub(crate) fn sign(&self) -> Result<SensitiveString, AuthError> {
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .context(SystemTimeSnafu)?
+            .as_secs() as i64;
+        let claim = Claim {
+            sub: &self.sub,
+            iss: &self.iss,
+            iat: now_secs,
+            exp: now_secs
+                .checked_add(self.jwt_timeout_secs)
+                .context(JWTExpirationOverflowSnafu)?,
+        };
+
+        let header = URL_SAFE_NO_PAD.encode(format!(
+            r#"{{"alg":"{}","typ":"JWT"}}"#,
+            self.key.jwt_algorithm()
+        ));
+        let claims = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&claim).context(JWTSerializeSnafu)?);
+        let signing_input = format!("{header}.{claims}");
+
+        let signature = self
+            .key
+            .sign(signing_input.as_bytes())
+            .context(JWTSignSnafu)?;
+
+        Ok(format!("{signing_input}.{}", URL_SAFE_NO_PAD.encode(&signature)).into())
+    }
+}
+
+pub(crate) async fn load_key_pair_jwt(
     login_parameters: &LoginParameters,
-) -> Result<Option<Credentials>, AuthError> {
+) -> Result<Option<KeyPairJwt>, AuthError> {
     let LoginMethod::PrivateKey {
         username,
         private_key,
         passphrase,
+        jwt_timeout_secs,
     } = &login_parameters.login_method
     else {
         return Ok(None);
     };
-    let token = generate_jwt_token(
-        &login_parameters.account_name,
-        username,
-        private_key.reveal(),
-        passphrase.as_ref().map(|p| p.reveal().as_str()),
-    )?;
-    Ok(Some(Credentials::Jwt {
-        username: username.clone(),
-        token: token.into(),
-    }))
+    let account = login_parameters.account_name.clone();
+    let username = username.clone();
+    let private_key = private_key.clone();
+    let passphrase = passphrase.clone();
+    let jwt_timeout_secs = *jwt_timeout_secs;
+    tokio::task::spawn_blocking(move || {
+        let key_pair_jwt = KeyPairJwt::load(
+            &account,
+            &username,
+            private_key.reveal(),
+            passphrase.as_ref().map(|p| p.reveal().as_str()),
+            jwt_timeout_secs,
+        )?;
+        key_pair_jwt.sign()?;
+        Ok(key_pair_jwt)
+    })
+    .await
+    .context(BlockingTaskJoinSnafu)?
+    .map(Some)
 }
 
 pub async fn create_credentials(
@@ -186,33 +188,9 @@ pub async fn create_credentials(
             method: "ExternalBrowser",
         }
         .fail(),
-        LoginMethod::PrivateKey {
-            username,
-            private_key,
-            passphrase,
-        } => {
-            // RSA key parsing + RS256 signing is CPU-bound crypto; run it on
-            // the blocking pool so it doesn't stall this runtime worker. Move
-            // the secrets in as owned `SensitiveString`s so they stay zeroizing.
-            let account = login_parameters.account_name.clone();
-            let username_owned = username.clone();
-            let private_key = private_key.clone();
-            let passphrase = passphrase.clone();
-            let token = tokio::task::spawn_blocking(move || {
-                generate_jwt_token(
-                    &account,
-                    &username_owned,
-                    private_key.reveal(),
-                    passphrase.as_ref().map(|p| p.reveal().as_str()),
-                )
-            })
-            .await
-            .context(BlockingTaskJoinSnafu)??;
-            Ok(Credentials::Jwt {
-                username: username.clone(),
-                token: token.into(),
-            })
-        }
+        LoginMethod::PrivateKey { username, .. } => Ok(Credentials::Jwt {
+            username: username.clone(),
+        }),
         LoginMethod::Pat { username, token } => Ok(Credentials::Pat {
             username: username.clone(),
             token: token.clone(),
@@ -290,6 +268,11 @@ pub enum AuthError {
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(display("JWT expiration exceeds the supported timestamp range"))]
+    JWTExpirationOverflow {
+        #[snafu(implicit)]
+        location: Location,
+    },
     #[snafu(display("Failed to serialize JWT claims"))]
     JWTSerialize {
         source: serde_json::Error,
@@ -302,7 +285,7 @@ pub enum AuthError {
         #[snafu(implicit)]
         location: Location,
     },
-    #[snafu(display("Background JWT-signing task failed to join"))]
+    #[snafu(display("Background JWT key-loading task failed to join"))]
     BlockingTaskJoin {
         source: tokio::task::JoinError,
         #[snafu(implicit)]
@@ -315,10 +298,65 @@ mod tests {
     use super::*;
     use crate::config::rest_parameters::test_fixtures::test_client_info;
 
-    use base64::Engine as _;
     use base64::engine::general_purpose::{STANDARD as BASE64, URL_SAFE_NO_PAD};
 
     const PASSPHRASE: &str = "correct horse battery staple";
+
+    fn generate_jwt_token(
+        account: &str,
+        username: &str,
+        private_key: &str,
+        passphrase: Option<&str>,
+    ) -> Result<String, AuthError> {
+        generate_jwt_token_with_timeout(
+            account,
+            username,
+            private_key,
+            passphrase,
+            crate::config::rest_parameters::DEFAULT_JWT_TIMEOUT_SECS,
+        )
+    }
+
+    fn generate_jwt_token_with_timeout(
+        account: &str,
+        username: &str,
+        private_key: &str,
+        passphrase: Option<&str>,
+        jwt_timeout_secs: i64,
+    ) -> Result<String, AuthError> {
+        KeyPairJwt::load(account, username, private_key, passphrase, jwt_timeout_secs)?
+            .sign()
+            .map(|token| token.reveal().to_string())
+    }
+
+    #[test]
+    fn jwt_expiration_matches_configured_and_default_lifetime() {
+        use crate::config::param_names::JWT_TIMEOUT;
+        use crate::config::param_store::ParamStore;
+        use crate::config::settings::Setting;
+
+        let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
+        let pem = String::from_utf8(rsa.private_key_to_pem().unwrap()).unwrap();
+        let mut settings = ParamStore::with_registry_defaults();
+        for (configured, expected) in [(None, 120), (Some(3600), 3600)] {
+            if let Some(seconds) = configured {
+                settings.insert(JWT_TIMEOUT.to_string(), Setting::Int(seconds));
+            }
+            let seconds = crate::config::rest_parameters::jwt_timeout_secs(&settings).unwrap();
+            let token = generate_jwt_token_with_timeout("acct", "user", &pem, None, seconds)
+                .expect("JWT signing succeeds");
+            let claims: serde_json::Value = serde_json::from_slice(
+                &URL_SAFE_NO_PAD
+                    .decode(token.split('.').nth(1).unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                claims["exp"].as_i64().unwrap() - claims["iat"].as_i64().unwrap(),
+                expected
+            );
+        }
+    }
 
     #[tokio::test]
     async fn pat_with_external_session_create_credentials_returns_unsupported_login_method() {
@@ -430,6 +468,52 @@ mod tests {
                 .unwrap(),
             "RS256 signature must verify under OpenSSL"
         );
+    }
+
+    /// An EC key signs with the JWS algorithm of its curve, the signature
+    /// verifies under OpenSSL, and `iss` carries the SPKI SHA-256 fingerprint
+    /// Snowflake recomputes from the registered EC public key.
+    #[test]
+    fn ecdsa_jwt_uses_curve_algorithm_and_spki_fingerprint() {
+        use openssl::ec::{EcGroup, EcKey};
+        use openssl::nid::Nid;
+
+        for (nid, alg) in [
+            (Nid::X9_62_PRIME256V1, "ES256"),
+            (Nid::SECP384R1, "ES384"),
+            (Nid::SECP521R1, "ES512"),
+        ] {
+            let group = EcGroup::from_curve_name(nid).unwrap();
+            let pkey = openssl::pkey::PKey::from_ec_key(EcKey::generate(&group).unwrap()).unwrap();
+            let pem = String::from_utf8(pkey.private_key_to_pem_pkcs8().unwrap()).unwrap();
+
+            let token = generate_jwt_token("myaccount.us-east-1", "myuser", &pem, None).unwrap();
+            let parts: Vec<&str> = token.split('.').collect();
+            assert_eq!(parts.len(), 3, "JWT must have three segments");
+
+            let header: serde_json::Value =
+                serde_json::from_slice(&URL_SAFE_NO_PAD.decode(parts[0]).unwrap()).unwrap();
+            assert_eq!(header["alg"], alg);
+            assert_eq!(header["typ"], "JWT");
+
+            assert!(
+                crate::crypto::private_key::test_support::verify_jws_signature(
+                    &pkey,
+                    alg,
+                    format!("{}.{}", parts[0], parts[1]).as_bytes(),
+                    &URL_SAFE_NO_PAD.decode(parts[2]).unwrap(),
+                ),
+                "{alg} signature must verify under OpenSSL"
+            );
+
+            let claims: serde_json::Value =
+                serde_json::from_slice(&URL_SAFE_NO_PAD.decode(parts[1]).unwrap()).unwrap();
+            let expected = BASE64.encode(openssl::sha::sha256(&pkey.public_key_to_der().unwrap()));
+            assert_eq!(
+                claims["iss"].as_str().unwrap(),
+                format!("MYACCOUNT.MYUSER.SHA256:{expected}")
+            );
+        }
     }
 
     /// PBES2 3DES (`openssl pkcs8 -topk8 -v2 des3`) unwraps to the same key as

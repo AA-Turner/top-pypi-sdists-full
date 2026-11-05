@@ -487,6 +487,8 @@ class ControlPlaneClient:
         _raise_for_auth(resp)
         if resp.status_code == 404:
             raise errors.catalog("session_expired")
+        if resp.status_code == 429:
+            raise _rate_limited(resp)
         _raise_for_status(resp)
         try:
             body = resp.json()

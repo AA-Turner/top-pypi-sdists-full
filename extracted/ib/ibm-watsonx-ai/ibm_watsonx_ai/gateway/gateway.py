@@ -4,7 +4,8 @@
 #  -----------------------------------------------------------------------------------------
 import copy
 import json
-from typing import Any, AsyncIterator, Iterator, Literal, overload
+from collections.abc import AsyncIterator, Iterator
+from typing import Any, Literal, overload
 
 import httpx
 
@@ -14,6 +15,7 @@ from ibm_watsonx_ai.gateway.models import Models
 from ibm_watsonx_ai.gateway.policies import Policies
 from ibm_watsonx_ai.gateway.providers import Providers
 from ibm_watsonx_ai.gateway.rate_limits import RateLimits
+from ibm_watsonx_ai.gateway.tenant import Tenant
 from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -117,6 +119,32 @@ class Gateway(WMLResource):
         mechanism; defaults to ``[429, 503, 504, 520]``
     :type retry_status_codes: list[int], optional
 
+    **Attributes:**
+
+    :ivar providers: manages providers registered in Model Gateway
+    :vartype providers: ~ibm_watsonx_ai.gateway.providers.Providers
+
+    :ivar models: manages models registered in Model Gateway
+    :vartype models: ~ibm_watsonx_ai.gateway.models.Models
+
+    :ivar policies: manages access policies
+    :vartype policies: ~ibm_watsonx_ai.gateway.policies.Policies
+
+    :ivar rate_limits: manages rate limits
+    :vartype rate_limits: ~ibm_watsonx_ai.gateway.rate_limits.RateLimits
+
+    :ivar tenant: manages the tenant and its configuration
+    :vartype tenant: ~ibm_watsonx_ai.gateway.tenant.Tenant
+
+    :ivar chat: chat interface; use ``chat.completions.create(...)`` to run chat completions
+    :vartype chat: object
+
+    :ivar completions: text completions interface; use ``completions.create(...)``
+    :vartype completions: object
+
+    :ivar embeddings: embeddings interface; use ``embeddings.create(...)``
+    :vartype embeddings: object
+
     :raises InvalidMultipleArguments: if neither ``credentials`` nor ``api_client``
         is provided
     :raises WMLClientError: if the connected platform release does not support
@@ -150,6 +178,7 @@ class Gateway(WMLResource):
         self.models = Models(self._client)
         self.policies = Policies(self._client)
         self.rate_limits = RateLimits(self._client)
+        self.tenant = Tenant(self._client)
 
         _retry_decorator = RateLimitedRetryDecorator(
             api_client=self._client,

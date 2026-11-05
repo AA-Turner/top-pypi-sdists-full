@@ -1,19 +1,16 @@
-use std::{fmt::Debug, marker::PhantomData};
-
-use nom::{Parser, character::complete::char, combinator::verify};
 use tracing::Level;
 
 use crate::{
 	Input,
-	context::Context,
-	error::ParseError,
+	context::{Context, fuel::OutOfFuel},
+	error::PResult,
 	lossless::TokenKind,
 	node::{
 		Elements, Ids,
 		inline::{self, link::is_suspicious_whitespace},
 	},
 	range,
-	span::{Span, Syntax, TraceOk, TraceParse, WithToken},
+	span::{Span, Syntax, Trace},
 };
 
 use super::{Scope, has_no_link};
@@ -24,8 +21,14 @@ use super::{Scope, has_no_link};
 /// hide it: `**h**ttp*s*://foo` renders as `https://foo`. It reads the segment as rendered, with
 /// its delimiters resolved -- link text is a scope of its own -- so the ones that pair vanish and
 /// the ones that do not, like the underscores in `http_s_://foo`, stay as text.
+///
+/// # Errors
+/// If the parse runs out of fuel.
 #[tracing::instrument(level = Level::TRACE)]
-fn segment_has_no_link<S: Span>(nodes: &Elements<'_, S>, context: &Context) -> bool {
+pub fn segment_has_no_link<S: Span>(
+	nodes: &Elements<'_, S>,
+	context: &Context,
+) -> Result<bool, OutOfFuel> {
 	let rendered =
 		range::resolve_inline(nodes.value.clone(), context.syntaxes, &mut Ids::default());
 	// TODO: figure out lifetimes to avoid this
@@ -37,9 +40,12 @@ fn segment_has_no_link<S: Span>(nodes: &Elements<'_, S>, context: &Context) -> b
 	has_no_link(&text, context)
 }
 
+/// Whether the parsed text segment of a masked link shows the reader anything at all. Blank text
+/// is a link the reader cannot see.
+///
 /// Read before the delimiters resolve, so a segment of nothing but delimiters, like `[**]`, counts
 /// as empty.
-fn segment_is_not_whitespace<S: Span>(nodes: &Elements<'_, S>) -> bool {
+pub fn segment_is_not_whitespace<S: Span>(nodes: &Elements<'_, S>) -> bool {
 	nodes.iter().any(|node| {
 		node.value
 			.content()
@@ -48,89 +54,57 @@ fn segment_is_not_whitespace<S: Span>(nodes: &Elements<'_, S>) -> bool {
 	})
 }
 
-struct SegmentParser<S, E> {
-	context: Context,
-	span: PhantomData<S>,
-	error: PhantomData<E>,
-}
-
-impl<S, E> Debug for SegmentParser<S, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("TextSegmentParser")
-			.field("context", &self.context)
-			.field("span", &self.span)
-			.field("error", &self.error)
-			.finish()
-	}
-}
-
-impl<'data, S, E> Parser<Input<'data>> for SegmentParser<S, E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	type Output = (Elements<'data, S>, S::Syntax);
-	type Error = E;
-
-	#[tracing::instrument(name = "segment_parser", level = Level::TRACE, fields(ok, output))]
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		(
-			char('[').token::<S>(TokenKind::LinkOpen),
-			verify(
-				inline::inline(self.context.clone().with_scope(Scope::MaskedLinkText)),
-				|nodes| {
-					segment_has_no_link::<S>(nodes, &self.context)
-						&& segment_is_not_whitespace(nodes)
-				},
-			),
-			char(']').token::<S>(TokenKind::LinkClose),
-		)
-			.map(|(open, text, close)| (text, open.join(close)))
-			.trace_parse()
-			.process::<OM>(input)
-			.trace_ok()
-	}
-}
-
 /// Parse the text segment of a masked link.
-pub fn segment<'ctx, 'data, S, E>(
-	context: Context,
-) -> impl Parser<Input<'data>, Output = (Elements<'data, S>, S::Syntax), Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	SegmentParser {
-		context,
-		span: PhantomData,
-		error: PhantomData,
-	}
+///
+/// This does not run [`segment_has_no_link`] or [`segment_is_not_whitespace`]: the caller does,
+/// once it knows the whole link. The segment can be empty, as in `[](url)`, so that it reaches
+/// those guards too.
+///
+/// # Errors
+/// If the content does not begin with a text segment.
+#[tracing::instrument(name = "segment_parser", level = Level::TRACE, skip_all, fields(ok, output))]
+pub fn segment<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<(Elements<'data, S>, S::Syntax)> {
+	let open = input.token::<S, _>(TokenKind::LinkOpen, |input| input.char('['))?;
+	let text = match input.attempt(|input| {
+		inline::inline(input, &context.clone().with_scope(Scope::MaskedLinkText))
+	})? {
+		Some(text) => text,
+		None => input.spanned(|_| Ok(Vec::new()))?,
+	};
+	let close = input.token::<S, _>(TokenKind::LinkClose, |input| input.char(']'))?;
+	Ok((text, open.join(close))).trace()
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
 	use crate::{
 		context::Context,
 		spanned_vec,
-		test_utils::{handle_nom_err, resolved_inlines},
+		test_utils::{resolved_inlines, run},
 		text,
 	};
 
-	use super::segment;
+	use super::{segment, segment_has_no_link, segment_is_not_whitespace};
+
+	fn parse(
+		s: &str,
+	) -> crate::error::PResult<(crate::Input<'_>, (crate::node::Elements<'_, ()>, ()))> {
+		run(s, |input| segment::<()>(input, &Context::default()))
+	}
+
+	/// Whether the text segment `s` passes the guard.
+	fn has_no_link(s: &str) -> bool {
+		let (_, (text, ())) = parse(s).expect("unable to parse");
+		segment_has_no_link(&text, &Context::default()).expect("the default budget is enough")
+	}
 
 	#[test]
 	fn basic_text() {
 		let s = "[foo]";
-		let (rem, (res, ())) = segment::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = parse(s).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(resolved_inlines(res), spanned_vec!(text!("foo")));
@@ -139,11 +113,7 @@ mod test {
 	#[test]
 	fn skips_matching_brackets() {
 		let s = "[foo [bar]]";
-		let (rem, (res, ())) = segment::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) = parse(s).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(resolved_inlines(res), spanned_vec!(text!("foo [bar]")));
@@ -152,52 +122,35 @@ mod test {
 	#[test]
 	fn detect_reversed_urls() {
 		let s = "[moc.drocsid//:sptth]";
-		segment::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect_err("able to parse");
+		assert!(!has_no_link(s));
 	}
 
 	#[test]
 	fn detect_confusables() {
 		let s = "[ℎttps://discord.com]";
-		segment::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect_err("able to parse");
+		assert!(!has_no_link(s));
 	}
 
 	#[test]
 	fn detect_confusable_punctuation() {
 		// MODIFIER LETTER COLON in place of the scheme separator.
 		let s = "[https\u{A789}//discord.com]";
-		segment::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect_err("able to parse");
+		assert!(!has_no_link(s));
 	}
 
 	#[test]
 	fn detect_rtl_override_urls() {
 		// RIGHT-TO-LEFT OVERRIDE displays the reversed URL forwards.
 		let s = "[\u{202E}moc.drocsid//:sptth]";
-		segment::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect_err("able to parse");
+		assert!(!has_no_link(s));
 	}
 
 	#[test]
 	fn text_is_whitespace() {
-		let s = "[ \u{200d}]";
-		segment::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect_err("able to parse");
+		for s in ["[ \u{200d}]", "[**]", "[]"] {
+			let (rem, (text, ())) = parse(s).expect("unable to parse");
+			assert_eq!(rem, "", "{s}");
+			assert!(!segment_is_not_whitespace(&text), "{s}");
+		}
 	}
 }

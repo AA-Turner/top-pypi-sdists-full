@@ -21,9 +21,9 @@ from google.cloud import secretmanager
 
 from airbyte_ops_mcp.connection_config_retriever.audit_logging import audit
 from airbyte_ops_mcp.connection_config_retriever.residency import (
-    EU_RUNNER_EU_ONLY_MESSAGE,
-    EU_RUNNER_REQUIRED_MESSAGE,
-    is_running_on_eu_runner,
+    EU_REGION_EU_ONLY_MESSAGE,
+    EU_REGION_REQUIRED_MESSAGE,
+    is_running_in_eu_region,
 )
 from airbyte_ops_mcp.connection_config_retriever.secrets_resolution import (
     get_resolved_config,
@@ -202,7 +202,7 @@ def get_connection(
     """Get connection details from the database."""
     query = (
         SELECT_ON_CONNECTION
-        if is_eu_connection and is_running_on_eu_runner()
+        if is_eu_connection and is_running_in_eu_region()
         else SELECT_ON_CONNECTION_NOT_EU
     )
     connection_result = db_conn.execute(
@@ -369,14 +369,13 @@ def retrieve_objects(
                     f"Credentials were not found for connection ID {candidate.connection_id}."
                 )
             is_eu_connection = is_eu_result[0] is True
-            # Each runner reads only connections in its own data region: an EU
-            # connection only on the EU runner, any other only off it.
-            if is_eu_connection != is_running_on_eu_runner():
+            # Each runtime reads only connections in its own data region.
+            if is_eu_connection != is_running_in_eu_region():
                 connection_candidates.remove(candidate)
                 refusal = (
-                    EU_RUNNER_REQUIRED_MESSAGE
+                    EU_REGION_REQUIRED_MESSAGE
                     if is_eu_connection
-                    else EU_RUNNER_EU_ONLY_MESSAGE
+                    else EU_REGION_EU_ONLY_MESSAGE
                 )
                 LOGGER.warning(
                     f"{refusal}; connection ID "

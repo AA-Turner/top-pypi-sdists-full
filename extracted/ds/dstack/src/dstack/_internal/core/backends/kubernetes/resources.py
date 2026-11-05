@@ -5,15 +5,24 @@ import re
 from collections.abc import Mapping
 from decimal import Decimal
 from enum import Enum
-from typing import Callable, Literal, Optional, Union, cast, get_args
+from typing import Callable, Literal, Optional, Protocol, Union, cast, get_args
 
 import gpuhunt
 from gpuhunt import KNOWN_AMD_GPUS, KNOWN_NVIDIA_GPUS, AcceleratorVendor
-from kubernetes.client import CoreV1Api, V1Node, V1Taint
+from kubernetes.client import (
+    CoreV1Api,
+    V1Node,
+    V1NodeSelectorRequirement,
+    V1ObjectMeta,
+    V1Taint,
+    V1Toleration,
+)
 from kubernetes.utils.quantity import parse_quantity as _parse_quantity
 from typing_extensions import Self
 
 from dstack._internal.core.backends.base.compute import normalize_arch
+from dstack._internal.core.backends.kubernetes.utils import try_delete_object_if_exists
+from dstack._internal.core.errors import ComputeError
 from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.instances import (
     Disk,
@@ -26,7 +35,7 @@ from dstack._internal.core.models.instances import (
 )
 from dstack._internal.core.models.resources import Memory, ResourcesSpec
 from dstack._internal.utils import docker as docker_utils
-from dstack._internal.utils.common import get_or_error
+from dstack._internal.utils.common import get_or_error, list_enum_values_for_annotation
 from dstack._internal.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -43,6 +52,11 @@ LABEL_KEY_NAME_MAX_LENGTH = 63
 LABEL_KEY_NAME_REGEX = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$")
 LABEL_VALUE_MAX_LENGTH = 63
 LABEL_VALUE_REGEX = re.compile(r"^(?:[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?)?$")
+
+# https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/
+QUANTITY_REGEX = re.compile(
+    r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[KMGTPE]i|[numkMGTPE]|[eE][+-]?[0-9]+)?$"
+)
 
 NVIDIA_GPU_RESOURCE = "nvidia.com/gpu"
 NVIDIA_GPU_NODE_TAINT = NVIDIA_GPU_RESOURCE
@@ -84,6 +98,12 @@ class TaintEffect(str, Enum):
     NO_EXECUTE = "NoExecute"
     NO_SCHEDULE = "NoSchedule"
     PREFER_NO_SCHEDULE = "PreferNoSchedule"
+
+
+class Operator(str, Enum):
+    EQUAL = "Equal"
+    EXISTS = "Exists"
+    IN = "In"
 
 
 class KubernetesResource(str, Enum):
@@ -261,6 +281,13 @@ def adjust_resources_by_resource_requests(
     resources.disk = Disk(size_mib=disk_mib)
 
 
+INSTANCE_LABEL = "app.kubernetes.io/instance"
+"""The label carrying the object's unique name, shared by the objects of a job pod."""
+
+PROVIDER_REF_LABEL = "k8s.dstack.ai/provider-ref"
+"""The label carrying `provider_ref` for orphan cleanup."""
+
+
 def build_base_labels(
     *,
     component: Literal["ssh-proxy", "job", "gateway", "volume"],
@@ -268,12 +295,13 @@ def build_base_labels(
     project: str,
     name: Optional[str] = None,
     user: Optional[str] = None,
+    provider_ref: Optional[str] = None,
 ) -> dict[str, str]:
     labels = {
         "app.kubernetes.io/name": f"dstack-{component}",
         # app.kubernetes.io/component would be redundant as app.kubernetes.io/name already includes
         # it with dstack- prefix
-        "app.kubernetes.io/instance": unique_name,
+        INSTANCE_LABEL: unique_name,
         "app.kubernetes.io/managed-by": "dstack",
         "k8s.dstack.ai/project": project,
     }
@@ -281,7 +309,42 @@ def build_base_labels(
         labels["k8s.dstack.ai/name"] = name
     if user is not None:
         labels["k8s.dstack.ai/user"] = user
+    if provider_ref is not None:
+        labels[PROVIDER_REF_LABEL] = provider_ref
     return labels
+
+
+def get_pod_service_name(pod_name: str) -> str:
+    return f"{pod_name}-service"
+
+
+def get_registry_auth_secret_name(pod_name: str) -> str:
+    return f"{pod_name}-registry-auth"
+
+
+def delete_job_pod_objects(api: CoreV1Api, namespace: str, pod_name: str) -> None:
+    deleted = [
+        try_delete_object_if_exists(
+            api.delete_namespaced_service,
+            namespace=namespace,
+            name=get_pod_service_name(pod_name),
+            description="pod service",
+        ),
+        try_delete_object_if_exists(
+            api.delete_namespaced_pod,
+            namespace=namespace,
+            name=pod_name,
+            description="pod",
+        ),
+        try_delete_object_if_exists(
+            api.delete_namespaced_secret,
+            namespace=namespace,
+            name=get_registry_auth_secret_name(pod_name),
+            description="registry auth secret",
+        ),
+    ]
+    if not all(deleted):
+        raise ComputeError("Not all objects were deleted, check logs")
 
 
 def filter_invalid_labels(labels: dict[str, str]) -> dict[str, str]:
@@ -327,6 +390,48 @@ def validate_label_value(value: str) -> None:
         raise ValueError("Invalid value")
 
 
+def parse_node_selector_requirement(requirement: str) -> V1NodeSelectorRequirement:
+    """
+    Parses `key=value`, `key=` (an empty value), or `key` (any value).
+    """
+    key, value_sep, value = requirement.partition("=")
+    _validate_key(key)
+    if not value_sep:
+        return V1NodeSelectorRequirement(key=key, operator=Operator.EXISTS)
+    validate_label_value(value)
+    return V1NodeSelectorRequirement(key=key, operator=Operator.IN, values=[value])
+
+
+def parse_toleration(toleration: str) -> V1Toleration:
+    """
+    Parses `key[=value][:effect]`, the `kubectl taint` format with an optional effect.
+    Without `=value`, tolerates any value; without `:effect`, tolerates any effect.
+    """
+    key_value, effect_sep, effect = toleration.partition(":")
+    key, value_sep, value = key_value.partition("=")
+    # An empty key would tolerate all taints
+    _validate_key(key)
+    taint_effect: Optional[TaintEffect] = None
+    if effect_sep:
+        try:
+            taint_effect = TaintEffect(effect)
+        except ValueError:
+            raise ValueError(
+                f"Invalid effect, must be one of: {list_enum_values_for_annotation(TaintEffect)}"
+            )
+    if not value_sep:
+        return V1Toleration(key=key, operator=Operator.EXISTS, effect=taint_effect)
+    validate_label_value(value)
+    return V1Toleration(key=key, operator=Operator.EQUAL, value=value, effect=taint_effect)
+
+
+def _validate_key(key: str) -> None:
+    try:
+        validate_label_key(key)
+    except ValueError as e:
+        raise ValueError(f"Invalid key: {e}") from e
+
+
 def build_dockerconfigjson(image_name: str, username: str, password: str) -> str:
     registry = docker_utils.parse_image_name(image_name).registry
     if registry is None or docker_utils.is_default_registry(registry):
@@ -345,18 +450,29 @@ def build_dockerconfigjson(image_name: str, username: str, password: str) -> str
 parse_quantity = cast(Callable[[Union[str, int, float, Decimal]], Decimal], _parse_quantity)
 
 
+def validate_quantity(quantity: str) -> None:
+    # Stricter than parse_quantity(), which also accepts some strings that the API rejects,
+    # e.g., `1 Gi`, `1K`, `500mi`
+    if QUANTITY_REGEX.fullmatch(quantity) is None:
+        raise ValueError("Invalid quantity")
+
+
 def format_memory(memory: Memory) -> str:
     return f"{float(memory)}Gi"
 
 
-def get_node_name(node: V1Node) -> Optional[str]:
-    if (metadata := node.metadata) is None:
+class ObjectWithMeta(Protocol):
+    metadata: Optional[V1ObjectMeta]
+
+
+def get_object_name(obj: ObjectWithMeta) -> Optional[str]:
+    if (metadata := obj.metadata) is None:
         return None
     return metadata.name
 
 
-def get_node_labels(node: V1Node) -> dict[str, str]:
-    if (metadata := node.metadata) is None:
+def get_object_labels(obj: ObjectWithMeta) -> dict[str, str]:
+    if (metadata := obj.metadata) is None:
         return {}
     if (labels := metadata.labels) is None:
         return {}
@@ -386,7 +502,7 @@ def get_instance_offers(
         nodes_allocated_resources = _get_nodes_allocated_resources(api)
     offers: list[InstanceOfferWithAvailability] = []
     for node in api.list_node().items:
-        if (node_name := get_node_name(node)) is None:
+        if (node_name := get_object_name(node)) is None:
             continue
         offer = _get_instance_offer_from_node(
             node=node,
@@ -406,7 +522,7 @@ def get_instance_offers(
 def get_instance_offer_from_node(
     node: V1Node, region: str
 ) -> Optional[InstanceOfferWithAvailability]:
-    node_name = get_node_name(node)
+    node_name = get_object_name(node)
     if node_name is None:
         return None
     return _get_instance_offer_from_node(
@@ -513,7 +629,7 @@ def _get_instance_offer_from_node(
 def _get_gpus_from_node(
     node: V1Node, node_name: str, node_resources: KubernetesResources
 ) -> list[Gpu]:
-    labels = get_node_labels(node)
+    labels = get_object_labels(node)
     for gpu_resource, gpu_getter in (
         (NVIDIA_GPU_RESOURCE, get_nvidia_gpu_from_node_labels),
         (AMD_GPU_RESOURCE, get_amd_gpu_from_node_labels),

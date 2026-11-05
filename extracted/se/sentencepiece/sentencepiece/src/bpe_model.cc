@@ -14,21 +14,19 @@
 
 #include "bpe_model.h"
 
+#include <algorithm>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <queue>
-#include <random>
 #include <utility>
 #include <vector>
 
-#include "freelist.h"
+#include "absl/base/attributes.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/random/random.h"
+#include "absl/strings/string_view.h"
 #include "model_interface.h"
 #include "sentencepiece_model.pb.h"
-#include "third_party/absl/base/attributes.h"
-#include "third_party/absl/container/flat_hash_map.h"
-#include "third_party/absl/random/random.h"
-#include "third_party/absl/strings/string_view.h"
 #include "util.h"
 
 namespace sentencepiece {
@@ -93,7 +91,7 @@ class SymbolPairComparator {
 
 struct Symbol {
   int prev;     // prev index of this symbol. -1 for BOS.
-  int next;     // next index of tihs symbol. -1 for EOS.
+  int next;     // next index of this symbol. -1 for EOS.
   bool freeze;  // this symbol is never be merged.
   absl::string_view piece;
 };
@@ -149,8 +147,8 @@ std::vector<std::pair<absl::string_view, int>> Model::SampleEncode(
 
   // Lookup all bigrams.
   if (symbols.size() > 1) {
-    int left = 0;
-    int right = 1;
+    size_t left = 0;
+    size_t right = 1;
     Symbol* symbol_left = &symbols[left];
     Symbol* symbol_right = &symbols[right];
     for (; right < symbols.size();
@@ -280,13 +278,17 @@ std::vector<std::pair<absl::string_view, int>> Model::SampleEncode(
       output->emplace_back(w, id);
       return;
     }
-    if (id == -1 || !IsUnusedInlined(id)) {
+    if (id == unk_id_ || IsReservedId(id)) {
+      output->emplace_back(w, unk_id_);
+      return;
+    }
+    if (!IsUnusedInlined(id)) {
       output->emplace_back(w, id);
       return;
     }
     const auto p = rev_merge.find(w);
     if (p == rev_merge.end()) {
-      output->emplace_back(w, id);
+      output->emplace_back(w, unk_id_);
       return;
     }
     // Direct recursive calls

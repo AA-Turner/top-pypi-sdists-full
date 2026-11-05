@@ -222,8 +222,7 @@ def _print_echo(request: Any, snap: Any = None, constructor: Any = None) -> None
     uploaded, and what the policy declares about its inputs and outputs — seen before a single layer is built."""
     from sequence_base.constants.version import CONTRACT_VERSION
 
-    planner = getattr(request.policy, "planner", None) is not None
-    print(f"{'planner' if planner else 'policy':<12}{request.name}")
+    print(f"{'policy':<12}{request.name}")
     print(f"contract    valid for this SDK's deployment contract {CONTRACT_VERSION} (the platform checks it again "
           "when you deploy)")
     _print_image(request.image)
@@ -242,8 +241,7 @@ def _print_echo(request: Any, snap: Any = None, constructor: Any = None) -> None
         print(weights_dir_line(request, constructor))
     _print_region(getattr(request.resources, "region", None))
     _print_code(request.code, snap)
-    if not planner:
-        _print_contract(request.policy)
+    _print_contract(request.policy)
     if request.policy.params:
         from sequence_base.contract.deployments import describe
 
@@ -293,7 +291,7 @@ def _print_benchmark_echo(req: Any, snap: Any = None) -> None:
         print(f"worlds      up to {req.worlds} a step call (@seq.concurrent(sizes=[{req.worlds}])): an eval builds as "
               "many as it needs, at most that")
     else:
-        print("worlds      one an instance: an eval runs as many instances as it needs")
+        print("worlds      one a step call: an eval runs as many copies of the benchmark as it needs")
     limits = sorted(set(req.max_seconds.values())) if isinstance(req.max_seconds, dict) else [req.max_seconds]
     said = f"{limits[0]:g} s" if len(limits) == 1 else f"{limits[0]:g}-{limits[-1]:g} s by task"
     described = sum(1 for text in req.tasks.values() if text)
@@ -635,6 +633,8 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
     if notice:
 
         print(f"{name}: {notice}")
+    if getattr(accepted, "adapters", None):
+        print(adapters_line(accepted.adapters, "a benchmark template you registered pairs with this policy"))
     if snap is not None and snap.tree_sha256:
         print(_kept_tree_line(name, snap.tree_sha256, args.base_url))
     for line in _kept_lines(name, request, args.base_url):
@@ -650,9 +650,9 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
 
 
     gpus = [str(g) for g in (getattr(getattr(request, "resources", None), "gpu", None) or [])]
-    planner = getattr(request.policy, "planner", None)
     progress = _BuildProgress(name, args.base_url, acts=build_acts(request.policy), sample=sample,
-                              card=gpus[0] if gpus else None, planner=planner is not None)
+                              card=gpus[0] if gpus else None,
+                              plans=getattr(request.policy, "plan_every_s", None) is not None)
 
     kwargs: dict = {"on_poll": progress, "poll_interval_s": DEPLOY_POLL_S}
     kwargs["timeout_s"] = build_wait_s(request)
@@ -661,30 +661,27 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
     if final.status == DeploymentState.READY:
         ver = f" v{row['version']}" if row and row.get("version") else ""
         fleet = _fleet_now(request.name, args.base_url)
-        if not ver and planner is not None and (fleet or {}).get("version"):
-
-
-            ver = f" v{fleet['version']}"
         stopped = _stopped_how(request.name, row, args.base_url)
         if stopped:
             print(f"stopped: {request.name}{ver} is deployed, but {request.name} is stopped - {stopped}")
-        elif planner is not None:
-
-
-
-            print(f"ready: {request.name}{ver} is deployed — it plans for {', '.join(planner.members)}; a robot runs one "
-                  f"of its policies through it with sequence_ai.connect({request.name!r}, policy='<its policy>'), and a "
-                  f"site says into it with sequence_ai.planner({request.name!r}).observe(data)")
         else:
             print(f"ready: {request.name}{ver} is deployed — connect with sequence_ai.connect(model={request.name!r})")
         kept = None if stopped else _check_machine_kept(request.name, args.base_url, fleet)
         if kept:
 
 
-            from sequence_ai._core.capacity import IDLE_S, duration
 
-            print(f"  its check's machine stays on as its first worker: with no robot acting it stops after "
-                  f"{duration(IDLE_S)}, billed until then")
+
+
+
+            from sequence_ai._core.capacity import duration
+
+
+            card = gpus[0].split(':')[0] if gpus else "cpu"
+            machine = "CPU machine" if card.lower() == "cpu" else f"{card} machine"
+            print(f"  its check's {machine} stays on as its first worker: it saves this version's image for its next "
+                  f"machines, usually a minute or two, then with no robot acting stops after "
+                  f"{duration(fleet['scaling']['idle_timeout'])} (its idle timeout), billed as a worker until then")
         elif kept is False:
             print("  its check's machine stopped after its check: this version's first worker starts when it is needed "
                   "(a cold start)")
@@ -694,7 +691,7 @@ def _deploy_policy(args: argparse.Namespace, request: Any, snap: Any = None, *, 
         if start:
             print(f"  {start}")
 
-        seats = _seats_line(progress.summary) if planner is None else None
+        seats = _seats_line(progress.summary)
         if seats:
             print(f"  {seats}")
 
@@ -746,13 +743,20 @@ def _deploy_benchmark(args: argparse.Namespace, request: Any) -> int:
 
     client = EvalGatewayClient(base_url=args.base_url)
     override = bool(getattr(args, "override", False))
+
+
+
+    for line in _price_before(client, request, override):
+        print(line)
     if override:
 
 
         print(f"override: the version of {request.name} evals run now is deleted for good once this one has passed its "
               "check and no eval runs it; if this one fails, nothing is deleted")
-    client.register(request, override=override)
+    registered = client.register(request, override=override)
     print(f"accepted: benchmark {request.name} is building (its sim image builds on the platform, not here)")
+    if registered.adapters:
+        print(adapters_line(registered.adapters, "its template pairs with its template policies"))
     if not args.wait:
         print(f"follow it with: seq{_tier_suffix(args.base_url)} benchmark status {request.name} --wait")
         return 0
@@ -778,6 +782,61 @@ def _deploy_benchmark(args: argparse.Namespace, request: Any) -> int:
 
     raise still_building(f"benchmark {request.name}", f"seq benchmark status {request.name} --wait",
                          stalled_s=BUILD_MOVED_S if stalled else None)
+
+
+def _price_before(client: Any, request: Any, override: bool) -> list[str]:
+    """A benchmark registration's price and its name's last first start, as its dry run says them, before it registers;
+    nothing when the platform cannot be asked or refuses - the registration then says why."""
+    try:
+        verdict = client.validate("/v1/benchmarks/validate", content=request.model_dump_json(exclude_none=True),
+                                  headers={"Content-Type": "application/json"},
+                                  params={"override": "true"} if override else None)
+    except Exception:
+        return []
+    return registration_price_lines(verdict) + first_start_lines(request.name, verdict)
+
+
+def registration_price_lines(verdict: dict | None) -> list[str]:
+    """What registering a benchmark costs before anything is paid, as the platform priced it (its dry run's `price`,
+    gateway deployments/first_start.registration): each machine a registration runs, by the hour, billed by the second
+    from when it starts - the one preparing its image where that is a machine of its own, and its check's, on its card.
+    How long they run is the registration's own (first start says the last version's). Nothing from a platform that
+    priced none.
+"""
+    from sequence_ai._core.money import money
+
+    price = (verdict or {}).get("price") or {}
+    check, build = price.get("check") or {}, price.get("build") or {}
+    if not check:
+        return []
+
+    def rate(m: dict) -> str:
+        return "not priced now" if m.get("usd_per_hour") is None else f"{money(m['usd_per_hour'])}/h"
+
+    def size(m: dict) -> str:
+        cores, gib = float(m.get("cpu") or 0), float(m.get("memory_gib") or 0)
+        return f"{cores:g} core{'' if cores == 1 else 's'}, {gib:g} GiB"
+
+    cards = int(check.get("cards") or 0)
+    on = (f"on {cards} x {check['card']}" if cards > 1 else f"on {check['card']}") if check.get("card") else \
+        "with no card"
+    if build:
+        said = (f"price       registering it runs two machines, each billed by the second from when it starts: the one "
+                f"preparing its image {rate(build)} ({size(build)}), and its check's {on} {rate(check)} ({size(check)})")
+    else:
+        said = (f"price       registering it runs its check's machine, billed by the second from when it starts: {on} "
+                f"{rate(check)} ({size(check)}), its image built on it")
+    return [said] + ([f"{'':12}checks are not billed now"] if price.get("billed") is False else [])
+
+
+def adapters_line(adapters: list[str], whose: str) -> str:
+    """The adapters the platform registered in the account with a registration, said where it is: which, whose they are,
+    and that an eval names them with nothing deployed for them.
+
+"""
+    many = len(adapters) > 1
+    return (f"  also registered in your account: {', '.join(adapters)} - the adapter{'s' if many else ''} {whose}; an "
+            f"eval names {'them' if many else 'it'} with nothing more to deploy")
 
 
 def more_line(name: str) -> Callable[[float], None]:
@@ -969,9 +1028,8 @@ _NO_ACT = ("checking it starts and answers its health check; it names no sample 
 _PLAYS_SAMPLE = "playing its sample episode on it (@seq.sample), call by call"
 
 
-_PLANNER_PLANS_SAMPLE = "planning its sample group once (@seq.sample)"
-_PLANNER_NO_SAMPLE = ("checking it starts and answers its health check; it names no sample group (@seq.sample), so the "
-                      "check plans nothing")
+_PLAYS_SAMPLE_AND_PLANS = ("playing its sample episode on it (@seq.sample), call by call, planning once after the first "
+                           "act")
 
 
 def build_acts(policy: Any) -> bool:
@@ -1011,11 +1069,11 @@ class _BuildProgress:
 """
 
     def __init__(self, target: str, base_url: str | None, *, acts: bool = True, sample: bool = False,
-                 card: str | None = None, out: Any = None, planner: bool = False) -> None:
+                 card: str | None = None, out: Any = None, plans: bool = False) -> None:
         self._target, self._base_url = target, base_url
 
 
-        self._acts, self._sample, self._planner = acts, sample, planner
+        self._acts, self._sample, self._plans = acts, sample, plans
         self._card = card
         self._state = None
         self.stages: list | None = None
@@ -1039,10 +1097,8 @@ class _BuildProgress:
 
     def _label(self, s: dict) -> str:
         name = s.get("stage")
-        if name == "act_check" and self._planner:
-            return _PLANNER_PLANS_SAMPLE if self._sample else _PLANNER_NO_SAMPLE
         if name == "act_check" and not self._acts:
-            return _PLAYS_SAMPLE if self._sample else _NO_ACT
+            return (_PLAYS_SAMPLE_AND_PLANS if self._plans else _PLAYS_SAMPLE) if self._sample else _NO_ACT
         if name == "card":
             limit = s.get("limit_s")
             card = f"an available {self._card}" if self._card and self._card.lower() != "cpu" else "a machine"

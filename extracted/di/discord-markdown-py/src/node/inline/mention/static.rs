@@ -1,15 +1,6 @@
 use std::fmt::Display;
 
-use nom::{
-	Parser,
-	branch::alt,
-	bytes::complete::tag,
-	character::complete::{char, u64},
-	combinator::{map, opt, value},
-	sequence::{delimited, preceded},
-};
-
-use crate::{Input, error::ParseError, unparse::Unparse};
+use crate::{Input, error::PResult};
 
 pub const PREFIX: &str = "<id:";
 pub const SUFFIX: char = '>';
@@ -49,48 +40,43 @@ impl Display for Static {
 	}
 }
 
-impl Unparse for Static {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{PREFIX}{self}{SUFFIX}")
-	}
-}
-
-#[must_use]
-pub fn parser<'data, E>() -> impl Parser<Input<'data>, Output = Static, Error = E>
-where
-	E: ParseError<'data>,
-{
-	delimited(
-		tag(PREFIX),
-		alt((
-			value(Static::Home, tag("home")),
-			value(Static::Browse, tag("browse")),
-			value(Static::Customize, tag("customize")),
-			value(Static::Guide, tag("guide")),
-			map(
-				preceded(tag("linked-roles"), opt(preceded(char(':'), u64))),
-				Static::LinkedRoles,
-			),
-		)),
-		char(SUFFIX),
-	)
+/// Parse a static mention.
+///
+/// # Errors
+/// If the content does not begin with a static mention.
+pub fn parse(input: &mut Input) -> PResult<Static> {
+	input.tag(PREFIX)?;
+	let named = [
+		("home", Static::Home),
+		("browse", Static::Browse),
+		("customize", Static::Customize),
+		("guide", Static::Guide),
+	]
+	.into_iter()
+	.find_map(|(name, mention)| input.eat(name).then_some(mention));
+	let mention = if let Some(mention) = named {
+		mention
+	} else {
+		input.tag("linked-roles")?;
+		let id = input.attempt(|input| {
+			input.char(':')?;
+			input.u64()
+		})?;
+		Static::LinkedRoles(id)
+	};
+	input.char(SUFFIX)?;
+	Ok(mention)
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
+	use crate::test_utils::run;
 
-	use crate::test_utils::handle_nom_err;
-
-	use super::{Static, parser};
+	use super::{Static, parse};
 
 	#[test]
 	fn basic() {
-		let (rem, res) = parser()
-			.parse("<id:home>".into())
-			.finish()
-			.map_err(handle_nom_err("<id:home>"))
-			.expect("unable to parse");
+		let (rem, res) = run("<id:home>", parse).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(res, Static::Home);
@@ -98,11 +84,7 @@ mod test {
 
 	#[test]
 	fn linked_roles_empty() {
-		let (rem, res) = parser()
-			.parse("<id:linked-roles>".into())
-			.finish()
-			.map_err(handle_nom_err("<id:linked-roles>"))
-			.expect("unable to parse");
+		let (rem, res) = run("<id:linked-roles>", parse).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(res, Static::LinkedRoles(None));
@@ -110,11 +92,7 @@ mod test {
 
 	#[test]
 	fn linked_roles_value() {
-		let (rem, res) = parser()
-			.parse("<id:linked-roles:1234>".into())
-			.finish()
-			.map_err(handle_nom_err("<id:linked-roles:1234>"))
-			.expect("unable to parse");
+		let (rem, res) = run("<id:linked-roles:1234>", parse).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(res, Static::LinkedRoles(Some(1234)));

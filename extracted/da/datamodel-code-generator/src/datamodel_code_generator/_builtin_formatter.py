@@ -8,7 +8,7 @@ import sys
 import tokenize
 from collections import defaultdict
 from enum import IntEnum
-from functools import cache, partial
+from functools import partial
 from io import StringIO
 from typing import TYPE_CHECKING, Any, NamedTuple, TypeGuard, cast
 
@@ -30,12 +30,14 @@ from datamodel_code_generator._python_syntax import (
     module_import,
     normalize_newlines,
 )
+from datamodel_code_generator._python_target_names import target_stdlib_module_names
 from datamodel_code_generator._target_unicode import (
     NEWEST_TARGET,
     HostIdentifiers,
     host_identifiers,
     is_upper,
     lower,
+    string_repr,
     target_pattern,
 )
 from datamodel_code_generator.imports import IMPORT_DATETIME_MODULE
@@ -256,15 +258,6 @@ def _format_from_import(module: str, aliases: list[str], line_length: int) -> st
     return f"from {module} import (\n{imports}\n)"
 
 
-@cache
-def _stdlib_module_names(python_version: PythonVersion | None) -> frozenset[str]:
-    """Return the top-level standard library module names of the target Python version."""
-    from datamodel_code_generator import _target_stdlib_data as data  # noqa: PLC0415
-
-    index = data.TARGETS.index((python_version or PythonVersionMin).value)
-    return frozenset(name for name, (since, until) in data.STDLIB_MODULE_NAMES.items() if since <= index < until)
-
-
 def _import_category(
     module: str, level: int, known_first_party: frozenset[str], python_version: PythonVersion | None = None
 ) -> _ImportCategory:
@@ -273,7 +266,7 @@ def _import_category(
     if level:
         return _ImportCategory.LOCAL
     top_level_module = module.split(".", 1)[0]
-    if top_level_module in _stdlib_module_names(python_version):
+    if top_level_module in target_stdlib_module_names((python_version or PythonVersionMin).version_key):
         return _ImportCategory.STANDARD_LIBRARY
     if top_level_module in known_first_party:
         return _ImportCategory.FIRST_PARTY
@@ -652,11 +645,6 @@ def _format_nested_literal(
     return None
 
 
-def _literal_block(opening: str, entries: list[str], indent: str, closing: str) -> str:
-    """Write a collection literal one entry per line; an empty one holds a blank line."""
-    return _block(opening, entries or [""], indent, closing)
-
-
 def _literal_entry_lines(  # noqa: PLR0913
     head: str,
     value: ast.AST,
@@ -714,7 +702,7 @@ def _format_dict_literal(
                 split_multiline=False,
             )
         )
-    return _literal_block("{", entries, indent, "}")
+    return _block("{", entries, indent, "}")
 
 
 def _format_tuple_literal(
@@ -738,32 +726,50 @@ def _format_tuple_literal(
                 split_multiline=True,
             )
         )
-    return _literal_block("(", elements, indent, ")")
+    return _block("(", elements, indent, ")")
 
 
 def _format_list_literal(list_node: ast.List, indent: str, source: str) -> str:
     comma = "," if len(list_node.elts) > 1 else ""
     elements = _item_lines((_source_segment(source, element) for element in list_node.elts), indent, comma)
-    return _literal_block("[", list(elements), indent, "]")
+    return _block("[", elements, indent, "]")
+
+
+_ESCAPE_UNIT = re.compile(r"\\(?:x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|.)|.", re.DOTALL)
+_LONGEST_ESCAPE_UNIT = 10
+
+
+def _escape_boundary(text: str, limit: int) -> int:
+    """Return the end of the last whole character or escape sequence of ``text`` within ``limit``.
+
+    The first one is returned when it is longer than ``limit``, so that a split always makes progress.
+    """
+    ends = [unit.end() for unit in _ESCAPE_UNIT.finditer(text[: limit + _LONGEST_ESCAPE_UNIT])]
+    return max((end for end in ends if end <= limit), default=ends[0])
 
 
 def _split_escaped_string_literal(content: str, max_length: int) -> list[str]:
+    """Split the escaped content of a string literal at spaces, else between characters and escape sequences.
+
+    A literal is left whole when ``max_length`` leaves no room for any content.
+    """
+    if max_length < 1:
+        return [content]
     chunks: list[str] = []
     remaining = content
     while len(remaining) > max_length:
         split_index = remaining.rfind(" ", 0, max_length + 1)
         if split_index <= 0:
-            split_index = max_length
-            if remaining[split_index - 1] == "\\":
-                split_index -= 1
+            split_index = _escape_boundary(remaining, max_length)
         chunks.append(remaining[:split_index])
         remaining = remaining[split_index:]
-    chunks.append(remaining)
+    if remaining or not chunks:
+        chunks.append(remaining)
     return chunks
 
 
 def _format_wrapped_string_literal(value: str, indent: str, line_length: int) -> str:
-    value_repr = repr(value)
+    value_repr = string_repr(value, NEWEST_TARGET)
     quote = value_repr[0]
     escaped = value_repr[1:-1] if quote in {"'", '"'} and value_repr.endswith(quote) else value_repr
     literal_indent = f"{indent}    "
@@ -790,7 +796,7 @@ def _format_call_argument_for_block(
     match keyword.value:
         case ast.Constant(value=str() as value) if wrap_string_literal:
             formatted_value = _format_wrapped_string_literal(value, indent, line_length)
-        case ast.Dict() as value:
+        case ast.Dict(keys=[_, *_]) as value:
             formatted_value = _format_dict_literal(value, indent, source, line_length)
         case ast.Lambda(body=ast.Call() as value):
             formatted_value = (
@@ -1039,6 +1045,11 @@ def _should_format_field_bit_or_annotation_assignment(
     )
 
 
+def _call_head_overflows(value_prefix: str, call: ast.Call, line_length: int, source: str) -> bool:
+    """Return whether ``value_prefix`` and the name and opening bracket of ``call`` are over the line length."""
+    return len(f"{value_prefix}{_source_segment(source, call.func)}(") > line_length
+
+
 def _should_format_field_bit_or_value_assignment(
     statement: ast.AnnAssign,
     value_prefix: str,
@@ -1049,8 +1060,9 @@ def _should_format_field_bit_or_value_assignment(
     if not _is_bit_or(statement.annotation) or not _is_call(value_node, "Field"):
         return False
 
-    call_start = f"{_source_segment(source, value_node.func)}("
-    return len(f"{value_prefix}{call_start}") > line_length and len(f"{value_prefix}(") <= line_length
+    return (
+        _call_head_overflows(value_prefix, value_node, line_length, source) and len(f"{value_prefix}(") <= line_length
+    )
 
 
 def _format_parenthesized_field_value(
@@ -1062,7 +1074,7 @@ def _format_parenthesized_field_value(
     wrap_string_literal: bool,
 ) -> str:
     value_node = statement.value
-    assert _is_call(value_node, "Field")
+    assert isinstance(value_node, ast.Call)
     indent = _line_indent(value_prefix)
     value = _source_segment(source, value_node)
     if len(f"{indent}    {value}") > line_length:
@@ -1342,6 +1354,14 @@ def _format_generated_annotation_assignment(  # noqa: PLR0911, PLR0912
             statement, value_prefix, line_length, source, wrap_string_literal=wrap_string_literal
         )
     if (
+        (_is_call(statement.value, "field") or _is_datetime_module_call(statement.value))
+        and value_opening_fits
+        and _call_head_overflows(value_prefix, statement.value, line_length, source)
+    ):
+        return _format_parenthesized_field_value(
+            statement, value_prefix, line_length, source, wrap_string_literal=wrap_string_literal
+        )
+    if (
         _is_call(statement.value, "Field")
         or _is_call(statement.value, "field")
         or _is_datetime_module_call(statement.value)
@@ -1360,9 +1380,9 @@ def _format_generated_annotation_assignment(  # noqa: PLR0911, PLR0912
             statement.annotation, indent, line_length, source, closing_suffix, wrap_string_literal=wrap_string_literal
         )
         return f"{target_prefix}{formatted_annotation}"
-    if isinstance(statement.value, ast.Dict):
+    if isinstance(statement.value, ast.Dict) and statement.value.keys:
         return f"{value_prefix}{_format_dict_literal(statement.value, indent, source, line_length)}"
-    if isinstance(statement.value, ast.List):
+    if isinstance(statement.value, ast.List) and statement.value.elts:
         return f"{value_prefix}{_format_list_literal(statement.value, indent, source)}"
     if _is_annotated(statement.annotation):
         if statement.value is not None and value_opening_fits and len(line) <= line_length + MAX_SHORT_DEFAULT_OVERFLOW:
@@ -2100,7 +2120,7 @@ def _normalize_top_level_blank_lines(code: str) -> str:
     string_lines: set[int] = set()
     # Multi-line STRING tokens can only come from triple quotes or backslash-continuation.
     if ('"""' in code) or ("'''" in code) or ("\\\n" in code) or ("\\\r\n" in code):
-        for token in tokenize.generate_tokens(StringIO(code).readline):
+        for token in _string_tokens(code):
             if token.type == tokenize.STRING and token.start[0] != token.end[0]:
                 string_lines.update(range(token.start[0], token.end[0] + 1))
 
@@ -2135,9 +2155,43 @@ def _normalize_top_level_blank_lines(code: str) -> str:
     return "\n".join(formatted_lines)
 
 
+_FSTRING_START = getattr(tokenize, "FSTRING_START", -1)
+_FSTRING_END = getattr(tokenize, "FSTRING_END", -1)
+
+
+def _source_span(lines: list[str], start: tuple[int, int], end: tuple[int, int]) -> str:
+    """Return the text between two ``(row, column)`` token positions of ``lines``."""
+    (start_row, start_column), (end_row, end_column) = start, end
+    if start_row == end_row:
+        return lines[start_row - 1][start_column:end_column]
+    middle = lines[start_row : end_row - 1]
+    return "\n".join((lines[start_row - 1][start_column:], *middle, lines[end_row - 1][:end_column]))
+
+
+def _string_tokens(code: str) -> Iterator[tokenize.TokenInfo]:
+    """Yield the tokens of ``code`` with each f-string as one STRING token, as tokenize reads it before Python 3.12."""
+    lines = code.split("\n")
+    depth = 0
+    f_string: list[tokenize.TokenInfo] = []
+    for token in tokenize.generate_tokens(StringIO(code).readline):
+        if token.type == _FSTRING_START:
+            depth += 1
+        if not depth:
+            yield token
+            continue
+        f_string.append(token)
+        if token.type == _FSTRING_END:
+            depth -= 1
+            if not depth:
+                start = f_string[0]
+                text = _source_span(lines, start.start, token.end)
+                yield tokenize.TokenInfo(tokenize.STRING, text, start.start, token.end, start.line)
+                f_string.clear()
+
+
 def _normalize_string_quotes(code: str) -> str:
     tokens: list[tokenize.TokenInfo] = []
-    for token in tokenize.generate_tokens(StringIO(code).readline):
+    for token in _string_tokens(code):
         normalized_token = token
         if token.type == tokenize.STRING and (string_match := STRING_PREFIX_PATTERN.match(token.string)) is not None:
             prefix, quote = string_match.groups()

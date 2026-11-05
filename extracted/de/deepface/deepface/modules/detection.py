@@ -11,7 +11,7 @@ import cv2
 from deepface.modules import modeling
 from deepface.models.Detector import Detector, DetectedFace, FacialAreaRegion
 from deepface.commons import image_utils
-from deepface.models.face_detection import OpenCv
+from deepface.models.face_detection.opencv import OpenCv
 from deepface.modules.exceptions import FaceNotDetected
 from deepface.modules.exceptions import UnimplementedError, ImgNotFound
 from deepface.commons.logger import Logger
@@ -201,8 +201,8 @@ def extract_faces(
         # cast to int for flask, and do final checks for borders
         x = max(0, int(current_region.x))
         y = max(0, int(current_region.y))
-        w = min(width - x - 1, int(current_region.w))
-        h = min(height - y - 1, int(current_region.h))
+        w = min(width - x, int(current_region.w))
+        h = min(height - y, int(current_region.h))
 
         landmarks = {
             "left_eye": current_region.left_eye,

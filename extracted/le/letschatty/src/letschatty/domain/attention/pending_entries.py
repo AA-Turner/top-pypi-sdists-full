@@ -2,22 +2,57 @@
 `docs/atencion/entrada-demorada.md`).
 
 The entry of a NEW chat (welcome, reason, automations, AI, `message.received`) runs `Recepcion.bienvenida_demora_s`
-seconds later. One document per waiting entry: `{_id, company_id, chat_id, mensajes: [message_id…], procesados:
-[message_id…], contact_points: {message_id: contact_point_id|None}, trazas: {message_id: trace_id|None}, demora_s,
-due_at, proximo_at, estado, abierta, intentos, creada_at}`, plus `lease_until`/`reclamada_at`/`reclamada_por` once
-claimed and `hecha_at`/`error` once closed. `abierta` is true while pending or sending (one open per chat, unique
-partial index); `proximo_at` is the due time while pending and the end of the lease while sending. The stored names
-and values are Spanish, as in `main`. Without cache.
+seconds later. One document per waiting entry; its stored form (Spanish names and values, as in `main`) is the Mongo
+adapter's (`letschatty/mongo/attention/pending_entry_repository.py`): the port takes fields and answers the models
+below. Without cache.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, List, Mapping, Optional, Protocol
 
-PENDING = "pendiente"
-SENDING = "enviando"
-DONE = "hecha"
-FAILED = "fallida"
+__all__ = ["DuePendingEntry", "PendingEntry", "PendingEntryRepository"]
+
+
+@dataclass(frozen=True)
+class PendingEntry:
+    """A delayed entry as a claim or a read answers it. `state` is one of the stored states (`states.ENTRY_*`).
+
+    `messages` and `processed` are the message ids, read when they are asked for, as `main` read them while running the
+    messages: a stored value that is not a list fails there, after the attempts are checked, not on the claim
+    (`raw_messages`/`raw_processed` keep what was stored). `contact_points` and `traces` are the stored maps, as they
+    are: the first message's id is a key, and the id of an added one with a dot in it (a wamid) is nested at that dot,
+    so looking it up finds nothing (ENG-166)."""
+    id: str
+    company_id: Optional[str]
+    chat_id: Optional[str]
+    state: Optional[str]
+    attempts: int
+    due_at: Optional[datetime]
+    raw_messages: Any = ()
+    raw_processed: Any = ()
+    contact_points: Mapping[str, Any] = field(default_factory=dict)
+    traces: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def messages(self) -> List[str]:
+        return [str(m) for m in (self.raw_messages or [])]
+
+    @property
+    def processed(self) -> List[str]:
+        return [str(m) for m in (self.raw_processed or [])]
+
+
+@dataclass(frozen=True)
+class DuePendingEntry:
+    """An open entry that is due (the sweep and the startup recovery): `next_at` is its due time while pending and the
+    end of its lease while sending. `company_id`/`chat_id` are None only if the document lacks the key (a stored null is
+    the text "None", as `str(doc[key])` was in `main`)."""
+    id: str
+    company_id: Optional[str]
+    chat_id: Optional[str]
+    next_at: Optional[datetime]
 
 
 class PendingEntryRepository(Protocol):
@@ -34,15 +69,14 @@ class PendingEntryRepository(Protocol):
         ...
 
     async def claim(self, item_id: str, *, due_by: datetime, now: datetime, lease_until: datetime,
-                    claimed_by: str) -> Optional[Dict[str, Any]]:
+                    claimed_by: str) -> Optional[PendingEntry]:
         """Atomic, for one caller: an open entry that is pending and due by `due_by`, or sending with a lease that
-        ended before `now`, becomes sending until `lease_until` with one more attempt. Answers it as stored after the
+        ended before `now`, becomes sending until `lease_until` with one more attempt. Answers it as it is after the
         claim, or None."""
         ...
 
-    async def read(self, item_id: str) -> Optional[Dict[str, Any]]:
-        """`{_id, mensajes, procesados, contact_points, trazas, estado, company_id, chat_id, intentos, due_at,
-        demora_s}`, or None."""
+    async def read(self, item_id: str) -> Optional[PendingEntry]:
+        """The entry as it is now, or None."""
         ...
 
     async def mark_processed(self, item_id: str, message_id: str, *, lease_until: datetime) -> None:
@@ -57,6 +91,6 @@ class PendingEntryRepository(Protocol):
         """Closes it failed with `error`: it is no longer open."""
         ...
 
-    async def due(self, *, until: datetime, limit: int) -> List[Dict[str, Any]]:
-        """The open ones whose `proximo_at` is by `until`, up to `limit`: `{_id, company_id, chat_id, proximo_at}`."""
+    async def due(self, *, until: datetime, limit: int) -> List[DuePendingEntry]:
+        """The open ones whose next time is by `until`, up to `limit`."""
         ...

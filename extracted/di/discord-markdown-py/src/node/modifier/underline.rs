@@ -1,18 +1,6 @@
 //! Underline.
 
-use crate::node::Inlines;
-use crate::span::Span;
-use crate::unparse::Unparse;
-
 pub const DELIMITER: &str = "__";
-
-/// Unparse underline content back to markdown.
-///
-/// # Errors
-/// If formatting fails
-pub fn unparse<S: Span>(content: &Inlines<S>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-	write!(f, "{}{}{}", DELIMITER, content.unparse(), DELIMITER)
-}
 
 #[cfg(test)]
 mod test {

@@ -42,6 +42,8 @@ if TYPE_CHECKING:
         OrgsOrgCopilotCodingAgentPermissionsGetResponse200,
         OrgsOrgCopilotCodingAgentPermissionsRepositoriesGetResponse200,
         OrgsOrgCopilotContentExclusionPutResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
         ReposOwnerRepoCopilotCloudAgentConfigurationGetResponse200,
     )
     from ..types import (
@@ -70,6 +72,11 @@ if TYPE_CHECKING:
         OrgsOrgCopilotCodingAgentPermissionsRepositoriesPutBodyType,
         OrgsOrgCopilotContentExclusionPutBodyType,
         OrgsOrgCopilotContentExclusionPutResponse200TypeForResponse,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200TypeForResponse,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyPropExtraKnownMarketplacesType,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyPropPluginAssignmentsType,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyType,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200TypeForResponse,
         ReposOwnerRepoCopilotCloudAgentConfigurationGetResponse200TypeForResponse,
     )
 
@@ -2161,10 +2168,13 @@ class CopilotClient:
         Gets information about which repositories in an organization have been enabled
         or disabled for the Copilot cloud agent.
 
-        Organization owners can configure whether Copilot cloud agent is enabled for
-        all repositories, selected repositories, or no repositories owned by organization.
+        Organization owners and members with a custom organization role that includes
+        either the `View organization Copilot cloud agent settings` or `Manage organization
+        Copilot cloud agent settings` permission can use this endpoint to view whether
+        Copilot cloud agent is enabled for all repositories, selected repositories, or
+        no repositories owned by the organization.
 
-        OAuth app tokens and personal access tokens (classic) need the `admin:org` scope to use this endpoint.
+        OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
 
         See also: https://docs.github.com/rest/copilot/copilot-coding-agent-management#get-copilot-cloud-agent-permissions-for-an-organization
         """
@@ -2212,10 +2222,13 @@ class CopilotClient:
         Gets information about which repositories in an organization have been enabled
         or disabled for the Copilot cloud agent.
 
-        Organization owners can configure whether Copilot cloud agent is enabled for
-        all repositories, selected repositories, or no repositories owned by organization.
+        Organization owners and members with a custom organization role that includes
+        either the `View organization Copilot cloud agent settings` or `Manage organization
+        Copilot cloud agent settings` permission can use this endpoint to view whether
+        Copilot cloud agent is enabled for all repositories, selected repositories, or
+        no repositories owned by the organization.
 
-        OAuth app tokens and personal access tokens (classic) need the `admin:org` scope to use this endpoint.
+        OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
 
         See also: https://docs.github.com/rest/copilot/copilot-coding-agent-management#get-copilot-cloud-agent-permissions-for-an-organization
         """
@@ -2430,10 +2443,12 @@ class CopilotClient:
 
         Lists the selected repositories that are enabled for Copilot cloud agent in an organization.
 
-        Organization owners can use this endpoint when the coding agent repository policy
-        is set to `selected` to see which repositories have been enabled.
+        Organization owners and members with a custom organization role that includes
+        either the `View organization Copilot cloud agent settings` or `Manage organization
+        Copilot cloud agent settings` permission can use this endpoint when the coding agent
+        repository policy is set to `selected` to see which repositories have been enabled.
 
-        OAuth app tokens and personal access tokens (classic) need the `admin:org` scope to use this endpoint.
+        OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
 
         See also: https://docs.github.com/rest/copilot/copilot-coding-agent-management#list-repositories-enabled-for-copilot-cloud-agent-in-an-organization
         """
@@ -2489,10 +2504,12 @@ class CopilotClient:
 
         Lists the selected repositories that are enabled for Copilot cloud agent in an organization.
 
-        Organization owners can use this endpoint when the coding agent repository policy
-        is set to `selected` to see which repositories have been enabled.
+        Organization owners and members with a custom organization role that includes
+        either the `View organization Copilot cloud agent settings` or `Manage organization
+        Copilot cloud agent settings` permission can use this endpoint when the coding agent
+        repository policy is set to `selected` to see which repositories have been enabled.
 
-        OAuth app tokens and personal access tokens (classic) need the `admin:org` scope to use this endpoint.
+        OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
 
         See also: https://docs.github.com/rest/copilot/copilot-coding-agent-management#list-repositories-enabled-for-copilot-cloud-agent-in-an-organization
         """
@@ -3860,6 +3877,422 @@ class CopilotClient:
                 "401": BasicError,
                 "403": BasicError,
                 "404": BasicError,
+            },
+        )
+
+    def get_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+    ) -> Response[
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200TypeForResponse,
+    ]:
+        """copilot/get-copilot-team-customizations
+
+        GET /orgs/{org}/teams/{team_slug}/copilot/customizations
+
+        > [!NOTE]
+        > This endpoint is in public preview and is subject to change.
+
+        Gets the GitHub-managed Copilot customizations of a team.
+
+        The authenticated user must be an organization owner or a team maintainer. Teams that keep their
+        customizations in a repository return `409`.
+
+        OAuth app tokens and personal access tokens (classic) need the `admin:org` or `read:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/copilot/copilot-team-customizations#get-copilot-customizations-for-a-team
+        """
+
+        from ..models import (
+            BasicError,
+            EventsGetResponse503,
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200,
+            ValidationErrorSimple,
+        )
+
+        url = f"/orgs/{org}/teams/{team_slug}/copilot/customizations"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200,
+            error_models={
+                "500": BasicError,
+                "401": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+                "409": BasicError,
+                "422": ValidationErrorSimple,
+                "503": EventsGetResponse503,
+            },
+        )
+
+    async def async_get_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+    ) -> Response[
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200TypeForResponse,
+    ]:
+        """copilot/get-copilot-team-customizations
+
+        GET /orgs/{org}/teams/{team_slug}/copilot/customizations
+
+        > [!NOTE]
+        > This endpoint is in public preview and is subject to change.
+
+        Gets the GitHub-managed Copilot customizations of a team.
+
+        The authenticated user must be an organization owner or a team maintainer. Teams that keep their
+        customizations in a repository return `409`.
+
+        OAuth app tokens and personal access tokens (classic) need the `admin:org` or `read:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/copilot/copilot-team-customizations#get-copilot-customizations-for-a-team
+        """
+
+        from ..models import (
+            BasicError,
+            EventsGetResponse503,
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200,
+            ValidationErrorSimple,
+        )
+
+        url = f"/orgs/{org}/teams/{team_slug}/copilot/customizations"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=OrgsOrgTeamsTeamSlugCopilotCustomizationsGetResponse200,
+            error_models={
+                "500": BasicError,
+                "401": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+                "409": BasicError,
+                "422": ValidationErrorSimple,
+                "503": EventsGetResponse503,
+            },
+        )
+
+    @overload
+    def set_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+        data: OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyType,
+    ) -> Response[
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200TypeForResponse,
+    ]: ...
+
+    @overload
+    def set_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+        plugin_assignments: Missing[
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyPropPluginAssignmentsType
+        ] = UNSET,
+        extra_known_marketplaces: Missing[
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyPropExtraKnownMarketplacesType
+        ] = UNSET,
+    ) -> Response[
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200TypeForResponse,
+    ]: ...
+
+    def set_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+        data: Missing[OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200TypeForResponse,
+    ]:
+        """copilot/set-copilot-team-customizations
+
+        PUT /orgs/{org}/teams/{team_slug}/copilot/customizations
+
+        > [!NOTE]
+        > This endpoint is in public preview and is subject to change.
+
+        Replaces the GitHub-managed Copilot customizations of a team, creating them on the first write.
+
+        The authenticated user must be an organization owner or a team maintainer. Teams that keep their
+        customizations in a repository return `409`. Documents that fail validation return `422` with the reason.
+
+        OAuth app tokens and personal access tokens (classic) need the `admin:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/copilot/copilot-team-customizations#set-copilot-customizations-for-a-team
+        """
+
+        from ..models import (
+            BasicError,
+            EventsGetResponse503,
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBody,
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+            ValidationErrorSimple,
+        )
+
+        url = f"/orgs/{org}/teams/{team_slug}/copilot/customizations"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+            error_models={
+                "500": BasicError,
+                "401": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+                "409": BasicError,
+                "422": ValidationErrorSimple,
+                "503": EventsGetResponse503,
+            },
+        )
+
+    @overload
+    async def async_set_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+        data: OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyType,
+    ) -> Response[
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200TypeForResponse,
+    ]: ...
+
+    @overload
+    async def async_set_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+        plugin_assignments: Missing[
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyPropPluginAssignmentsType
+        ] = UNSET,
+        extra_known_marketplaces: Missing[
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyPropExtraKnownMarketplacesType
+        ] = UNSET,
+    ) -> Response[
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200TypeForResponse,
+    ]: ...
+
+    async def async_set_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+        data: Missing[OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+        OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200TypeForResponse,
+    ]:
+        """copilot/set-copilot-team-customizations
+
+        PUT /orgs/{org}/teams/{team_slug}/copilot/customizations
+
+        > [!NOTE]
+        > This endpoint is in public preview and is subject to change.
+
+        Replaces the GitHub-managed Copilot customizations of a team, creating them on the first write.
+
+        The authenticated user must be an organization owner or a team maintainer. Teams that keep their
+        customizations in a repository return `409`. Documents that fail validation return `422` with the reason.
+
+        OAuth app tokens and personal access tokens (classic) need the `admin:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/copilot/copilot-team-customizations#set-copilot-customizations-for-a-team
+        """
+
+        from ..models import (
+            BasicError,
+            EventsGetResponse503,
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBody,
+            OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+            ValidationErrorSimple,
+        )
+
+        url = f"/orgs/{org}/teams/{team_slug}/copilot/customizations"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                OrgsOrgTeamsTeamSlugCopilotCustomizationsPutBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "PUT",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=OrgsOrgTeamsTeamSlugCopilotCustomizationsPutResponse200,
+            error_models={
+                "500": BasicError,
+                "401": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+                "409": BasicError,
+                "422": ValidationErrorSimple,
+                "503": EventsGetResponse503,
+            },
+        )
+
+    def delete_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+    ) -> Response:
+        """copilot/delete-copilot-team-customizations
+
+        DELETE /orgs/{org}/teams/{team_slug}/copilot/customizations
+
+        > [!NOTE]
+        > This endpoint is in public preview and is subject to change.
+
+        Deletes the GitHub-managed Copilot customizations of a team. Deleting customizations that don't exist succeeds.
+
+        The authenticated user must be an organization owner or a team maintainer. Teams that keep their
+        customizations in a repository return `409`.
+
+        OAuth app tokens and personal access tokens (classic) need the `admin:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/copilot/copilot-team-customizations#delete-copilot-customizations-for-a-team
+        """
+
+        from ..models import BasicError, EventsGetResponse503, ValidationErrorSimple
+
+        url = f"/orgs/{org}/teams/{team_slug}/copilot/customizations"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "DELETE",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "500": BasicError,
+                "401": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+                "409": BasicError,
+                "422": ValidationErrorSimple,
+                "503": EventsGetResponse503,
+            },
+        )
+
+    async def async_delete_copilot_team_customizations(
+        self,
+        org: str,
+        team_slug: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        stream: bool = False,
+    ) -> Response:
+        """copilot/delete-copilot-team-customizations
+
+        DELETE /orgs/{org}/teams/{team_slug}/copilot/customizations
+
+        > [!NOTE]
+        > This endpoint is in public preview and is subject to change.
+
+        Deletes the GitHub-managed Copilot customizations of a team. Deleting customizations that don't exist succeeds.
+
+        The authenticated user must be an organization owner or a team maintainer. Teams that keep their
+        customizations in a repository return `409`.
+
+        OAuth app tokens and personal access tokens (classic) need the `admin:org` scope to use this endpoint.
+
+        See also: https://docs.github.com/rest/copilot/copilot-team-customizations#delete-copilot-customizations-for-a-team
+        """
+
+        from ..models import BasicError, EventsGetResponse503, ValidationErrorSimple
+
+        url = f"/orgs/{org}/teams/{team_slug}/copilot/customizations"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "DELETE",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            error_models={
+                "500": BasicError,
+                "401": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+                "409": BasicError,
+                "422": ValidationErrorSimple,
+                "503": EventsGetResponse503,
             },
         )
 

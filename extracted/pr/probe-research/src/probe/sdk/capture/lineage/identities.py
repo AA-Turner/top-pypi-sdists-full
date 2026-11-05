@@ -1,7 +1,6 @@
 """a file's identity (sha256, fingerprint, rows) cached per machine, charged against the run's one I/O budget."""
 
 from __future__ import annotations
-import hashlib
 import os
 import sqlite3
 import sys
@@ -193,38 +192,33 @@ def hash_file(
             return (old[0], old[1], None)
         if not full and not (fingerprint and _take(budget, min(size, 2 * EDGE_BYTES))):
             return None
+        cost = size if full else min(size, 2 * EDGE_BYTES)
         try:
+            count = full and _counted(path)
+            # Observed here, hashed by the service (plan D20): this process opens what it saw
+            # and passes the open file; the service's niced child reads it (`files.hash`).
+            with open(path, "rb") as handle:
+                answer = hash_in_service(handle, is_full=full, size=size, should_count_lines=count, deadline=deadline)
+            if answer is None or answer.get("expired"):
+                _give_back(budget, cost)  # nothing read: not hashed, as when the budget is spent
+                return (old[0], old[1], None) if old is not None else None
+            if answer.get("error"):
+                return (None, None, None)
             if full:
-                digest = hashlib.sha256()
-                done = 0
-                newlines = 0
-                last = b""
-                count = _counted(path)
-                with open(path, "rb") as handle:
-                    for chunk in iter(lambda: handle.read(_CHUNK), b""):
-                        digest.update(chunk)
-                        if count:
-                            newlines += chunk.count(b"\n")
-                            last = chunk[-1:]
-                        done += len(chunk)
-                        if done < size and deadline is not None and time.monotonic() >= deadline:
-                            _give_back(budget, size - done)
-                            # Re-reading an h2 answer for its rows: the hash it
-                            # holds still stands (review of #2791).
-                            return (old[0], old[1], None) if old is not None else None
-                sha = digest.hexdigest()
-                rows = _rows_of(path, newlines, last, done) if count else _parquet_rows(path)
+                done = int(answer.get("bytes") or 0)
+                if answer.get("cut"):
+                    _give_back(budget, size - done)
+                    # Re-reading an h2 answer for its rows: the hash it holds still stands
+                    # (review of #2791).
+                    return (old[0], old[1], None) if old is not None else None
+                sha = str(answer["sha256"])
+                last = bytes([answer["last"]]) if answer.get("last") is not None else b""
+                rows = _rows_of(path, int(answer.get("newlines") or 0), last, done) if count else _parquet_rows(path)
             else:
-                digest = hashlib.sha256()
-                with open(path, "rb") as handle:
-                    digest.update(handle.read(EDGE_BYTES))
-                    if size > 2 * EDGE_BYTES:
-                        handle.seek(size - EDGE_BYTES)
-                    digest.update(handle.read(EDGE_BYTES))
-                fp = f"{size}:{ident[3]}:{digest.hexdigest()}"
+                fp = f"{size}:{ident[3]}:{answer['edges']}"
                 rows = _parquet_rows(path)
             after = _ident(os.stat(path))
-        except OSError:
+        except (OSError, KeyError, TypeError, ValueError):
             return (None, None, None)
         if after != ident:
             return (None, None, None)
@@ -236,13 +230,48 @@ def hash_file(
         return (sha, fp, rows)
 
 
+#: A hash's answer when the caller set no deadline: this much, plus the file read at the slowest
+#: rate a niced child may get (L2: a 100 GB checkpoint is never cut by a fixed wait), at most an hour.
+SERVICE_HASH_TIMEOUT_S = 600.0
+SLOWEST_HASH_BPS = 32 << 20
+MAX_SERVICE_HASH_TIMEOUT_S = 3600.0
+
+
+def hash_in_service(
+    handle, *, is_full: bool, size: int, should_count_lines: bool, deadline: float | None
+) -> dict | None:
+    """`files.hash` for one open file (plan D20): `{sha256, bytes, newlines, last}` (full),
+    `{edges, bytes}`, `{cut, bytes}`, `{expired}` or `{error}`; None when no service took it
+    (the caller then has no hash, never one of its own). Starts the service where none runs."""
+    from ....foundation.service_api import handoff
+    from ....foundation.service_api.wire import Method
+
+    timeout = (min(MAX_SERVICE_HASH_TIMEOUT_S, SERVICE_HASH_TIMEOUT_S + size / SLOWEST_HASH_BPS)
+               if deadline is None else deadline - time.monotonic())
+    if timeout <= 0:
+        return {"expired": True}
+    item: dict = {"mode": "full", "count_lines": should_count_lines} if is_full else {
+        "mode": "edges", "size": size, "edge_bytes": EDGE_BYTES}
+    try:
+        answer = handoff.request(
+            Method.FILES_HASH, {"files": [item], "timeout": timeout}, timeout=timeout + 15.0, fds=[handle.fileno()],
+        )
+    except Exception:  # noqa: BLE001 -- no service: no hash
+        return None
+    if not isinstance(answer, dict):
+        return None
+    if answer.get("expired") or answer.get("error"):
+        return answer
+    results = answer.get("results")
+    return results[0] if isinstance(results, list) and results and isinstance(results[0], dict) else None
+
+
 def file_identity(
     path: str,
     *,
     budget: list[int],
     cache: _HashCache | None = None,
     deadline: float | None = None,
-    hash_level: bool = False,
 ) -> dict | None:
     """A file's identity with the recorder's own hasher (F39: one hasher):
     ``{"content_hash", "fingerprint", "size_bytes", "rows"}``, or None when
@@ -251,9 +280,7 @@ def file_identity(
     ``content_hash`` is the sha256 when the file is at most 1 GiB and the
     ``budget`` pays for it; past either, ``fingerprint`` (size, mtime, first
     and last 4 MiB) when the budget pays for that; neither when it cannot (or
-    ``deadline`` passed). ``rows`` as :func:`hash_file`. ``hash_level=True``
-    (a `.probe.config` `hash` path) applies `HASH_LEVEL_MIN_BYTES`: below it,
-    path and size only (F30). Never raises."""
+    ``deadline`` passed). ``rows`` as :func:`hash_file`. Never raises."""
     try:
         with internal():
             st = os.stat(path)
@@ -261,8 +288,6 @@ def file_identity(
             return None
         ident = _ident(st)
         out: dict = {"content_hash": None, "fingerprint": None, "size_bytes": st.st_size, "rows": None}
-        if hash_level and st.st_size < HASH_LEVEL_MIN_BYTES:
-            return out
         result = hash_file(path, ident, cache=cache, budget=budget, deadline=deadline)
         if result is None:
             return out
@@ -312,7 +337,6 @@ def reference_hash(
     result = box.get("result")
     sha = result[0] if isinstance(result, tuple) else None
     return sha if isinstance(sha, str) and _HEX64.fullmatch(sha) else None
-from probe.sdk.capture.lineage.exclusions import HASH_LEVEL_MIN_BYTES  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.capture.lineage.lineage import _give_back, _take  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.capture.lineage.rows import _HEX64  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.capture.lineage.spool.spool import _ident, _local, _stat_is_file, internal, state_dir  # noqa: E402 -- pieces need each other; the front door loads this one first

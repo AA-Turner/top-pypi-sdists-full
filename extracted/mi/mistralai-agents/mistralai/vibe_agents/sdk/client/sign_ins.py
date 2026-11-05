@@ -14,6 +14,7 @@ from pydantic import JsonValue
 from mistralai.vibe.harness.app_server import session as harness_session
 from mistralai.vibe_agents.sdk.authoring.errors import SdkError
 from mistralai.vibe_agents.sdk.client.records import OpenSignIn, SignInRequest
+from mistralai.vibe_agents.sdk.client.unknown_values import read_value
 
 __all__ = [
     "SignInAnswer",
@@ -80,7 +81,12 @@ def sign_in_requests(callback: harness_session.SessionCallback) -> tuple[SignInR
     if not isinstance(callback, harness_session.AuthCallback):
         return None
     return tuple(
-        SignInRequest(source=request.source, id=request.id, name=request.name, mode=request.mode)
+        SignInRequest(
+            source=read_value(request.source, "SignInRequest.source"),
+            id=request.id,
+            name=request.name,
+            mode=read_value(request.mode, "SignInRequest.mode"),
+        )
         for request in callback.requests
     )
 

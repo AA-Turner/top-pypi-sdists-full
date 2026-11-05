@@ -41,7 +41,7 @@ from mistralai.vibe.harness.runtime.capabilities.plugins.dynamic import (
     DynamicCapabilityRequest,
     DynamicCapabilityResult,
 )
-from mistralai.vibe.harness.runtime.capabilities.plugins.mcp import McpCapabilityHost
+from mistralai.vibe.harness.runtime.capabilities.plugins.mcp import McpCapabilityHost, McpSourceUnavailableError
 from mistralai.vibe.harness.runtime.capabilities.plugins.mistral_connectors import (
     MistralConnectorHost,
     MistralConnectorNotConnectedError,
@@ -61,6 +61,7 @@ from mistralai.vibe.harness.runtime.hosts.workflows.mcp import (
     WorkflowMcpCapabilityHost,
     WorkflowMcpListToolsActivityRequest,
     WorkflowMcpListToolsActivityResult,
+    non_retryable_mcp_list_error,
 )
 from mistralai.vibe_agents.sdk.app.worker import sandbox_access
 from mistralai.vibe_agents.sdk.app.worker.heartbeat import heartbeat_while_running, stop_when_cancelled
@@ -422,7 +423,14 @@ async def list_mcp_tools(
     request: WorkflowMcpListToolsActivityRequest,
 ) -> WorkflowMcpListToolsActivityResult:
     async with _open_mcp_host(definition, request.source) as host:
-        return WorkflowMcpListToolsActivityResult(tools=await host.list_tools(request.source))
+        try:
+            catalog = await host.list_tools(request.source)
+        except McpSourceUnavailableError as error:
+            final = non_retryable_mcp_list_error(error)
+            if final is None:
+                raise
+            raise final from error
+    return WorkflowMcpListToolsActivityResult(tools=catalog.tools, instructions=catalog.instructions)
 
 
 class _ActivityDynamicCapabilityExecutor(DynamicCapabilityExecutor):
@@ -446,12 +454,23 @@ class _ActivityDynamicCapabilityExecutor(DynamicCapabilityExecutor):
         )
 
 
-@workflows.activity(name=_DYNAMIC_ACTIVITY_NAME)
+@workflows.activity(
+    name=_DYNAMIC_ACTIVITY_NAME,
+    retry_policy_max_attempts=1,
+    start_to_close_timeout=_TOOL_TIMEOUT,
+    heartbeat_timeout=_TOOL_HEARTBEAT_TIMEOUT,
+)
 async def invoke_dynamic_capability(
     definition: WorkflowHarnessDefinition,
     request: DynamicCapabilityRequest,
 ) -> DynamicCapabilityResult:
-    async with _open_mcp_host(definition, request.route.source) as host:
+    """Call an MCP or connector tool, whose side effects must not repeat after a lost execution."""
+
+    async with (
+        heartbeat_while_running(),
+        stop_when_cancelled(),
+        _open_mcp_host(definition, request.route.source) as host,
+    ):
         return await execute_dynamic_capability(
             _ActivityDynamicCapabilityExecutor(host),
             request,
@@ -480,7 +499,9 @@ async def list_connectors(
         try:
             return await host.list_connectors(configuration)
         except MistralConnectorNotFoundError as error:
-            # A wrong name stays wrong, so Temporal must not retry the activity.
+            # A wrong name stays wrong, so Temporal must not retry the activity. The Agents SDK's
+            # connector resource reports a wrong name as an unsupported connector instead; this
+            # is for a resource that still raises it.
             raise ApplicationError(
                 str(error),
                 error.connector_name,

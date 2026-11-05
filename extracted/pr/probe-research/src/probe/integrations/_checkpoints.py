@@ -37,11 +37,7 @@ one kept on another filesystem than the outbox (to stage it), and uploads
 everything there when uploads are not queued at all, so a set needing more than
 :data:`CROSS_DEVICE_STAGE_MAX_BYTES` of that is recorded as a location only,
 with a warning naming ``PROBE_OUTBOX_DIR``; work that still takes
-:data:`SLOW_SAVE_SECONDS` warns once too. Files a ``.probe.config`` excludes
-are neither uploaded nor named; the index counts them (``members_excluded``)
-so a restore says it is not the whole checkpoint. A checkpoint saved under a
-``hash`` rule is, in either mode, a reference recorded by its identity (sha256
-or fingerprint, in ``meta``), never uploaded. A file the server would
+:data:`SLOW_SAVE_SECONDS` warns once too. A file the server would
 refuse to name (``_server_takes``) makes the set a location only.
 
 A file the trainer rewrites IN PLACE (Lightning's ``last.ckpt``, a sharded
@@ -71,9 +67,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from probe.sdk.run.launch import ephemeral
-from probe.sdk.recording_rules import recording_rules as exclusions
 from probe.sdk.artifact.filetype import file_extension
-from probe.sdk.run.readback.readback import EXCLUDED_KEY, MEMBER_OF_KEY, MEMBERS_KEY, UPLOAD_KEY, UPLOAD_REQUESTED
+from probe.sdk.run.readback.readback import MEMBER_OF_KEY, MEMBERS_KEY, UPLOAD_KEY, UPLOAD_REQUESTED
 
 #: The two ways a kept checkpoint is recorded.
 REFERENCE = "reference"
@@ -159,30 +154,22 @@ class Inventory:
 
     #: (path in the checkpoint, NFC as the server stores names; full path)
     files: list[tuple[str, str]] = field(default_factory=list)
-    #: Paths left out for a reason other than ``.probe.config``: a link (it can
-    #: point anywhere), a non-regular file, an unreadable folder, two names that
-    #: are one after NFC. Any of these makes the set incomplete.
+    #: Paths left out: a link (it can point anywhere), a non-regular file, an
+    #: unreadable folder, two names that are one after NFC. Any of these makes
+    #: the set incomplete.
     skipped: list[str] = field(default_factory=list)
     #: More than MAX_MEMBERS files, or MAX_WALK_ENTRIES entries looked at.
     too_many: bool = False
-    #: Files a `.probe.config` excludes: counted (never named) on the index, so
-    #: a restore says it is not the whole checkpoint.
-    excluded: int = 0
 
 
 def inventory(local: str) -> Inventory:
     """The checkpoint's regular files, sorted. A file is its own one member (a
     LINK to one -- Lightning's ``save_last="link"`` -- is followed: the path is
     the checkpoint the trainer named). Inside a folder links are never followed
-    and make the set incomplete. What a researcher's ``.probe.config``
-    excludes is not a member and is not named; an excluded folder is not
-    walked. The walk stops after :data:`MAX_WALK_ENTRIES` entries: it runs on
-    the training thread."""
-    check = exclusions.checker(hot=True)
+    and make the set incomplete. The walk stops after :data:`MAX_WALK_ENTRIES`
+    entries: it runs on the training thread."""
     if os.path.isfile(local):
         real = os.path.realpath(local)
-        if check.check(local, is_dir=False).excluded or check.check(real, is_dir=False).excluded:
-            return Inventory(excluded=1)
         rel = _nfc(os.path.basename(local))
         return Inventory(files=[(rel, real)], skipped=[] if _server_takes(rel) else [rel])
     found = Inventory()
@@ -195,9 +182,6 @@ def inventory(local: str) -> Inventory:
         kept_dirs = []
         for d in sorted(dirs):
             full = os.path.join(root, d)
-            if check.check(full, is_dir=True).excluded:
-                found.excluded += 1  # the folder counts once: what is inside it is not looked at
-                continue
             if os.path.islink(full):
                 found.skipped.append(_rel(full, local))
                 continue
@@ -205,9 +189,6 @@ def inventory(local: str) -> Inventory:
         dirs[:] = kept_dirs
         for leaf in sorted(leaves):
             full = os.path.join(root, leaf)
-            if check.check(full, is_dir=False).excluded:
-                found.excluded += 1
-                continue
             rel = _rel(full, local)
             if os.path.islink(full) or not os.path.isfile(full) or not _server_takes(rel):
                 found.skipped.append(rel)
@@ -270,8 +251,7 @@ def _foreground_bytes(run: Any, files: list[tuple[str, str]]) -> int:
 
 def warn_if_throwaway(local: str, warn: Warn) -> None:
     """A location-only checkpoint on storage that is gone with the job: say so
-    once, naming the mode that keeps it -- none at `hash`, where it is recorded
-    by reference only."""
+    once, naming the mode that keeps it."""
     try:
         where = ephemeral.describe(local)
     except Exception:  # noqa: BLE001 -- a mount table we cannot read is no reason to warn
@@ -283,15 +263,6 @@ def warn_if_throwaway(local: str, warn: Warn) -> None:
         f"probe: checkpoint {local} is on this job's own disk ({fstype or where.get('reason')}), "
         "which is gone when the job ends; "
     )
-    verdict = exclusions.excluded(local)
-    if verdict.identity_only:
-        # `hash`: no mode uploads it, so naming one would be a dead end.
-        warn(
-            "checkpoint_throwaway",
-            disk + f"it is `hash` in {exclusions.source(verdict)}, so Probe records it by reference "
-            "only (its identity and where it is). Save checkpoints to a bucket or a mounted volume.",
-        )
-        return
     warn(
         "checkpoint_throwaway",
         disk + "Probe records only where it is. Pass "
@@ -320,27 +291,13 @@ def upload_set(
     files, holding a file Probe would leave out, needing a cross-disk copy
     over :data:`CROSS_DEVICE_STAGE_MAX_BYTES`, or with no files -- is written
     as a location only, with a warning, and carries no ``members``: an index
-    lists every file of the checkpoint or none.
-
-    A checkpoint a ``.probe.config`` excludes is not walked: at ``hash`` its
-    index is the reference ``log_artifact`` records by identity (no member is
-    uploaded, said once), at ``off``/``read`` nothing is recorded at all."""
+    lists every file of the checkpoint or none."""
     index = _unique_set_name(name, step, local, {} if taken is None else taken)
-    verdict = exclusions.excluded(local)
-    if verdict.identity_only:
-        warn(
-            "checkpoint_hash",
-            f"probe: checkpoint {local} is `hash` in {exclusions.source(verdict)}: Probe records "
-            f'its identity and where it is, never its bytes, so checkpoints="{UPLOAD}" uploads '
-            "nothing there.",
-        )
-    found = Inventory() if verdict.excluded else inventory(local)
+    found = inventory(local)
     files = found.files
     index_meta = dict(meta)
     copied = _foreground_bytes(run, files) if files and not (found.too_many or found.skipped) else 0
-    if verdict.excluded:
-        pass  # the index below: `hash` its identity, `off`/`read` nothing (log_artifact says so)
-    elif found.too_many:
+    if found.too_many:
         warn(
             "checkpoint_members",
             f"probe: checkpoint {local} has more than {MAX_MEMBERS} files; Probe records only where it is.",
@@ -383,8 +340,6 @@ def upload_set(
             )
         index_meta[MEMBERS_KEY] = [rel for rel, _full in files]
         index_meta[UPLOAD_KEY] = UPLOAD_REQUESTED
-        if found.excluded:
-            index_meta[EXCLUDED_KEY] = found.excluded
         took = time.monotonic() - started
         if took >= SLOW_SAVE_SECONDS:
             warn(

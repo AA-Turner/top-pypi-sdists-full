@@ -99,6 +99,8 @@ from .literals import (
     SecurityHubFeatureType,
     SeverityLabelType,
     SeverityRatingType,
+    SoftwareGroupByFieldType,
+    SoftwareStringFieldType,
     SortOrderType,
     StandardsControlsUpdatableType,
     StandardsProviderType,
@@ -1268,6 +1270,14 @@ __all__ = (
     "GetResourcesV2ResponseTypeDef",
     "GetSecurityControlDefinitionRequestTypeDef",
     "GetSecurityControlDefinitionResponseTypeDef",
+    "GetSoftwareResourcesV2RequestPaginateTypeDef",
+    "GetSoftwareResourcesV2RequestTypeDef",
+    "GetSoftwareResourcesV2ResponseTypeDef",
+    "GetSoftwareStatisticsV2RequestTypeDef",
+    "GetSoftwareStatisticsV2ResponseTypeDef",
+    "GetSoftwareV2RequestPaginateTypeDef",
+    "GetSoftwareV2RequestTypeDef",
+    "GetSoftwareV2ResponseTypeDef",
     "GroupByResultTypeDef",
     "GroupByRuleTypeDef",
     "GroupByValueTypeDef",
@@ -1548,7 +1558,16 @@ __all__ = (
     "SignalOutputTypeDef",
     "SignalTypeDef",
     "SignalUnionTypeDef",
+    "SoftwareCompositeFilterPaginatorTypeDef",
+    "SoftwareCompositeFilterTypeDef",
+    "SoftwareFiltersPaginatorTypeDef",
+    "SoftwareFiltersTypeDef",
+    "SoftwareGroupByRuleTypeDef",
     "SoftwarePackageTypeDef",
+    "SoftwareResourceResultTypeDef",
+    "SoftwareResultTypeDef",
+    "SoftwareScopesTypeDef",
+    "SoftwareStringFilterTypeDef",
     "SortCriterionTypeDef",
     "StandardTypeDef",
     "StandardsControlAssociationDetailTypeDef",
@@ -4238,6 +4257,23 @@ class RecommendationErrorTypeDef(TypedDict):
 class GetSecurityControlDefinitionRequestTypeDef(TypedDict):
     SecurityControlId: str
 
+class SoftwareResourceResultTypeDef(TypedDict):
+    AccountId: str
+    ResourceType: str
+    Region: str
+    ResourceId: str
+    ResourceProvider: NotRequired[str]
+    ResourceOwnerOrgId: NotRequired[str]
+    ResourceOwnerAccountId: NotRequired[str]
+    ResourceCloudPartition: NotRequired[str]
+    ResourceRegion: NotRequired[str]
+
+class SoftwareResultTypeDef(TypedDict):
+    PackageName: str
+    PackageType: str
+    ResourceCount: int
+    PackageVersion: NotRequired[str]
+
 class GroupByValueTypeDef(TypedDict):
     FieldValue: NotRequired[str]
     Count: NotRequired[int]
@@ -4826,6 +4862,10 @@ class ResourcesStringFilterTypeDef(TypedDict):
 
 class ResourcesTrendsStringFilterTypeDef(TypedDict):
     FieldName: NotRequired[ResourcesTrendsStringFieldType]
+    Filter: NotRequired[StringFilterTypeDef]
+
+class SoftwareStringFilterTypeDef(TypedDict):
+    FieldName: NotRequired[SoftwareStringFieldType]
     Filter: NotRequired[StringFilterTypeDef]
 
 AwsAmazonMqBrokerLdapServerMetadataDetailsUnionTypeDef = Union[
@@ -6094,6 +6134,9 @@ class FindingScopesTypeDef(TypedDict):
 class ResourceScopesTypeDef(TypedDict):
     AwsOrganizations: NotRequired[Sequence[AwsOrganizationScopeTypeDef]]
 
+class SoftwareScopesTypeDef(TypedDict):
+    AwsOrganizations: NotRequired[Sequence[AwsOrganizationScopeTypeDef]]
+
 class AwsRdsDbClusterDetailsOutputTypeDef(TypedDict):
     AllocatedStorage: NotRequired[int]
     AvailabilityZones: NotRequired[list[str]]
@@ -7176,6 +7219,16 @@ class ListMembersResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class GetSoftwareResourcesV2ResponseTypeDef(TypedDict):
+    SoftwareResources: list[SoftwareResourceResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetSoftwareV2ResponseTypeDef(TypedDict):
+    Software: list[SoftwareResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class GroupByResultTypeDef(TypedDict):
     GroupByField: NotRequired[str]
     GroupByValues: NotRequired[list[GroupByValueTypeDef]]
@@ -7496,6 +7549,16 @@ class ResourcesTrendsCompositeFilterPaginatorTypeDef(TypedDict):
 
 class ResourcesTrendsCompositeFilterTypeDef(TypedDict):
     StringFilters: NotRequired[Sequence[ResourcesTrendsStringFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
+
+class SoftwareCompositeFilterPaginatorTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[SoftwareStringFilterTypeDef]]
+    NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    Operator: NotRequired[AllowedOperatorsType]
+
+class SoftwareCompositeFilterTypeDef(TypedDict):
+    StringFilters: NotRequired[Sequence[SoftwareStringFilterTypeDef]]
     NestedCompositeFilters: NotRequired[Sequence[Mapping[str, Any]]]
     Operator: NotRequired[AllowedOperatorsType]
 
@@ -9140,6 +9203,10 @@ class GetResourcesStatisticsV2ResponseTypeDef(TypedDict):
     GroupByResults: list[GroupByResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetSoftwareStatisticsV2ResponseTypeDef(TypedDict):
+    GroupByResults: list[GroupByResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 SignalUnionTypeDef = Union[SignalTypeDef, SignalOutputTypeDef]
 
 class GetInsightResultsResponseTypeDef(TypedDict):
@@ -9348,6 +9415,14 @@ class ResourcesTrendsFiltersPaginatorTypeDef(TypedDict):
 
 class ResourcesTrendsFiltersTypeDef(TypedDict):
     CompositeFilters: NotRequired[Sequence[ResourcesTrendsCompositeFilterTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
+
+class SoftwareFiltersPaginatorTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[SoftwareCompositeFilterPaginatorTypeDef]]
+    CompositeOperator: NotRequired[AllowedOperatorsType]
+
+class SoftwareFiltersTypeDef(TypedDict):
+    CompositeFilters: NotRequired[Sequence[SoftwareCompositeFilterTypeDef]]
     CompositeOperator: NotRequired[AllowedOperatorsType]
 
 AwsAmazonMqBrokerDetailsUnionTypeDef = Union[
@@ -10315,6 +10390,42 @@ class GetResourcesTrendsV2RequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class GetSoftwareResourcesV2RequestPaginateTypeDef(TypedDict):
+    PackageName: str
+    PackageType: str
+    PackageVersion: NotRequired[str]
+    Filters: NotRequired[SoftwareFiltersPaginatorTypeDef]
+    Scopes: NotRequired[SoftwareScopesTypeDef]
+    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetSoftwareV2RequestPaginateTypeDef(TypedDict):
+    Filters: NotRequired[SoftwareFiltersPaginatorTypeDef]
+    Scopes: NotRequired[SoftwareScopesTypeDef]
+    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetSoftwareResourcesV2RequestTypeDef(TypedDict):
+    PackageName: str
+    PackageType: str
+    PackageVersion: NotRequired[str]
+    Filters: NotRequired[SoftwareFiltersTypeDef]
+    Scopes: NotRequired[SoftwareScopesTypeDef]
+    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class GetSoftwareV2RequestTypeDef(TypedDict):
+    Filters: NotRequired[SoftwareFiltersTypeDef]
+    Scopes: NotRequired[SoftwareScopesTypeDef]
+    SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class SoftwareGroupByRuleTypeDef(TypedDict):
+    GroupByField: SoftwareGroupByFieldType
+    Filters: NotRequired[SoftwareFiltersTypeDef]
+
 AwsAutoScalingAutoScalingGroupMixedInstancesPolicyDetailsUnionTypeDef = Union[
     AwsAutoScalingAutoScalingGroupMixedInstancesPolicyDetailsTypeDef,
     AwsAutoScalingAutoScalingGroupMixedInstancesPolicyDetailsOutputTypeDef,
@@ -10960,6 +11071,12 @@ class UpdateAutomationRulesRequestItemTypeDef(TypedDict):
     IsTerminal: NotRequired[bool]
     Criteria: NotRequired[AutomationRulesFindingFiltersUnionTypeDef]
     Actions: NotRequired[Sequence[AutomationRulesActionUnionTypeDef]]
+
+class GetSoftwareStatisticsV2RequestTypeDef(TypedDict):
+    GroupByRules: Sequence[SoftwareGroupByRuleTypeDef]
+    Scopes: NotRequired[SoftwareScopesTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    MaxStatisticResults: NotRequired[int]
 
 class AwsAutoScalingAutoScalingGroupDetailsTypeDef(TypedDict):
     LaunchConfigurationName: NotRequired[str]

@@ -3,7 +3,9 @@ reuses the service's asset collection (`FlowCollection`), so the documents are b
 id raises the same `NotFoundError`. Only reads: copilot_v2 writes this collection."""
 from __future__ import annotations
 
-from typing import List
+from typing import List, Set
+
+from bson import ObjectId
 
 from ...models.company.assets.flow import FlowPreview
 
@@ -25,3 +27,13 @@ class MongoWorkflowRepository:
         })
         docs = await cursor.to_list(None)
         return [self.collection.create_instance(doc) for doc in docs]
+
+    async def selectable_among(self, company_ids: List[str], ids: List[str], *, not_generated_by: str) -> Set[str]:
+        cursor = self.collection.collection.find({
+            "_id": {"$in": [ObjectId(i) for i in ids]},
+            "companyId": {"$in": list(company_ids)},
+            "deleted_at": None,
+            "visible": {"$ne": False},  # a hidden workflow is offered by no picker (as in copilot)
+            "generado_por": {"$ne": not_generated_by},
+        }, projection={"_id": 1})
+        return {str(d["_id"]) for d in await cursor.to_list(None)}

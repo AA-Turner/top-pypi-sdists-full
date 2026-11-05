@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pypaperless
-Version: 6.0.2
+Version: 6.0.3
 Summary: Little api client for paperless(-ngx).
 Project-URL: Homepage, https://pypaperless.docs.tbsch.de
 Project-URL: Source Code, https://github.com/tb1337/pypaperless
@@ -14,13 +14,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.13
+Requires-Python: >=3.12
 Requires-Dist: httpx>=0.28.1
-Requires-Dist: pydantic-settings>=2.15.0
-Requires-Dist: pydantic>=2.13.5
+Requires-Dist: pydantic-settings>=2.16.2
+Requires-Dist: pydantic>=2.14.2
 Description-Content-Type: text/markdown
 
 # pypaperless
@@ -86,7 +87,7 @@ asyncio.run(main())
 
 ## Installation
 
-Requires **Python 3.13+**.
+Requires **Python 3.12+**.
 
 ```bash
 pip install pypaperless
@@ -100,7 +101,7 @@ Full documentation is available **[here][docs-url]**.
 
 | **pypaperless** | *Paperless-ngx* | Python | Notes                                   |
 | --------------- | --------------- | ------ | --------------------------------------- |
-| **>= v6.0**     | **>= 3.0**      | 3.13   | Current release                         |
+| **>= v6.0**     | **>= 3.0**      | 3.12   | Current release                         |
 | >= v5.2         | >= 2.19         | 3.12   |                                         |
 | >= v5.0         | >= 2.17         | 3.12   |                                         |
 | >= v4.x         | >= 2.15         | 3.12   |                                         |

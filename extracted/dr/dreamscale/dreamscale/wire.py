@@ -329,6 +329,32 @@ def build_rldx_libero_observation(*, session_id: str, observation_id: int,
     ), camera_payloads=payloads, chunk_size=chunk_size)
 
 
+def build_libero_history_observation(*, session_id: str, observation_id: int,
+                                     agent_frames: np.ndarray, wrist_frames: np.ndarray,
+                                     libero_state: list[float], instruction: str,
+                                     chunk_size: int = 16, now_ns: int | None = None
+                                     ) -> Observation:
+    """A LIBERO window: each camera's oriented 256px frames, oldest first, as one JPEG strip."""
+    cameras, payloads = [], {}
+    keys = (CAMERA_KEY_LIBERO_AGENT, CAMERA_KEY_LIBERO_WRIST)
+    for key, frames in zip(keys, (agent_frames, wrist_frames), strict=True):
+        if frames.ndim != 4 or frames.shape[1:] != (256, 256, 3) or frames.dtype != np.uint8:
+            raise ValueError("a LIBERO window needs 256x256 RGB uint8 frames per camera")
+        # 256px frames tile JPEG's 16px blocks exactly, so frames never blur into each other.
+        camera, payload = _camera_frame(key, np.ascontiguousarray(np.concatenate(frames, axis=1)))
+        cameras.append(camera)
+        payloads[key] = payload
+    now = time.time_ns() if now_ns is None else now_ns
+    return Observation(frame=ObservationFrame(
+        session_id=session_id, observation_id=observation_id,
+        capture_time_ns=now, send_time_ns=now, cameras=cameras,
+        robot_state=RobotState(joint_positions=[0.0] * 6, joint_velocities=[0.0] * 6,
+                               gripper=0.0),
+        actions_remaining=0, instruction=instruction,
+        libero_state=[float(value) for value in libero_state],
+    ), camera_payloads=payloads, chunk_size=chunk_size)
+
+
 def build_lingbot_observation(*,session_id: str,observation_id: int,frames: np.ndarray,
                              instruction: str,now_ns: int | None = None) -> Observation:
     from dreamscale_transport.lingbot_contract import encode_lingbot_clip

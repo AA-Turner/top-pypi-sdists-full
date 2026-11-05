@@ -88,7 +88,7 @@ def get_connector_name_from_path(path):
     return path.split("/")[2]
 
 
-def get_changed_metadata(diff_regex: Optional[str] = None) -> Set[str]:
+def get_changed_metadata(diff_regex: Optional[str] = None) -> Set["Connector"]:
     """Retrieve the set of connectors for which the metadata file was changed in the current branch (compared to master).
 
     Args:
@@ -100,7 +100,9 @@ def get_changed_metadata(diff_regex: Optional[str] = None) -> Set[str]:
     return get_changed_file(METADATA_FILE_NAME, diff_regex)
 
 
-def get_changed_file(file_name: str, diff_regex: Optional[str] = None) -> Set[str]:
+def get_changed_file(
+    file_name: str, diff_regex: Optional[str] = None
+) -> Set["Connector"]:
     """Retrieve the set of connectors for which the given file was changed in the current branch (compared to master).
 
     Args:
@@ -237,14 +239,14 @@ def get_all_gradle_dependencies(
     )
     valid_build_files = ["build.gradle", "build.gradle.kts"]
     for dependency_path in all_dependencies:
-        for build_file in valid_build_files:
+        for build_filename in valid_build_files:
             if (
                 dependency_path not in found_dependencies
-                and Path(dependency_path / build_file).exists()
+                and Path(dependency_path / build_filename).exists()
             ):
                 found_dependencies.append(dependency_path)
                 get_all_gradle_dependencies(
-                    dependency_path / build_file,
+                    dependency_path / build_filename,
                     with_test_dependencies,
                     found_dependencies,
                 )
@@ -293,7 +295,7 @@ class Connector:
         return self._get_type_and_name_from_technical_name()[1]
 
     @property
-    def connector_type(self) -> str:
+    def connector_type(self) -> Optional[str]:
         return self.metadata["connectorType"] if self.metadata else None
 
     @property
@@ -303,7 +305,7 @@ class Connector:
     @property
     def has_airbyte_docs(self) -> bool:
         return (
-            self.metadata
+            self.metadata  # ty: ignore[invalid-return-type]
             and self.metadata.get("documentationUrl") is not None
             and BASE_AIRBYTE_DOCS_URL in str(self.metadata.get("documentationUrl"))
         )
@@ -314,7 +316,7 @@ class Connector:
 
     @property
     def relative_documentation_path_str(self) -> str:
-        documentation_url = self.metadata["documentationUrl"]
+        documentation_url = self.metadata["documentationUrl"]  # ty: ignore[not-subscriptable]
         relative_documentation_path = documentation_url.replace(
             BASE_AIRBYTE_DOCS_URL, ""
         )
@@ -326,7 +328,7 @@ class Connector:
 
     @property
     def documentation_file_name(self) -> str:
-        return self.metadata.get("documentationUrl").split("/")[-1] + ".md"
+        return self.metadata.get("documentationUrl").split("/")[-1] + ".md"  # ty: ignore[unresolved-attribute]
 
     @property
     def documentation_file_path(self) -> Optional[Path]:
@@ -337,7 +339,7 @@ class Connector:
         )
 
     @property
-    def inapp_documentation_file_path(self) -> Path:
+    def inapp_documentation_file_path(self) -> Optional[Path]:
         if not self.has_airbyte_docs:
             return None
 
@@ -452,7 +454,7 @@ class Connector:
             or Path(self.code_directory / "src" / "main" / "kotlin").exists()
         ):
             return ConnectorLanguage.JAVA
-        return None
+        return None  # ty: ignore[invalid-return-type]
 
     @property
     def version(self) -> Optional[str]:
@@ -614,17 +616,17 @@ class Connector:
 
     @property
     def supports_normalization(self) -> bool:
-        return self.metadata and self.metadata.get("normalizationConfig") is not None
+        return self.metadata and self.metadata.get("normalizationConfig") is not None  # ty: ignore[invalid-return-type]
 
     @property
     def normalization_repository(self) -> Optional[str]:
         if self.supports_normalization:
-            return f"{self.metadata['normalizationConfig']['normalizationRepository']}"
+            return f"{self.metadata['normalizationConfig']['normalizationRepository']}"  # ty: ignore[not-subscriptable]
 
     @property
     def normalization_tag(self) -> Optional[str]:
         if self.supports_normalization:
-            return f"{self.metadata['normalizationConfig']['normalizationTag']}"
+            return f"{self.metadata['normalizationConfig']['normalizationTag']}"  # ty: ignore[not-subscriptable]
 
     @property
     def is_using_poetry(self) -> bool:
@@ -654,7 +656,7 @@ class Connector:
         Returns:
             bool: True if the connector is enabled, False otherwise.
         """
-        registries = self.metadata.get("registryOverrides")
+        registries = self.metadata.get("registryOverrides")  # ty: ignore[unresolved-attribute]
         if not registries:
             return False
 
@@ -677,8 +679,8 @@ class Connector:
         registry = download_catalog(OSS_CATALOG_URL)
         for connector in registry[f"{self.connector_type}s"]:
             if (
-                connector[self.registry_primary_key_field] == metadata["definitionId"]
-                and connector["dockerImageTag"] == metadata["dockerImageTag"]
+                connector[self.registry_primary_key_field] == metadata["definitionId"]  # ty: ignore[not-subscriptable]
+                and connector["dockerImageTag"] == metadata["dockerImageTag"]  # ty: ignore[not-subscriptable]
             ):
                 return True
         return False
@@ -691,7 +693,7 @@ class Connector:
             Optional[str]: The usage metrics of the connector, could be one of ["low", "medium", "high"] or None if the connector is not in the registry.
         """
         metadata = self.metadata
-        definition_id = metadata.get("definitionId")
+        definition_id = metadata.get("definitionId")  # ty: ignore[unresolved-attribute]
         cloud_registry = download_catalog(CLOUD_CATALOG_URL)
 
         all_connectors_of_type = cloud_registry[f"{self.connector_type}s"]
@@ -709,7 +711,7 @@ class Connector:
         Fetches SBOM URL from the connector definition in the OSS registry, if it exists, None otherwise.
         """
         metadata = self.metadata
-        definition_id = metadata.get("definitionId")
+        definition_id = metadata.get("definitionId")  # ty: ignore[unresolved-attribute]
         # We use the OSS registry as the source of truth for released connectors as the cloud registry can be a subset of the OSS registry.
         oss_registry = download_catalog(OSS_CATALOG_URL)
 
@@ -724,14 +726,14 @@ class Connector:
 
     @property
     def image_address(self) -> str:
-        return f"{self.metadata['dockerRepository']}:{self.metadata['dockerImageTag']}"
+        return f"{self.metadata['dockerRepository']}:{self.metadata['dockerImageTag']}"  # ty: ignore[not-subscriptable]
 
     @property
     def cdk_name(self) -> str | None:
         try:
             return [
                 tag.split(":")[-1]
-                for tag in self.metadata["tags"]
+                for tag in self.metadata["tags"]  # ty: ignore[not-subscriptable]
                 if tag.startswith("cdk:")
             ][0]
         except IndexError:
@@ -739,7 +741,7 @@ class Connector:
 
     @property
     def base_image_address(self) -> str | None:
-        return self.metadata.get("connectorBuildOptions", {}).get("baseImage")
+        return self.metadata.get("connectorBuildOptions", {}).get("baseImage")  # ty: ignore[unresolved-attribute]
 
     @property
     def uses_base_image(self) -> bool:
@@ -749,7 +751,7 @@ class Connector:
     def base_image_version(self) -> str | None:
         if not self.uses_base_image:
             return None
-        return self.base_image_address.split(":")[1].split("@")[0]
+        return self.base_image_address.split(":")[1].split("@")[0]  # ty: ignore[unresolved-attribute]
 
     def __repr__(self) -> str:
         return self.technical_name
@@ -757,7 +759,7 @@ class Connector:
     @functools.lru_cache(maxsize=2)
     def get_local_dependency_paths(
         self, with_test_dependencies: bool = True
-    ) -> Set[Path]:
+    ) -> List[Path]:
         dependencies_paths = []
         build_script = "build.gradle"
         if Path(self.code_directory / "build.gradle.kts").exists():
@@ -797,8 +799,8 @@ def get_changed_connectors(
     changed_source_connector_files = {
         file_path
         for file_path in modified_files
-        if any(file_path.startswith(prefix) for prefix in prefix_to_check)
-        and SCAFFOLD_CONNECTOR_GLOB not in file_path
+        if any(file_path.startswith(prefix) for prefix in prefix_to_check)  # ty: ignore[unresolved-attribute]
+        and SCAFFOLD_CONNECTOR_GLOB not in file_path  # ty: ignore[unsupported-operator]
     }
     return {
         Connector(get_connector_name_from_path(changed_file))

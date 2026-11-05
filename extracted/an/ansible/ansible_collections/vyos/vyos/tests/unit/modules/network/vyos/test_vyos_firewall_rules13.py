@@ -18,7 +18,6 @@
 # Make coding more python3-ish
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 from unittest.mock import patch
@@ -167,6 +166,13 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                         fragment="match-frag",
                                         disable=True,
                                     ),
+                                    dict(
+                                        number="105",
+                                        action="offload",
+                                        offload_target="test",
+                                        description="Rule 105 is configured by Ansible",
+                                        protocol="udp",
+                                    ),
                                 ],
                             ),
                         ],
@@ -187,12 +193,17 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
             "set firewall name INBOUND rule 101 action 'accept'",
             "set firewall name INBOUND rule 101 ipsec 'match-ipsec'",
             "set firewall name INBOUND rule 101 log 'disable'",
+            "set firewall name INBOUND rule 105",
+            "set firewall name INBOUND rule 105 action 'offload'",
+            "set firewall name INBOUND rule 105 offload-target 'test'",
+            "set firewall name INBOUND rule 105 description 'Rule 105 is configured by Ansible'",
+            "set firewall name INBOUND rule 105 protocol 'udp'",
         ]
         self.execute_module(changed=True, commands=commands)
 
     def test_vyos_firewall_v4_rule_sets_rule_merged_02(self):
         """Test if plugin correctly adds new rules with variant attributes
-            within existing rule set
+        within existing rule set
         """
         set_module_args(
             dict(
@@ -253,7 +264,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v4_rule_sets_rule_merged_03(self):
         """Test if plugin correctly adds new rules with variant attributes
-            within existing rule set
+        within existing rule set
         """
         set_module_args(
             dict(
@@ -302,7 +313,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v4_rule_sets_rule_merged_04(self):
         """Test if plugin correctly adds new rules with variant attributes
-            within existing rule set
+        within existing rule set
         """
         set_module_args(
             dict(
@@ -327,9 +338,8 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                         tcp=dict(
                                             flags=[
                                                 dict(flag="all"),
-                                            ]
+                                            ],
                                         ),
-
                                     ),
                                 ],
                             ),
@@ -399,7 +409,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v6_rule_sets_rule_merged_02(self):
         """Test if plugin correctly adds new rules with variant attributes
-            within existing ipv6 rule set
+        within existing ipv6 rule set
         """
         set_module_args(
             dict(
@@ -460,7 +470,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v6_rule_sets_rule_merged_03(self):
         """Test if plugin correctly adds new rules with variant attributes
-            within existing ipv6 rule set
+        within existing ipv6 rule set
         """
         set_module_args(
             dict(
@@ -509,7 +519,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v6_rule_sets_rule_merged_04(self):
         """Test if plugin correctly adds new rules with variant attributes
-            within existing ipv6 rule set
+        within existing ipv6 rule set
         """
         set_module_args(
             dict(
@@ -534,7 +544,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                         tcp=dict(
                                             flags=[
                                                 dict(flag="all"),
-                                            ]
+                                            ],
                                         ),
                                     ),
                                     dict(
@@ -545,8 +555,8 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                                 dict(flag="syn"),
                                                 dict(flag="fin", invert=True),
                                             ],
-                                        )
-                                    )
+                                        ),
+                                    ),
                                 ],
                             ),
                         ],
@@ -572,7 +582,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v6_rule_sets_rule_merged_icmp_01(self):
         """Test if plugin correctly adds new rules with variant attributes
-            within existing ipv6 rule set
+        within existing ipv6 rule set
         """
         set_module_args(
             dict(
@@ -605,7 +615,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v4_rule_sets_rule_merged_icmp_01(self):
         """Test if plugin correctly adds new rules with variant attributes
-            within existing rule set
+        within existing rule set
         """
         set_module_args(
             dict(
@@ -639,7 +649,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v4_rule_sets_rule_merged_icmp_02(self):
         """Test if plugin correctly adds new rules with variant attributes
-            within existing rule set
+        within existing rule set
         """
         set_module_args(
             dict(
@@ -671,8 +681,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
         self.execute_module(changed=True, commands=commands)
 
     def test_vyos_firewall_v4_rule_sets_del_01(self):
-        """Test if plugin correctly removes existing rule set
-        """
+        """Test if plugin correctly removes existing rule set"""
         set_module_args(
             dict(
                 config=[dict(afi="ipv4", rule_sets=[dict(name="V4-INGRESS")])],
@@ -683,33 +692,32 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
         self.execute_module(changed=True, commands=commands)
 
     def test_vyos_firewall_v4v6_rule_sets_del_02(self):
-        """Test if plugin correctly removes existing rule sets, both ipv4 and ipv6
-        """
+        """Test if plugin correctly removes existing rule sets, both ipv4 and ipv6"""
         set_module_args(
             dict(
                 config=[
                     dict(afi="ipv4", rule_sets=[dict(name="V4-INGRESS")]),
                     dict(afi="ipv6", rule_sets=[dict(name="V6-INGRESS")]),
+                    dict(afi="ipv4", rule_sets=[dict(name="V4-OFFLOAD")]),
                 ],
                 state="deleted",
             ),
         )
         commands = [
+            "delete firewall name V4-OFFLOAD",
             "delete firewall name V4-INGRESS",
             "delete firewall ipv6-name V6-INGRESS",
         ]
         self.execute_module(changed=True, commands=commands)
 
     def test_vyos_firewall_v4v6_rule_sets_del_03(self):
-        """Test if plugin correctly removes existing AFIs, both ipv4 and ipv6
-        """
+        """Test if plugin correctly removes existing AFIs, both ipv4 and ipv6"""
         set_module_args(dict(config=[], state="deleted"))
         commands = ["delete firewall name", "delete firewall ipv6-name"]
         self.execute_module(changed=True, commands=commands)
 
     def test_vyos_firewall_v4v6_rule_sets_del_04(self):
-        """Test if plugin has no effect on non-existent rule sets
-        """
+        """Test if plugin has no effect on non-existent rule sets"""
         set_module_args(
             dict(
                 config=[
@@ -723,7 +731,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v4v6_rule_sets_rule_rep_01(self):
         """Test if plugin correctly replaces a particular rule set(s)
-            without affecting the others
+        without affecting the others
         """
         set_module_args(
             dict(
@@ -803,7 +811,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v4v6_rule_sets_rule_rep_02(self):
         """Test if plugin correctly replaces a particular rule(s) and rule set attribute(s)
-            without affecting the others
+        without affecting the others
         """
         set_module_args(
             dict(
@@ -867,8 +875,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
         self.execute_module(changed=True, commands=commands)
 
     def test_vyos_firewall_v4v6_rule_sets_rule_rep_idem_01(self):
-        """Test if plugin correctly has no effect if there is no change in the configuration
-        """
+        """Test if plugin correctly has no effect if there is no change in the configuration"""
         set_module_args(
             dict(
                 config=[
@@ -890,7 +897,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                         fragment="match-frag",
                                         disable=True,
                                         log="enable",
-                                    )
+                                    ),
                                 ],
                             ),
                             dict(
@@ -925,8 +932,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
         self.execute_module(changed=False, commands=[])
 
     def test_vyos_firewall_v4v6_rule_sets_rule_rep_idem_02(self):
-        """Test if plugin correctly has no effect if there is no change in the configuration
-        """
+        """Test if plugin correctly has no effect if there is no change in the configuration"""
         set_module_args(
             dict(
                 config=[
@@ -947,7 +953,33 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                         protocol="icmp",
                                         fragment="match-frag",
                                         disable=True,
-                                        log="enable"
+                                        log="enable",
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+                state="replaced",
+            ),
+        )
+        self.execute_module(changed=False, commands=[])
+
+    def test_vyos_firewall_v4v6_rule_sets_rule_rep_idem_03(self):
+        """Test if plugin correctly has no effect if there is no change in the configuration"""
+        set_module_args(
+            dict(
+                config=[
+                    dict(
+                        afi="ipv4",
+                        rule_sets=[
+                            dict(
+                                name="V4-OFFLOAD",
+                                rules=[
+                                    dict(
+                                        number="1",
+                                        action="offload",
+                                        offload_target="test",
                                     ),
                                 ],
                             ),
@@ -960,8 +992,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
         self.execute_module(changed=False, commands=[])
 
     def test_vyos_firewall_v4v6_rule_sets_rule_mer_idem_01(self):
-        """Test if plugin correctly has no effect if there is no change in the configuration
-        """
+        """Test if plugin correctly has no effect if there is no change in the configuration"""
         set_module_args(
             dict(
                 config=[
@@ -982,7 +1013,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                         protocol="icmp",
                                         fragment="match-frag",
                                         disable=True,
-                                    )
+                                    ),
                                 ],
                             ),
                             dict(
@@ -1016,9 +1047,74 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
         )
         self.execute_module(changed=False, commands=[])
 
+    def test_vyos_firewall_v4v6_rule_sets_rule_mer_idem_02(self):
+        """Test if plugin correctly has no effect if there is no change in the configuration"""
+        set_module_args(
+            dict(
+                config=[
+                    dict(
+                        afi="ipv4",
+                        rule_sets=[
+                            dict(
+                                name="V4-INGRESS",
+                                description="This is IPv4 V4-INGRESS rule set",
+                                default_action="accept",
+                                enable_default_log=True,
+                                rules=[
+                                    dict(
+                                        number="101",
+                                        action="accept",
+                                        description="Rule 101 is configured by Ansible",
+                                        ipsec="match-ipsec",
+                                        protocol="icmp",
+                                        fragment="match-frag",
+                                        disable=True,
+                                    ),
+                                ],
+                            ),
+                            dict(
+                                name="EGRESS",
+                                default_action="reject",
+                            ),
+                            dict(
+                                name="V4-OFFLOAD",
+                                rules=[
+                                    dict(
+                                        number="1",
+                                        action="offload",
+                                        offload_target="test",
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                    dict(
+                        afi="ipv6",
+                        rule_sets=[
+                            dict(
+                                name="V6-INGRESS",
+                                default_action="accept",
+                            ),
+                            dict(
+                                name="EGRESS",
+                                default_action="reject",
+                                rules=[
+                                    dict(
+                                        icmp=dict(type_name="echo-request"),
+                                        number=20,
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                ],
+                state="merged",
+            ),
+        )
+        self.execute_module(changed=False, commands=[])
+
     def test_vyos_firewall_v4v6_rule_sets_rule_ovr_01(self):
-        """Test if plugin correctly resets the entire rule set if there is a change in the configuration
-        """
+        """Test if plugin correctly resets the entire rule set if there is a change in the configuration"""
         set_module_args(
             dict(
                 config=[
@@ -1095,6 +1191,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
             "delete firewall name V4-INGRESS",
             "delete firewall name EGRESS",
             "delete firewall name MULTIPLE-RULE",
+            "delete firewall name V4-OFFLOAD",
             "set firewall name MULTIPLE-RULE default-action 'drop'",
             "set firewall name MULTIPLE-RULE rule 1",
             "set firewall name MULTIPLE-RULE rule 1 action 'accept'",
@@ -1126,7 +1223,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_v4v6_rule_sets_rule_ovr_02(self):
         """Test if plugin correctly resets the entire rule set
-            while removing the absent ones if there is a change in the configuration
+        while removing the absent ones if there is a change in the configuration
         """
         set_module_args(
             dict(
@@ -1176,6 +1273,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
             "delete firewall name V4-INGRESS",
             "delete firewall name EGRESS",
             "delete firewall name MULTIPLE-RULE",
+            "delete firewall name V4-OFFLOAD",
             "set firewall name V4-INGRESS rule 101",
             "set firewall name V4-INGRESS description 'This is IPv4 INGRESS rule set'",
             "set firewall name V4-INGRESS default-action 'accept'",
@@ -1186,13 +1284,12 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
             "set firewall ipv6-name EGRESS default-action 'reject'",
             "set firewall ipv6-name EGRESS rule 20",
             "set firewall ipv6-name EGRESS rule 20 protocol 'udp'",
-            "set firewall ipv6-name EGRESS rule 20 action 'accept'"
+            "set firewall ipv6-name EGRESS rule 20 action 'accept'",
         ]
         self.execute_module(changed=True, commands=commands)
 
     def test_vyos_firewall_v4v6_rule_sets_rule_ovr_idem_01(self):
-        """Test if plugin correctly has no effect if there is no change in the configuration
-        """
+        """Test if plugin correctly has no effect if there is no change in the configuration"""
         set_module_args(
             dict(
                 config=[
@@ -1214,7 +1311,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                         fragment="match-frag",
                                         disable=True,
                                         log="enable",
-                                    )
+                                    ),
                                 ],
                             ),
                             dict(
@@ -1234,6 +1331,16 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                         number="2",
                                         action="drop",
                                         protocol="all",
+                                    ),
+                                ],
+                            ),
+                            dict(
+                                name="V4-OFFLOAD",
+                                rules=[
+                                    dict(
+                                        number="1",
+                                        action="offload",
+                                        offload_target="test",
                                     ),
                                 ],
                             ),
@@ -1265,8 +1372,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
         self.execute_module(changed=False, commands=[])
 
     def test_vyos_firewall_v6_rule_sets_rule_merged_01_version(self):
-        """Test if plugin correctly adds ipv6 rule set with rules
-        """
+        """Test if plugin correctly adds ipv6 rule set with rules"""
         self.get_os_version.return_value = "1.3"
         set_module_args(
             dict(
@@ -1321,13 +1427,12 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
             "set firewall ipv6-name INBOUND rule 102 action 'reject'",
             "set firewall ipv6-name INBOUND rule 102 description 'Rule 102 is configured by Ansible'",
             "set firewall ipv6-name INBOUND rule 102 protocol 'ipv6-icmp'",
-            'set firewall ipv6-name INBOUND rule 102 icmpv6 type 7',
+            "set firewall ipv6-name INBOUND rule 102 icmpv6 type 7",
         ]
         self.execute_module(changed=True, commands=commands)
 
     def test_vyos_firewall_jump_rules_merged_01(self):
-        """Test if plugin correctly adds rule set with a jump action
-        """
+        """Test if plugin correctly adds rule set with a jump action"""
         set_module_args(
             dict(
                 config=[
@@ -1348,7 +1453,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                         protocol="icmp",
                                         icmp=dict(type_name="echo-request"),
                                         jump_target="PROTECT-RE",
-                                        packet_length_exclude=[dict(length=100), dict(length=200)]
+                                        packet_length_exclude=[dict(length=100), dict(length=200)],
                                     ),
                                     dict(
                                         number="102",
@@ -1360,10 +1465,10 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                 ],
                             ),
                         ],
-                    )
+                    ),
                 ],
                 state="merged",
-            )
+            ),
         )
         commands = [
             "set firewall ipv6-name INBOUND default-action 'accept'",
@@ -1382,7 +1487,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
             "set firewall ipv6-name INBOUND rule 102 action 'reject'",
             "set firewall ipv6-name INBOUND rule 102 description 'Rule 102 is configured by Ansible'",
             "set firewall ipv6-name INBOUND rule 102 protocol 'ipv6-icmp'",
-            'set firewall ipv6-name INBOUND rule 102 icmpv6 type 7',
+            "set firewall ipv6-name INBOUND rule 102 icmpv6 type 7",
         ]
         self.execute_module(changed=True, commands=commands)
 
@@ -1409,10 +1514,10 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                 ],
                             ),
                         ],
-                    )
+                    ),
                 ],
                 state="merged",
-            )
+            ),
         )
         commands = [
             "set firewall ipv6-name INBOUND default-action 'accept'",
@@ -1428,7 +1533,7 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
 
     def test_vyos_firewall_log_replace_01(self):
         """Test that stanza is correctly replaced
-            without touching the other stanzas
+        without touching the other stanzas
         """
         set_module_args(
             dict(
@@ -1453,10 +1558,10 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
                                 ],
                             ),
                         ],
-                    )
+                    ),
                 ],
                 state="replaced",
-            )
+            ),
         )
         commands = [
             "delete firewall name V4-INGRESS rule 101",
@@ -1470,3 +1575,17 @@ class TestVyosFirewallRulesModule13(TestVyosModule):
         ]
         self.maxDiff = None
         self.execute_module(changed=True, commands=commands)
+
+    def test_vyos_firewall_rules_parsed_icmp_type_code(self):
+        """parse_icmp_attr: legacy 'type/code' token parses into integer type and code."""
+        raw = (
+            "set firewall name TEST rule 1 action 'accept'\n"
+            "set firewall name TEST rule 1 protocol 'icmp'\n"
+            "set firewall name TEST rule 1 icmp type '3/4'\n"
+        )
+        set_module_args(dict(running_config=raw, state="parsed"))
+        result = self.execute_module(changed=False)
+        parsed = result["parsed"]
+        rule = parsed[0]["rule_sets"][0]["rules"][0]
+        self.assertEqual(rule["icmp"]["type"], 3)
+        self.assertEqual(rule["icmp"]["code"], 4)

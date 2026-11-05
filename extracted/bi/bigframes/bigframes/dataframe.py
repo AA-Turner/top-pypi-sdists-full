@@ -849,16 +849,12 @@ class DataFrame:
         # Using TO_JSON_STRING via SqlScalarOp handles complex nested STRUCT
         # types correctly. Use the offset so that we can handle duplicate and
         # non-string column names.
-        json_col_indexes = [
-            col_index
-            for col_index, col in enumerate(df.columns)
-            if bigframes.dtypes.contains_db_dtypes_json_dtype(df[col].dtype)
-        ]
-        if json_col_indexes:
-            df.iloc[:, json_col_indexes] = cast(
-                DataFrame,
-                df.iloc[:, json_col_indexes].apply(bbq.to_json_string),  # type: ignore
-            )
+        for col_index, dtype in enumerate(self._block.dtypes):
+            if bigframes.dtypes.contains_db_dtypes_json_dtype(dtype):
+                column = cast(bigframes.series.Series, df.iloc[:, col_index])
+                df = df._assign_single_item_by_offset(
+                    col_index, bbq.to_json_string(column)
+                )
         return df
 
     def _repr_mimebundle_(self, include=None, exclude=None):
@@ -4521,10 +4517,6 @@ class DataFrame:
         assert result.query_job is not None
         self._set_internal_query_job(result.query_job)
 
-        # The query job should have finished, so there should be always be a result table.
-        result_table = result.query_job.destination
-        assert result_table is not None
-
         if temp_table_ref:
             bigframes.session._io.bigquery.set_table_expiration(
                 self._session.bqclient,
@@ -4534,7 +4526,7 @@ class DataFrame:
             )
 
         if len(labels) != 0:
-            table = bigquery.Table(result_table)
+            table = bigquery.Table(destination)
             table.labels = labels
             self._session.bqclient.update_table(table, ["labels"])
 

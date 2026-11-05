@@ -1,13 +1,13 @@
 """Nominal xArm 7 FK and seeded IK in each arm's own base frame, for Hy-VLA pose chunks.
 
-A port of ``mvp/rodeo-training/rodeo_training/kinematics.py`` (the module Rodeo's Hy-VLA
-checkpoint was trained and evaluated with): the same constants and the same operations in the
+A port of the kinematics the Hy-VLA xArm 7 checkpoint was trained and evaluated with: the
+same constants and the same operations in the
 same order, so FK, IK, the pose encoding and ``hy_to_joints`` give bit-identical results for
 the same inputs (``sdk/tests/test_xarm7_kinematics.py`` checks it against the original).
 
 Origins: UFACTORY xarm_ros aad7e1611c9c46eb719045414394bfdd42dcb0f8,
 xarm_description/config/kinematics/default/xarm7_default_kinematics.yaml.
-TCP: Rodeo's supplied constants, 172 mm gripper + 13 mm stand plate (0.185 m along flange z).
+TCP: the training rig's constants, 172 mm gripper + 13 mm stand plate (0.185 m along flange z).
 The two bases are independent. Camera/world extrinsics are not used. Nominal kinematics, not
 per-robot calibrated; the rig's own joint limits and motion guards stay in charge.
 
@@ -251,7 +251,7 @@ def hold(state, intent, rows):
 
 
 def execute(relative, absolute, state, active_arm, intent):
-    """Delivery execution of one chunk (rodeo_training.eval_hy.execute). An unconverged IK
+    """Delivery execution of one chunk, as the checkpoint was evaluated. An unconverged IK
     row is never executed: from the first failure the arm holds the last converged row (or
     the measured state when row 0 fails or a predicted rotation is degenerate), and the
     failure is returned as {row, error}; None when every row converged."""

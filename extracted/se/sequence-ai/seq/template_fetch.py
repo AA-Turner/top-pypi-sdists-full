@@ -1,9 +1,9 @@
 """
 `seq init` for the official templates: fetch one version's code from the platform and unpack it into a directory.
 
-In one sentence: `seq init pi05-droid[@stable|@beta|@v<N>] my-pi05` asks the platform for that template's code
-(GET /v1/templates/{name}/code?ref=…, no key needed) → unpacks the archive into ./my-pi05 → writes the user's own
-deployment name into its policy.py → `seq deploy my-pi05` deploys it. The template repo is the source:
+In one sentence: `seq init pi05-droid[@stable|@beta|@v<N>] my_pi05_user` asks the platform for that template's code
+(GET /v1/templates/{name}/code?ref=…, no key needed) → unpacks the archive into ./my_pi05_user → writes the user's own
+deployment name into its policy.py → `seq deploy my_pi05_user` deploys it. The template repo is the source:
 a new version there reaches users without an SDK release.
 
 The platform is the only source: the SDK carries no copies of any template, so one that cannot be fetched is an error
@@ -14,7 +14,6 @@ newest version that does (deploy_check, newest_deployable), and says so. A chann
 """
 from __future__ import annotations
 
-import ast
 import contextlib
 import io
 import os
@@ -44,19 +43,6 @@ _CHECK_TIMEOUT_S = 300.0
 
 KINDS = ("policy", "benchmark", "adapter")
 ENTRIES = {"policy": "policy.py", "benchmark": "benchmark.py", "adapter": "adapter.py"}
-
-
-
-PLANNER = "planner.py"
-
-
-_NAMED = r"""(["']){}(-[A-Za-z0-9._-]*)?\1"""
-
-
-
-_TEMPLATE_CALLS = ("template", "template_files")
-
-
 def lines_by_kind(rows: list[dict]) -> list[str]:
     """The templates of GET /v1/templates (its `data`), one heading per kind — policy, benchmark, adapter, then any kind
     the platform names that this SDK does not know — each template with the version its channels point at. What
@@ -171,8 +157,8 @@ def refuse_occupied(dest: Path) -> None:
 
 
 def unpack(archive: bytes, dest: Path, *, template: str, deploy_name: str) -> list[Path]:
-    """Unpack into `dest` (which must not exist or be empty) and name the deployment in policy.py - and in the planner
-    beside it, its own name and its members' (planner_named). Refuses any member that would land outside `dest`."""
+    """Unpack into `dest` (which must not exist or be empty) and name the deployment in policy.py. Refuses any member that
+    would land outside `dest`."""
     refuse_occupied(dest)
     dest.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
@@ -188,32 +174,7 @@ def unpack(archive: bytes, dest: Path, *, template: str, deploy_name: str) -> li
     if policy.exists():
         text = policy.read_text()
         policy.write_text(text.replace(f'name="{template}"', f'name="{deploy_name}"', 1))
-    planner = dest / PLANNER
-    if policy.exists() and planner.exists():
-        planner.write_text(planner_named(planner.read_text(), template, deploy_name))
     return written
-
-
-def planner_named(text: str, template: str, deploy_name: str) -> str:
-    """A planner's file with `deploy_name` for `template` in each string that names one of the template's deployments
-    - its name= ("<template>-planner" → "<deploy_name>-planner"), its members= and its sample group's keys - so it
-    plans for the policy deployed from the same folder. A string handed to seq.Weights.template(...) or
-    .template_files(...) names the template's own weights or frozen files: kept. A file that does not parse is left as
-    it is, for `seq deploy` to say what is wrong with it."""
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
-        return text
-    kept = {(arg.lineno, arg.col_offset) for call in ast.walk(tree) if isinstance(call, ast.Call)
-            and getattr(call.func, "attr", getattr(call.func, "id", None)) in _TEMPLATE_CALLS
-            for arg in (*call.args, *(k.value for k in call.keywords)) if isinstance(arg, ast.Constant)}
-
-    def named(m: re.Match) -> str:
-        line = text.rfind("\n", 0, m.start()) + 1
-        if (text.count("\n", 0, m.start()) + 1, len(text[line:m.start()].encode())) in kept:
-            return m.group(0)
-        return f"{m.group(1)}{deploy_name}{m.group(2) or ''}{m.group(1)}"
-    return re.sub(_NAMED.format(re.escape(template)), named, text)
 
 
 
@@ -244,12 +205,7 @@ def deploy_check(dest: Path) -> str | None:
     entry = entry_of(dest)
     if entry is None:
         return None
-
-    for file in (entry, *([PLANNER] if entry == ENTRIES["policy"] and (dest / PLANNER).exists() else [])):
-        said = _deploy_check(dest, file)
-        if said:
-            return said
-    return None
+    return _deploy_check(dest, entry)
 
 
 def _deploy_check(dest: Path, entry: str) -> str | None:

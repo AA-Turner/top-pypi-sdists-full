@@ -2,35 +2,23 @@
 //!
 //! All links are [`url::Url`]s, but are highly restricted to prevent abuse.
 
-use std::{borrow::Cow, cell::Cell, fmt::Debug, marker::PhantomData};
+use std::{borrow::Cow, cell::Cell, collections::HashSet};
 
 use derive_where::derive_where;
 use icu_properties::{CodePointMapData, CodePointMapDataBorrowed, props::GeneralCategory};
 use itertools::Itertools;
-use nom::{
-	IResult, Parser,
-	branch::alt,
-	bytes::complete::take_while1,
-	character::{
-		complete::{anychar, char},
-		satisfy,
-	},
-	combinator::{map, map_opt, not, opt, peek, recognize},
-	multi::many1_count,
-};
-use tracing::Level;
 use url::{SyntaxViolation, Url};
 
 use crate::{
 	Input,
 	context::Context,
-	error::ParseError,
-	node::{Element, Sequence},
-	span::{Span, TraceOk, TraceParse},
-	unparse::Unparse,
+	error::{Fail, PResult},
+	input::token,
+	lossless::TokenKind,
+	node::{Element, Elements, Sequence},
+	scope::Scope,
+	span::{Span, Spanned, Trace},
 };
-
-use super::Scope;
 
 pub mod auto;
 pub mod contact;
@@ -73,7 +61,7 @@ pub const APP_PATHS: [&str; 15] = [
 pub enum PathFilter {
 	/// A single invite or template code, as in `discord.gg/discord-developers`.
 	Code,
-	/// One of these leading segments, or no path at all.
+	/// One of these leading segments.
 	///
 	/// The slice MUST be sorted.
 	Segments(&'static [&'static str]),
@@ -96,10 +84,10 @@ impl PathFilter {
 						.all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
 				}) && segments.next().is_none()
 			}
-			// A bare host is a link to Discord itself.
+			// A bare host is just the name of the site, not a link to anything in particular.
 			Self::Segments(allowed) => segments
 				.next()
-				.is_none_or(|segment| allowed.binary_search(&segment).is_ok()),
+				.is_some_and(|segment| allowed.binary_search(&segment).is_ok()),
 		}
 	}
 }
@@ -136,6 +124,46 @@ impl SchemalessDomain {
 		})
 	}
 
+	/// Whether `text` begins with this domain, give or take an allowed subdomain, with nothing
+	/// after it that carries on the host.
+	///
+	/// Unlike [`Self::starts`], this turns away `discord.company.com` before anything parses it: an
+	/// ASCII letter, digit or `-` after the domain can only make the host a different one, which
+	/// [`Self::matches_host`] would reject. Anything else is left for the parse to decide.
+	#[must_use]
+	pub fn begins_host(&self, text: &str) -> bool {
+		let text = self
+			.subdomains
+			.iter()
+			.find_map(|subdomain| text.strip_prefix(subdomain))
+			.unwrap_or(text);
+
+		text.strip_prefix(self.domain).is_some_and(|rest| {
+			!rest
+				.bytes()
+				.next()
+				.is_some_and(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+		})
+	}
+
+	/// Whether the authority of `url`, which was parsed from a link written without a scheme, is
+	/// this domain and nothing else: the host, give or take an allowed subdomain, with no port or
+	/// credentials to put the reader somewhere other than where the text reads.
+	#[must_use]
+	fn is_authority_of(&self, url: &Url) -> bool {
+		url.host_str().is_some_and(|host| self.matches_host(host))
+			&& url.port().is_none()
+			&& url.username().is_empty()
+			&& url.password().is_none()
+	}
+
+	/// The bytes that can begin this domain, with or without one of its subdomains.
+	pub fn first_bytes(&self) -> impl Iterator<Item = u8> {
+		std::iter::once(self.domain)
+			.chain(self.subdomains.iter().copied())
+			.filter_map(|start| start.bytes().next())
+	}
+
 	/// Whether `host` is this domain, give or take an allowed subdomain.
 	#[must_use]
 	fn matches_host(&self, host: &str) -> bool {
@@ -147,6 +175,15 @@ impl SchemalessDomain {
 			.iter()
 			.any(|subdomain| host.strip_prefix(subdomain) == Some(self.domain))
 	}
+}
+
+/// The schemaless domain `text` begins with, if it begins with one.
+///
+/// Only a gate, as [`SchemalessDomain::starts`] is.
+fn schemaless_domain(text: &str) -> Option<&'static SchemalessDomain> {
+	SCHEMALESS_DOMAINS
+		.iter()
+		.find(|schemaless_domain| schemaless_domain.starts(text))
 }
 
 /// The domains that do not require a scheme, and the paths each accepts without one.
@@ -192,45 +229,13 @@ pub struct Link<S: Span, N> {
 	pub title: Option<String>,
 }
 
-impl<S: Span, N: Unparse> Unparse for Link<S, N> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			Self {
-				text: None,
-				url,
-				title: None,
-				// TODO: retain whether the link came from auto or detection
-			} => write!(f, "{url}"),
-			Self {
-				text: Some(text),
-				url,
-				title: None,
-			} => write!(f, "[{}]({})", text.unparse(), url),
-			Self {
-				text: Some(text),
-				url,
-				title: Some(title),
-			} => write!(f, "[{}]({} {})", text.unparse(), url, title),
-			Self {
-				text: None,
-				title: Some(_),
-				..
-			} => unreachable!("a link cannot have a title with no text"),
-		}
-	}
-}
+/// A parsed link, with the syntax it was written with outside its text.
+pub type ParsedLink<'data, S> = (Link<S, Element<'data, S>>, <S as Span>::Syntax);
 
-/// Parse a valid character that can belong to a link.
+/// Whether a character can belong to a link.
 // ^((?:https?|steam):\/\/[^\s<]+[^<.,:;"'\]\s])
-fn parse_link_char<'data, E>(data: Input<'data>) -> IResult<Input<'data>, char, E>
-where
-	E: ParseError<'data>,
-{
-	nom::error::context(
-		"link::parse_link_char",
-		satisfy(|ch| !ch.is_ascii_whitespace() && ch != '<'),
-	)
-	.parse_complete(data)
+fn is_link_char(ch: char) -> bool {
+	!ch.is_ascii_whitespace() && ch != '<'
 }
 
 /// Whether a character is punctuation that a link can contain but not end with. That includes
@@ -248,163 +253,229 @@ fn is_terminal_char(ch: char) -> bool {
 	is_trailing_punctuation(ch) || matches!(ch, '<' | ')') || ch.is_ascii_whitespace()
 }
 
-/// Parse a character that terminates a link.
-fn parse_terminal_char<'data, E>(data: Input<'data>) -> IResult<Input<'data>, char, E>
-where
-	E: ParseError<'data>,
-{
-	nom::error::context("link::parse_terminal_char", satisfy(is_terminal_char)).parse_complete(data)
+/// Whether `byte` is a link character that [`link_chars_run`] takes without a second look: printable
+/// ASCII that cannot end a link, open or close a group, or begin the terminal of any scope.
+fn is_plain_link_byte(byte: u8) -> bool {
+	byte.is_ascii_graphic()
+		&& !is_trailing_punctuation(char::from(byte))
+		&& !matches!(byte, b'<' | b'>' | b'(' | b')' | b'[')
 }
 
-/// Parse a link character that is not terminal. A balanced `(…)` group is consumed whole by
-/// [`LinkCharsParser`], so any `)` reaching here is unmatched and belongs to the surrounding text
+/// Consume a link character that is not terminal. A balanced `(…)` group is consumed whole by
+/// [`link_chars_run`], so any `)` reaching here is unmatched and belongs to the surrounding text
 /// unless the link plainly runs past it: `https://discord.com).` ends at `com`.
-fn parse_non_terminal_link_chars<'data, E>(
-	data: Input<'data>,
-) -> IResult<Input<'data>, Input<'data>, E>
-where
-	E: ParseError<'data>,
-{
-	alt((
-		recognize((char(')'), peek(satisfy(|ch| !is_terminal_char(ch))))),
-		// A run of punctuation only belongs to the link if the link carries on past it:
-		// `https://discord.com.).` ends at `com`, while `https://discord.com.)x` does not.
-		recognize((
-			take_while1(is_trailing_punctuation),
-			peek(parse_non_terminal_link_chars),
-		)),
-		parse_non_terminal_char,
-	))
-	.parse_complete(data)
+fn non_terminal_link_chars(input: &mut Input) -> PResult<()> {
+	if let Some(after) = input.strip_prefix(')')
+		&& after.chars().next().is_some_and(|ch| !is_terminal_char(ch))
+	{
+		input.advance(1);
+		return Ok(());
+	}
+
+	// A run of punctuation only belongs to the link if the link carries on past it:
+	// `https://discord.com.).` ends at `com`, while `https://discord.com.)x` does not.
+	let punctuation = input.take_while(is_trailing_punctuation).len();
+	if punctuation > 0 {
+		return if input.matches(non_terminal_link_chars)? {
+			Ok(())
+		} else {
+			Err(Fail::NoMatch)
+		};
+	}
+
+	non_terminal_char(input)
 }
 
-/// Like [`parse_non_terminal_link_chars`] but never consumes `)`. Used inside balanced
-/// parentheses, where the enclosing group must find its closing paren on the first try to avoid
-/// O(n²) backtracking on URLs with many nested groups (e.g. `key=(value:(nested))`).
+/// Like [`non_terminal_link_chars`] but never consumes `)`. Used inside balanced parentheses,
+/// where the enclosing group must find its closing paren on the first try to avoid O(n²)
+/// backtracking on URLs with many nested groups (e.g. `key=(value:(nested))`).
 ///
 /// A run of punctuation is consumed whole, and only when a link character follows it, so the
 /// link can carry on through `foo..bar` without picking up the `..` in `foo..`. Inside a group
 /// that following character can be the group's closing `)`, which keeps `(foo.)` together.
-fn parse_non_terminal_link_chars_no_close_paren<'data, E>(
-	data: Input<'data>,
-) -> IResult<Input<'data>, Input<'data>, E>
-where
-	E: ParseError<'data>,
-{
-	alt((
-		recognize((take_while1(is_trailing_punctuation), peek(parse_link_char))),
-		parse_non_terminal_char,
-	))
-	.parse_complete(data)
+fn non_terminal_link_chars_no_close_paren(input: &mut Input) -> PResult<()> {
+	let punctuation = input.take_while(is_trailing_punctuation).len();
+	if punctuation > 0 {
+		return if input.peek().is_some_and(is_link_char) {
+			Ok(())
+		} else {
+			Err(Fail::NoMatch)
+		};
+	}
+
+	non_terminal_char(input)
 }
 
-/// Parse a single character that cannot terminate a link.
-fn parse_non_terminal_char<'data, E>(data: Input<'data>) -> IResult<Input<'data>, Input<'data>, E>
-where
-	E: ParseError<'data>,
-{
-	recognize((not(peek(parse_terminal_char)), anychar)).parse_complete(data)
+/// Whether `input` begins with a run of punctuation that ends in the `](` between a masked link's
+/// text and its destination.
+///
+/// A link written without delimiters ends there. Otherwise a masked link that is not one, like
+/// `[https://example.com/](foobar)`, leaves its text to be read as a link to
+/// `https://example.com/](foobar)`, masked link syntax and all.
+fn opens_destination(input: &Input) -> bool {
+	// every trailing punctuation character is ASCII
+	let bytes = input.as_bytes();
+	let punctuation = bytes
+		.iter()
+		.take_while(|&&byte| is_trailing_punctuation(char::from(byte)))
+		.count();
+	punctuation > 0
+		&& bytes[punctuation - 1] == masked::TEXT_TERMINAL
+		&& bytes.get(punctuation) == Some(&masked::LINK_OPENER)
 }
 
-struct LinkCharsParser<'ctx, E> {
-	context: &'ctx Context,
-	/// True when this parser was spawned inside a `(…)` balanced-paren group. Controls which
-	/// variant of the non-terminal link char parser is used.
-	inside_parens: bool,
-	error: PhantomData<E>,
+/// Consume a single character that cannot terminate a link.
+fn non_terminal_char(input: &mut Input) -> PResult<()> {
+	input.satisfy(|ch| !is_terminal_char(ch)).map(|_| ())
 }
 
-impl<E> Clone for LinkCharsParser<'_, E> {
-	fn clone(&self) -> Self {
-		Self {
-			context: self.context,
-			inside_parens: self.inside_parens,
-			error: PhantomData,
+/// Consume a run of link characters, at least one, with any balanced `(…)` groups in it.
+///
+/// Groups nest without recursion: `opens` holds the offset of each `(` still waiting for its `)`.
+/// A group whose content stops anywhere but a `)` is unclosed, and so is every group around it,
+/// since each would carry on from that `(` exactly as its content did. They all go into
+/// `unclosed`, never to be tried again, and the run resumes at the outermost of them as an
+/// ordinary character. Retrying them instead makes `https://a.b/((((…x` re-scan every level
+/// inside each one, which is exponential in the nesting.
+///
+/// The run stops early once it reaches `reach` outside every group. Nothing it has consumed there
+/// can be given back, since a group only ever rewinds to its own `(`, so the whole run would end
+/// at or past that point: a run that stops short of `reach` is the whole run, and one that does
+/// not reads only as far as it has to.
+fn link_chars_run(input: &mut Input, context: &Context, reach: usize) -> PResult<()> {
+	// Inside balanced parens, use the stricter variant so ) is never consumed as a link char.
+	// This ensures the group's closing `)` always matches without backtracking. A masked link's
+	// URL is closed by `)` the same way, so punctuation right before it stays in the URL rather
+	// than leaving the masked link without its closing paren.
+	let outer_non_terminal = if context.scope == Scope::MaskedLinkLink {
+		non_terminal_link_chars_no_close_paren
+	} else {
+		non_terminal_link_chars
+	};
+	// Delimiters say where these URLs end, so `](` inside one is just part of the URL.
+	let delimited = matches!(context.scope, Scope::AutoLink | Scope::MaskedLinkLink);
+
+	let start = input.start;
+	let mut opens = Vec::new();
+	let mut outermost = *input;
+	let mut unclosed = HashSet::new();
+	loop {
+		if opens.is_empty() && input.start >= reach {
+			break;
+		}
+
+		let plain = input
+			.bytes()
+			.take_while(|&byte| is_plain_link_byte(byte))
+			.count();
+		if plain > 0 {
+			input.advance(plain);
+			continue;
+		}
+
+		let at_open = input.peek() == Some('(');
+		if at_open && !unclosed.contains(&input.start) {
+			if opens.is_empty() {
+				outermost = *input;
+			}
+			opens.push(input.start);
+			input.advance(1);
+			continue;
+		}
+
+		let inside_parens = !opens.is_empty();
+		let non_terminal = if inside_parens {
+			non_terminal_link_chars_no_close_paren
+		} else {
+			outer_non_terminal
+		};
+		// an unclosed `(` ends the group it is in
+		let ends = (inside_parens && at_open)
+			|| (!delimited && opens_destination(input))
+			|| context.at_terminal(input)
+			|| input.attempt(non_terminal)?.is_none();
+		if !ends {
+			continue;
+		}
+
+		if !inside_parens {
+			break;
+		}
+		// an empty pair -- `prepareForReuse()` -- closes too
+		if input.eat(")") {
+			opens.pop();
+		} else {
+			unclosed.extend(opens.drain(..));
+			*input = outermost;
 		}
 	}
-}
 
-impl<E> Debug for LinkCharsParser<'_, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("LinkCharsParser")
-			.field("context", &self.context)
-			.field("inside_parens", &self.inside_parens)
-			.field("error", &self.error)
-			.finish()
-	}
-}
-
-impl<'ctx, 'data, E> Parser<Input<'data>> for LinkCharsParser<'ctx, E>
-where
-	E: ParseError<'data> + 'ctx,
-{
-	type Output = Input<'data>;
-	type Error = E;
-
-	#[tracing::instrument(name = "link_chars_parser", level = Level::TRACE, fields(ok, output))]
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		// Inside balanced parens, use the stricter variant so ) is never consumed as a link char.
-		// This ensures the group's closing char(')') always succeeds without backtracking. A masked
-		// link's URL is closed by `)` the same way, so punctuation right before it stays in the URL
-		// rather than leaving the masked link without its closing paren.
-		let non_terminal: fn(Input<'data>) -> IResult<Input<'data>, Input<'data>, E> =
-			if self.inside_parens || self.context.scope == Scope::MaskedLinkLink {
-				parse_non_terminal_link_chars_no_close_paren
-			} else {
-				parse_non_terminal_link_chars
-			};
-		recognize(many1_count(alt((
-			// The group's content is optional so that an empty pair -- `prepareForReuse()` --
-			// still matches, since `LinkCharsParser` itself demands at least one char.
-			recognize((
-				char('('),
-				opt(LinkCharsParser {
-					context: self.context,
-					inside_parens: true,
-					error: PhantomData,
-				}),
-				char(')'),
-			)),
-			self.context.guard_terminal_sequence(move || non_terminal),
-		))))
-		.trace_parse()
-		.process::<OM>(input)
-		.trace_ok()
+	if input.start == start {
+		Err(Fail::NoMatch)
+	} else {
+		Ok(())
 	}
 }
 
 /// Parse content that is considered part of the link.
-fn link_chars<'ctx, 'data, E>(
-	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E> + 'ctx
-where
-	E: ParseError<'data> + 'ctx,
-{
-	LinkCharsParser {
-		context,
-		inside_parens: false,
-		error: PhantomData,
-	}
+///
+/// Each scan costs a unit of fuel, whether or not what it reads turns out to be a URL: a run can
+/// hold a candidate at every scheme in it, and each one can read to the end of the run. The scan
+/// itself is linear in what it reads; see [`link_chars_run`].
+#[tracing::instrument(
+	name = "link_chars_parser",
+	level = "trace",
+	skip_all,
+	fields(ok, output)
+)]
+fn link_chars<'data>(input: &mut Input<'data>, context: &Context) -> PResult<&'data str> {
+	context.remaining_fuel().spend()?;
+	input
+		.recognize(|input| link_chars_run(input, context, usize::MAX))
+		.trace()
 }
 
 /// Parse a URL and verify that it has valid schemes. This is _not_ the same as
-/// [`detection::start_sequence`] which is more restrictive and includes non-schemes.
-#[must_use]
-pub fn verify_url<'ctx, 'data: 'ctx, E>(
-	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = Url, Error = E> + 'ctx
-where
-	E: ParseError<'data> + 'ctx,
-{
-	nom::error::context(
-		"link::verify_url",
-		map_opt(link_chars(context), |input| {
-			parse_and_validate_url(input.content, context.dev_links)
-		}),
-	)
+/// [`detection::starts_at`] which is more restrictive and includes non-schemes.
+///
+/// # Errors
+/// If the content does not begin with a valid URL.
+pub fn verify_url(input: &mut Input, context: &Context) -> PResult<Url> {
+	let text = link_chars(input, context)?;
+	parse_and_validate_url(text, context.dev_links).ok_or(Fail::NoMatch)
+}
+
+/// Parse a URL that is shown as it is written, as a detected link's or an auto link's is, with the
+/// text to show for it if the URL alone would not read back as written.
+///
+/// That is a URL written without a scheme: the reader wrote `discord.gg/abc`, not
+/// `https://discord.gg/abc`. Its text is a [`TokenKind::Text`] token in place of the
+/// [`TokenKind::Url`] one, as a contact link's is.
+///
+/// # Errors
+/// If the content does not begin with a valid URL.
+pub fn shown_url<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<(Url, Option<Elements<'data, S>>, S::Syntax)> {
+	let start = input.start;
+	let text = link_chars(input, context)?;
+	let url = parse_and_validate_url(text, context.dev_links).ok_or(Fail::NoMatch)?;
+	if schemaless_domain(text).is_none() {
+		return Ok((url, None, token::<S>(TokenKind::Url, start, input.start)));
+	}
+
+	// the text records its token; the sequence holding it spans the same, bare
+	let mut span: S = input.span(start);
+	span.attach(token::<S>(TokenKind::Text, start, input.start));
+	let text = Spanned {
+		value: vec![Spanned {
+			value: Element::Text(text.into()),
+			span,
+		}],
+		span: input.span(start),
+	};
+	Ok((url, Some(text), S::Syntax::default()))
 }
 
 /// Parse text content as a URL, ensuring that the URL is safe.
@@ -429,9 +500,7 @@ pub fn parse_and_validate_url(text: &str, dev_links: bool) -> Option<Url> {
 		return None;
 	}
 
-	let schemaless = SCHEMALESS_DOMAINS
-		.iter()
-		.find(|schemaless_domain| schemaless_domain.starts(text));
+	let schemaless = schemaless_domain(text);
 	let text = match schemaless {
 		Some(_) => Cow::Owned(format!("https://{text}")),
 		None => Cow::Borrowed(text),
@@ -480,19 +549,10 @@ pub fn parse_and_validate_url(text: &str, dev_links: bool) -> Option<Url> {
 			// A URL that only got its scheme because it looked schemaless has to earn it. The host
 			// comes from the parsed URL rather than the prefix that matched above, because a prefix
 			// is not a host: `discord.company.com` starts with `discord.com`.
-			if let Some(schemaless_domain) = schemaless {
-				let is_domain = url
-					.host_str()
-					.is_some_and(|host| schemaless_domain.matches_host(host));
-
-				if !is_domain
-					|| url.port().is_some()
-					|| !url.username().is_empty()
-					|| url.password().is_some()
-					|| !schemaless_domain.path.accepts(url)
-				{
-					return false;
-				}
+			if let Some(schemaless_domain) = schemaless
+				&& !(schemaless_domain.is_authority_of(url) && schemaless_domain.path.accepts(url))
+			{
+				return false;
 			}
 
 			scheme::ALL
@@ -501,9 +561,69 @@ pub fn parse_and_validate_url(text: &str, dev_links: bool) -> Option<Url> {
 		})
 }
 
+/// Whether any URL whose authority ends where `text` does could pass [`parse_and_validate_url`].
+///
+/// `text` is a link's text cut off at the character that ends its authority: the first `/`, `?`
+/// or `#` after the scheme's slashes, or a `\` too for a scheme the URL standard calls special. The
+/// URL parser reads the scheme, credentials, host and port off that prefix alone, and nothing after
+/// it can make the parse fail, so a prefix that does not parse, or whose authority validation
+/// turns down, rules out every URL it begins. That is what lets link detection reject a candidate
+/// without reading to the end of its run. What depends on the rest -- syntax violations, the path
+/// a schemaless domain accepts -- is left to [`parse_and_validate_url`], so `true` decides nothing.
+///
+/// Every scheme a candidate can carry is validated by its scheme and authority alone; a
+/// [`scheme::Contact`] reads the path, but never begins a candidate.
+#[must_use]
+fn authority_could_validate(text: &str, dev_links: bool) -> bool {
+	if text.chars().any(is_suspicious_whitespace) {
+		return false;
+	}
+
+	// The character after `text` ends the authority, and no domain contains one, so a domain that
+	// begins the whole URL begins `text`.
+	let schemaless = schemaless_domain(text);
+	let text = match schemaless {
+		Some(_) => Cow::Owned(format!("https://{text}")),
+		None => Cow::Borrowed(text),
+	};
+
+	let Ok(url) = Url::parse(&text) else {
+		return false;
+	};
+	// the host this reads runs to the first `/`, so the whole URL's runs at least as far
+	if has_percent_encoded_domain(url.scheme(), &text) {
+		return false;
+	}
+	if let Some(schemaless_domain) = schemaless
+		&& !schemaless_domain.is_authority_of(&url)
+	{
+		return false;
+	}
+
+	scheme::ALL
+		.iter()
+		.any(|scheme| scheme.allowed_by(dev_links) && scheme.validate(&url))
+}
+
+/// Whether `scheme` is one the URL standard calls special, which ends an authority at `\` as well
+/// as `/` and takes any run of either after its `:`.
+#[must_use]
+fn is_special_scheme(scheme: &str) -> bool {
+	matches!(scheme, "ftp" | "file" | "http" | "https" | "ws" | "wss")
+}
+
 /// Manually parse the host section of the URL from `url_str` and return whether it has any
 /// percent-encoded characters in it. This is a best-effort attempt and is not URL-compliant.
 fn has_percent_encoded_domain(scheme: &str, url_str: &str) -> bool {
+	// nearly every URL begins with its scheme, where the search below would find it first anyway
+	if let Some(after_scheme) = url_str
+		.strip_prefix(scheme)
+		.and_then(|rest| rest.strip_prefix("://"))
+	{
+		let host_end = after_scheme.find('/').unwrap_or(after_scheme.len());
+		return contains_percent_encoding(&after_scheme[..host_end]);
+	}
+
 	// we can assume 2 slashes are present because we validate this assumption before calling this function
 	let scheme_and_separator = format!("{scheme}://");
 
@@ -542,6 +662,10 @@ fn is_suspicious_whitespace(ch: char) -> bool {
 	if matches!(ch, '\n' | ' ') {
 		return false;
 	}
+	// the only suspicious ASCII is the controls, which skips the lookup for nearly every character
+	if ch.is_ascii() {
+		return ch.is_ascii_control();
+	}
 
 	matches!(
 		ch,
@@ -565,31 +689,23 @@ fn is_suspicious_whitespace(ch: char) -> bool {
 ///
 /// # Errors
 /// If the content does not begin with a URL.
-#[must_use]
-pub fn link<'ctx, 'data, S, E>(
-	context: &'ctx Context,
-) -> impl Parser<Input<'data>, Output = (Link<S, Element<'data, S>>, S::Syntax), Error = E> + 'ctx
-where
-	S: Span,
-	E: ParseError<'data> + 'ctx,
-	'data: 'ctx,
-{
-	nom::error::context(
-		"link::parse_inline",
-		alt((
-			masked::masked(context),
-			detection::detection(context),
-			map(auto::auto::<S, E>(context.clone()), |(url, syntax)| {
-				let link = Link {
-					text: None,
-					title: None,
-					url,
-				};
-				(link, syntax)
-			}),
-			contact::contact(context.clone()),
-		)),
-	)
+pub fn link<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<ParsedLink<'data, S>> {
+	match input.attempt(|input| masked::masked(input, context))? {
+		Some(masked::Masked::Link(link)) => return Ok(link),
+		// none of a spoof is a link, and every other alternative would find one in it
+		Some(masked::Masked::Spoof(..)) => return Err(Fail::NoMatch),
+		None => {}
+	}
+	if let Some(link) = input.attempt(|input| detection::detection(input, context))? {
+		return Ok(link);
+	}
+	if let Some(link) = input.attempt(|input| auto::link(input, context))? {
+		return Ok(link);
+	}
+	contact::contact(input, context)
 }
 
 #[cfg(test)]
@@ -639,6 +755,15 @@ mod test {
 		}
 
 		assert_eq!(validate("dev://nonsense/foo"), None);
+	}
+
+	/// A special scheme's path can't hold a backslash, but a `dev` one keeps it as written.
+	#[test]
+	fn backslash_in_path() {
+		assert_eq!(validate("https://wnelson.dev/foo\\bar"), None);
+
+		let s = "dev://branch/foo\\bar";
+		assert_eq!(validate(s), Some(Url::parse(s).unwrap()));
 	}
 
 	/// A `dev` URL for each surface the client routes.
@@ -717,9 +842,6 @@ mod test {
 			// no deployment subdomain on these hosts
 			"www.discord.gg/abc",
 			"www.discord.new/abc",
-			// the bare host is a link to Discord itself
-			"discord.com",
-			"discord.com/",
 		] {
 			assert_eq!(
 				validate(s),
@@ -734,6 +856,10 @@ mod test {
 	fn schemaless_path_must_be_one_the_client_routes() {
 		for s in [
 			"discord.com/developers/docs",
+			// the bare host names the site rather than linking to anything in it
+			"discord.com",
+			"discord.com/",
+			"www.discordapp.com",
 			// `/shop` has to end the path segment, or the link points somewhere else entirely
 			"discord.com/shopping-cart",
 			// an invite code is one segment of code characters and nothing else
@@ -776,6 +902,21 @@ mod test {
 			"https://discord.company.com/anything",
 		] {
 			assert_eq!(validate(s), Some(Url::parse(s).unwrap()), "{s}");
+		}
+	}
+
+	/// A plain link byte is skipped without asking whether it ends the scope, so it must not be
+	/// able to.
+	#[test]
+	fn plain_link_bytes_end_no_scope() {
+		use crate::{scope::ScopeSet, util::ByteSet};
+
+		let mut boundaries = ByteSet::default();
+		for scope in ScopeSet::all() {
+			scope.insert_boundary_bytes(&mut boundaries);
+		}
+		for byte in boundaries.iter() {
+			assert!(!super::is_plain_link_byte(byte), "{:?}", char::from(byte));
 		}
 	}
 

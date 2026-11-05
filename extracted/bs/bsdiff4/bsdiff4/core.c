@@ -7,6 +7,7 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <assert.h>
 #include <stdint.h>
 
 
@@ -109,6 +110,9 @@ split(Py_ssize_t *sa, Py_ssize_t *rank, Py_ssize_t start,
     }
 
     partition_group(sa, rank, start, len, h, &lower, &upper);
+    assert(start <= lower);
+    assert(lower < upper);
+    assert(upper <= start + len);
 
     if (lower > start)
         split(sa, rank, start, lower - start, h);
@@ -214,7 +218,7 @@ matchlen(const char *a, Py_ssize_t a_len,
     return i;
 }
 
-/* return the longest prefix-match length and store its position in *pos */
+/* find a prefix match using the suffix array */
 static Py_ssize_t
 search(const Py_ssize_t *sa,
        const char *a, Py_ssize_t a_len,
@@ -446,6 +450,11 @@ compute_diff(const char *src, Py_ssize_t src_len,
             adjust_overlap(src, dst, lastscan, lastpos, scan, pos,
                            &lenf, &lenb);
 
+            assert(lenf >= 0 && lenb >= 0);
+            assert(lastpos >= 0 && lenf <= src_len - lastpos);
+            assert(lastscan >= 0 && lenf <= dst_len - lastscan);
+            assert(lastscan + lenf <= scan - lenb);
+
             for (i = 0; i < lenf; i++)
                 result->diff[result->diff_len + i] =
                     dst[lastscan + i] - src[lastpos + i];
@@ -468,6 +477,9 @@ compute_diff(const char *src, Py_ssize_t src_len,
     }
 
     PyMem_Free(sa);
+    assert(result->diff_len <= dst_len);
+    assert(result->extra_len == dst_len - result->diff_len);
+    assert(PyByteArray_GET_SIZE(result->control) % 24 == 0);
     return 0;
 
 error:
@@ -514,7 +526,9 @@ mod_diff(PyObject *module, PyObject *args)
     char *src, *dst;
     PyObject *result;
 
-    if (!PyArg_ParseTuple(args, "s#s#", &src, &src_len, &dst, &dst_len))
+    if (!PyArg_ParseTuple(args, "s#s#",
+                          &src, &src_len,
+                          &dst, &dst_len))
         return NULL;
 
     if (compute_diff(src, src_len, dst, dst_len, &diff) < 0)
@@ -576,17 +590,19 @@ mod_patch(PyObject *module, PyObject *args)
     Py_ssize_t dst_pos = 0, i;
     int64_t src_pos = 0;
 
-    if (!PyArg_ParseTuple(args, "s#ns#s#s#",
-                          &src, &src_len, &dst_len,
+    if (!PyArg_ParseTuple(args, "s#s#s#s#",
+                          &src, &src_len,
                           &control_block, &control_len,
                           &diff_block, &diff_remaining,
                           &extra_block, &extra_remaining))
         return NULL;
 
-    if (dst_len < 0) {
-        CORRUPT("negative destination length");
+    if (diff_remaining > PY_SSIZE_T_MAX - extra_remaining) {
+        PyErr_NoMemory();
         return NULL;
     }
+    dst_len = diff_remaining + extra_remaining;
+
     if (control_len % 24) {
         CORRUPT("invalid control block");
         return NULL;
@@ -608,10 +624,11 @@ mod_patch(PyObject *module, PyObject *args)
         memcpy(dst + dst_pos, diff_block, x);
         diff_block += x;
         diff_remaining -= x;
-        /* Check bounds without overflowing src_pos + j. */
-        for (j = 0; j < x; j++)
+        for (j = 0; j < x; j++) {
+            /* Check bounds without overflowing src_pos + j. */
             if (src_pos >= -j && src_pos < src_len - j)
                 dst[dst_pos + j] += src[src_pos + j];
+        }
         dst_pos += x;
         if (y < 0 || y > dst_len - dst_pos || y > extra_remaining) {
             CORRUPT("y out of range");
@@ -630,10 +647,7 @@ mod_patch(PyObject *module, PyObject *args)
         CORRUPT("incomplete output");
         goto error;
     }
-    if (diff_remaining != 0 || extra_remaining != 0) {
-        CORRUPT("unused block data");
-        goto error;
-    }
+    assert(diff_remaining == 0 && extra_remaining == 0);
 
     return result;
 

@@ -37,6 +37,11 @@ OPENSSL_EXPORT const EVP_CIPHER *EVP_aes_256_ecb(void);
 OPENSSL_EXPORT const EVP_CIPHER *EVP_aes_256_cbc(void);
 OPENSSL_EXPORT const EVP_CIPHER *EVP_aes_256_ctr(void);
 OPENSSL_EXPORT const EVP_CIPHER *EVP_aes_256_ofb(void);
+
+// EVP_aes_256_xts returns an AES-256-XTS cipher. XTS does not support
+// streaming: the complete data unit must be supplied in one non-empty
+// |EVP_CipherUpdate| or |EVP_Cipher| call. Before processing another data unit,
+// callers must reinitialize the context with a new key or IV.
 OPENSSL_EXPORT const EVP_CIPHER *EVP_aes_256_xts(void);
 
 // EVP_aes_256_wrap implements AES-256 in Key Wrap mode. OpenSSL 1.1.1 required
@@ -540,6 +545,13 @@ OPENSSL_EXPORT OPENSSL_DEPRECATED void EVP_CIPHER_CTX_set_flags(
 // do nothing and are included only to make it easier to compile code
 // with AWS-LC.
 #define EVP_CIPHER_CTX_FLAG_WRAP_ALLOW 0
+
+// EVP_add_cipher returns one if |cipher| is non-NULL and zero otherwise. It
+// exists only for compatibility with OpenSSL, which requires ciphers to be
+// registered before they can be found by name. AWS-LC's cipher lookup
+// functions, such as |EVP_get_cipherbyname|, do not use a registry and support
+// a fixed set of ciphers, so this function has no other effect.
+OPENSSL_EXPORT OPENSSL_DEPRECATED int EVP_add_cipher(const EVP_CIPHER *cipher);
 
 // EVP_add_cipher_alias does nothing and returns one.
 OPENSSL_EXPORT OPENSSL_DEPRECATED int EVP_add_cipher_alias(const char *a,

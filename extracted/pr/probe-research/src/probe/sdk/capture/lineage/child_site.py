@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
-from ...recording_rules import ignore as _ignore
+from ...recording_rules import recording_rules as _ignore
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from probe.sdk.capture.lineage.exclusions import (
     _CACHE_ENVS,

@@ -4,7 +4,7 @@
 This module exposes tools for pulling Zendesk tickets (and their comments),
 posting internal (private, agent-only) notes, and notifying Slack reviewers
 after spam triage through the hosted Ops MCP server. It can also set the
-Ticket Complexity total score field on Solved tickets.
+Ticket Complexity total score field on Solved or Closed tickets.
 
 ## MCP reference
 
@@ -1174,9 +1174,9 @@ def set_zendesk_tcm_total_score(
         ),
     ],
 ) -> ZendeskTcmScoreResponse:
-    """Set only the TCM total score field on a Solved Zendesk ticket.
+    """Set only the TCM total score field on a Solved or Closed Zendesk ticket.
 
-    Closed tickets are refused, a matching existing value is a no-op, and an
+    Other statuses are refused, a matching existing value is a no-op, and an
     existing different value is refused and never replaced. The tool accepts no
     credentials; it reads them from the server environment and never logs them.
     """

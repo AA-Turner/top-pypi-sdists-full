@@ -27,6 +27,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+
 from conformance.suite.checks.app_name_alignment import scan_all
 from conformance.suite.rules import get_rule
 from conformance.suite.schema.disposition import EnforcementTier, RuleScope
@@ -254,9 +255,9 @@ def test_p025_mssql_case_fires(tmp_path: Path) -> None:
         env_example="ATLAN_APPLICATION_NAME=mssql\n",
     )
     p025 = _p025(findings)
-    assert (
-        len(p025) == 2
-    ), f"expected 2 findings, got {len(p025)}: {[f.message for f in p025]}"
+    assert len(p025) == 2, (
+        f"expected 2 findings, got {len(p025)}: {[f.message for f in p025]}"
+    )
     messages = [f.message for f in p025]
     assert any("mssql-metadata-extractor" in m and "mssql" in m for m in messages)
     # One finding per source (contract + env)
@@ -440,9 +441,9 @@ def test_p025_pascal_to_kebab(
         py,
         atlan_yaml=f"name: {expected_kebab}\n",
     )
-    assert (
-        _p025(findings_aligned) == []
-    ), f"{class_name} should derive '{expected_kebab}' and match the contract"
+    assert _p025(findings_aligned) == [], (
+        f"{class_name} should derive '{expected_kebab}' and match the contract"
+    )
     # Fresh tmp_path for mismatch check
     import tempfile
 
@@ -453,9 +454,9 @@ def test_p025_pascal_to_kebab(
             atlan_yaml="name: wrong-name\n",
         )
         p025 = _p025(findings_drift)
-        assert (
-            len(p025) == 1
-        ), f"{class_name} → '{expected_kebab}' should drift against 'wrong-name'"
+        assert len(p025) == 1, (
+            f"{class_name} → '{expected_kebab}' should drift against 'wrong-name'"
+        )
         assert expected_kebab in p025[0].message
 
 
@@ -802,6 +803,34 @@ def test_p025_classvar_annotation_form(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_parity_tests_import_the_sdk_from_this_checkout() -> None:
+    """The parity tests here compare conformance's copies with the SDK they
+    import, so that SDK must be the one in this repository, not a PyPI release.
+
+    packages/conformance path-sources atlan-application-sdk in its
+    [tool.uv.sources] (FND-4256). Before that its lock pinned a release from
+    PyPI two minors behind the tree, and every parity assertion here checked
+    that release instead of the code it sits beside.
+    """
+    import tomllib
+
+    import application_sdk
+
+    repo_root = Path(__file__).resolve().parents[3]
+    # The package directory itself, not "somewhere under the repo": a PyPI
+    # install in packages/conformance/.venv is under the repo too.
+    imported = Path(application_sdk.__file__).resolve().parent
+    assert imported == repo_root / "application_sdk", (
+        f"application_sdk imported from {imported}, not from "
+        f"{repo_root / 'application_sdk'}: the conformance environment is not "
+        "using this checkout"
+    )
+    root_version = tomllib.loads((repo_root / "pyproject.toml").read_text())["project"][
+        "version"
+    ]
+    assert application_sdk.__version__ == root_version
+
+
 def test_sdk_base_names_matches_templates_all() -> None:
     """_SDK_APP_BASE_NAMES must equal set(templates.__all__) | {"App"}.
 
@@ -811,11 +840,11 @@ def test_sdk_base_names_matches_templates_all() -> None:
     at check time, which conformance deliberately avoids; the asserted equality
     is the lower-blast-radius alternative.
     """
+    import application_sdk.templates as _templates
+
     from conformance.suite.checks._ast_common import (
         SDK_APP_BASE_NAMES as _SDK_APP_BASE_NAMES,
     )
-
-    import application_sdk.templates as _templates
 
     expected = set(_templates.__all__) | {"App"}
     assert _SDK_APP_BASE_NAMES == frozenset(expected), (
@@ -898,9 +927,9 @@ def test_p025_transitive_intermediate_base_name_propagates(tmp_path: Path) -> No
         atlan_yaml="name: mysql\n",
         env_example="ATLAN_APPLICATION_NAME=mysql\n",
     )
-    assert (
-        _p025(findings) == []
-    ), "Expected no findings: leaf inherits name='mysql' from intermediate base"
+    assert _p025(findings) == [], (
+        "Expected no findings: leaf inherits name='mysql' from intermediate base"
+    )
 
     # Contract says wrong-name → 1 finding with the inherited "mysql" name
     import tempfile
@@ -936,9 +965,9 @@ def test_p025_quoted_env_double_quotes_noop(tmp_path: Path) -> None:
         atlan_yaml="name: mssql\n",
         env_example='ATLAN_APPLICATION_NAME="mssql"\n',
     )
-    assert (
-        _p025(findings) == []
-    ), "Double-quoted env value should be stripped before comparison"
+    assert _p025(findings) == [], (
+        "Double-quoted env value should be stripped before comparison"
+    )
 
 
 def test_p025_quoted_env_single_quotes_noop(tmp_path: Path) -> None:
@@ -956,9 +985,9 @@ def test_p025_quoted_env_single_quotes_noop(tmp_path: Path) -> None:
         atlan_yaml="name: mssql\n",
         env_example="ATLAN_APPLICATION_NAME='mssql'\n",
     )
-    assert (
-        _p025(findings) == []
-    ), "Single-quoted env value should be stripped before comparison"
+    assert _p025(findings) == [], (
+        "Single-quoted env value should be stripped before comparison"
+    )
 
 
 def test_p025_empty_name_intermediate_shadows_grandparent(tmp_path: Path) -> None:

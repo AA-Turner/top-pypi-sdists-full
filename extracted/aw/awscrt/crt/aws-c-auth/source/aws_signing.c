@@ -112,7 +112,7 @@ int aws_signing_init_signing_tables(struct aws_allocator *allocator) {
             allocator,
             10,
             aws_hash_byte_cursor_ptr_ignore_case,
-            (aws_hash_callback_eq_fn *)aws_byte_cursor_eq_ignore_case,
+            aws_byte_cursor_eq_ignore_case_cb,
             NULL,
             NULL)) {
         return AWS_OP_ERR;
@@ -168,7 +168,7 @@ int aws_signing_init_signing_tables(struct aws_allocator *allocator) {
             allocator,
             10,
             aws_hash_byte_cursor_ptr_ignore_case,
-            (aws_hash_callback_eq_fn *)aws_byte_cursor_eq_ignore_case,
+            aws_byte_cursor_eq_ignore_case_cb,
             NULL,
             NULL)) {
         return AWS_OP_ERR;
@@ -207,7 +207,7 @@ int aws_signing_init_signing_tables(struct aws_allocator *allocator) {
             allocator,
             10,
             aws_hash_byte_cursor_ptr_ignore_case,
-            (aws_hash_callback_eq_fn *)aws_byte_cursor_eq_ignore_case,
+            aws_byte_cursor_eq_ignore_case_cb,
             NULL,
             NULL)) {
         return AWS_OP_ERR;
@@ -2259,7 +2259,7 @@ static int s_compute_sigv4_signing_key(struct aws_signing_state_aws *state, stru
 
 cleanup:
     aws_byte_buf_clean_up_secure(&secret_key);
-    aws_byte_buf_clean_up(&output);
+    aws_byte_buf_clean_up_secure(&output);
     aws_byte_buf_clean_up(&date_buf);
 
     return result;
@@ -2302,7 +2302,7 @@ static int s_calculate_sigv4_signature_value(struct aws_signing_state_aws *state
 
 cleanup:
 
-    aws_byte_buf_clean_up(&key);
+    aws_byte_buf_clean_up_secure(&key);
     aws_byte_buf_clean_up(&digest);
 
     return result;

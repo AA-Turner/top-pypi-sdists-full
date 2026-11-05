@@ -395,6 +395,7 @@ class AopClient:
         *,
         agent_id: typing.Optional[str] = OMIT,
         agent_config: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        confirm_sensitive: typing.Optional[bool] = OMIT,
         description: typing.Optional[str] = OMIT,
         icon: typing.Optional[str] = OMIT,
         prompt: typing.Optional[str] = OMIT,
@@ -406,7 +407,7 @@ class AopClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AopConfigUpdateResponseOut:
         """
-        Overwrite the configuration of an existing AOP asset. Replaces the entire AOP configuration (prompt, agent config, structured output, etc.) with the provided values. Fields not included in the request body will be reset to their defaults, except user_notification_configs, which is preserved from the existing configuration when omitted; send an explicit null to clear it. The update is rejected with 400 when the configuration would enable more tools at run time than the per-run limit, counting every tool of each toolkit @mentioned in the prompt; the detail names toolkits to remove and the existing configuration is left untouched.
+        Overwrite the configuration of an existing AOP asset. Replaces the entire AOP configuration (prompt, agent config, structured output, etc.) with the provided values. Fields not included in the request body will be reset to their defaults, except user_notification_configs, which is preserved from the existing configuration when omitted; send an explicit null to clear it. The update is rejected with 400 when the configuration would enable more tools at run time than the per-run limit, counting every tool of each toolkit @mentioned in the prompt; the detail names toolkits to remove and the existing configuration is left untouched. The update publishes at once, so an update that would give runs tools the published version does not (resolved as runs resolve them, the assigned agent's tools included) is rejected with 409 and nothing is changed unless confirm_sensitive is true; the detail names the added tools.
 
         Parameters
         ----------
@@ -418,6 +419,9 @@ class AopClient:
 
         agent_config : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
             Full agent configuration override for this AOP
+
+        confirm_sensitive : typing.Optional[bool]
+            Confirms that the new configuration may give runs tools the published version does not (as runs resolve them, the assigned agent's tools included). Without it, such an update is refused with 409 and nothing is changed; the response names the added tools
 
         description : typing.Optional[str]
             Human-readable description of what the AOP does
@@ -466,6 +470,7 @@ class AopClient:
             asset_id,
             agent_id=agent_id,
             agent_config=agent_config,
+            confirm_sensitive=confirm_sensitive,
             description=description,
             icon=icon,
             prompt=prompt,
@@ -900,6 +905,7 @@ class AsyncAopClient:
         *,
         agent_id: typing.Optional[str] = OMIT,
         agent_config: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        confirm_sensitive: typing.Optional[bool] = OMIT,
         description: typing.Optional[str] = OMIT,
         icon: typing.Optional[str] = OMIT,
         prompt: typing.Optional[str] = OMIT,
@@ -911,7 +917,7 @@ class AsyncAopClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AopConfigUpdateResponseOut:
         """
-        Overwrite the configuration of an existing AOP asset. Replaces the entire AOP configuration (prompt, agent config, structured output, etc.) with the provided values. Fields not included in the request body will be reset to their defaults, except user_notification_configs, which is preserved from the existing configuration when omitted; send an explicit null to clear it. The update is rejected with 400 when the configuration would enable more tools at run time than the per-run limit, counting every tool of each toolkit @mentioned in the prompt; the detail names toolkits to remove and the existing configuration is left untouched.
+        Overwrite the configuration of an existing AOP asset. Replaces the entire AOP configuration (prompt, agent config, structured output, etc.) with the provided values. Fields not included in the request body will be reset to their defaults, except user_notification_configs, which is preserved from the existing configuration when omitted; send an explicit null to clear it. The update is rejected with 400 when the configuration would enable more tools at run time than the per-run limit, counting every tool of each toolkit @mentioned in the prompt; the detail names toolkits to remove and the existing configuration is left untouched. The update publishes at once, so an update that would give runs tools the published version does not (resolved as runs resolve them, the assigned agent's tools included) is rejected with 409 and nothing is changed unless confirm_sensitive is true; the detail names the added tools.
 
         Parameters
         ----------
@@ -923,6 +929,9 @@ class AsyncAopClient:
 
         agent_config : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
             Full agent configuration override for this AOP
+
+        confirm_sensitive : typing.Optional[bool]
+            Confirms that the new configuration may give runs tools the published version does not (as runs resolve them, the assigned agent's tools included). Without it, such an update is refused with 409 and nothing is changed; the response names the added tools
 
         description : typing.Optional[str]
             Human-readable description of what the AOP does
@@ -979,6 +988,7 @@ class AsyncAopClient:
             asset_id,
             agent_id=agent_id,
             agent_config=agent_config,
+            confirm_sensitive=confirm_sensitive,
             description=description,
             icon=icon,
             prompt=prompt,

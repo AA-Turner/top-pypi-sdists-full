@@ -134,7 +134,9 @@ class APAPI:
         try:
             # Never forward control-plane credentials through a redirect.
             with urllib.request.build_opener(_NoRedirect(), *handlers).open(request, timeout=timeout) as response:
-                payload = response.read()
+                payload = response.read(8 * 1024 * 1024 + 1)
+                if len(payload) > 8 * 1024 * 1024:
+                    raise ProtocolError('AP control response exceeds size limit')
                 status, response_headers = response.status, response.headers
         except urllib.error.HTTPError as exc:
             code = exc.code
@@ -184,11 +186,14 @@ class APAPI:
         validate_id(group_id)
         result, seen = [], set()
         skip = 0
-        while True:
+        for _ in range(1000):
             data = self._call(f'/groups/{group_id}/jobs?skip={skip}&limit=500&include_post_process=false')
             if not isinstance(data, dict) or not isinstance(data.get('jobs'), list):
                 raise ProtocolError('invalid Group jobs response')
             jobs = data['jobs']
+            if len(jobs) > 500:
+                raise ProtocolError('Group jobs page exceeds requested limit')
+            added = 0
             for job in jobs:
                 if not isinstance(job, dict) or not isinstance(job.get('job_id'), str):
                     raise ProtocolError('invalid Group job')
@@ -196,9 +201,13 @@ class APAPI:
                 if jid not in seen:
                     seen.add(jid)
                     result.append(jid)
+                    added += 1
             if len(jobs) < 500:
                 return result
+            if added == 0:
+                raise ProtocolError('Group jobs pagination made no progress')
             skip += len(jobs)
+        raise ProtocolError('Group jobs pagination budget exhausted')
 
     def get_archive_targets(self, job_ids, *, mode='both', metadata=None, tolerate_errors=False):
         if not job_ids:

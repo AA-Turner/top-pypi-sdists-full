@@ -66,7 +66,7 @@ def benchmarks(*, limit: int = PAGE, cursor: str | None = None, api_key: str | N
     `version` is also how many versions there have been (each re-registration is the next one). `template` is the
     template its code comes from - its version, and "stable" or "beta" (None: neither now) - None for your own code;
     `replay` is "3d" when the version records its 3D replay. `worlds` is how many worlds one call of a vectorized env's
-    step takes (@seq.concurrent(sizes=[N])), None for an env of one world an instance."""
+    step takes (@seq.concurrent(sizes=[N])), None for an env that steps one world at a time."""
     from seq._eval_gateway import EvalGatewayClient
 
     return EvalGatewayClient(api_key=api_key, base_url=base_url).benchmarks(limit=limit, cursor=cursor)
@@ -108,12 +108,13 @@ def benchmark_tasks(name: str, *, version: int | None = None, api_key: str | Non
 def benchmark_io(name: str, *, api_key: str | None = None, base_url: str | None = None) -> dict:
     """What a benchmark's latest version hands an adapter and takes back:
 
-        {"benchmark", "version", "observation": {key: {"shape": [...], "dtype": "..."}} or None,
+        {"benchmark", "version", "observation": {"dict": {key: {"array": [...], "dtype": "..."}, ...}} or None,
          "obs_contract": {...} or None, "templates": [...]}
 
-    `observation` is the first observation its registration check read - its keys and each entry's shape and dtype, no
-    data (None for a version checked before this was recorded); `obs_contract` the observation contract it declared;
-    `templates` the official templates it is made from. What `seq adapter check --benchmark` builds a sample from, and
+    `observation` is the first observation its registration check read, described without its data as the check
+    describes it
+ - None for a version checked before this was recorded;
+    `obs_contract` the observation contract it declared; `templates` the official templates it is made from. What `seq adapter check --benchmark` builds a sample from, and
     what `seq benchmark status` shows under the status."""
     from seq._eval_gateway import EvalGatewayClient
 
@@ -123,15 +124,43 @@ def benchmark_io(name: str, *, api_key: str | None = None, base_url: str | None 
 def print_benchmark_io(io: dict, *, echo: Callable[[str], None] = print) -> None:
     """The inputs a benchmark hands an adapter, under `seq benchmark status`: each observation key with its shape and
     dtype, then the templates it is made from. Nothing when the version recorded no observation."""
-    obs = io.get("observation") or {}
-    if obs:
+    rows = _observation_rows(io.get("observation")) if io.get("observation") else []
+    if rows:
         echo("  observation:")
-        for key, spec in obs.items():
-            shape = "×".join(str(d) for d in (spec or {}).get("shape") or []) or "?"
-            echo(f"    {key}  {shape}  {(spec or {}).get('dtype') or ''}".rstrip())
+        width = max(len(key) for key, _ in rows)
+        for key, said in rows:
+            echo(f"    {key:<{width}}  {said}".rstrip())
     tmpl = io.get("templates") or []
     if tmpl:
         echo(f"  from template{'' if len(tmpl) == 1 else 's'}: " + ", ".join(tmpl))
+
+
+def _observation_rows(desc: Any, prefix: str = "") -> list[tuple[str, str]]:
+    """(key, what it is) for each entry of an observation as its check described it, a nested dict's keys joined by dots:
+    ("arm_x", "1  float64"). Before, the description's own tag was printed as the one key, "dict  ?".
+"""
+    if isinstance(desc, dict) and isinstance(desc.get("dict"), dict):
+        out: list[tuple[str, str]] = []
+        for key, sub in desc["dict"].items():
+            nested = isinstance(sub, dict) and isinstance(sub.get("dict"), dict)
+            out += _observation_rows(sub, f"{prefix}{key}.") if nested else [(f"{prefix}{key}", _described(sub))]
+        return out
+    return [(prefix.rstrip(".") or "(the whole observation)", _described(desc))]
+
+
+def _described(desc: Any) -> str:
+    """One entry of a described observation in a few words: "224×224×3  uint8", "list of 7: float", "text"."""
+    if not isinstance(desc, dict):
+        return "?"
+    if "array" in desc:
+        return f"{'×'.join(str(n) for n in desc.get('array') or []) or 'scalar'}  {desc.get('dtype') or ''}".rstrip()
+    if "list" in desc:
+        first = desc.get("list") or []
+        return f"list of {desc.get('len', len(first))}" + (f": {_described(first[0])}" if first else "")
+    if "dict" in desc:
+        return f"dict of {len(desc.get('dict') or {})} keys"
+    return {"str": "text", "number": str(desc.get("number")), "bool": "bool", "none": "None",
+            "object": str(desc.get("object"))}.get(next(iter(desc), ""), "?")
 
 
 def eval_episodes(eval_id: str, *, task: str | list[str] | None = None, outcome: str | None = None,
@@ -277,6 +306,9 @@ def benchmark_status(name: str, *, wait: bool = False, timeout: float | None = N
 
     stopped = resp.status.value == "failed" and canceled(resp.error)
     data = resp.model_dump(mode="json")
+    shells = _shell_machines(client, resp.name)
+    if shells:
+        data["shell_machines"] = shells
     if on_data is not None:
         on_data(data)
     if echo is not None:
@@ -284,6 +316,8 @@ def benchmark_status(name: str, *, wait: bool = False, timeout: float | None = N
             echo(f"{resp.name}: canceled — {str(resp.error).removeprefix(CANCELED)}")
         else:
             echo(f"{resp.name}: {resp.status.value}" + (f" — {resp.error}" if resp.error else ""))
+            for shell in shells:
+                echo(shell_line(resp.name, shell))
             if resp.status.value == "ready":
 
 
@@ -312,6 +346,32 @@ def benchmark_status(name: str, *, wait: bool = False, timeout: float | None = N
         raise still_building(f"benchmark {resp.name}", f"seq benchmark status {resp.name} --wait",
                              stalled_s=BUILD_MOVED_S if stalled else None)
     return data
+
+
+def _shell_machines(client: Any, name: str) -> list[dict]:
+    """The shell machines of benchmark `name` open now (GET /v1/machines), none when they cannot be read: its status is what
+    was asked, this beside it."""
+    from sequence_ai.errors import SequencesError
+
+    try:
+        return [m for m in client.open_machines() if m.get("what") == "shell" and m.get("benchmark") == name]
+    except SequencesError:
+        return []
+
+
+
+_SHELL_WAITS = {"card": "waiting for a card, not billed", "machine": "waiting for its machine, not billed",
+                "boot": "booting", "image": "up and waiting for its image to be ready", "files": "fetching its image and files"}
+
+
+def shell_line(name: str, shell: dict) -> str:
+    """A shell machine of a benchmark under its status: its version and card, where it has got and since when it is billed,
+    and how it ends.
+"""
+    state = _SHELL_WAITS.get(shell.get("waiting_for"), "up")
+    billed = f", billed from {stamp(shell['started_at'])}" if shell.get("started_at") else ""
+    return (f"  shell machine of v{shell.get('version')} on {shell.get('card')}: {state}{billed}; it ends 10 minutes after "
+            f"your last command (seq benchmark shell {name} --stop ends it now)")
 
 
 def _tasks(client: Any, name: str) -> dict | None:
@@ -384,8 +444,8 @@ def notes_said(notes: list[str] | None) -> str:
 
 def print_benchmarks(out: dict, *, echo: Callable[[str], None] = print) -> None:
     """`seq benchmark ls`: one line per benchmark - the template its code comes from too, its card (and the driver it
-    names, card_label), and how many worlds one call of its step takes (— for an env of one world an instance) - then
-    where this page sits in the whole list."""
+    names, card_label), and how many worlds one call of its step takes (— for an env that steps one world at a time) -
+    then where this page sits in the whole list."""
     rows = out.get("benchmarks") or []
     if not rows:
         echo("you have no benchmarks yet: register one with `seq deploy <folder>`")

@@ -317,6 +317,7 @@ fn build_login_params(
                 .private_key_password
                 .clone()
                 .map(SensitiveString::from),
+            jwt_timeout_secs: sf_core::config::rest_parameters::DEFAULT_JWT_TIMEOUT_SECS,
         }
     } else if let Some(ref password) = params.password {
         LoginMethod::Password {
@@ -354,7 +355,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let params = load_parameters(&cli.parameter_path)?;
 
-    let crl_manager = CrlManager::new();
+    let crl_manager = CrlManager::new().connection_crl();
     let roots = RootStoreProvider::new();
 
     let client_info = default_client_info();
@@ -387,6 +388,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         log_query_parameters: false,
         include_retry_reason: false,
         external_session_id,
+        service_name: None,
     };
     let session_token = login_result.tokens.session_token.reveal().to_string();
 

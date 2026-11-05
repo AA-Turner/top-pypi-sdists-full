@@ -44,10 +44,8 @@ class WorkspaceTenantScope(OrganizationTenantScope):
 class Principal(WorkspaceTenantScope):
     """Workflow caller identity.
 
-    TODO: Clarify whether this model is authoritative durable auth context,
-    tenant routing metadata, or both. The answer should cover user-started,
-    system-started, and integration-started sessions before this contract is
-    tightened further.
+    On a start input it is caller-asserted: the Agents SDK worker never trusts it there and takes
+    the caller from the execution's attested identity instead.
 
     `user_id` is optional because some workspace-level workflows are not tied
     to a user, for example scheduled or system-triggered runs.

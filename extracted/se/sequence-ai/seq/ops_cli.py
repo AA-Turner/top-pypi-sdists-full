@@ -16,6 +16,7 @@ from sequence_base.constants.serving import QUEUE_TIMEOUT_S
 
 from seq.deployments_cli import _call, page_query
 from seq.registry import MACHINE_CARDS
+from sequence_ai._core.capacity import duration
 from sequence_ai._core.money import money, per_hour as hourly
 from sequence_ai._core.names import segment
 
@@ -229,6 +230,13 @@ def compute_per_hour(prices: dict, cpu_cores: float | None, memory_gib: float | 
 QUEUE_WAIT_S = QUEUE_TIMEOUT_S
 
 
+
+
+
+
+FIRST_SAVE_S = 120.0
+
+
 def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | None = None, cards: int = 1,
              base_url: str | None = None, echo=print, prices: dict | None = None,
              measured_per_hour: float | None = None, deployment: str | None = None,
@@ -247,10 +255,11 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
     (its card, and the CPU and memory it was measured using) in place of the list's.
     `deployment`, when given, adds what keeping it costs in storage (storage(): `weights`, the policy's weights origin,
     and `weights_others`, its other parts' origins, say whether they are copied for it and so billed).
-    `idle_s` (the platform's idle window, sequence_ai._core.capacity.IDLE_S): a scale-to-zero worker's robots done, it
-    runs that long before it stops, billed - once each of the `starts_per_day` times robots start using it, added to the
-    day - and once a deploy, said apart, its check's machine staying on as its first worker. Before: the day was the
-    hours in use alone, and every idle tail after them went unsaid.
+    `idle_s` (its idle timeout: its deployment's idle_timeout, else the platform's capacity.IDLE_S): a scale-to-zero
+    worker's robots done, it runs that long before it stops, billed - once each of the `starts_per_day` times robots
+    start using it, added to the day - and once a deploy, said apart, its check's machine staying on as its first
+    worker, FIRST_SAVE_S with it. Before: the day was the hours in use alone, and every idle tail after them went
+    unsaid.
     Priced for `robots` at once, as the platform runs them: a worker seats `seats` - what the check of version
     `seats_by` measured a worker of a policy that batches seating - else its `copies`, one robot a copy (`batches`: one
     that batches, before a check has measured it: its batches answer within the `chunk_steps` its robots play between
@@ -261,10 +270,10 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
     every worker that ran beside the warm floor runs its idle timeout. For one robot, what more robots take is said
     apart: every seats robots more add a worker at its price, up to what max_gpus allows.
 
-    `start_s`, one worker's start as its version's check measured it (its load, measured.load_s): every worker that
-    starts beside the warm floor is billed from its GPU (a CPU worker from when it starts), its start included - once
-    each of the `starts_per_day` times,
-    added to the day; None before a deploy's check measured it, said so.
+    `start_s`, how long its new machines have taken to start, whole (its fleet's new_machine_s: boot, files, image and
+    load): every worker that starts beside the warm floor is billed from its GPU (a CPU worker from when it starts), its
+    start included - once each of the `starts_per_day` times, added to the day; None before one has started, said in
+    words with no figure.
 """
     prices = prices or _call("GET", "/v1/pricing", base_url)
     card = gpu or "cpu"
@@ -373,40 +382,48 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
                     f", {in_use} workers ({whom})" if in_use > 1 else "")
                  + f" -> {money(use)}/day")
     if starts:
-        tail = (f"its worker runs {float(idle_s) / 60:g} min after its robots are done, before it stops (its idle "
+        tail = (f"its worker runs {duration(idle_s)} after its robots are done, before it stops (its idle "
                 "timeout), billed" if beside == 1 else
-                f"its {beside} workers run {float(idle_s) / 60:g} min after its robots are done, before they stop "
+                f"its {beside} workers run {duration(idle_s)} after its robots are done, before they stop "
                 "(the idle timeout), billed")
         echo(f"  plus {money(idle)}/day idle: after each of {starts} start(s) a day {tail}")
 
-    billed = "billed from its GPU" if name.lower() != "cpu" else "billed from when it starts"
+    on_card = name.lower() != "cpu"
+    billed = "billed from its GPU, its start included" if on_card else "billed from when it starts"
+
+    took = ((f"about {duration(start_s)} on a new machine, as this policy's have taken" if start_s else
+             f"{'several minutes' if on_card else 'a minute or more'} on a new machine")
+            + ", less on its stopped machine")
     if uses and start_s:
         who = "its worker is" if beside == 1 else f"each of its {beside} workers is"
-        echo(f"  plus {money(boot)}/day starting: on each of {uses} start(s) a day {who} {billed}"
-             + (", its start included" if name.lower() != "cpu" else "")
-             + f" - up to {float(start_s):.0f} s, the load its check measured")
+        echo(f"  plus {money(boot)}/day starting: on each of {uses} start(s) a day {who} {billed} - {took}")
     elif uses:
-        echo(f"  plus each start's own time, {billed}: not priced until a deploy's check measures its load")
+        echo(f"  plus each start, not priced until one of its machines has started: {billed} - {took}")
     if hours_per_day is None:
 
         if beside and idle_s:
-            echo(f"  and each time robots stop using it, its worker runs {float(idle_s) / 60:g} min more before it stops "
+            echo(f"  and each time robots stop using it, its worker runs {duration(idle_s)} more before it stops "
                  "(its idle timeout), billed")
-        if beside and start_s:
-            echo(f"  and each start is {billed}" + (", its start included" if name.lower() != "cpu" else "")
-                 + f" - up to {float(start_s):.0f} s, the load its check measured")
-        elif beside:
-            echo(f"  and each start's own time, {billed}: not priced until a deploy's check measures its load")
+        if beside:
+            echo(f"  and each start is {billed} - {took}")
         if floor:
             echo(f"  ~{money(day)}/day, ~{money(day * 30)}/month kept warm, before the hours robots use it")
     else:
         echo(f"  ~{money(day)}/day, ~{money(day * 30)}/month in worker time")
 
 
+
+
+
     if idle_s:
-        out["first_worker_usd"] = round(float(idle_s) / 3600.0 * per_hour, 2)
-        echo(f"  each deploy, apart from these: its check's machine stays on as its first worker - with no robot "
-             f"acting it stops after {float(idle_s) / 60:g} min, ~{money(float(idle_s) / 3600.0 * per_hour)}, billed")
+        stays, minute = (float(idle_s) + FIRST_SAVE_S) / 3600.0 * per_hour, per_hour / 60.0
+        out["first_worker_usd"], out["first_worker_usd_per_minute"] = round(stays, 2), round(minute, 4)
+        echo(f"  each deploy, apart from these: its check's machine stays on as its first worker, billed - it saves "
+             f"the version's image for its next machines, usually a minute or two, then with no robot acting stops "
+             f"after {duration(idle_s)}: ~{money(stays)} with a usual save, ~{money(minute)} a minute")
+
+
+
 
 
 
@@ -414,8 +431,9 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
     if saves.get("usd_per_gb_min") is not None and saves.get("usd_per_gb_max") is not None:
         low, high = float(saves["usd_per_gb_min"]), float(saves["usd_per_gb_max"])
         out["image_save_usd_per_gb"] = [low, high]
-        echo(f"  each deploy, its version's image is saved for its next machines: only what your dependencies don't "
-             f"hold yet is sent, ${low:.2f}-${high:.2f} per GB sent (the cloud's own price where its check ran), billed")
+        echo(f"  each deploy, its version's image is saved for its next machines: only what is not stored yet is sent, "
+             f"often far less than the image, ${low:.2f}-${high:.2f} per GB sent (the cloud's own price where its check "
+             "ran), billed")
 
 
 

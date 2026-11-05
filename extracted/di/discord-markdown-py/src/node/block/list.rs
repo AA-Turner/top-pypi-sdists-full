@@ -1,28 +1,14 @@
 use std::num::NonZero;
 
-use nom::branch::alt;
-use nom::character::complete::{one_of, satisfy};
-use nom::combinator::{fail, peek, value};
-use nom::error::context as with_context;
-use nom::multi::{fold, fold_many0};
-use nom::sequence::terminated;
-use nom::{
-	IResult, Parser,
-	character::complete::char,
-	combinator::map,
-	multi::{fold_many_m_n, many0_count},
-};
-
 use derive_where::derive_where;
 use item::Item;
 
 use crate::Input;
 use crate::context::Context;
-use crate::error::ParseError;
+use crate::error::{Fail, PResult};
 use crate::lossless::TokenKind;
 use crate::node::Element;
-use crate::span::{Span, Spanned, Syntax, WithSpan, WithToken, attach};
-use crate::unparse::Unparse;
+use crate::span::{Span, Spanned, Syntax};
 
 /// List item parsing.
 pub mod item;
@@ -112,33 +98,11 @@ pub struct List<S: Span, N> {
 	pub items: Spanned<Vec<Item<S, N>>, S>,
 }
 
-impl<S, N> Unparse for List<S, N>
-where
-	S: Span,
-	N: Unparse,
-{
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		// TODO: preserve indentation for nested lists
-		match self.kind {
-			Type::Ordered(number) => write!(f, "{}. {}", number, self.items.unparse()),
-			// TODO: preserve the control character
-			Type::Unordered => write!(f, "* {}", self.items.unparse()),
-		}
-	}
-}
-
-/// Parse an unknown amount of indentation, including 0.
-///
-/// Returns the amount of indentation parsed. [`INDENT_CHAR`] is used to detect indentation. This
-/// does not consume the parsed indentation.
-///
-/// # Errors
-/// Never.
-pub fn peek_indent<'data, E>(data: Input<'data>) -> IResult<Input<'data>, usize, E>
-where
-	E: ParseError<'data>,
-{
-	peek(many0_count(char(INDENT_CHAR))).parse_complete(data)
+/// The amount of leading indentation, including 0, without consuming it. [`INDENT_CHAR`] is used
+/// to detect indentation.
+#[must_use]
+pub fn peek_indent(input: &Input) -> usize {
+	input.chars().take_while(|&ch| ch == INDENT_CHAR).count()
 }
 
 /// Parse either [`unordered_type`] or [`ordered_type`] for the first item of the list. Like
@@ -146,11 +110,11 @@ where
 ///
 /// # Errors
 /// If the content does not begin with either type.
-pub fn start_type<'data, E>(data: Input<'data>) -> IResult<Input<'data>, Type, E>
-where
-	E: ParseError<'data>,
-{
-	alt((unordered_type, ordered_type)).parse_complete(data)
+pub fn start_type(input: &mut Input) -> PResult<Type> {
+	match input.attempt(unordered_type)? {
+		Some(kind) => Ok(kind),
+		None => ordered_type(input),
+	}
 }
 
 /// Parse the type of an ordered list, including its value.
@@ -160,136 +124,101 @@ where
 ///
 /// # Errors
 /// If the content does not begin with an ordered list signature.
-pub fn ordered_type<'data, E>(data: Input<'data>) -> IResult<Input<'data>, Type, E>
-where
-	E: ParseError<'data>,
-{
-	terminated(
-		fold(
-			1..,
-			satisfy(|ch: char| ch.is_ascii_digit()),
-			|| 0u32,
-			|acc, ch| {
-				acc.saturating_mul(10)
-					.saturating_add(u32::from(ch as u8 - b'0'))
-			},
-		),
-		char('.'),
-	)
-	.map(|value| {
+pub fn ordered_type(input: &mut Input) -> PResult<Type> {
+	let digits = input.take_while1(|ch| ch.is_ascii_digit())?;
+	input.char('.')?;
+
+	let value = digits.bytes().fold(0u32, |acc, digit| {
+		acc.saturating_mul(10)
+			.saturating_add(u32::from(digit - b'0'))
+	});
+	Ok(Type::Ordered(
 		NonZero::new(value)
 			.unwrap_or(MIN_ORDERED_START_VALUE)
-			.clamp(MIN_ORDERED_START_VALUE, MAX_ORDERED_START_VALUE)
-	})
-	.map(Type::Ordered)
-	.parse_complete(data)
+			.clamp(MIN_ORDERED_START_VALUE, MAX_ORDERED_START_VALUE),
+	))
 }
 
 /// Parse the type of an unordered list, as determined by any of [`UNORDERED_CONTROL_CHARS`].
 ///
 /// # Errors
 /// If the content does not begin with an unordered list signature.
-pub fn unordered_type<'data, E>(data: Input<'data>) -> IResult<Input<'data>, Type, E>
-where
-	E: ParseError<'data>,
-{
-	value(Type::Unordered, one_of(UNORDERED_CONTROL_CHARS)).parse_complete(data)
+pub fn unordered_type(input: &mut Input) -> PResult<Type> {
+	input.satisfy(|ch| UNORDERED_CONTROL_CHARS.contains(ch))?;
+	Ok(Type::Unordered)
 }
 
-/// Parse an amount of indentation in the range `min_indent..=min_indent + `[`MAX_INDENT`].
+/// Parse an amount of indentation in the range `min_indent..=min_indent + `[`MAX_INDENT`],
+/// returning the amount parsed. [`INDENT_CHAR`] is used to detect indentation.
 ///
-/// Returns the amount of indentation parsed. [`INDENT_CHAR`] is used to detect indentation.
-#[must_use]
-pub fn indent<'data, E>(min_indent: usize) -> impl Parser<Input<'data>, Output = usize, Error = E>
-where
-	E: ParseError<'data>,
-{
-	let max_indent = min_indent + MAX_INDENT;
-
-	fold_many_m_n(
-		min_indent,
-		max_indent,
-		char(INDENT_CHAR),
-		|| 0,
-		|acc, _| acc + 1,
-	)
+/// # Errors
+/// If there is less than `min_indent` of it.
+pub fn indent(input: &mut Input, min_indent: usize) -> PResult<usize> {
+	let amount = peek_indent(input).min(min_indent + MAX_INDENT);
+	if amount < min_indent {
+		return Err(Fail::NoMatch);
+	}
+	input.advance(amount * INDENT_CHAR.len_utf8());
+	Ok(amount)
 }
 
 /// Parse a list with a specified amount of indentation, parsed by [`indent`].
-#[must_use]
-pub fn indented<'data, S, E>(
-	context: Context,
+///
+/// # Errors
+/// If the content does not begin with a list at that indentation, or the list would be nested
+/// deeper than [`MAX_DEPTH`].
+pub fn indented<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
 	amount: usize,
-) -> impl Parser<Input<'data>, Output = List<S, Element<'data, S>>, Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	move |data| {
-		// descend into the list we're about to parse before checking, so that the depth being
-		// compared is this list's own depth rather than its parent's
-		let context = context.with_deeper_list();
-
-		if context.list_depth > MAX_DEPTH {
-			return with_context(
-				"max list depth exceeded",
-				fail::<_, List<S, Element<'data, S>>, E>(),
-			)
-			.parse(data);
-		}
-
-		let (data, (kind, first_item)) =
-			item::item(context.clone(), amount, start_type).parse_complete(data)?;
-
-		let parse_type = move |data| match kind {
-			Type::Unordered => unordered_type(data),
-			Type::Ordered(_) => ordered_type(data),
-		};
-
-		map(
-			fold_many0(
-				(
-					context
-						.clone()
-						.line_prefix()
-						.token::<S>(TokenKind::QuotePrefix),
-					item::item(context, amount, parse_type),
-				),
-				move || (vec![first_item.clone()], S::Syntax::default()),
-				|(mut items, syntax), (prefix, (_, item))| {
-					items.push(item);
-					(items, syntax.join(prefix))
-				},
-			)
-			.span()
-			.map(attach),
-			move |items| List { kind, items },
-		)
-		.parse_complete(data)
+) -> PResult<List<S, Element<'data, S>>> {
+	// descend into the list we're about to parse before checking, so that the depth being
+	// compared is this list's own depth rather than its parent's
+	let context = context.with_deeper_list();
+	if context.list_depth > MAX_DEPTH {
+		return Err(Fail::NoMatch);
 	}
+
+	let (kind, first_item) = item::item(input, &context, amount, start_type)?;
+	let parse_type: fn(&mut Input) -> PResult<Type> = match kind {
+		Type::Unordered => unordered_type,
+		Type::Ordered(_) => ordered_type,
+	};
+
+	let items = input.spanned_with_syntax(|input| {
+		let mut items = vec![first_item];
+		let mut syntax = S::Syntax::default();
+		while let Some((prefix, (_, item))) = input.attempt(|input| {
+			let prefix =
+				input.token::<S, _>(TokenKind::QuotePrefix, |input| context.line_prefix(input))?;
+			Ok((prefix, item::item(input, &context, amount, parse_type)?))
+		})? {
+			items.push(item);
+			syntax.append(prefix);
+		}
+		Ok((items, syntax))
+	})?;
+
+	Ok(List { kind, items })
 }
 
 /// Parse a list.
 ///
 /// Detects the appropriate amount of indentation with which to start. Use [`indented`] to parse
 /// with a specific amount of indentation.
-#[must_use]
-pub fn list<'data, S, E>(
-	context: Context,
-) -> impl Parser<Input<'data>, Output = List<S, Element<'data, S>>, Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	move |data| {
-		let (data, indent) = peek_indent(data)?;
-		indented(context.clone(), indent).parse_complete(data)
-	}
+///
+/// # Errors
+/// If the content does not begin with a list.
+pub fn list<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<List<S, Element<'data, S>>> {
+	let indent = peek_indent(input);
+	indented(input, context, indent)
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
 	use pretty_assertions::assert_eq;
 
 	use crate::{
@@ -298,7 +227,7 @@ mod test {
 		node::{Block, Element},
 		paragraph,
 		span::Span,
-		test_utils::{handle_nom_err, resolved_block},
+		test_utils::{resolved_block, run},
 	};
 
 	use super::{List, MAX_DEPTH, MAX_ORDERED_START_VALUE, Type, item::INDENT_STEP, list};
@@ -314,11 +243,8 @@ mod test {
 	#[test]
 	fn unordered_item() {
 		let s = "- foo";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -332,11 +258,8 @@ mod test {
 	#[test]
 	fn multiple_unordered_items() {
 		let s = "- foo\n- bar";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -350,11 +273,8 @@ mod test {
 	#[test]
 	fn sub_items() {
 		let s = "- foo\n  - bar";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -368,11 +288,8 @@ mod test {
 	#[test]
 	fn sub_items_with_content() {
 		let s = "- foo\n  - bar\n  baz\n  - box";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -391,11 +308,8 @@ mod test {
 	#[test]
 	fn two_spaces_required_for_nested_level() {
 		let s = "- foo\n - bar\n  - baz";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -412,11 +326,8 @@ mod test {
 	#[test]
 	fn ordered_list() {
 		let s = "1. foo\n2. bar";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -430,11 +341,8 @@ mod test {
 	#[test]
 	fn dedented() {
 		let s = "- foo\n  - bar\n- baz";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -451,11 +359,8 @@ mod test {
 	#[test]
 	fn indent_one() {
 		let s = " - foo\n - bar\n - baz";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -472,11 +377,8 @@ mod test {
 	#[test]
 	fn indent_one_but_not_first() {
 		let s = "- foo\n - bar\n - baz";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -509,11 +411,8 @@ mod test {
 		// undesirable leading space ("   test") instead of an aligned leading space ("  test")
 		// that leading space will not appear in the AST. The trailing node will be "test", not " test"
 		let s = "- foo\n   test\n - bar\n   hi\n - baz\n   yo";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),
@@ -564,11 +463,8 @@ mod test {
 	#[test]
 	fn max_depth_nesting() {
 		let s = nested_list(MAX_DEPTH as usize);
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.as_str().into())
-			.finish()
-			.map_err(handle_nom_err(&s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(&s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(nesting_depth(&res), MAX_DEPTH);
 	}
@@ -578,11 +474,8 @@ mod test {
 	#[test]
 	fn beyond_max_depth_is_not_a_list() {
 		let s = nested_list(MAX_DEPTH as usize + 1);
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.as_str().into())
-			.finish()
-			.map_err(handle_nom_err(&s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(&s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		// the extra level did not deepen the tree
 		assert_eq!(nesting_depth(&res), MAX_DEPTH);
@@ -610,11 +503,8 @@ mod test {
 	#[test]
 	fn very_large_ordered_value() {
 		let s = "9999999999999999999999999. foo\n9999999999999999999999999. bar";
-		let (rem, res) = list::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| list::<()>(input, &Context::default())).expect("unable to parse");
 		assert_eq!(rem, "");
 		assert_eq!(
 			resolved_list(res),

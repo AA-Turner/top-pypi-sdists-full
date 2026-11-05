@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoware-carla-scenario
-Version: 25.0.0
+Version: 25.2.44
 Summary: CARLA scenario testing framework for Autoware
 Author: Masaya Kataoka
 Author-email: Masaya Kataoka <ms.kataoka@gmail.com>

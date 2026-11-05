@@ -1,11 +1,11 @@
 import sys
 
 import pytest
-from google.protobuf import descriptor_pb2, descriptor_pool
 
 from schemathesis.specs.grpc.converter import ConvertedMessage, float32_values, message_schema
 from test.apps.catalog.grpc.descriptors import (
     all_types_descriptor_set,
+    load_pool,
     old_protovalidate_descriptor_set,
     validated_descriptor_set,
 )
@@ -41,13 +41,6 @@ BASE64 = "[A-Za-z0-9+/]"
 WHOLE_GROUPS = f"^(?:{BASE64}{{4}})*$"
 ONE_BYTE_LEFT = f"^(?:{BASE64}{{4}})*{BASE64}[AQgw]==$"
 TWO_BYTES_LEFT = f"^(?:{BASE64}{{4}})*{BASE64}{{2}}[AEIMQUYcgkosw048]=$"
-
-
-def load_pool(data):
-    pool = descriptor_pool.DescriptorPool()
-    for file in descriptor_pb2.FileDescriptorSet.FromString(data).file:
-        pool.Add(file)
-    return pool
 
 
 @pytest.fixture(scope="module")
@@ -336,7 +329,13 @@ def test_validation_rules():
             {"oneOf": [{"required": ["host"]}, {"required": ["address"]}]},
             {"oneOf": [{"required": ["left"]}, {"required": ["right"]}]},
         ],
-        "$defs": {"validated.Parent": {"type": "object", "properties": {"id": STRING}, "additionalProperties": False}},
+        "$defs": {
+            "validated.Parent": {
+                "type": "object",
+                "properties": {"id": STRING, "enabled": {"type": "boolean"}},
+                "additionalProperties": False,
+            }
+        },
     }
 
 
@@ -479,6 +478,8 @@ def test_validation_rules_on_edge_cases():
                 "propertyNames": {"enum": [str(key) for key in [*range(-(2**31), -(2**31) + 10), *range(11, 21)]]},
             },
             "defaultKind": {"enum": ["KIND_UNSPECIFIED"]},
+            "between": {"type": "object", "additionalProperties": STRING, "propertyNames": {"enum": []}},
+            "tied": {**INT32, "minimum": 5, "exclusiveMaximum": 5},
             "created": {"type": "string", "format": "date-time"},
         },
         "additionalProperties": False,
@@ -498,6 +499,7 @@ def test_validation_rules_on_edge_cases():
             "pinned",
             "outer",
             "defaultKind",
+            "between",
             "created",
         ],
     }
@@ -520,7 +522,13 @@ def test_oneof_validation_rules():
             {"oneOf": [{"required": ["exact"]}, {"required": ["regex"]}]},
             {"oneOf": [{"required": ["shortName"]}, {"required": ["alias"]}]},
         ],
-        "$defs": {"validated.Parent": {"type": "object", "properties": {"id": STRING}, "additionalProperties": False}},
+        "$defs": {
+            "validated.Parent": {
+                "type": "object",
+                "properties": {"id": STRING, "enabled": {"type": "boolean"}},
+                "additionalProperties": False,
+            }
+        },
     }
 
 

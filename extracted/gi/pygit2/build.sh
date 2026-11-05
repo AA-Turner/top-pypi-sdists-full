@@ -83,11 +83,12 @@ if [ "$CIBUILDWHEEL" = "1" ]; then
         fi
     fi
 
-    # Use cached dependencies if they match the requested versions.
+    # Use cached dependencies if they match the requested versions and build type.
     if [ -f ci/versions.txt ] && \
        grep -q "^LIBGIT2_VERSION=$LIBGIT2_VERSION$" ci/versions.txt && \
        grep -q "^LIBSSH2_VERSION=$LIBSSH2_VERSION$" ci/versions.txt && \
-       grep -q "^OPENSSL_VERSION=$OPENSSL_VERSION$" ci/versions.txt; then
+       grep -q "^OPENSSL_VERSION=$OPENSSL_VERSION$" ci/versions.txt && \
+       grep -q "^BUILD_TYPE=$BUILD_TYPE$" ci/versions.txt; then
         echo "Using cached dependencies"
         exit 0
     fi
@@ -163,6 +164,7 @@ if [ -n "$LIBSSH2_VERSION" ]; then
                 -DCMAKE_INSTALL_PREFIX=$PREFIX \
                 -DBUILD_SHARED_LIBS=ON \
                 -DBUILD_EXAMPLES=OFF \
+                -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                 -DCMAKE_OSX_ARCHITECTURES="$ARCH" \
                 -DBUILD_TESTING=OFF
     else
@@ -170,6 +172,7 @@ if [ -n "$LIBSSH2_VERSION" ]; then
                 -DCMAKE_INSTALL_PREFIX=$PREFIX \
                 -DBUILD_SHARED_LIBS=ON \
                 -DBUILD_EXAMPLES=OFF \
+                -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                 -DBUILD_TESTING=OFF
     fi
     cmake --build . --target install
@@ -216,6 +219,7 @@ if [ "$CIBUILDWHEEL" = "1" ]; then
 LIBGIT2_VERSION=$LIBGIT2_VERSION
 LIBSSH2_VERSION=$LIBSSH2_VERSION
 OPENSSL_VERSION=$OPENSSL_VERSION
+BUILD_TYPE=$BUILD_TYPE
 EOF
     if [ "$KERNEL" = "Darwin" ]; then
         echo "PREFIX        " $PREFIX

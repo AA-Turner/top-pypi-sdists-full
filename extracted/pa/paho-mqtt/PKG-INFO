@@ -1,28 +1,35 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: paho-mqtt
-Version: 2.1.0
+Version: 2.2.0
+Import-Name: paho
 Summary: MQTT version 5.0/3.1.1 client class
-Project-URL: Homepage, http://eclipse.org/paho
+Project-URL: Homepage, https://eclipse.org/paho
+Project-URL: Documentation, https://eclipse.dev/paho/files/paho.mqtt.python/html/index.html
+Project-URL: Source, https://github.com/eclipse-paho/paho.mqtt.python
+Project-URL: Issues, https://github.com/eclipse-paho/paho.mqtt.python/issues
 Author-email: Roger Light <roger@atchoo.org>
-License: EPL-2.0 OR BSD-3-Clause
+License-Expression: EPL-2.0 OR BSD-3-Clause
 License-File: LICENSE.txt
-Keywords: paho
-Classifier: Development Status :: 4 - Beta
+License-File: edl-v10
+License-File: epl-v20
+Keywords: mqtt,paho
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved
 Classifier: Natural Language :: English
-Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Operating System :: Microsoft :: Windows
-Classifier: Operating System :: POSIX
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Communications
 Classifier: Topic :: Internet
-Requires-Python: >=3.7
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
 Provides-Extra: proxy
 Requires-Dist: pysocks; extra == 'proxy'
 Description-Content-Type: text/x-rst
@@ -38,7 +45,7 @@ This document describes the source code for the `Eclipse Paho <http://eclipse.or
 
 This code provides a client class which enables applications to connect to an `MQTT <http://mqtt.org/>`_ broker to publish messages, and to subscribe to topics and receive published messages. It also provides some helper functions to make publishing one off messages to an MQTT server very straightforward.
 
-It supports Python 3.7+.
+It supports Python 3.9+.
 
 The MQTT protocol is a machine-to-machine (M2M)/"Internet of Things" connectivity protocol. Designed as an extremely lightweight publish/subscribe messaging transport, it is useful for connections with remote locations where a small code footprint is required and/or network bandwidth is at a premium.
 
@@ -150,6 +157,7 @@ Here is a very simple example that subscribes to the broker $SYS topic tree and 
 .. code:: python
 
     import paho.mqtt.client as mqtt
+    from paho.mqtt.enums import CallbackAPIVersion
 
     # The callback for when the client receives a CONNACK response from the server.
     def on_connect(client, userdata, flags, reason_code, properties):
@@ -162,11 +170,11 @@ Here is a very simple example that subscribes to the broker $SYS topic tree and 
     def on_message(client, userdata, msg):
         print(msg.topic+" "+str(msg.payload))
 
-    mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    mqttc = mqtt.Client(CallbackAPIVersion.VERSION2)
     mqttc.on_connect = on_connect
     mqttc.on_message = on_message
 
-    mqttc.connect("mqtt.eclipseprojects.io", 1883, 60)
+    mqttc.connect("test.mosquitto.org", 1883, 60)
 
     # Blocking call that processes network traffic, dispatches callbacks and
     # handles reconnecting.
@@ -300,6 +308,7 @@ Subscriber example
 .. code:: python
 
     import paho.mqtt.client as mqtt
+    from paho.mqtt.enums import CallbackAPIVersion
 
     def on_subscribe(client, userdata, mid, reason_code_list, properties):
         # Since we subscribed only for a single channel, reason_code_list contains
@@ -333,14 +342,14 @@ Subscriber example
             # our subscribed is persisted across reconnections.
             client.subscribe("$SYS/#")
 
-    mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    mqttc = mqtt.Client(CallbackAPIVersion.VERSION2)
     mqttc.on_connect = on_connect
     mqttc.on_message = on_message
     mqttc.on_subscribe = on_subscribe
     mqttc.on_unsubscribe = on_unsubscribe
     
     mqttc.user_data_set([])
-    mqttc.connect("mqtt.eclipseprojects.io")
+    mqttc.connect("test.mosquitto.org")
     mqttc.loop_forever()
     print(f"Received the following message: {mqttc.user_data_get()}")
 
@@ -351,6 +360,7 @@ publisher example
 
     import time
     import paho.mqtt.client as mqtt
+    from paho.mqtt.enums import CallbackAPIVersion
 
     def on_publish(client, userdata, mid, reason_code, properties):
         # reason_code and properties will only be present in MQTTv5. It's always unset in MQTTv3
@@ -370,11 +380,11 @@ publisher example
             print("but remember that mid could be re-used !")
 
     unacked_publish = set()
-    mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    mqttc = mqtt.Client(CallbackAPIVersion.VERSION2)
     mqttc.on_publish = on_publish
     
     mqttc.user_data_set(unacked_publish)
-    mqttc.connect("mqtt.eclipseprojects.io")
+    mqttc.connect("test.mosquitto.org")
     mqttc.loop_start()
 
     # Our application produce some messages
@@ -409,13 +419,14 @@ Example:
 
     import logging
     import paho.mqtt.client as mqtt
+    from paho.mqtt.enums import CallbackAPIVersion
 
     logging.basicConfig(level=logging.DEBUG)
 
-    mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    mqttc = mqtt.Client(CallbackAPIVersion.VERSION2)
     mqttc.enable_logger()
 
-    mqttc.connect("mqtt.eclipseprojects.io", 1883, 60)
+    mqttc.connect("test.mosquitto.org", 1883, 60)
     mqttc.loop_start()
 
     # Do additional action needed, publish, subscribe, ...
@@ -426,15 +437,16 @@ It's also possible to define a on_log callback that will receive a copy of all l
 .. code:: python
 
     import paho.mqtt.client as mqtt
+    from paho.mqtt.enums import CallbackAPIVersion
 
     def on_log(client, userdata, paho_log_level, messages):
         if paho_log_level == mqtt.LogLevel.MQTT_LOG_ERR:
             print(message)
 
-    mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    mqttc = mqtt.Client(CallbackAPIVersion.VERSION2)
     mqttc.on_log = on_log
 
-    mqttc.connect("mqtt.eclipseprojects.io", 1883, 60)
+    mqttc.connect("test.mosquitto.org", 1883, 60)
     mqttc.loop_start()
 
     # Do additional action needed, publish, subscribe, ...
@@ -550,7 +562,7 @@ Example:
 
     import paho.mqtt.publish as publish
 
-    publish.single("paho/test/topic", "payload", hostname="mqtt.eclipseprojects.io")
+    publish.single("paho/test/topic", "payload", hostname="test.mosquitto.org")
 
 Multiple
 ````````
@@ -566,7 +578,7 @@ Example:
 
     msgs = [{'topic':"paho/test/topic", 'payload':"multiple 1"},
         ("paho/test/topic", "multiple 2", 0, False)]
-    publish.multiple(msgs, hostname="mqtt.eclipseprojects.io", protocol=MQTTProtocolVersion.MQTTv5)
+    publish.multiple(msgs, hostname="test.mosquitto.org", protocol=MQTTProtocolVersion.MQTTv5)
 
 
 Subscribe
@@ -592,7 +604,7 @@ Example:
 
     import paho.mqtt.subscribe as subscribe
 
-    msg = subscribe.simple("paho/test/topic", hostname="mqtt.eclipseprojects.io")
+    msg = subscribe.simple("paho/test/topic", hostname="test.mosquitto.org")
     print("%s %s" % (msg.topic, msg.payload))
 
 Using Callback
@@ -614,7 +626,7 @@ Example:
             # it's possible to stop the program by disconnecting
             client.disconnect()
 
-    subscribe.callback(on_message_print, "paho/test/topic", hostname="mqtt.eclipseprojects.io", userdata={"message_count": 0})
+    subscribe.callback(on_message_print, "paho/test/topic", hostname="test.mosquitto.org", userdata={"message_count": 0})
 
 
 Reporting bugs

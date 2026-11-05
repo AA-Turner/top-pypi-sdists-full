@@ -102,7 +102,7 @@ def _attach_offline(named: str, kw: dict, *, reinit_mode: str, capture: dict) ->
 def _normalized_ignore(ignore: Any) -> Any:
     if ignore is None:
         return None
-    from ...recording_rules import ignore as _ignore
+    from ...recording_rules import recording_rules as _ignore
 
     try:
         return _ignore.normalize(ignore)

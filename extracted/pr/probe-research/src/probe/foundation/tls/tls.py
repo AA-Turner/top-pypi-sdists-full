@@ -49,8 +49,10 @@ if hasattr(os, "register_at_fork"):  # POSIX only
     os.register_at_fork(after_in_child=_reset_lock_after_fork)
 
 
-def ssl_context() -> ssl.SSLContext:
+def ssl_context(environ=None) -> ssl.SSLContext:
     """The shared verifying context: pass it as httpx ``verify=`` / urllib ``context=``.
+    ``environ``: another process's variables (the Probe service relaying a training process's
+    request, plan D10) instead of this one's.
 
     First usable wins: ``SSL_CERT_FILE``/``SSL_CERT_DIR`` (replace the defaults), else
     ``REQUESTS_CA_BUNDLE``/``CURL_CA_BUNDLE`` ADDED to the OS store plus certifi. Never
@@ -58,7 +60,8 @@ def ssl_context() -> ssl.SSLContext:
     never mutated (so no ``http2=``; tests/test_tls_trust.py): an edited bundle needs a restart.
     """
     global _cached
-    key = tuple(os.environ.get(name) or None for name in _ENV_NAMES)
+    env = os.environ if environ is None else environ
+    key = tuple(env.get(name) or None for name in _ENV_NAMES)
     fresh: list[_Problem] = []
     pending: threading.Event | None = None
     # Registered and released in one try: an interrupt anywhere (a SIGINT, an
@@ -80,7 +83,7 @@ def ssl_context() -> ssl.SSLContext:
         # Built OUTSIDE the lock: in the daemon host, one run's path on a hung mount must not
         # stall every other run's next client.
         problems: list[_Problem] = []
-        context = _build(problems)
+        context = _build(problems) if environ is None else _build(problems, env)
         with _lock:
             cache = dict(_cached or {})
             cache.pop(key, None)
@@ -110,14 +113,15 @@ def ssl_context() -> ssl.SSLContext:
     return context
 
 
-def _build(problems: list[_Problem]) -> ssl.SSLContext:
+def _build(problems: list[_Problem], env=None) -> ssl.SSLContext:
+    env = os.environ if env is None else env
     try:
-        context = _load_openssl_pair(problems)
+        context = _load_openssl_pair(problems, env)
         if context is not None:
             return context
         context = _defaults()
         for name in _EXTRA_BUNDLES:
-            if _add(context, name, problems):
+            if _add(context, name, problems, env):
                 break
         return context
     except Exception:  # noqa: BLE001 -- trust setup may never crash a caller
@@ -126,18 +130,19 @@ def _build(problems: list[_Problem]) -> ssl.SSLContext:
         return ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
 
-def _load_openssl_pair(problems: list[_Problem]) -> ssl.SSLContext | None:
+def _load_openssl_pair(problems: list[_Problem], env=None) -> ssl.SSLContext | None:
     """Tier 1, or None when neither variable names anything usable.
 
     Mirrors ``set_default_verify_paths``: each half comes from its variable
     when set, else from OpenSSL's built-in path for that half. A set-but-broken
     half also takes the built-in path, with a warning.
     """
+    env = os.environ if env is None else env
     defaults = ssl.get_default_verify_paths()
     context: ssl.SSLContext | None = None
     has_used_variable = False
     for name, keyword, builtin_field in _OPENSSL_PAIR:
-        value = os.environ.get(name)
+        value = env.get(name)
         where = _get_usable(name, value, problems) if value else None
         if where is not None:
             try:
@@ -155,9 +160,9 @@ def _load_openssl_pair(problems: list[_Problem]) -> ssl.SSLContext | None:
     return context if has_used_variable else None
 
 
-def _add(context: ssl.SSLContext, name: str, problems: list[_Problem]) -> bool:
+def _add(context: ssl.SSLContext, name: str, problems: list[_Problem], env=None) -> bool:
     """Load ``name``'s bundle into ``context``; True when it held a certificate."""
-    value = os.environ.get(name)
+    value = (os.environ if env is None else env).get(name)
     if not value:
         return False  # unset and empty are the same: `requests` treats "" as unset too
     where = _get_usable(name, value, problems)

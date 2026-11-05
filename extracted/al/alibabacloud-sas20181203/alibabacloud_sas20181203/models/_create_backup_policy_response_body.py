@@ -53,8 +53,8 @@ class CreateBackupPolicyResponseBodyBackupPolicy(DaraModel):
         # The ID of the anti-ransomware policy.
         self.id = id
         # The status of the policy. Valid values:
-        # - **enabled**: Protection is enabled.
-        # - **disabled**: Protection is disabled.    
+        # - **enabled**: The protection is enabled.
+        # - **disabled**: The protection is disabled.    
         # 
         # > By default, the protection is enabled after the policy is created.
         self.status = status

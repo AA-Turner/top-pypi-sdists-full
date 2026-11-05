@@ -7,7 +7,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 """
@@ -20,7 +19,6 @@ created.
 
 from copy import deepcopy
 
-from ansible.module_utils.six import iteritems
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common.rm_base.resource_module import (
     ResourceModule,
 )
@@ -33,6 +31,13 @@ from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.facts.facts
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.rm_templates.logging_global import (
     Logging_globalTemplate,
 )
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.rm_templates.logging_global_15 import (
+    Logging_globalTemplate15,
+)
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.utils.version import (
+    LooseVersion,
+)
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.vyos import get_os_version
 
 
 class Logging_global(ResourceModule):
@@ -48,22 +53,25 @@ class Logging_global(ResourceModule):
             resource="logging_global",
             tmplt=Logging_globalTemplate(),
         )
-        self.parsers = [
-            "console.facilities",
-            "global_params.archive.file_num",
-            "global_params.archive.size",
-            "global_params.marker_interval",
-            "global_params.preserve_fqdn",
-            "global_params.facilities",
-            "files.archive.size",
-            "files.archive.file_num",
-            "files",
-            "hosts.port",
-            "hosts.facility.protocol",  # 1.3 and below
-            "hosts.protocol",
-            "hosts",
-            "users",
-        ]
+
+    def _validate_template(self):
+        version = get_os_version(self._module)
+        if LooseVersion(version) >= LooseVersion("1.5"):
+            self._tmplt = Logging_globalTemplate15()
+        else:
+            self._tmplt = Logging_globalTemplate()
+
+        self.parsers = [p["name"] for p in self._tmplt.PARSERS if not p["name"].endswith(".state")]
+
+    def parse(self):
+        """override parse to check template"""
+        self._validate_template()
+        return super().parse()
+
+    def get_parser(self, name):
+        """get_parsers"""
+        self._validate_template()
+        return super().get_parser(name)
 
     def execute_module(self):
         """Execute the module
@@ -71,10 +79,30 @@ class Logging_global(ResourceModule):
         :rtype: A dictionary
         :returns: The result from module execution
         """
+        self._validate_template()
         if self.state not in ["parsed", "gathered"]:
             self.generate_commands()
             self.run_commands()
         return self.result
+
+    def _strip_unsupported_15(self, data):
+        """Remove 1.4-only keys from a list_to_dict result for 1.5 devices."""
+        if not data:
+            return data
+        warnings = []
+        for key in ("files", "users"):
+            if data.pop(key, None) is not None:
+                warnings.append(
+                    "'{0}' is not supported on VyOS 1.5+, ignoring.".format(key),
+                )
+        if "global_params" in data:
+            if data["global_params"].pop("archive", None) is not None:
+                warnings.append(
+                    "'global_params.archive' is not supported on VyOS 1.5+, ignoring.",
+                )
+        for warning in warnings:
+            self._module.warn(warning)
+        return data
 
     def generate_commands(self):
         """Generate configuration commands to send based on
@@ -89,10 +117,15 @@ class Logging_global(ResourceModule):
         else:
             haved = dict()
 
+        version = get_os_version(self._module)
+        if LooseVersion(version) >= LooseVersion("1.5"):
+            wantd = self._strip_unsupported_15(wantd)
+            haved = self._strip_unsupported_15(haved)
+
         if self.state in ["overridden", "replaced"]:
             if wantd != haved:
                 wantx, havex = self.call_op(wantd, haved, "overridden")
-                for k, have in iteritems(havex):
+                for k, have in havex.items():
                     if k not in wantx:
                         self._compare(want={}, have=have)
 
@@ -102,7 +135,7 @@ class Logging_global(ResourceModule):
         if self.state == "merged":
             wantd = dict_merge(haved, wantd)
 
-        for k, want in iteritems(wantd):
+        for k, want in wantd.items():
             self._compare(want=want, have=haved.pop(k, {}))
 
     def _compare(self, want, have):
@@ -116,12 +149,12 @@ class Logging_global(ResourceModule):
 
     def operation_rep(self, params):
         op_val = dict()
-        for k, val in iteritems(params):
+        for k, val in params.items():
             if k in ["console", "global_params"]:
                 mod_val = deepcopy(val)
                 op_val.update(self.flatten_facility({k: mod_val}))
             elif k in ["files", "hosts", "users"]:
-                for m, n in iteritems(val):
+                for m, n in val.items():
                     mod_n = deepcopy(n)
                     if mod_n.get("archive"):
                         del mod_n["archive"]
@@ -160,18 +193,18 @@ class Logging_global(ResourceModule):
 
     def flatten_facility(self, param):
         temp_param = dict()
-        for element, val in iteritems(param):
+        for element, val in param.items():
             if element in ["console", "global_params", "syslog"]:
                 if element != "syslog" and val.get("facilities"):
-                    for k, v in iteritems(val.get("facilities")):
+                    for k, v in val.get("facilities").items():
                         temp_param[k + element] = {element: {"facilities": v}}
                     del val["facilities"]
                 if val:
                     temp_param[element] = {element: val}
             if element in ["files", "hosts", "users"]:
-                for k, v in iteritems(val):
+                for k, v in val.items():
                     if v.get("facilities"):
-                        for pk, dat in iteritems(v.get("facilities")):
+                        for pk, dat in v.get("facilities").items():
                             temp_param[pk + k] = {
                                 element: {
                                     "facilities": dat,
@@ -197,7 +230,7 @@ class Logging_global(ResourceModule):
                 "hosts": "hostname",
                 "users": "username",
             }
-            for element, val in iteritems(param):
+            for element, val in param.items():
                 if element == "facilities":  # only with recursion call
                     _tem_par = {}
                     for par in val:

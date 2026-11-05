@@ -26,13 +26,15 @@ from dstack._internal.core.backends.base.compute import (
     ComputeWithInstanceVolumesSupport,
     ComputeWithMultinodeSupport,
     ComputeWithPrivilegedSupport,
+    ComputeWithResourceListingSupport,
     ComputeWithVolumeSupport,
     generate_unique_gateway_instance_name,
     generate_unique_instance_name_for_job,
     generate_unique_name,
     generate_unique_volume_name,
     get_docker_commands,
-    get_dstack_gateway_commands,
+    get_dstack_gateway_install_command,
+    get_job_provider_ref,
     merge_tags,
 )
 from dstack._internal.core.backends.base.offers import (
@@ -41,17 +43,24 @@ from dstack._internal.core.backends.base.offers import (
     gpu_matches_gpu_spec,
 )
 from dstack._internal.core.backends.kubernetes.api_client import API_CLIENT_EXCEPTIONS
-from dstack._internal.core.backends.kubernetes.models import KubernetesConfig
+from dstack._internal.core.backends.kubernetes.features import resource_groups
+from dstack._internal.core.backends.kubernetes.models import (
+    JUMP_POD_DEFAULT_CPU,
+    JUMP_POD_DEFAULT_MEMORY,
+    KubernetesConfig,
+)
 from dstack._internal.core.backends.kubernetes.resources import (
     AMD_GPU_DEVICE_ID_LABEL_PREFIX,
     AMD_GPU_NAME_TO_DEVICE_IDS,
     AMD_GPU_NODE_TAINT,
+    INSTANCE_LABEL,
     LABEL_VALUE_MAX_LENGTH,
     NVIDIA_GPU_NODE_TAINT,
     NVIDIA_GPU_PRODUCT_LABEL,
     OBJECT_NAME_MAX_LENGTH,
     AnyKubernetesGPUResource,
     KubernetesResource,
+    Operator,
     PodPhase,
     ResourceLimits,
     ResourceRequests,
@@ -59,17 +68,22 @@ from dstack._internal.core.backends.kubernetes.resources import (
     adjust_resources_by_resource_requests,
     build_base_labels,
     build_dockerconfigjson,
+    delete_job_pod_objects,
     filter_invalid_labels,
     format_memory,
     get_amd_gpu_from_node_labels,
     get_instance_offer_from_node,
     get_instance_offers,
-    get_node_labels,
-    get_node_name,
     get_nvidia_gpu_from_node_labels,
+    get_object_labels,
+    get_object_name,
+    get_pod_service_name,
+    get_registry_auth_secret_name,
     is_hard_taint,
     is_taint_tolerated,
+    parse_node_selector_requirement,
     parse_quantity,
+    parse_toleration,
 )
 from dstack._internal.core.backends.kubernetes.utils import (
     LEGACY_CURRENT_CONTEXT_REGION,
@@ -82,6 +96,10 @@ from dstack._internal.core.backends.kubernetes.utils import (
 from dstack._internal.core.consts import DSTACK_RUNNER_SSH_PORT
 from dstack._internal.core.errors import ComputeError, ProvisioningError, SkipOffer
 from dstack._internal.core.models.backends.base import BackendType
+from dstack._internal.core.models.backends.orphans import (
+    ListedResourceGroup,
+    ResourceListing,
+)
 from dstack._internal.core.models.common import CoreModel, validate_json_extra_ignore
 from dstack._internal.core.models.gateways import (
     GatewayReplicaConfiguration,
@@ -116,13 +134,12 @@ logger = get_logger(__name__)
 JUMP_POD_IMAGE = "testcontainers/sshd:1.3.0@sha256:c50c0f59554dcdb2d9e5e705112144428ae9d04ac0af6322b365a18e24213a6a"
 JUMP_POD_SSH_PORT = 22
 JUMP_POD_USER = "root"
+# Under disk pressure, the kubelet first evicts pods whose disk usage exceeds their
+# ephemeral-storage request. Covers the writable layer and the logs with the default log
+# rotation (5 x 10Mi).
+JUMP_POD_EPHEMERAL_STORAGE_REQUEST = "64Mi"
 
 JOB_POD_SCHEDULING_TIMEOUT = 10
-
-
-class Operator(str, Enum):
-    EXISTS = "Exists"
-    IN = "In"
 
 
 class RestartPolicy(str, Enum):
@@ -161,6 +178,7 @@ class KubernetesCompute(
     ComputeWithVolumeSupport,
     ComputeWithGatewaySupport,
     ComputeWithMultinodeSupport,
+    ComputeWithResourceListingSupport,
     Compute,
 ):
     unallocated_resources_argument_has_effect = True
@@ -235,15 +253,20 @@ class KubernetesCompute(
         # to all job pods of the same project.
         # The service is created here and configured later in update_provisioning_data()
         jump_pod_name = f"dstack-{run.project_name}-ssh-jump-pod"
-        jump_pod_service_name = _get_pod_service_name(jump_pod_name)
+        jump_pod_service_name = get_pod_service_name(jump_pod_name)
         _create_jump_pod_service_if_not_exists(
             api=api,
+            apps_api=client.AppsV1Api(cluster.api_client),
             namespace=namespace,
             project_name=run.project_name,
             jump_pod_name=jump_pod_name,
             jump_pod_service_name=jump_pod_service_name,
             jump_pod_port=cluster.proxy_jump.port,
             authorized_keys=project_authorized_keys,
+            cpu_request_limit=cluster.proxy_jump.cpu or JUMP_POD_DEFAULT_CPU,
+            memory_request_limit=cluster.proxy_jump.memory or JUMP_POD_DEFAULT_MEMORY,
+            node_selector=cluster.proxy_jump.node_selector,
+            tolerations=cluster.proxy_jump.tolerations,
         )
 
         pod_name = generate_unique_instance_name_for_job(
@@ -256,6 +279,7 @@ class KubernetesCompute(
             project=run.project_name,
             name=job.job_spec.job_name,
             user=run.user,
+            provider_ref=get_job_provider_ref(job),
         )
         labels = merge_tags(
             base_tags=base_labels,
@@ -266,7 +290,7 @@ class KubernetesCompute(
         registry_auth_secret_name: Optional[str] = None
         with ExitStack() as exit_stack:
             if job.job_spec.registry_auth is not None:
-                registry_auth_secret_name = _get_registry_auth_secret_name(pod_name)
+                registry_auth_secret_name = get_registry_auth_secret_name(pod_name)
                 _create_registry_auth_secret(
                     api=api,
                     namespace=namespace,
@@ -326,7 +350,7 @@ class KubernetesCompute(
                 # It's not clear if we should add an entry to the SkipOfferCache in this case.
                 raise ComputeError(f"Pod {pod_name} already finished: {pod_phase}")
 
-            pod_service_name = _get_pod_service_name(pod_name)
+            pod_service_name = get_pod_service_name(pod_name)
             api.create_namespaced_service(
                 namespace=namespace,
                 body=client.V1Service(
@@ -431,7 +455,7 @@ class KubernetesCompute(
             return
         provisioning_data.internal_ip = pod_ip
         service = api.read_namespaced_service(
-            name=_get_pod_service_name(provisioning_data.instance_id),
+            name=get_pod_service_name(provisioning_data.instance_id),
             namespace=namespace,
         )
         service_spec = get_or_error(service.spec)
@@ -474,30 +498,17 @@ class KubernetesCompute(
                 )
         if cluster is None:
             raise ComputeError(f"Unknown region: {region!r}")
-        api = client.CoreV1Api(cluster.api_client)
-        namespace = cluster.namespace
-        deleted = [
-            try_delete_object_if_exists(
-                api.delete_namespaced_service,
-                namespace=namespace,
-                name=_get_pod_service_name(instance_id),
-                description="pod service",
-            ),
-            try_delete_object_if_exists(
-                api.delete_namespaced_pod,
-                namespace=namespace,
-                name=instance_id,
-                description="pod",
-            ),
-            try_delete_object_if_exists(
-                api.delete_namespaced_secret,
-                namespace=namespace,
-                name=_get_registry_auth_secret_name(instance_id),
-                description="registry auth secret",
-            ),
-        ]
-        if not all(deleted):
-            raise ComputeError("Not all objects were deleted, check logs")
+        delete_job_pod_objects(
+            api=client.CoreV1Api(cluster.api_client),
+            namespace=cluster.namespace,
+            pod_name=instance_id,
+        )
+
+    def list_resource_groups(self) -> ResourceListing:
+        return resource_groups.list_resource_groups(list(self.region_cluster_map.values()))
+
+    def delete_resource_group(self, group: ListedResourceGroup) -> None:
+        resource_groups.delete_resource_group(self.region_cluster_map, group)
 
     def create_gateway_replica(
         self,
@@ -578,7 +589,7 @@ class KubernetesCompute(
         )
         service = client.V1Service(
             metadata=client.V1ObjectMeta(
-                name=_get_pod_service_name(instance_name),
+                name=get_pod_service_name(instance_name),
                 labels=labels,
             ),
             spec=client.V1ServiceSpec(
@@ -611,7 +622,7 @@ class KubernetesCompute(
         address = _wait_for_load_balancer_address(
             api=api,
             namespace=namespace,
-            service_name=_get_pod_service_name(instance_name),
+            service_name=get_pod_service_name(instance_name),
         )
         if address is None:
             self.terminate_instance(instance_name, region=configuration.region)
@@ -804,7 +815,7 @@ def _get_nvidia_gpu_node_affinity(
 ) -> client.V1NodeAffinity:
     matching_gpu_label_values: set[str] = set()
     for node in nodes:
-        labels = get_node_labels(node)
+        labels = get_object_labels(node)
         gpu = get_nvidia_gpu_from_node_labels(labels)
         if gpu is not None and gpu_matches_gpu_spec(gpu, gpu_spec):
             matching_gpu_label_values.add(labels[NVIDIA_GPU_PRODUCT_LABEL])
@@ -837,7 +848,7 @@ def _get_amd_gpu_node_affinity(
 ) -> client.V1NodeAffinity:
     matching_device_ids: set[int] = set()
     for node in nodes:
-        labels = get_node_labels(node)
+        labels = get_object_labels(node)
         gpu = get_amd_gpu_from_node_labels(labels)
         if gpu is not None and gpu_matches_gpu_spec(gpu, gpu_spec):
             matching_device_ids.update(AMD_GPU_NAME_TO_DEVICE_IDS[gpu.name])
@@ -868,12 +879,17 @@ def _offer_modifier(
 
 def _create_jump_pod_service_if_not_exists(
     api: client.CoreV1Api,
+    apps_api: client.AppsV1Api,
     namespace: str,
     project_name: str,
     jump_pod_name: str,
     jump_pod_service_name: str,
     jump_pod_port: Optional[int],
     authorized_keys: list[str],
+    cpu_request_limit: str,
+    memory_request_limit: str,
+    node_selector: Optional[list[str]],
+    tolerations: Optional[list[str]],
 ) -> None:
     base_labels = build_base_labels(
         component="ssh-proxy",
@@ -882,8 +898,9 @@ def _create_jump_pod_service_if_not_exists(
     )
     labels = filter_invalid_labels(base_labels)
 
-    service: Optional[client.V1Service] = None
     pod: Optional[client.V1Pod] = None
+    replica_set: Optional[client.V1ReplicaSet] = None
+    service: Optional[client.V1Service] = None
     _namespace = call_api_method(
         api.read_namespace,
         expected=404,
@@ -895,116 +912,164 @@ def _create_jump_pod_service_if_not_exists(
                 name=namespace,
             ),
         )
-        api.create_namespace(body=_namespace)
-    else:
-        service = call_api_method(
-            api.read_namespaced_service,
-            expected=404,
-            name=jump_pod_service_name,
-            namespace=namespace,
+        # 409 if created concurrently, e.g., by run_job() of another job.
+        call_api_method(
+            api.create_namespace,
+            expected=409,
+            body=_namespace,
         )
+    else:
         pod = call_api_method(
             api.read_namespaced_pod,
             expected=404,
             name=jump_pod_name,
             namespace=namespace,
         )
-
-    # The service may exist without the pod if the node on which the jump pod was running
-    # has been deleted.
-    if service is not None and pod is not None:
-        return
-
-    call_api_method(
-        api.delete_namespaced_pod,
-        expected=404,
-        namespace=namespace,
-        name=jump_pod_name,
-    )
-    # False if we found at least one node without any "hard" taint, that is, if we don't need to
-    # specify the toleration.
-    toleration_required = True
-    # (key, effect) pairs.
-    tolerated_taints: set[tuple[str, str]] = set()
-    for node in api.list_node().items:
-        if (node_spec := node.spec) is None:
-            continue
-        # True if the node has at least one NoExecute or NoSchedule taint.
-        has_hard_taint = False
-        taints = node_spec.taints or []
-        for taint in taints:
-            # A "soft" taint, ignore.
-            if not is_hard_taint(taint):
-                continue
-            has_hard_taint = True
-            if is_taint_tolerated(taint):
-                tolerated_taints.add((taint.key, taint.effect))
-        if not has_hard_taint:
-            toleration_required = False
-            break
-    tolerations: list[client.V1Toleration] = []
-    if toleration_required:
-        for key, effect in tolerated_taints:
-            tolerations.append(
-                client.V1Toleration(key=key, operator=Operator.EXISTS, effect=effect)
-            )
-        if not tolerations:
-            logger.warning("No appropriate node found, the jump pod may never be scheduled")
-    commands = _get_jump_pod_commands(authorized_keys)
-    pod = client.V1Pod(
-        metadata=client.V1ObjectMeta(
+        replica_set = call_api_method(
+            apps_api.read_namespaced_replica_set,
+            expected=404,
             name=jump_pod_name,
-            labels=labels,
-        ),
-        spec=client.V1PodSpec(
-            containers=[
-                client.V1Container(
-                    name=f"{jump_pod_name}-container",
-                    image=JUMP_POD_IMAGE,
-                    command=["/bin/sh"],
-                    args=["-c", " && ".join(commands)],
-                    ports=[
-                        client.V1ContainerPort(
-                            container_port=JUMP_POD_SSH_PORT,
-                        )
-                    ],
-                )
-            ],
-            restart_policy=RestartPolicy.ALWAYS,
-            tolerations=tolerations,
-        ),
-    )
-    api.create_namespaced_pod(
-        namespace=namespace,
-        body=pod,
-    )
-    call_api_method(
-        api.delete_namespaced_service,
-        expected=404,
-        namespace=namespace,
-        name=jump_pod_service_name,
-    )
-    service = client.V1Service(
-        metadata=client.V1ObjectMeta(
+            namespace=namespace,
+        )
+        service = call_api_method(
+            api.read_namespaced_service,
+            expected=404,
             name=jump_pod_service_name,
-            labels=labels,
-        ),
-        spec=client.V1ServiceSpec(
-            type="NodePort",
-            selector=_build_service_selector_from_labels(base_labels),
-            ports=[
-                client.V1ServicePort(
-                    port=JUMP_POD_SSH_PORT,
-                    target_port=JUMP_POD_SSH_PORT,
-                    node_port=jump_pod_port,
-                )
-            ],
-        ),
-    )
-    api.create_namespaced_service(
-        namespace=namespace,
-        body=service,
-    )
+            namespace=namespace,
+        )
+
+    should_create_replica_set = replica_set is None
+    service_selector = _build_service_selector_from_labels(base_labels)
+    if pod is not None:
+        # A legacy pod created before the ReplicaSet setup was introduced.
+        pod_phase = PodPhase(get_or_error(get_or_error(pod.status).phase))
+        if pod_phase.is_finished():
+            # Most probably evicted -- e.g., due to node pressure. Do cleanup.
+            call_api_method(
+                api.delete_namespaced_pod,
+                expected=404,
+                namespace=namespace,
+                name=jump_pod_name,
+            )
+        elif get_object_labels(pod).get("app.kubernetes.io/managed-by") != "dstack":
+            # A legacy pod created before https://github.com/dstackai/dstack/pull/3891
+            # It uses different labels -- we don't create a ReplicaSet for it to avoid propagating
+            # the old label schema indefinitely but still recreate the service if it's gone using
+            # the old selector.
+            should_create_replica_set = False
+            service_selector = {"app.kubernetes.io/name": jump_pod_name}
+        # Otherwise, the existing legacy pod will be adopted by a newly created ReplicaSet.
+
+    if should_create_replica_set:
+        affinity: Optional[client.V1Affinity] = None
+        # Not for an empty `node_selector`, as an empty node selector term matches no nodes
+        if node_selector:
+            affinity = _get_jump_pod_affinity(node_selector)
+        pod_tolerations: list[client.V1Toleration]
+        if tolerations is not None:
+            pod_tolerations = [parse_toleration(toleration) for toleration in tolerations]
+        elif node_selector is not None:
+            # Autodetection considers all nodes, not only the selected ones, so the user
+            # specifies tolerations for the selected nodes, if any are needed.
+            pod_tolerations = []
+        else:
+            pod_tolerations = _get_jump_pod_tolerations_from_node_taints(api)
+        commands = _get_jump_pod_commands(authorized_keys)
+        # Equal CPU and memory requests and limits for the Guaranteed QoS class
+        limits = {
+            KubernetesResource.CPU.value: cpu_request_limit,
+            KubernetesResource.MEMORY.value: memory_request_limit,
+        }
+        requests = {
+            **limits,
+            # No limit, as exceeding it gets the pod evicted
+            KubernetesResource.EPHEMERAL_STORAGE.value: JUMP_POD_EPHEMERAL_STORAGE_REQUEST,
+        }
+        replica_set = client.V1ReplicaSet(
+            metadata=client.V1ObjectMeta(
+                name=jump_pod_name,
+                labels=labels,
+            ),
+            spec=client.V1ReplicaSetSpec(
+                replicas=1,
+                selector=_build_label_selector_from_labels(base_labels),
+                template=client.V1PodTemplateSpec(
+                    metadata=client.V1ObjectMeta(
+                        labels=labels,
+                    ),
+                    spec=client.V1PodSpec(
+                        containers=[
+                            client.V1Container(
+                                name=f"{jump_pod_name}-container",
+                                image=JUMP_POD_IMAGE,
+                                command=["/bin/sh"],
+                                args=["-c", " && ".join(commands)],
+                                ports=[
+                                    client.V1ContainerPort(
+                                        container_port=JUMP_POD_SSH_PORT,
+                                    )
+                                ],
+                                resources=client.V1ResourceRequirements(
+                                    requests=requests,
+                                    limits=limits,
+                                ),
+                            )
+                        ],
+                        restart_policy=RestartPolicy.ALWAYS,
+                        affinity=affinity,
+                        tolerations=pod_tolerations,
+                    ),
+                ),
+            ),
+        )
+        call_api_method(
+            apps_api.create_namespaced_replica_set,
+            expected=409,
+            namespace=namespace,
+            body=replica_set,
+        )
+
+    node_port = jump_pod_port
+    if service is not None:
+        service_spec = get_or_error(service.spec)
+        if service_spec.selector != service_selector:
+            # A service created before https://github.com/dstackai/dstack/pull/3891 selects pods
+            # by the old labels, which the ReplicaSet pods lack. Recreate it with the same NodePort
+            # so that ssh_proxy of running jobs stays valid.
+            if service_spec.ports:
+                node_port = service_spec.ports[0].node_port
+            call_api_method(
+                api.delete_namespaced_service,
+                expected=404,
+                namespace=namespace,
+                name=jump_pod_service_name,
+            )
+            service = None
+
+    if service is None:
+        service = client.V1Service(
+            metadata=client.V1ObjectMeta(
+                name=jump_pod_service_name,
+                labels=labels,
+            ),
+            spec=client.V1ServiceSpec(
+                type="NodePort",
+                selector=service_selector,
+                ports=[
+                    client.V1ServicePort(
+                        port=JUMP_POD_SSH_PORT,
+                        target_port=JUMP_POD_SSH_PORT,
+                        node_port=node_port,
+                    )
+                ],
+            ),
+        )
+        call_api_method(
+            api.create_namespaced_service,
+            expected=409,
+            namespace=namespace,
+            body=service,
+        )
 
 
 def _check_and_configure_jump_pod_service(
@@ -1016,15 +1081,44 @@ def _check_and_configure_jump_pod_service(
     project_ssh_private_key: str,
     authorized_keys: list[str],
 ) -> Optional[SSHConnectionParams]:
-    jump_pod = api.read_namespaced_pod(
+    # Matches ReplicaSet pods and a legacy pod named `jump_pod_name`, whether adopted by the
+    # ReplicaSet or not.
+    jump_pods = api.list_namespaced_pod(
         namespace=namespace,
-        name=jump_pod_name,
-    )
-    jump_pod_phase = PodPhase(get_or_error(get_or_error(jump_pod.status).phase))
-    if jump_pod_phase.is_finished():
-        raise ProvisioningError(f"Jump pod {jump_pod_name} is unexpectedly finished")
-    if not jump_pod_phase.is_running():
-        logger.debug("Jump pod %s is not running yet", jump_pod_name)
+        label_selector=_build_query_label_selector_from_unique_name(jump_pod_name),
+    ).items
+    if not jump_pods:
+        # A legacy pod created before https://github.com/dstackai/dstack/pull/3891 lacks the label.
+        legacy_jump_pod = call_api_method(
+            api.read_namespaced_pod,
+            expected=404,
+            namespace=namespace,
+            name=jump_pod_name,
+        )
+        if legacy_jump_pod is not None:
+            # It's never adopted by the ReplicaSet and thus never replaced, no point in waiting.
+            jump_pod_phase = PodPhase(get_or_error(get_or_error(legacy_jump_pod.status).phase))
+            if jump_pod_phase.is_finished():
+                raise ProvisioningError(f"Jump pod {jump_pod_name} is unexpectedly finished")
+            jump_pods = [legacy_jump_pod]
+    # No pods at all is not an error -- the ReplicaSet may not have created a pod yet.
+    for jump_pod in jump_pods:
+        if _is_pod_ready(jump_pod):
+            break
+    else:
+        for jump_pod in jump_pods:
+            # E.g., no node has enough free resources or all nodes have untolerated taints.
+            # Provisioning waits for the jump pod, so without this warning, the only symptom is
+            # runs hitting the provisioning timeout.
+            condition = _get_pod_unscheduled_condition(jump_pod)
+            if condition is not None:
+                logger.warning(
+                    "Jump pod %s cannot be scheduled: %s: %s",
+                    get_object_name(jump_pod),
+                    condition.reason,
+                    condition.message,
+                )
+        logger.debug("Jump pod %s is not ready yet", jump_pod_name)
         return None
 
     if jump_pod_hostname is None:
@@ -1037,7 +1131,7 @@ def _check_and_configure_jump_pod_service(
                 if node_address.type == "ExternalIP"
             ]
             if node_external_ips:
-                if get_node_name(node) == jump_pod_node_name:
+                if get_object_name(node) == jump_pod_node_name:
                     jump_pod_hostname = node_external_ips[0]
                     break
                 cluster_external_ips.extend(node_external_ips)
@@ -1111,6 +1205,60 @@ def _check_and_configure_jump_pod_service(
         port=jump_pod_port,
         username=JUMP_POD_USER,
     )
+
+
+def _get_jump_pod_affinity(node_selector: list[str]) -> client.V1Affinity:
+    # A nodeSelector cannot express `Exists`. A single node affinity term matches like
+    # a nodeSelector: a node must meet all requirements.
+    return client.V1Affinity(
+        node_affinity=client.V1NodeAffinity(
+            required_during_scheduling_ignored_during_execution=client.V1NodeSelector(
+                node_selector_terms=[
+                    client.V1NodeSelectorTerm(
+                        match_expressions=[
+                            parse_node_selector_requirement(requirement)
+                            for requirement in node_selector
+                        ],
+                    ),
+                ],
+            ),
+        ),
+    )
+
+
+def _get_jump_pod_tolerations_from_node_taints(
+    api: client.CoreV1Api,
+) -> list[client.V1Toleration]:
+    # False if we found at least one node without any "hard" taint, that is, if we don't need
+    # to specify the toleration.
+    toleration_required = True
+    # (key, effect) pairs.
+    tolerated_taints: set[tuple[str, str]] = set()
+    for node in api.list_node().items:
+        if (node_spec := node.spec) is None:
+            continue
+        # True if the node has at least one NoExecute or NoSchedule taint.
+        has_hard_taint = False
+        taints = node_spec.taints or []
+        for taint in taints:
+            # A "soft" taint, ignore.
+            if not is_hard_taint(taint):
+                continue
+            has_hard_taint = True
+            if is_taint_tolerated(taint):
+                tolerated_taints.add((taint.key, taint.effect))
+        if not has_hard_taint:
+            toleration_required = False
+            break
+    tolerations: list[client.V1Toleration] = []
+    if toleration_required:
+        for key, effect in tolerated_taints:
+            tolerations.append(
+                client.V1Toleration(key=key, operator=Operator.EXISTS, effect=effect)
+            )
+        if not tolerations:
+            logger.warning("No appropriate node found, the jump pod may never be scheduled")
+    return tolerations
 
 
 def _get_jump_pod_commands(authorized_keys: list[str]) -> list[str]:
@@ -1379,11 +1527,28 @@ def _get_unscheduled_pod_reason_message(
         name=pod_name,
         namespace=namespace,
     )
-    if pod is not None and pod.status is not None and pod.status.conditions:
-        for cond in pod.status.conditions:
-            if cond.type == "PodScheduled" and cond.status == "False":
-                return cond.reason, cond.message
+    if pod is not None and (condition := _get_pod_unscheduled_condition(pod)) is not None:
+        return condition.reason, condition.message
     return None, None
+
+
+def _get_pod_unscheduled_condition(pod: client.V1Pod) -> Optional[client.V1PodCondition]:
+    if pod.status is None:
+        return None
+    for condition in pod.status.conditions or []:
+        if condition.type == "PodScheduled" and condition.status == "False":
+            return condition
+    return None
+
+
+def _is_pod_ready(pod: client.V1Pod) -> bool:
+    if pod.metadata is None:
+        return False
+    if pod.metadata.deletion_timestamp is not None:
+        return False
+    if pod.status is None:
+        return False
+    return any(c.type == "Ready" and c.status == "True" for c in (pod.status.conditions or []))
 
 
 def _wait_for_load_balancer_address(
@@ -1423,8 +1588,6 @@ def _wait_for_load_balancer_address(
 
 def _get_gateway_commands(authorized_keys: List[str]) -> List[str]:
     authorized_keys_content = "\n".join(authorized_keys).strip()
-    gateway_commands = " && ".join(get_dstack_gateway_commands())
-    quoted_gateway_commands = shlex.quote(gateway_commands)
 
     commands = [
         # install packages
@@ -1451,7 +1614,7 @@ def _get_gateway_commands(authorized_keys: List[str]) -> List[str]:
         "rm -rf /etc/ssh/ssh_host_*",
         "ssh-keygen -A > /dev/null",
         # install gateway
-        f"su ubuntu -c {quoted_gateway_commands}",
+        f"su ubuntu -c {shlex.quote(get_dstack_gateway_install_command())}",
         # start docker-systemctl-replacement as an init replacement (PID 1), which
         # - starts and supervises enabled services (sshd, nginx, dstack.gateway)
         # - stops running services on SIGTERM (graceful shutdown)
@@ -1493,13 +1656,13 @@ def _run_ssh_command(
 
 
 def _build_service_selector_from_labels(labels: dict[str, str]) -> dict[str, str]:
-    label_key = "app.kubernetes.io/instance"
-    return {label_key: labels[label_key]}
+    return {INSTANCE_LABEL: labels[INSTANCE_LABEL]}
 
 
-def _get_pod_service_name(pod_name: str) -> str:
-    return f"{pod_name}-service"
+def _build_label_selector_from_labels(labels: dict[str, str]) -> client.V1LabelSelector:
+    return client.V1LabelSelector(match_labels={INSTANCE_LABEL: labels[INSTANCE_LABEL]})
 
 
-def _get_registry_auth_secret_name(pod_name: str) -> str:
-    return f"{pod_name}-registry-auth"
+def _build_query_label_selector_from_unique_name(unique_name: str) -> str:
+    # See build_base_labels()
+    return f"{INSTANCE_LABEL}={unique_name}"

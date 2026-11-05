@@ -64,7 +64,7 @@ pub enum ErrorKind {
     ExpectedLineBreak,
 
     #[error("forbidden last period in keys")]
-    ForbiddenKeysLastPeriod,
+    ForbiddenKeyTrailingPeriod,
 
     #[error("maximum nesting depth exceeded")]
     RecursionLimitExceeded,
@@ -88,28 +88,28 @@ impl Error {
     #[inline]
     pub fn code(&self) -> &'static str {
         match self.kind {
-            ErrorKind::InvalidKey => "invalid-key",
-            ErrorKind::InvalidBasicString => "invalid-basic-string",
-            ErrorKind::InvalidLiteralString => "invalid-literal-string",
-            ErrorKind::InvalidMultilineBasicString => "invalid-multiline-basic-string",
-            ErrorKind::InvalidMultilineLiteralString => "invalid-multiline-literal-string",
-            ErrorKind::InvalidNumber => "invalid-number",
-            ErrorKind::InvalidOffsetDateTime => "invalid-offset-date-time",
-            ErrorKind::InvalidLocalDateTime => "invalid-local-date-time",
-            ErrorKind::InvalidLocalDate => "invalid-local-date",
-            ErrorKind::InvalidLocalTime => "invalid-local-time",
-            ErrorKind::InvalidLineBreak => "invalid-line-break",
-            ErrorKind::InvalidToken => "invalid-token",
-            ErrorKind::UnknownLine => "unknown-line",
-            ErrorKind::ExpectedKey => "expected-key",
-            ErrorKind::ExpectedValue => "expected-value",
-            ErrorKind::ExpectedEqual => "expected-equal",
-            ErrorKind::ExpectedBracketEnd => "expected-bracket-end",
-            ErrorKind::ExpectedDoubleBracketEnd => "expected-double-bracket-end",
-            ErrorKind::ExpectedBraceEnd => "expected-brace-end",
-            ErrorKind::ExpectedLineBreak => "expected-line-break",
-            ErrorKind::ForbiddenKeysLastPeriod => "forbidden-keys-last-period",
-            ErrorKind::RecursionLimitExceeded => "recursion-limit-exceeded",
+            ErrorKind::InvalidKey => "syntax/invalid-key",
+            ErrorKind::InvalidBasicString => "syntax/invalid-basic-string",
+            ErrorKind::InvalidLiteralString => "syntax/invalid-literal-string",
+            ErrorKind::InvalidMultilineBasicString => "syntax/invalid-multiline-basic-string",
+            ErrorKind::InvalidMultilineLiteralString => "syntax/invalid-multiline-literal-string",
+            ErrorKind::InvalidNumber => "syntax/invalid-number",
+            ErrorKind::InvalidOffsetDateTime => "syntax/invalid-offset-date-time",
+            ErrorKind::InvalidLocalDateTime => "syntax/invalid-local-date-time",
+            ErrorKind::InvalidLocalDate => "syntax/invalid-local-date",
+            ErrorKind::InvalidLocalTime => "syntax/invalid-local-time",
+            ErrorKind::InvalidLineBreak => "syntax/invalid-line-break",
+            ErrorKind::InvalidToken => "syntax/invalid-token",
+            ErrorKind::UnknownLine => "syntax/unknown-line",
+            ErrorKind::ExpectedKey => "syntax/expected-key",
+            ErrorKind::ExpectedValue => "syntax/expected-value",
+            ErrorKind::ExpectedEqual => "syntax/expected-equal",
+            ErrorKind::ExpectedBracketEnd => "syntax/expected-bracket-end",
+            ErrorKind::ExpectedDoubleBracketEnd => "syntax/expected-double-bracket-end",
+            ErrorKind::ExpectedBraceEnd => "syntax/expected-brace-end",
+            ErrorKind::ExpectedLineBreak => "syntax/expected-line-break",
+            ErrorKind::ForbiddenKeyTrailingPeriod => "syntax/forbidden-key-trailing-period",
+            ErrorKind::RecursionLimitExceeded => "syntax/recursion-limit-exceeded",
         }
     }
 

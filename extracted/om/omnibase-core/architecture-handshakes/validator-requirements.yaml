@@ -18,7 +18,7 @@
 
 schema_version:
   major: 1
-  minor: 4
+  minor: 5
   patch: 0
 
 # Canonical list of all OmniNode repos governed by this spec. The consumer
@@ -27,7 +27,6 @@ schema_version:
 # validators will surface as gaps on the next handshake run.
 known_repos:
   - omniclaude
-  - omnibase_compat
   - omnibase_core
   - omnibase_spi
   - omnibase_infra
@@ -56,12 +55,29 @@ known_repos:
 #     "all" = all known_repos. Override with a list for validators that legitimately
 #     skip some repos (e.g., Python validators skip omniweb PHP, omnibase meta-repo).
 #   - central_source: canonical module/script location
+#   - emits: "required" | "exempt" (OMN-22003, schema 1.5.0; no default, an entry
+#     without it is rejected on load). "required": a wired pre-commit entry of the
+#     validator must be a core-format runtime that writes its verdict through the
+#     validation report writer, judged by the top-level emits_check rules below.
+#     "exempt" (with emits_exempt_reason) is for a third-party tool that is by
+#     nature not a core validator; it is never a marker for a core validator that
+#     is merely not converted yet.
 #   - pre_commit_hook_ids: list of acceptable pre-commit hook id substrings.
 #     The consumer accepts any repo whose .pre-commit-config.yaml contains at
 #     least one hook whose id matches one of these substrings.
 #   - ci_workflow_keywords: list of acceptable CI workflow step-name / run-line
 #     substrings. The consumer accepts any repo whose .github/workflows/*.yml
 #     contains at least one step mentioning one of these keywords.
+
+# OMN-22003: how the consumer judges whether a wired pre-commit entry of an
+# `emits: required` validator is a core-format runtime that writes its verdict
+# through the report writer. `emits: exempt` (with emits_exempt_reason) is for a
+# third-party tool that is by nature not a core validator, never for a core
+# validator that is merely not converted yet.
+emits_check:
+  module_pattern: '-m\s+([A-Za-z_][A-Za-z0-9_.]*)'
+  core_package: "omnibase_core"
+  writer_marker: "NodeValidationReportWriteEffect"
 
 required_validators:
 
@@ -83,6 +99,7 @@ required_validators:
     excludes:
       allowed: ["^tests/fixtures/", "^docs/"]
       forbidden: ["^tests/$", "^tests/[^f]", "^src/"]
+    emits: required
     applies_to_repos: all
 
   hardcoded-private-ip:
@@ -110,6 +127,7 @@ required_validators:
       # src/ where a hardcoded private IP is a real environment-config leak.
       allowed: ["^tests/", "^docs/"]
       forbidden: ["^src/"]
+    emits: required
     applies_to_repos: all
 
   hardcoded-localhost-url:
@@ -142,6 +160,7 @@ required_validators:
       # endpoint-config leak.
       allowed: ["^tests/", "^docs/"]
       forbidden: ["^src/"]
+    emits: required
     applies_to_repos: all
 
   spdx-headers:
@@ -161,6 +180,7 @@ required_validators:
     excludes:
       allowed: ["\\.md$", "\\.ya?ml$", "\\.json$"]
       forbidden: ["^tests/", "^src/"]
+    emits: required
     applies_to_repos: all
 
   no-hardcoded-topics:
@@ -179,6 +199,7 @@ required_validators:
     excludes:
       allowed: ["^docs/", "\\.yaml$"]
       forbidden: ["^src/", "^tests/"]
+    emits: required
     applies_to_repos:
       - omniclaude
       - omnibase_core
@@ -209,6 +230,7 @@ required_validators:
     excludes:
       allowed: ["^tests/"]
       forbidden: ["^src/"]
+    emits: required
     applies_to_repos:
       - omniclaude
       - omnibase_core
@@ -238,12 +260,12 @@ required_validators:
     excludes:
       allowed: ["^tests/"]
       forbidden: ["^src/"]
+    emits: required
     applies_to_repos:
       - omniclaude
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -269,12 +291,12 @@ required_validators:
     excludes:
       allowed: ["^tests/", "^archived/"]
       forbidden: ["^src/"]
+    emits: required
     applies_to_repos:
       - omniclaude
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -300,6 +322,7 @@ required_validators:
     excludes:
       allowed: []
       forbidden: []
+    emits: required
     applies_to_repos: all
 
   branch-protection-rollout-guard:
@@ -319,6 +342,7 @@ required_validators:
     excludes:
       allowed: []
       forbidden: []
+    emits: required
     applies_to_repos:
       - omniclaude
 
@@ -337,12 +361,13 @@ required_validators:
     excludes:
       allowed: ["^tests/", "^examples/"]
       forbidden: ["^src/"]
+    emits: exempt
+    emits_exempt_reason: "third-party security scanner; by nature not a core validator"
     applies_to_repos:
       - omniclaude
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -367,12 +392,13 @@ required_validators:
     excludes:
       allowed: ["^tests/"]
       forbidden: ["^src/"]
+    emits: exempt
+    emits_exempt_reason: "third-party type checker; by nature not a core validator"
     applies_to_repos:
       - omniclaude
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -397,12 +423,13 @@ required_validators:
     excludes:
       allowed: []
       forbidden: []
+    emits: exempt
+    emits_exempt_reason: "third-party formatter/linter; by nature not a core validator"
     applies_to_repos:
       - omniclaude
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -429,6 +456,7 @@ required_validators:
     excludes:
       allowed: ["^docs/", "^CHANGELOG\\.md$"]
       forbidden: ["^src/"]
+    emits: required
     applies_to_repos: all
 
   pydantic-patterns:
@@ -448,12 +476,12 @@ required_validators:
     excludes:
       allowed: ["^tests/"]
       forbidden: ["^src/"]
+    emits: required
     applies_to_repos:
       - omniclaude
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -478,12 +506,12 @@ required_validators:
     excludes:
       allowed: ["^tests/"]
       forbidden: ["^src/"]
+    emits: required
     applies_to_repos:
       - omniclaude
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -507,6 +535,8 @@ required_validators:
     excludes:
       allowed: ["\\.secrets\\.baseline$", "^tests/fixtures/"]
       forbidden: []
+    emits: exempt
+    emits_exempt_reason: "third-party secret scanner; by nature not a core validator"
     applies_to_repos: all
 
   no-untracked-todos:
@@ -525,6 +555,7 @@ required_validators:
     excludes:
       allowed: ["^docs/"]
       forbidden: ["^src/", "^tests/"]
+    emits: required
     applies_to_repos: all
 
   arch-002-no-transport-imports:
@@ -545,6 +576,7 @@ required_validators:
     excludes:
       allowed: ["^tests/", "^src/.*/runtime/", "^src/.*/api/", "^src/.*/adapters/"]
       forbidden: ["^src/.*/nodes/"]
+    emits: required
     applies_to_repos:
       - omnibase_core
       - omnibase_infra
@@ -575,6 +607,7 @@ required_validators:
     excludes:
       allowed: []
       forbidden: []
+    emits: required
     applies_to_repos:
       - omnibase_infra
       - omninode_infra
@@ -606,6 +639,7 @@ required_validators:
     excludes:
       allowed: []
       forbidden: []
+    emits: required
     applies_to_repos:
       - omnibase_core
 
@@ -656,6 +690,7 @@ required_validators:
       # marker. The gate targets the repo's real documentation set.
       allowed: ["^tests/", "^contracts/"]
       forbidden: []
+    emits: required
     applies_to_repos:
       - omnibase_core
       # OMN-13579: doc-content-scan applies where docs exist (per ticket DoD).
@@ -688,6 +723,7 @@ required_validators:
     excludes:
       allowed: []
       forbidden: []
+    emits: required
     applies_to_repos:
       - omnibase_core
 
@@ -733,6 +769,7 @@ required_validators:
       # living outside the glob. Non-receipt JSON simply yields no findings.
       allowed: []
       forbidden: []
+    emits: required
     applies_to_repos:
       - omnibase_core
 
@@ -760,6 +797,7 @@ required_validators:
     excludes:
       allowed: []
       forbidden: []
+    emits: required
     applies_to_repos:
       - omnibase_core
 
@@ -785,6 +823,7 @@ required_validators:
     excludes:
       allowed: []
       forbidden: []
+    emits: required
     applies_to_repos:
       - omnibase_core
 

@@ -8,7 +8,7 @@ from typing import Any
 
 from ....foundation.safe_warn import safe_warn as _diagnostics
 from ... import errors
-from ...recording_rules import ignore as _ignore
+from ...recording_rules import recording_rules as _ignore
 from ...capture.logs import stream as _logstream
 from ...capture import outputs as _outputs
 

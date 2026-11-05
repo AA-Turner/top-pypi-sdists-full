@@ -329,6 +329,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0  # Compare baseline edits with origin/dev, including committed PR edits.
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
@@ -363,7 +365,23 @@ jobs:
           echo "::warning::libatomic1 is not visible and cannot be installed by this runner; continuing so Pyright reports the real failure if the runtime requires it"
 
       - name: Run pyright type checking
-        run: uv run pyright src/omnibase_core
+        run: >-
+          uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check
+          --hook pyright-type-check --baseline .onex_ratchets/pyright-type-check.yaml --dir src/omnibase_core
+
+      - name: Slice A staged-file refusal and baseline regressions (OMN-22012)
+        run: >-
+          uv run pytest tests/unit/handlers/test_core_legacy_ratchets.py
+          tests/unit/handlers/test_baselined_finding_hooks.py
+          tests/unit/validation/test_validate_union_usage_whole_tree.py
+          --no-cov -o addopts='' -q
+
+      - name: Refuse new and stale legacy findings per file (OMN-22012)
+        run: |
+          for hook in substrate-silent-except-pass substrate-env-silent-fallback substrate-identity-field-optionality substrate-loose-typing-internal substrate-protocol-kwargs-object validate-stubbed-functionality validate-model-dump-json-mode validate-union-usage; do
+            uv run python -m omnibase_core.nodes.node_finding_baseline_check_effect.runtime_legacy_ratchet_check \
+              --hook "$hook" --baseline ".onex_ratchets/$hook.yaml" --dir src/omnibase_core || exit "$?"
+          done
 
   # Phase 1 validation job - runs in parallel with lint, pyright
   # Must complete before test-parallel starts (fail-fast optimization)
@@ -2667,11 +2685,11 @@ jobs:
 
       - name: Run validator unit tests
         run: |
-          uv run pytest tests/validation/test_validate_no_except_swallow.py -v
+          uv run pytest tests/unit/validation/test_checker_except_swallow.py -v
 
-      - name: Self-scan omnibase_core src/ (report mode — baseline cleanup pending)
+      - name: Refuse new findings (shrink-only baseline)
         run: |
-          uv run python scripts/validation/validate_no_except_swallow.py --report
+          uv run pre-commit run no-except-swallow --all-files
 
   # Migrated from validator-no-hardcoded-ip.yml (OMN-14877,
   # OMN-14430 fast-follow). Unconditional job under the required "CI Summary"
@@ -2743,11 +2761,11 @@ jobs:
 
       - name: Run validator unit tests
         run: |
-          uv run pytest tests/validation/test_validate_no_import_none_fallback.py -v
+          uv run pytest tests/unit/validation/test_checker_import_none_fallback.py -v
 
-      - name: Self-scan omnibase_core src/ (report mode — baseline cleanup pending)
+      - name: Refuse new findings (shrink-only baseline)
         run: |
-          uv run python scripts/validation/validate_no_import_none_fallback.py --report
+          uv run pre-commit run no-import-none-fallback --all-files
 
   # Migrated from validator-no-io-outside-effects.yml (OMN-14877,
   # OMN-14430 fast-follow). Unconditional job under the required "CI Summary"
@@ -2822,11 +2840,11 @@ jobs:
 
       - name: Run validator unit tests
         run: |
-          uv run pytest tests/validation/test_validate_no_none_guard_publish.py -v
+          uv run pytest tests/unit/validation/test_checker_none_guard_publish.py -v
 
-      - name: Self-scan omnibase_core src/ (report mode — baseline cleanup pending)
+      - name: Refuse new findings (shrink-only baseline)
         run: |
-          uv run python scripts/validation/validate_no_none_guard_publish.py --report
+          uv run pre-commit run no-none-guard-publish --all-files
 
   # Migrated from validator-no-raw-sqlite3.yml (OMN-14877,
   # OMN-14430 fast-follow). Unconditional job under the required "CI Summary"
@@ -2994,8 +3012,8 @@ jobs:
           uv run python -m omnibase_core.validators.operation_match_requires_operation src/omnibase_core
 
   # Migrated from validator-pin-hygiene.yml (OMN-14877, OMN-14430 fast-follow).
-  # Needs sibling clones (omnibase_compat / omnibase_spi) to resolve pin ancestry;
-  # each is checked out under $OMNI_HOME (= github.workspace).
+  # Needs a sibling clone (omnibase_spi) to resolve pin ancestry;
+  # it is checked out under $OMNI_HOME (= github.workspace).
   pin-hygiene-validator:
     name: Pin Hygiene Validator
     runs-on: ubuntu-latest
@@ -3006,15 +3024,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           path: omnibase_core
-
-      - name: Checkout omnibase_compat (sibling)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          repository: OmniNode-ai/omnibase_compat
-          path: omnibase_compat
-          # OMN-20001: release tag v0.5.7, not live dev
-          ref: 65aed95fa710748654e37d5c15c5446e779fdf52
-          fetch-depth: 0
 
       - name: Checkout omnibase_spi (sibling)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -3097,6 +3106,14 @@ jobs:
           BASE="${BASE_REF}"
           git fetch --quiet origin "${BASE}" || true
           uv run python -m omnibase_core.nodes.node_release_identity_check_compute.runtime_release_identity_check --base "origin/${BASE}"
+
+  # OMN-22360 (operator ruling 2026-11-03T14:21:07Z): this repository's own
+  # first-party pins through the same reusable workflow every registry
+  # repository calls, at this run's sha. A failure here turns CI Summary red.
+  dependency-pins:
+    uses: ./.github/workflows/dependency-pins.yml
+    permissions:
+      contents: read
 
   # OMN-19037: protect base required contexts against deleted workflows, jobs, and manifest rows.
   required-context-producer-validator:

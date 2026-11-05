@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypeGuard, cast
 
 from datamodel_code_generator import Error
 from datamodel_code_generator._config_fields import (
-    JSON_FIELDS,
     PYPROJECT_API_PATH_FIELDS,
     PYPROJECT_PATH_FIELDS,
     TARGET_JSON_FIELDS,
+    names_path,
+    option_path,
 )
 from datamodel_code_generator._option_names import FIELD_ALIASES, GENERATE_FIELD_NAMES, field_name
 from datamodel_code_generator._paths import resolved
@@ -21,20 +22,28 @@ if TYPE_CHECKING:
     from datamodel_code_generator.config import GenerateConfig
 
 
+def names_profile(name: str | None) -> TypeGuard[str]:
+    """Return whether a profile selection names a profile: an empty name selects none, as no name does.
+
+    The selections are ``--profile``, the ``profile`` of ``load_pyproject_config()`` and of a job, and each parent of
+    an ``extends``.
+    """
+    return bool(name)
+
+
 def _resolve_profile_extends(
     profiles: Mapping[str, Any],
     profile_name: str,
-    visited: set[str] | None = None,
+    visited: tuple[str, ...] = (),
     *,
     missing: str | None = None,
 ) -> dict[str, Any]:
-    """Resolve profile inheritance via extends key; ``missing`` names a missing requested profile."""
-    if visited is None:
-        visited = set()
+    """Resolve profile inheritance via extends key; ``visited`` is the chain of profiles that led here, in order.
 
+    ``missing`` names a missing requested profile.
+    """
     if profile_name in visited:
-        chain = " -> ".join(visited) + f" -> {profile_name}"
-        msg = f"Circular extends detected: {chain}"
+        msg = f"Circular extends detected: {' -> '.join((*visited, profile_name))}"
         raise Error(msg)
 
     if profile_name not in profiles:
@@ -43,7 +52,7 @@ def _resolve_profile_extends(
         msg = f"{missing}. Available profiles: {available}"
         raise Error(msg)
 
-    visited.add(profile_name)
+    visited = (*visited, profile_name)
     profile = profiles[profile_name]
     if not isinstance(profile, Mapping):
         msg = f"Profile '{profile_name}' must be a table"
@@ -61,11 +70,11 @@ def _resolve_profile_extends(
     parents = [extends] if isinstance(extends, str) else extends
     result: dict[str, Any] = {}
 
-    for parent in parents:
+    for parent in filter(names_profile, parents):
         if parent == profile_name:
             msg = f"Profile '{profile_name}' cannot extend itself"
             raise Error(msg)
-        parent_config = _resolve_profile_extends(profiles, parent, visited.copy())
+        parent_config = _resolve_profile_extends(profiles, parent, visited)
         result.update(parent_config)
 
     result.update({k: v for k, v in profile.items() if k != "extends"})
@@ -100,7 +109,7 @@ def _get_pyproject_toml_config_with_path(
             key: value for key, value in tool_config.items() if key not in {"jobs", "profiles"}
         }
 
-        if profile:
+        if names_profile(profile):
             profiles = tool_config.get("profiles", {})
             if not isinstance(profiles, Mapping):
                 msg = "[tool.datamodel-codegen.profiles] must be a table"
@@ -111,7 +120,7 @@ def _get_pyproject_toml_config_with_path(
 
         return _normalize_pyproject_config(base_config), pyproject_path
 
-    if profile:
+    if names_profile(profile):
         msg = f"Profile '{profile}' requested but no [tool.datamodel-codegen] section found in pyproject.toml"
         raise Error(msg)
 
@@ -127,6 +136,26 @@ def _normalize_pyproject_config(config: Mapping[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+def _resolve_relative_paths_from(
+    config: dict[str, Any], directory: Path, fields: frozenset[str] = PYPROJECT_PATH_FIELDS
+) -> dict[str, Any]:
+    """Resolve the relative paths of the given fields from a directory.
+
+    Only lexical: ``~`` expands, and inline JSON of a JSON field is a value, not a path. A ``~user`` that names no user
+    raises ``Error``.
+    """
+    updates = {
+        field_name: directory / resolved_path
+        for field_name in fields
+        if (path := config.get(field_name)) is not None
+        and names_path(field_name, path)
+        and not (resolved_path := option_path(field_name, path)).is_absolute()
+    }
+    if not updates:
+        return config
+    return {**config, **updates}
+
+
 def _resolve_pyproject_relative_paths(
     config: dict[str, Any], pyproject_path: Path | None, fields: frozenset[str] = PYPROJECT_PATH_FIELDS
 ) -> dict[str, Any]:
@@ -136,18 +165,7 @@ def _resolve_pyproject_relative_paths(
     """
     if pyproject_path is None:
         return config
-
-    config_directory = pyproject_path.parent
-    updates = {
-        field_name: config_directory / resolved_path
-        for field_name in fields
-        if isinstance(path := config.get(field_name), str | Path)
-        and not (field_name in JSON_FIELDS and str(path).lstrip().startswith(("{", "[")))
-        and not (resolved_path := Path(path).expanduser()).is_absolute()
-    }
-    if not updates:
-        return config
-    return {**config, **updates}
+    return _resolve_relative_paths_from(config, pyproject_path.parent, fields)
 
 
 def load_pyproject_config(

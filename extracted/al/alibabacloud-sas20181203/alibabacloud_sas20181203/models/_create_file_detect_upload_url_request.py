@@ -14,22 +14,14 @@ class CreateFileDetectUploadUrlRequest(DaraModel):
         hash_key_list: List[str] = None,
         type: int = None,
     ):
-        # The hash values of files.
-        # 
-        # > You must specify at least one of the **HashKeyList** and **HashKeyContextList** parameters.
+        # The file identifier. Only MD5 is supported. You can specify up to 100 elements in the list.
+        # > **HashKeyList** and **HashKeyContextList** cannot be empty at the same time.
         self.hash_key_context_list = hash_key_context_list
-        # The identifiers of files. Only MD5 hash values are supported.
-        # 
-        # > You must specify at least one of the **HashKeyList** and **HashKeyContextList** parameters.
+        # The unique identifier of the file. You can specify up to 100 elements in the list.
+        # > **HashKeyList** and **HashKeyContextList** cannot be empty at the same time.
         self.hash_key_list = hash_key_list
-        # The type of the file. Valid values:
-        # 
-        # *   **0**: unknown file
-        # *   **1**: binary file
-        # *   **2**: webshell file
-        # *   **4**: script file
-        # 
-        # > If you do not know the type of the file, set this parameter to **0**.
+        # The file type. Valid values:
+        # - **0**: Uncertain file type.
         # 
         # This parameter is required.
         self.type = type
@@ -80,9 +72,9 @@ class CreateFileDetectUploadUrlRequestHashKeyContextList(DaraModel):
         file_size: int = None,
         hash_key: str = None,
     ):
-        # The size of the file. Unit: bytes.
+        # The file size. If the file size exceeds the limit, the upload parameters are not returned. Unit: bytes.
         self.file_size = file_size
-        # The hash value of the file.
+        # The file hash value.
         self.hash_key = hash_key
 
     def validate(self):

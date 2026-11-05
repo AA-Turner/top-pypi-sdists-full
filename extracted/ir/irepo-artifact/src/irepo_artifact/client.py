@@ -5,14 +5,29 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from copy import deepcopy
 import time
+from typing import Literal
 
 from .api import APAPI, _APStatus, validate_id
-from .download import download_archive, download_with_refresh
+from .archive import ArchiveSelectionUnavailable, extract_selected
+from .download import _RemoteDownloadError, download_archive, download_with_refresh
 from .errors import (ArtifactError, ArtifactNotFound, ConfigurationError,
-                     DownloadError, HTTPStatusError, NoMatchingFiles)
+                     DownloadError, HTTPStatusError, NetworkError, NoMatchingFiles, ProtocolError)
 from .layout import JobOutput, select_files, selectors
-from .models import DownloadResult
+from .models import DownloadResult, DownloadTarget
 from .probe import DownloadProbe
+
+_FILE_SIGNING_BATCH_SIZE = 500
+
+
+def _missing_oss_url(response: object) -> bool:
+    """Recognize an explicitly unavailable OSS URL, not a malformed response."""
+    if not isinstance(response, dict):
+        return False
+    downloads = response.get('downloads')
+    if not isinstance(downloads, dict) or 'oss' not in downloads:
+        return False
+    oss = downloads['oss']
+    return oss is None or (isinstance(oss, dict) and oss.get('url', False) is None)
 
 
 def _options(include_files, exclude_files, extract, overwrite):
@@ -109,9 +124,9 @@ class ArtifactClient:
             output = JobOutput(job_dir, overwrite,
                                private_selected=selected is not None and self._layout == 'ap_export')
             if selected is not None:
-                self._selected(job_id, selected, output.files_temp)
+                channel = self._download_selected(job_id, selected, output, probe)
                 relative_files = tuple(sorted(Path(logical) for _, logical in selected))
-                mode, channel = 'selected', 'proxy'
+                mode = 'selected'
             else:
                 if 'proxy' in targets and 'oss' not in targets:
                     link_mode = 'proxy'
@@ -160,9 +175,58 @@ class ArtifactClient:
             if output is not None:
                 output.cleanup()
 
-    def _selected(self, job_id, selected, directory):
-        for start in range(0, len(selected), 500):
-            batch = selected[start:start + 500]
+    def _selected_archive_target(self, job_id: str) -> DownloadTarget | None:
+        raw = {}
+        try:
+            targets = self._api.get_archive_targets([job_id], mode='oss', metadata=raw)[job_id]
+        except _APStatus as exc:
+            if exc.status not in (502, 503):
+                raise
+            return None
+        except (ArtifactNotFound, DownloadError):
+            # No local writes occur while signing. A manifest can be usable
+            # even when archive signing is unavailable.
+            return None
+        except ProtocolError:
+            if _missing_oss_url(raw.get(job_id)):
+                return None
+            raise
+        return targets.get('oss')
+
+    def _download_selected(self, job_id: str, selected: list[tuple[str, str]],
+                           output: JobOutput, probe: DownloadProbe | None) -> Literal['oss', 'proxy']:
+        if not selected:
+            return 'proxy'
+        target = self._selected_archive_target(job_id)
+        if target is not None and (probe is None or probe.reachable(target.url)):
+            if self._try_selected_archive(job_id, selected, output, target):
+                return 'oss'
+        self._download_selected_files(job_id, selected, output.files_temp)
+        return 'proxy'
+
+    def _try_selected_archive(self, job_id: str, selected: list[tuple[str, str]],
+                              output: JobOutput, target: DownloadTarget) -> bool:
+        """Return False only when individual file downloads may replace OSS."""
+        def refresh() -> DownloadTarget:
+            renewed = self._selected_archive_target(job_id)
+            if renewed is None:
+                raise _RemoteDownloadError('OSS link unavailable after refresh')
+            return renewed
+
+        try:
+            download_with_refresh(target, output.archive_temp, refresh, self._timeout)
+            extract_selected(output.archive_temp, selected, output.files_temp)
+        except (NetworkError, HTTPStatusError, ArtifactNotFound,
+                _RemoteDownloadError, ArchiveSelectionUnavailable):
+            # AP access denial, unsafe paths and local I/O errors propagate.
+            output.reset_selected()
+            return False
+        return True
+
+    def _download_selected_files(self, job_id: str, selected: list[tuple[str, str]],
+                                 directory: Path) -> None:
+        for start in range(0, len(selected), _FILE_SIGNING_BATCH_SIZE):
+            batch = selected[start:start + _FILE_SIGNING_BATCH_SIZE]
             paths = [path for path, _ in batch]
             targets = self._api.get_file_targets(job_id, paths)
             refresh_at = _deadline(targets)
@@ -175,7 +239,7 @@ class ArtifactClient:
                     issued_at_index = index
                 dest = directory / logical
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                def refresh():
+                def refresh() -> DownloadTarget:
                     nonlocal targets, refresh_at, issued_at_index
                     targets = self._api.get_file_targets(job_id, paths[index:])
                     refresh_at = _deadline(targets)

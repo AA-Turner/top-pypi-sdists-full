@@ -4667,6 +4667,115 @@ def test_sfn_integration_nested_start_execution_sync2_returns_json_output(sfn):
     )["executions"]
     assert any(e["executionArn"] == output["child"]["ExecutionArn"] for e in child_execs)
 
+
+NESTED_SYNC_RESOURCES = [
+    "arn:aws:states:::states:startExecution.sync",
+    "arn:aws:states:::states:startExecution.sync:2",
+]
+
+
+@pytest.mark.parametrize("resource", NESTED_SYNC_RESOURCES)
+def test_sfn_nested_start_execution_sync_failed_child_fails_with_task_failed(sfn, resource):
+    """A failed child fails the parent Task with States.TaskFailed, not with the child's error name."""
+    unique = str(time.time_ns())
+    child = sfn.create_state_machine(
+        name=f"sfn-child-fail-{unique}",
+        definition=json.dumps({
+            "StartAt": "Boom",
+            "States": {"Boom": {"Type": "Fail", "Error": "MyError", "Cause": "child boom"}},
+        }),
+        roleArn="arn:aws:iam::000000000000:role/R",
+    )
+    parent = sfn.create_state_machine(
+        name=f"sfn-parent-fail-{unique}",
+        definition=json.dumps({
+            "StartAt": "RunChild",
+            "States": {
+                "RunChild": {
+                    "Type": "Task",
+                    "Resource": resource,
+                    "Parameters": {"StateMachineArn": child["stateMachineArn"]},
+                    "Catch": [
+                        {"ErrorEquals": ["MyError"], "Next": "WrongCatch"},
+                        {"ErrorEquals": ["States.TaskFailed"], "ResultPath": "$.error", "Next": "Caught"},
+                    ],
+                    "End": True,
+                },
+                "WrongCatch": {"Type": "Fail", "Error": "WrongCatch"},
+                "Caught": {"Type": "Pass", "End": True},
+            },
+        }),
+        roleArn="arn:aws:iam::000000000000:role/R",
+    )
+
+    ex = sfn.start_execution(stateMachineArn=parent["stateMachineArn"], input="{}")
+    desc = _wait_sfn(sfn, ex["executionArn"])
+
+    assert desc["status"] == "SUCCEEDED"
+    error = json.loads(desc["output"])["error"]
+    assert error["Error"] == "States.TaskFailed"
+    # AWS sends the child's DescribeExecution response as compact JSON with sorted keys.
+    cause = json.loads(error["Cause"])
+    assert error["Cause"] == json.dumps(cause, separators=(",", ":"), sort_keys=True)
+    assert cause["Status"] == "FAILED"
+    assert cause["Error"] == "MyError"
+    assert cause["Cause"] == "child boom"
+    assert cause["StateMachineArn"] == child["stateMachineArn"]
+    assert cause["ExecutionArn"].startswith(child["stateMachineArn"].replace(":stateMachine:", ":execution:"))
+    assert isinstance(cause["StartDate"], int)
+    assert isinstance(cause["StopDate"], int)
+    assert cause["InputDetails"] == {"Included": True}
+
+
+@pytest.mark.parametrize("resource", NESTED_SYNC_RESOURCES)
+def test_sfn_nested_start_execution_sync_stopped_child_fails_with_task_failed(sfn, resource):
+    """A stopped child fails the parent Task with States.TaskFailed, with the stop error in the cause."""
+    unique = str(time.time_ns())
+    # A run checks for a stop only between states, so short Waits make the stop take effect quickly.
+    waits = {f"Wait{i}": {"Type": "Wait", "Seconds": 1, "Next": f"Wait{i + 1}"} for i in range(9)}
+    waits["Wait9"] = {"Type": "Wait", "Seconds": 1, "End": True}
+    child = sfn.create_state_machine(
+        name=f"sfn-child-stop-{unique}",
+        definition=json.dumps({"StartAt": "Wait0", "States": waits}),
+        roleArn="arn:aws:iam::000000000000:role/R",
+    )
+    parent = sfn.create_state_machine(
+        name=f"sfn-parent-stop-{unique}",
+        definition=json.dumps({
+            "StartAt": "RunChild",
+            "States": {
+                "RunChild": {
+                    "Type": "Task",
+                    "Resource": resource,
+                    "Parameters": {"StateMachineArn": child["stateMachineArn"]},
+                    "Catch": [{"ErrorEquals": ["States.TaskFailed"], "ResultPath": "$.error", "Next": "Caught"}],
+                    "End": True,
+                },
+                "Caught": {"Type": "Pass", "End": True},
+            },
+        }),
+        roleArn="arn:aws:iam::000000000000:role/R",
+    )
+
+    ex = sfn.start_execution(stateMachineArn=parent["stateMachineArn"], input="{}")
+    running = []
+    for _ in range(50):
+        running = sfn.list_executions(stateMachineArn=child["stateMachineArn"], statusFilter="RUNNING")["executions"]
+        if running:
+            break
+        time.sleep(0.1)
+    assert running, "The child execution did not start"
+    sfn.stop_execution(executionArn=running[0]["executionArn"], error="TestAbort", cause="stopped by test")
+    desc = _wait_sfn(sfn, ex["executionArn"])
+
+    assert desc["status"] == "SUCCEEDED"
+    error = json.loads(desc["output"])["error"]
+    assert error["Error"] == "States.TaskFailed"
+    cause = json.loads(error["Cause"])
+    assert cause["Status"] == "ABORTED"
+    assert cause["Error"] == "TestAbort"
+    assert cause["Cause"] == "stopped by test"
+
 def test_sfn_integration_multi_service_pipeline(sfn, sqs, ddb):
     """End-to-end: Pass → DynamoDB putItem → SQS sendMessage → Succeed."""
     table_name = "sfn-pipeline-test"
@@ -4968,6 +5077,124 @@ def test_sfn_stop_execution_retry_preserves_abort(sfn):
         assert before["cause"] == "first cause"
     finally:
         sfn.delete_state_machine(stateMachineArn=machine)
+
+
+def _two_second_wait(name):
+    return {"StartAt": name, "States": {name: {"Type": "Wait", "Seconds": 2, "End": True}}}
+
+
+@pytest.mark.parametrize("query_language, run_state, entered", [
+    ("JSONPath", {"Type": "Wait", "Seconds": 2}, ["WaitStateEntered"]),
+    ("JSONata", {"Type": "Wait", "Seconds": 2}, ["WaitStateEntered"]),
+    (
+        "JSONPath",
+        {"Type": "Parallel", "Branches": [_two_second_wait("WaitA"), _two_second_wait("WaitB")]},
+        ["ParallelStateEntered", "WaitStateEntered", "WaitStateEntered"],
+    ),
+    (
+        "JSONPath",
+        {"Type": "Map", "ItemsPath": "$.items",
+         "ItemProcessor": {**_two_second_wait("Wait"), "ProcessorConfig": {"Mode": "INLINE"}}},
+        ["MapStateEntered", "WaitStateEntered", "WaitStateEntered"],
+    ),
+], ids=["wait-jsonpath", "wait-jsonata", "parallel", "map"])
+def test_sfn_stop_writes_no_event_after_abort(sfn, query_language, run_state, entered):
+    """A stop ends the running state at once, so the history ends with ExecutionAborted, as on AWS."""
+    machine = sfn.create_state_machine(
+        name=f"stop-states-{_uuid_mod.uuid4().hex[:12]}",
+        definition=json.dumps({"QueryLanguage": query_language, "StartAt": "Run", "States": {
+            "Run": {**run_state, "Next": "Done"},
+            "Done": {"Type": "Pass", "End": True},
+        }}),
+        roleArn=_LAMBDA_ROLE,
+    )["stateMachineArn"]
+    try:
+        execution = sfn.start_execution(stateMachineArn=machine, input=json.dumps({"items": [1, 2]}))["executionArn"]
+        waits = entered.count("WaitStateEntered")
+        for _ in range(50):
+            events = sfn.get_execution_history(executionArn=execution)["events"]
+            if sum(e["type"] == "WaitStateEntered" for e in events) == waits:
+                break
+            time.sleep(0.05)
+        else:
+            pytest.fail("The execution did not reach its Wait states")
+        sfn.stop_execution(executionArn=execution, error="TestStop", cause="stopped by test")
+        # Wait past the end of the Wait states, so a late event has time to appear.
+        time.sleep(3)
+
+        types = [e["type"] for e in sfn.get_execution_history(executionArn=execution)["events"]]
+        assert types == ["ExecutionStarted", *entered, "ExecutionAborted"]
+    finally:
+        sfn.delete_state_machine(stateMachineArn=machine)
+
+
+def test_sfn_stop_is_not_overwritten_by_a_failure_after_it(sfn):
+    """A Parallel whose ResultSelector fails on what its stopped branches return stays ABORTED."""
+    machine = sfn.create_state_machine(
+        name=f"stop-then-fail-{_uuid_mod.uuid4().hex[:12]}",
+        definition=json.dumps({"StartAt": "Run", "States": {"Run": {
+            "Type": "Parallel", "Branches": [_two_second_wait("WaitA")],
+            "ResultSelector": {"x.$": "States.MathAdd($[0].n, 1)"}, "End": True}}}),
+        roleArn=_LAMBDA_ROLE,
+    )["stateMachineArn"]
+    try:
+        execution = sfn.start_execution(stateMachineArn=machine)["executionArn"]
+        for _ in range(50):
+            if any(e["type"] == "WaitStateEntered" for e in sfn.get_execution_history(executionArn=execution)["events"]):
+                break
+            time.sleep(0.05)
+        sfn.stop_execution(executionArn=execution, error="TestStop", cause="stopped by test")
+        time.sleep(1)
+        assert sfn.describe_execution(executionArn=execution)["status"] == "ABORTED"
+        assert sfn.get_execution_history(executionArn=execution)["events"][-1]["type"] == "ExecutionAborted"
+    finally:
+        sfn.delete_state_machine(stateMachineArn=machine)
+
+
+def test_sfn_stopped_child_in_wait_ends_its_sync_parent_at_once(sfn):
+    """A child stopped during a long Wait ends its .sync parent at once, not when the Wait ends."""
+    unique = _uuid_mod.uuid4().hex[:12]
+    child = sfn.create_state_machine(
+        name=f"stop-wait-child-{unique}",
+        definition=json.dumps({"StartAt": "Wait", "States": {
+            "Wait": {"Type": "Wait", "Seconds": 30, "End": True},
+        }}),
+        roleArn=_LAMBDA_ROLE,
+    )["stateMachineArn"]
+    parent = sfn.create_state_machine(
+        name=f"stop-wait-parent-{unique}",
+        definition=json.dumps({"StartAt": "RunChild", "States": {
+            "RunChild": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::states:startExecution.sync",
+                "Parameters": {"StateMachineArn": child},
+                "Catch": [{"ErrorEquals": ["States.TaskFailed"], "Next": "Caught"}],
+                "End": True,
+            },
+            "Caught": {"Type": "Pass", "End": True},
+        }}),
+        roleArn=_LAMBDA_ROLE,
+    )["stateMachineArn"]
+    try:
+        execution = sfn.start_execution(stateMachineArn=parent)["executionArn"]
+        # Stop the child only when it is in its Wait. A stop before that ends it at once anyway.
+        child_execution = None
+        for _ in range(50):
+            running = sfn.list_executions(stateMachineArn=child, statusFilter="RUNNING")["executions"]
+            if running:
+                events = sfn.get_execution_history(executionArn=running[0]["executionArn"])["events"]
+                if any(e["type"] == "WaitStateEntered" for e in events):
+                    child_execution = running[0]["executionArn"]
+                    break
+            time.sleep(0.05)
+        assert child_execution, "The child execution did not reach its Wait state"
+        sfn.stop_execution(executionArn=child_execution, error="TestStop", cause="stopped by test")
+
+        desc = _wait_sfn(sfn, execution, timeout=5)
+        assert desc["status"] == "SUCCEEDED"
+    finally:
+        sfn.delete_state_machine(stateMachineArn=parent)
+        sfn.delete_state_machine(stateMachineArn=child)
 
 
 def test_sfn_list_executions_filter(sfn):
@@ -10279,6 +10506,242 @@ def test_sfn_distributed_map_runs_child_executions_of_a_map_run(sfn, s3):
     assert set(json.loads(desc["output"])[0]) == {"Etag", "Key", "LastModified", "Size", "StorageClass"}
 
 
+def test_sfn_jsonata_distributed_map_evaluates_its_fields(sfn):
+    """A JSONata DISTRIBUTED Map evaluates Items, ItemSelector, MaxConcurrency and Output, as on AWS."""
+    definition = {"QueryLanguage": "JSONata", "StartAt": "Map", "States": {"Map": {
+        "Type": "Map", "Items": "{% $states.input.items %}",
+        "ItemSelector": {"id": "{% $states.context.Map.Item.Value.id %}",
+                         "index": "{% $states.context.Map.Item.Index %}",
+                         "org": "{% $states.input.org %}", "static": "fixed-value"},
+        "MaxConcurrency": "{% $states.input.batch_size %}",
+        "Output": '{% {"count": $count($states.result), "results": $states.result} %}',
+        "ItemProcessor": {"ProcessorConfig": {"Mode": "DISTRIBUTED", "ExecutionType": "STANDARD"},
+                          "StartAt": "Echo", "States": {"Echo": {"Type": "Pass", "End": True}}},
+        "End": True}}}
+    arn = sfn.create_state_machine(name=f"dmap-jsonata-{_uuid_mod.uuid4().hex[:8]}", definition=json.dumps(definition),
+                                   roleArn="arn:aws:iam::000000000000:role/r")["stateMachineArn"]
+    payload = {"org": "org-123", "batch_size": 2, "items": [{"id": 1}, {"id": 2}, {"id": 3}]}
+    execution = sfn.start_execution(stateMachineArn=arn, input=json.dumps(payload))["executionArn"]
+
+    desc = _wait_sfn(sfn, execution, timeout=20)
+    assert desc["status"] == "SUCCEEDED", desc.get("cause")
+    assert json.loads(desc["output"]) == {"count": 3, "results": [
+        {"id": 1, "index": 0, "org": "org-123", "static": "fixed-value"},
+        {"id": 2, "index": 1, "org": "org-123", "static": "fixed-value"},
+        {"id": 3, "index": 2, "org": "org-123", "static": "fixed-value"},
+    ]}
+    (map_run,) = sfn.list_map_runs(executionArn=execution)["mapRuns"]
+    assert sfn.describe_map_run(mapRunArn=map_run["mapRunArn"])["maxConcurrency"] == 2
+def _inline_map_field_cause(entered_event_id):
+    return (f"An error occurred while executing the state 'Map' (entered at the event id #{entered_event_id}). "
+            "The ItemReader, ItemBatcher and ResultWriter fields are not supported for INLINE maps")
+
+
+def _run_inline_map(sfn, map_fields, extra_states=None, start_at="Map"):
+    definition = {"StartAt": start_at, "States": {
+        "Map": {**map_fields, "Type": "Map", "End": True,
+                "ItemProcessor": {"ProcessorConfig": {"Mode": "INLINE"}, "StartAt": "P",
+                                  "States": {"P": {"Type": "Pass", "End": True}}}},
+        **(extra_states or {}),
+    }}
+    arn = sfn.create_state_machine(name=f"sfn-inline-field-{_uuid_mod.uuid4().hex[:8]}",
+                                   definition=json.dumps(definition),
+                                   roleArn="arn:aws:iam::000000000000:role/R")["stateMachineArn"]
+    execution = sfn.start_execution(stateMachineArn=arn, input=json.dumps({"items": [1, 2, 3]}))["executionArn"]
+    desc = _wait_sfn(sfn, execution, timeout=20)
+    events = sfn.get_execution_history(executionArn=execution, maxResults=1000)["events"]
+    return desc, [e["type"] for e in events]
+
+
+@pytest.mark.parametrize("map_fields", [
+    {"ItemsPath": "$.items", "ItemBatcher": {"MaxItemsPerBatch": 2}},
+    {"ItemReader": {"Resource": "arn:aws:states:::s3:getObject", "ReaderConfig": {"InputType": "JSON"},
+                    "Parameters": {"Bucket": "no-such-bucket", "Key": "items.json"}}},
+    {"ItemsPath": "$.items", "ResultWriter": {"Resource": "arn:aws:states:::s3:putObject",
+                                              "Parameters": {"Bucket": "no-such-bucket", "Prefix": "results"}}},
+], ids=["ItemBatcher", "ItemReader", "ResultWriter"])
+def test_sfn_inline_map_with_a_distributed_map_field_fails_the_execution(sfn, map_fields):
+    desc, event_types = _run_inline_map(sfn, map_fields)
+    assert (desc["status"], desc["error"], desc["cause"]) == ("FAILED", "States.Runtime", _inline_map_field_cause(2))
+    assert event_types == ["ExecutionStarted", "MapStateEntered", "ExecutionFailed"]
+
+
+@pytest.mark.parametrize("handler", [
+    {"Catch": [{"ErrorEquals": ["States.ALL"], "ResultPath": "$.caught", "Next": "Caught"}]},
+    {"Retry": [{"ErrorEquals": ["States.ALL"], "IntervalSeconds": 1, "MaxAttempts": 2}]},
+], ids=["Catch", "Retry"])
+def test_sfn_catch_or_retry_on_the_map_does_not_handle_the_inline_map_field_error(sfn, handler):
+    desc, event_types = _run_inline_map(
+        sfn, {"ItemsPath": "$.items", "ItemBatcher": {"MaxItemsPerBatch": 2}, **handler},
+        extra_states={"Caught": {"Type": "Pass", "End": True}})
+    assert (desc["status"], desc["error"], desc["cause"]) == ("FAILED", "States.Runtime", _inline_map_field_cause(2))
+    assert event_types == ["ExecutionStarted", "MapStateEntered", "ExecutionFailed"]
+
+
+def test_sfn_inline_map_field_error_names_the_maps_own_entered_event(sfn):
+    desc, event_types = _run_inline_map(
+        sfn, {"ItemsPath": "$.items", "ItemBatcher": {"MaxItemsPerBatch": 2}},
+        extra_states={"First": {"Type": "Pass", "Next": "Map"}}, start_at="First")
+    assert (desc["status"], desc["error"], desc["cause"]) == ("FAILED", "States.Runtime", _inline_map_field_cause(4))
+    assert event_types == ["ExecutionStarted", "PassStateEntered", "PassStateExited", "MapStateEntered",
+                           "ExecutionFailed"]
+
+
+# The input of the AWS ItemBatcher cases. Item 3 is the only item with fail=true.
+_BATCHER_ITEMS = [
+    {"id": 1, "fail": False, "pad": "a" * 10},
+    {"id": 2, "fail": False, "pad": "b" * 30},
+    {"id": 3, "fail": True, "pad": "c" * 50},
+    {"id": 4, "fail": False, "pad": "d" * 10},
+    {"id": 5, "fail": False, "pad": "e" * 70},
+]
+_BATCHER_INPUT = {"org": "org-123", "batch_size": 2, "items": _BATCHER_ITEMS}
+# 3 strings of 40 bytes each as JSON, as in the AWS byte probes.
+_STR3 = ["a" * 38, "b" * 38, "c" * 38]
+
+
+def _run_batched_map(sfn, map_state, payload, query_language=None):
+    """Runs a DISTRIBUTED Map whose children return their input. Returns the execution and its Map Run."""
+    processor = {"ProcessorConfig": {"Mode": "DISTRIBUTED", "ExecutionType": "STANDARD"},
+                 "StartAt": "Echo", "States": {"Echo": {"Type": "Pass", "End": True}}}
+    definition = {"StartAt": "Map", "States": {"Map": {"ItemProcessor": processor, **map_state,
+                                                       "Type": "Map", "End": True}}}
+    if query_language:
+        definition["QueryLanguage"] = query_language
+    arn = sfn.create_state_machine(name=f"dmap-batcher-{_uuid_mod.uuid4().hex[:8]}", definition=json.dumps(definition),
+                                   roleArn="arn:aws:iam::000000000000:role/r")["stateMachineArn"]
+    execution = sfn.start_execution(stateMachineArn=arn, input=json.dumps(payload))["executionArn"]
+    desc = _wait_sfn(sfn, execution, timeout=20)
+    (map_run,) = sfn.list_map_runs(executionArn=execution)["mapRuns"]
+    return desc, sfn.describe_map_run(mapRunArn=map_run["mapRunArn"])
+
+
+def test_sfn_item_batcher_caps_a_batch_at_256_kib_by_default():
+    """Without MaxInputBytesPerBatch a batch stops at 256 KiB (AWS ItemBatcher doc)."""
+    from ministack.services import stepfunctions as sfn_mod
+    items = ["x" * (100 * 1024)] * 5
+    batches = sfn_mod._item_batches({"MaxItemsPerBatch": 10}, None, items, {}, {}, {}, False)
+    assert [n for _input, n in batches] == [2, 2, 1]
+
+
+def _batch_sizes(sfn, batcher, items, limit):
+    """The number of items in each batch, with MaxInputBytesPerBatchPath as in the AWS byte probes."""
+    map_state = {"ItemsPath": "$.items", "ItemBatcher": {**batcher, "MaxInputBytesPerBatchPath": "$.limit"}}
+    desc, _ = _run_batched_map(sfn, map_state, {"limit": limit, "items": items})
+    assert desc["status"] == "SUCCEEDED", desc.get("cause")
+    return [len(batch["Items"]) for batch in json.loads(desc["output"])]
+
+
+@pytest.mark.parametrize("batcher, batches", [
+    ({"MaxItemsPerBatch": 2}, [[1, 2], [3, 4], [5]]),
+    ({"MaxInputBytesPerBatch": 120}, [[1, 2], [3], [4], [5]]),
+], ids=["MaxItemsPerBatch", "MaxInputBytesPerBatch"])
+def test_sfn_item_batcher_batches_the_items(sfn, batcher, batches):
+    """AWS cases count and bytes: each child gets one batch, and the Map Run counts items and batches."""
+    desc, map_run = _run_batched_map(sfn, {"ItemsPath": "$.items", "ItemBatcher": batcher}, _BATCHER_INPUT)
+    assert desc["status"] == "SUCCEEDED", desc.get("cause")
+    assert json.loads(desc["output"]) == [{"Items": [_BATCHER_ITEMS[i - 1] for i in batch]} for batch in batches]
+    assert (map_run["itemCounts"]["total"], map_run["itemCounts"]["succeeded"]) == (5, 5)
+    assert (map_run["executionCounts"]["total"], map_run["executionCounts"]["succeeded"]) == (len(batches),) * 2
+
+
+def test_sfn_item_batcher_adds_batch_input_to_each_batch(sfn):
+    """AWS case batchinput: ItemSelector runs on each item before batching, with the index in the full list."""
+    map_state = {"ItemsPath": "$.items",
+                 "ItemSelector": {"id.$": "$$.Map.Item.Value.id", "index.$": "$$.Map.Item.Index", "org.$": "$.org"},
+                 "ItemBatcher": {"MaxItemsPerBatchPath": "$.batch_size",
+                                 "BatchInput": {"organization_id.$": "$.org", "static": "fixed-value"}}}
+    desc, _ = _run_batched_map(sfn, map_state, _BATCHER_INPUT)
+    assert desc["status"] == "SUCCEEDED", desc.get("cause")
+    selected = [{"id": i + 1, "index": i, "org": "org-123"} for i in range(5)]
+    batch_input = {"organization_id": "org-123", "static": "fixed-value"}
+    assert json.loads(desc["output"]) == [{"BatchInput": batch_input, "Items": selected[0:2]},
+                                          {"BatchInput": batch_input, "Items": selected[2:4]},
+                                          {"BatchInput": batch_input, "Items": selected[4:]}]
+
+
+@pytest.mark.parametrize("batcher, items, limit, sizes", [
+    ({}, _STR3, 92, [1, 1, 1]),
+    ({}, _STR3, 93, [2, 1]),
+    ({}, _STR3, 133, [2, 1]),
+    ({}, _STR3, 134, [3]),
+    ({"BatchInput": {"note": "n" * 50}}, _STR3[:2], 167, [1, 1]),
+    ({"BatchInput": {"note": "n" * 50}}, _STR3[:2], 168, [2]),
+    ({}, ["é" * 19] * 2, 60, [1, 1]),
+    ({}, ["é" * 19] * 2, 98, [2]),
+    ({}, [{f"k{i}": i for i in range(10)}] * 2, 160, [2]),
+], ids=["str3-92", "str3-93", "str3-133", "str3-134", "bi2-167", "bi2-168", "utf8-60", "utf8-98", "ws-160"])
+def test_sfn_item_batcher_counts_the_compact_utf8_bytes_of_the_child_input(sfn, batcher, items, limit, sizes):
+    """AWS byte probes: the size is the compact UTF-8 JSON of the child input, with the envelope and BatchInput."""
+    assert _batch_sizes(sfn, batcher, items, limit) == sizes
+
+
+def test_sfn_item_batcher_puts_an_oversize_item_in_its_own_batch(sfn):
+    """AWS probe oversize: the 100-byte item gets a batch by itself, and the Map does not fail."""
+    assert _batch_sizes(sfn, {}, ["a" * 38, "b" * 98, "c" * 38], 90) == [1, 1, 1]
+
+
+@pytest.mark.parametrize("limit, sizes", [(70, [1, 1, 1]), (200, [2, 1])], ids=["bytes-70", "items-200"])
+def test_sfn_item_batcher_applies_the_lower_of_both_limits(sfn, limit, sizes):
+    """AWS probe both: with MaxItemsPerBatch and MaxInputBytesPerBatch, the lower limit ends the batch."""
+    assert _batch_sizes(sfn, {"MaxItemsPerBatch": 2}, _STR3, limit) == sizes
+
+
+@pytest.mark.parametrize("tolerance", [{"ToleratedFailureCount": 1}, {"ToleratedFailurePercentage": 35}],
+                         ids=["ToleratedFailureCount", "ToleratedFailurePercentage"])
+def test_sfn_item_batcher_failure_tolerance_counts_items(sfn, tolerance):
+    """AWS cases failure and percent: one failed batch of 2 is 2 of 5 failed items (40%), not 1 of 3 batches (33%)."""
+    processor = {"ProcessorConfig": {"Mode": "DISTRIBUTED", "ExecutionType": "STANDARD"}, "StartAt": "Decide",
+                 "States": {"Decide": {"Type": "Choice", "Default": "Echo", "Choices": [
+                                {"Variable": "$.Items[0].fail", "BooleanEquals": True, "Next": "Boom"}]},
+                            "Boom": {"Type": "Fail", "Error": "ProofItemFailed", "Cause": "fail=true"},
+                            "Echo": {"Type": "Pass", "End": True}}}
+    map_state = {"ItemsPath": "$.items", "ItemBatcher": {"MaxItemsPerBatch": 2}, **tolerance,
+                 "ItemProcessor": processor}
+    desc, map_run = _run_batched_map(sfn, map_state, _BATCHER_INPUT)
+    assert (desc["status"], desc["error"]) == ("FAILED", "States.ExceedToleratedFailureThreshold")
+    assert map_run["status"] == "FAILED"
+    counts = {k: (map_run[k]["total"], map_run[k]["succeeded"], map_run[k]["failed"])
+              for k in ("itemCounts", "executionCounts")}
+    assert counts == {"itemCounts": (5, 3, 2), "executionCounts": (3, 2, 1)}
+
+
+def test_sfn_jsonata_item_batcher_evaluates_its_fields(sfn):
+    """AWS case jsonata: JSONata MaxItemsPerBatch and BatchInput, and a batched child's context has no Map key."""
+    processor = {"ProcessorConfig": {"Mode": "DISTRIBUTED", "ExecutionType": "STANDARD"}, "StartAt": "Echo",
+                 "States": {"Echo": {"Type": "Pass", "End": True,
+                                     "Output": '{% {"input": $states.input, "context": $states.context} %}'}}}
+    map_state = {"Items": "{% $states.input.items %}", "ItemProcessor": processor,
+                 "ItemBatcher": {"MaxItemsPerBatch": "{% $states.input.batch_size %}",
+                                 "BatchInput": {"organization_id": "{% $states.input.org %}", "static": "fixed-value"}}}
+    desc, _ = _run_batched_map(sfn, map_state, _BATCHER_INPUT, query_language="JSONata")
+    assert desc["status"] == "SUCCEEDED", desc.get("cause")
+    results = json.loads(desc["output"])
+    batch_input = {"organization_id": "org-123", "static": "fixed-value"}
+    assert [r["input"] for r in results] == [{"BatchInput": batch_input, "Items": _BATCHER_ITEMS[0:2]},
+                                             {"BatchInput": batch_input, "Items": _BATCHER_ITEMS[2:4]},
+                                             {"BatchInput": batch_input, "Items": _BATCHER_ITEMS[4:]}]
+    assert not any("Map" in r["context"] for r in results)
+
+
+def test_sfn_item_batcher_measures_the_items_after_the_item_selector(sfn):
+    """AWS case selector-bytes: the selected items need 56 bytes, so all 5 fit. The original items need 5 batches."""
+    map_state = {"ItemsPath": "$.items", "ItemSelector": {"id.$": "$$.Map.Item.Value.id"},
+                 "ItemBatcher": {"MaxInputBytesPerBatch": 60}}
+    desc, _ = _run_batched_map(sfn, map_state, _BATCHER_INPUT)
+    assert desc["status"] == "SUCCEEDED", desc.get("cause")
+    assert json.loads(desc["output"]) == [{"Items": [{"id": i} for i in range(1, 6)]}]
+
+
+def test_sfn_jsonata_item_batcher_evaluates_the_byte_limit(sfn):
+    """AWS case jsonata-bytes: a JSONata MaxInputBytesPerBatch of 120 gives the same batches as the value 120."""
+    map_state = {"Items": "{% $states.input.items %}",
+                 "ItemBatcher": {"MaxInputBytesPerBatch": "{% $states.input.batch_size * 60 %}"}}
+    desc, _ = _run_batched_map(sfn, map_state, _BATCHER_INPUT, query_language="JSONata")
+    assert desc["status"] == "SUCCEEDED", desc.get("cause")
+    assert [[item["id"] for item in batch["Items"]] for batch in json.loads(desc["output"])] == [[1, 2], [3], [4], [5]]
+
+
 def _history(sfn, definition):
     arn = sfn.create_state_machine(name=f"sfn-inner-events-{_uuid_mod.uuid4().hex[:8]}",
                                    definition=json.dumps(definition),
@@ -10394,7 +10857,7 @@ def test_sfn_jsonpath_parallel_reads_outer_variable_without_leaking_assignment()
         "Type": "Pass", "Parameters": {"address.$": "$target.id"},
         "Assign": {"branchOnly": "value"}, "End": True}}}
     output, _ = m._execute_parallel({"Type": "Parallel", "Branches": [branch, branch], "End": True}, {},
-                                    {"events": []}, ctx)
+                                    {"events": [], "status": "RUNNING"}, ctx)
     assert output == [{"address": "physical"}, {"address": "physical"}]
     assert "branchOnly" not in ctx["variables"]
 
@@ -10407,7 +10870,7 @@ def test_sfn_jsonpath_map_assignment_uses_aggregate_result():
         "StartAt": "Read", "States": {"Read": {"Type": "Pass",
                                                "Parameters": {"target.$": "$target"}, "End": True}}},
         "Assign": {"results.$": "$"}, "ResultPath": None, "End": True}
-    output, _ = m._execute_map(state, {"items": [1, 2]}, {"events": []}, ctx)
+    output, _ = m._execute_map(state, {"items": [1, 2]}, {"events": [], "status": "RUNNING"}, ctx)
     assert output == {"items": [1, 2]}
     assert ctx["variables"]["results"] == [{"target": "outer"}] * 2
 

@@ -10,7 +10,7 @@ import shutil
 import time
 from pathlib import Path
 from typing import Any
-from ...recording_rules import ignore as _ignore
+from ...recording_rules import recording_rules as _ignore
 #: A dead run's spools are recovered only after they sat this long unchanged.
 ORPHAN_AGE_S = 600.0
 

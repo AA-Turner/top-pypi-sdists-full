@@ -15,7 +15,7 @@ import logging
 import os
 import threading
 import time
-from collections import OrderedDict
+from collections import ChainMap, OrderedDict
 from collections.abc import Callable, Iterable, Iterator
 from collections.abc import Set as AbstractSet
 from contextlib import ExitStack, contextmanager
@@ -698,12 +698,32 @@ class FreshnessSnapshot:
             paths = {path for path in candidates if admit_path(path)}
         if not paths:
             return set()
-        try:
-            metadata = _managed_page_metadata(
-                self._root, paths, scope=scope, freshness_key=self.for_scope(scope),
-                pending=self._pending, parents_only=True,
+        parents = None
+        if scope in self._catalogue_scopes:
+            from . import lexstore
+
+            # Pending custody replaces only its child links; parent authority stays live below.
+            published = lexstore.get_store(self._root).recall_emitted_parents(
+                scope, self._expected_recall_checkpoints.get(scope)
             )
-            parents = {path: row.parent for path, row in metadata.items()}
+            pending = self._pending
+            stable = paths if pending is None or pending.empty else paths - pending.paths
+            if published is not None and stable <= published.keys():
+                parents = published
+                if pending is not None and not pending.empty:
+                    pending_parents = {
+                        path: page.emitted_parent for path in paths & pending.paths
+                        if (page := pending.page(path)) is not None
+                    }
+                    paths = stable | pending_parents.keys()
+                    parents = ChainMap(pending_parents, published)
+        try:
+            if parents is None:
+                metadata = _managed_page_metadata(
+                    self._root, paths, scope=scope, freshness_key=self.for_scope(scope),
+                    pending=self._pending, parents_only=True,
+                )
+                parents = {path: row.parent for path, row in metadata.items()}
         except RetrievalIndexWarming:
             if readiness.runtime_managed():
                 raise
@@ -4613,6 +4633,7 @@ def _resolve_relation_filter(
     """Resolve the relation filter to a participant path set (None when inactive),
     plus per-path provenance and advisory findings. `keep` is a restricted
     caller's admission (`None` for the owner): its edges resolve in that view.
+    A withheld anchor yields an authoritative empty before registry selection.
 
     Each requested relation is canonicalized through the registry; an unknown key
     raises ``INVALID_RELATION_FILTER`` with nearest-canonical suggestions (never a
@@ -4630,7 +4651,12 @@ def _resolve_relation_filter(
             f"got {relation_direction!r}",
         )
     from . import epistemic_graph, traversal_profiles
+    from .governance import egress
 
+    if relation_of:
+        relation_of = epistemic_graph._page_rel(relation_of)
+        if not egress.quick_page_visible(vault_root, relation_of):
+            return frozenset(), {}, ()
     graph_index = epistemic_graph.EpistemicGraphIndex(vault_root)
     # An anchored filter inherits its anchor page's instance; otherwise public.
     registry = graph_index.relation_query_registry(anchor=relation_of)

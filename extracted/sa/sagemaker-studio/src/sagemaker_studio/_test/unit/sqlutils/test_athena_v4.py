@@ -18,6 +18,7 @@ from sagemaker_studio.utils import athena_v4
 from sagemaker_studio.utils.athena_v4 import (
     AthenaQueryError,
     AthenaV4Executor,
+    WorkgroupInfo,
     athena_executor,
     dataframe_from_arrow,
     execution_metadata,
@@ -245,22 +246,19 @@ class WorkgroupInfoTest(unittest.TestCase):
     def test_managed_storage_workgroup(self):
         client = mock.Mock()
         client.get_work_group.return_value = _work_group(4, managed=True)
-        info = workgroup_info(client, "wg")
-        self.assertEqual((info.engine_version, info.managed_storage), (4, True))
+        self.assertEqual(workgroup_info(client, "wg"), WorkgroupInfo(engine_version=4))
 
     def test_customer_output_location_workgroup(self):
         client = mock.Mock()
         client.get_work_group.return_value = _work_group(
             4, managed=False, output_location="s3://customer-bucket/results/"
         )
-        info = workgroup_info(client, "wg")
-        self.assertEqual((info.engine_version, info.managed_storage), (4, False))
+        self.assertEqual(workgroup_info(client, "wg"), WorkgroupInfo(engine_version=4))
 
-    def test_absent_configuration_is_not_managed(self):
+    def test_absent_configuration_has_no_engine_version(self):
         client = mock.Mock()
         client.get_work_group.return_value = {"WorkGroup": {"Configuration": {}}}
-        info = workgroup_info(client, "wg")
-        self.assertEqual((info.engine_version, info.managed_storage), (None, False))
+        self.assertEqual(workgroup_info(client, "wg"), WorkgroupInfo(engine_version=None))
 
 
 class AthenaExecutorRoutingTest(unittest.TestCase):
@@ -337,7 +335,8 @@ class AthenaExecutorRoutingTest(unittest.TestCase):
         self.assertEqual(result.result.iloc[0, 0], 7)
         client.get_query_result_stream.assert_not_called()
 
-    def test_v4_customer_output_uses_native_rows(self):
+    def test_v4_customer_output_uses_arrow(self):
+        # V4 serves GetQueryResultStream for customer-managed (S3 output location) results too.
         conn, client = _connection(version=4, managed=False, output_location="s3://results/")
         executor = athena_executor(conn)
         client.start_query_execution.return_value = {"QueryExecutionId": QID}
@@ -348,20 +347,37 @@ class AthenaExecutorRoutingTest(unittest.TestCase):
             "EffectiveEngineVersion": "Athena engine version 4"
         }
         client.get_query_execution.return_value = response
-        client.get_query_results.return_value = {
-            "ResultSet": {
-                "ResultSetMetadata": {"ColumnInfo": [{"Name": "n", "Type": "integer"}]},
-                "Rows": [
-                    {"Data": [{"VarCharValue": "n"}]},
-                    {"Data": [{"VarCharValue": "9"}]},
-                ],
-            }
-        }
+        client.get_query_result_stream.return_value = _stream_response(
+            _ipc_bytes(pa.table({"n": pa.array([9], pa.int32())}))
+        )
 
         result = executor.execute("SELECT 9 AS n")
 
         self.assertEqual(result.result.iloc[0, 0], 9)
-        self.assertEqual(result.execution_metadata["result_reader"], "get_query_results")
+        self.assertEqual(result.execution_metadata["result_reader"], "get_query_result_stream")
+        client.get_query_results.assert_not_called()
+
+    def test_athena_duckdb_query_uses_arrow_when_the_workgroup_is_unreadable(self):
+        # The workgroup read fails, so nothing is known of the workgroup; the finished query's own
+        # engine ("Athena DuckDB") still selects GetQueryResultStream, never GetQueryResults (which
+        # answers "Could not find results" for such a query).
+        conn, client = _connection(version=4)
+        client.get_work_group.side_effect = RuntimeError("AccessDenied")
+        with self.assertLogs(athena_v4.logger, level="WARNING"):
+            executor = athena_executor(conn)
+        client.start_query_execution.return_value = {"QueryExecutionId": QID}
+        response = _execution(statement_type="UTILITY", substatement_type="SHOW_DATABASES")
+        response["QueryExecution"]["EngineVersion"] = {"EffectiveEngineVersion": "Athena DuckDB"}
+        client.get_query_execution.return_value = response
+        client.get_query_result_stream.return_value = _stream_response(
+            _ipc_bytes(pa.table({"database_name": pa.array(["default", "sales"])}))
+        )
+
+        result = executor.execute("SHOW DATABASES")
+
+        self.assertEqual(list(result.result["database_name"]), ["default", "sales"])
+        self.assertEqual(result.execution_metadata["result_reader"], "get_query_result_stream")
+        client.get_query_results.assert_not_called()
 
 
 class AthenaV4ExecutorTest(unittest.TestCase):
@@ -545,9 +561,8 @@ class ReadChunksIncrementalTest(unittest.TestCase):
 
     def setUp(self):
         self.client = mock.Mock()
+        # A V4 workgroup (the default), so read_chunks takes the Arrow branch.
         self.executor = AthenaV4Executor(self.client, "wg")
-        # Mark QID as a V4 managed-storage execution so read_chunks takes the Arrow branch.
-        self.executor.managed_storage = True
         self.executor._executions[QID] = _execution()["QueryExecution"]
         self.schema = pa.schema([("id", pa.int64()), ("s", pa.string())])
         self.batches = [
@@ -672,9 +687,9 @@ class ReadChunksIncrementalTest(unittest.TestCase):
         self.assertEqual([row for chunk in chunks for row in chunk], [[1], [2]])
 
     def test_non_arrow_execution_falls_back_to_get_query_results(self):
-        # A non-managed-storage execution must still route to the native GetQueryResults reader,
-        # never GetQueryResultStream.
-        self.executor.managed_storage = False
+        # A V1-V3 execution must still route to the native GetQueryResults reader, never
+        # GetQueryResultStream.
+        self.executor.workgroup_engine_version = 3
         with mock.patch(
             "sagemaker_studio.utils.sqlutils_async_reader.read_athena_result",
             return_value=(["c"], iter([[[1]]]), 1),
@@ -1104,9 +1119,7 @@ class RegressionTrapParityTest(unittest.TestCase):
 class AthenaNativeMetadataTest(unittest.TestCase):
     def setUp(self):
         self.client = mock.Mock()
-        self.executor = AthenaV4Executor(
-            self.client, "wg", catalog="catalog", managed_storage=False
-        )
+        self.executor = AthenaV4Executor(self.client, "wg", catalog="catalog")
 
     def test_lists_paginated_databases(self):
         self.client.list_databases.side_effect = [
@@ -1205,13 +1218,12 @@ class AthenaExecutorRoutingBranchTest(unittest.TestCase):
         conn.name = None
         self.assertIsNone(athena_executor(conn))
 
-    def test_unreadable_workgroup_falls_back_to_native_reader_and_warns(self):
+    def test_unreadable_workgroup_warns_and_leaves_the_engine_to_each_query(self):
         conn, client = _connection(4)
         client.get_work_group.side_effect = RuntimeError("AccessDenied")
         with self.assertLogs(athena_v4.logger, level="WARNING"):
             executor = athena_executor(conn)
         self.assertIsNotNone(executor)
-        self.assertFalse(executor.managed_storage)
         self.assertIsNone(executor.workgroup_engine_version)
 
     def test_override_read_from_connection_selected_engine_version(self):
@@ -1451,7 +1463,7 @@ class GetResourcesFallthroughTest(unittest.TestCase):
 
     def setUp(self):
         self.client = mock.Mock()
-        self.executor = AthenaV4Executor(self.client, "wg", catalog="cat", managed_storage=False)
+        self.executor = AthenaV4Executor(self.client, "wg", catalog="cat")
 
     def test_value_passing_membership_but_matching_no_branch_raises(self):
         class _MembershipOnlyColumn:
@@ -1517,8 +1529,8 @@ class ExecuteNativeRowsPathTest(unittest.TestCase):
 
     def setUp(self):
         self.client = mock.Mock()
-        # managed_storage=False forces the native Row/Datum reader regardless of version.
-        self.executor = AthenaV4Executor(self.client, "wg", managed_storage=False)
+        # A V3 workgroup: its executions are read with the native Row/Datum reader.
+        self.executor = AthenaV4Executor(self.client, "wg", workgroup_engine_version=3)
         patcher = mock.patch("sagemaker_studio.utils.athena_v4.time.sleep")
         patcher.start()
         self.addCleanup(patcher.stop)

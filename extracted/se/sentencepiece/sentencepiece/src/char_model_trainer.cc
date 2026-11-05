@@ -15,21 +15,25 @@
 #include "char_model_trainer.h"
 
 #include <cmath>
+#include <cstdint>
+#include <string>
+#include <vector>
 
-#include "char_model.h"
-#include "third_party/absl/status/status.h"
+#include "absl/status/status.h"
+#include "absl/status/status_macros.h"
+#include "ret_check.h"
 #include "util.h"
 
 namespace sentencepiece {
 namespace character {
 
 absl::Status Trainer::Train() {
-  RETURN_IF_ERROR(status());
+  ABSL_RETURN_IF_ERROR(status());
 
   RET_CHECK(normalizer_spec_.escape_whitespaces());
   RET_CHECK_EQ(TrainerSpec::CHAR, trainer_spec_.model_type());
 
-  RETURN_IF_ERROR(LoadSentences());
+  ABSL_RETURN_IF_ERROR(LoadSentences());
 
   const int vocab_size = trainer_spec_.vocab_size() - meta_pieces_.size();
   RET_CHECK_GE(vocab_size, 0);
@@ -38,6 +42,7 @@ absl::Status Trainer::Train() {
   for (const auto& it : required_chars_) {
     sum += it.second;
   }
+  RET_CHECK_GT(sum, 0);
 
   const auto logsum = std::log(static_cast<float>(sum));
 

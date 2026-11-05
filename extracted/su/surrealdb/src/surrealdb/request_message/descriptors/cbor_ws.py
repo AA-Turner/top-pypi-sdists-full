@@ -7,6 +7,7 @@ from pydantic_core import SchemaValidator
 from pydantic_core import ValidationError as PydanticValidationError
 
 from surrealdb.data.cbor import encode
+from surrealdb.data.types.null import NullType
 from surrealdb.data.types.record_id import RecordIdType
 from surrealdb.data.types.table import Table
 from surrealdb.data.utils import process_record
@@ -72,7 +73,18 @@ def _inject_session_txn(data: dict[str, Any], obj: RequestMessage) -> None:
 
 USE_VALIDATOR = _build_validator(
     RequestMethod.USE.value,
-    _list_schema({"type": "str", "strict": True}, min_length=2, max_length=2),
+    _list_schema(
+        {
+            "type": "union",
+            "choices": [
+                {"type": "str", "strict": True},
+                {"type": "none"},
+                {"type": "is-instance", "cls": NullType},
+            ],
+        },
+        min_length=2,
+        max_length=2,
+    ),
 )
 INFO_VALIDATOR = _build_validator(RequestMethod.INFO.value)
 VERSION_VALIDATOR = _build_validator(RequestMethod.VERSION.value)
@@ -95,6 +107,12 @@ LIVE_VALIDATOR = _build_validator(RequestMethod.LIVE.value, _list_schema())
 KILL_VALIDATOR = _build_validator(RequestMethod.KILL.value, _list_schema())
 QUERY_VALIDATOR = _build_validator(
     RequestMethod.QUERY.value, _list_schema(min_length=2, max_length=2)
+)
+QUERY_STREAM_VALIDATOR = _build_validator(
+    RequestMethod.QUERY_STREAM.value, _list_schema(min_length=2, max_length=2)
+)
+QUERY_CANCEL_VALIDATOR = _build_validator(
+    RequestMethod.QUERY_CANCEL.value, _list_schema(min_length=1, max_length=1)
 )
 INSERT_VALIDATOR = _build_validator(
     RequestMethod.INSERT.value, _list_schema(min_length=2, max_length=2)
@@ -133,6 +151,8 @@ _VALIDATORS: dict[RequestMethod, SchemaValidator] = {
     RequestMethod.LIVE: LIVE_VALIDATOR,
     RequestMethod.KILL: KILL_VALIDATOR,
     RequestMethod.QUERY: QUERY_VALIDATOR,
+    RequestMethod.QUERY_STREAM: QUERY_STREAM_VALIDATOR,
+    RequestMethod.QUERY_CANCEL: QUERY_CANCEL_VALIDATOR,
     RequestMethod.INSERT: INSERT_VALIDATOR,
     RequestMethod.PATCH: PATCH_VALIDATOR,
     RequestMethod.SELECT: SELECT_VALIDATOR,
@@ -143,6 +163,19 @@ _VALIDATORS: dict[RequestMethod, SchemaValidator] = {
     RequestMethod.INSERT_RELATION: INSERT_RELATION_VALIDATOR,
     RequestMethod.UPSERT: UPSERT_VALIDATOR,
 }
+
+
+# Methods with nothing to translate: the caller builds the params list.
+_PLAIN_METHODS = frozenset(
+    {
+        RequestMethod.REFRESH,
+        RequestMethod.REVOKE,
+        RequestMethod.RESET,
+        RequestMethod.SESSIONS,
+        RequestMethod.GQL,
+        RequestMethod.GRAPHQL,
+    }
+)
 
 
 def _validate_payload(data: dict[str, Any], method: RequestMethod) -> None:
@@ -223,6 +256,10 @@ class WsCborDescriptor:
             return self.prep_kill(obj)
         elif obj.method == RequestMethod.QUERY:
             return self.prep_query(obj)
+        elif obj.method == RequestMethod.QUERY_STREAM:
+            return self.prep_query_stream(obj)
+        elif obj.method == RequestMethod.QUERY_CANCEL:
+            return self.prep_query_cancel(obj)
         elif obj.method == RequestMethod.INSERT:
             return self.prep_insert(obj)
         elif obj.method == RequestMethod.PATCH:
@@ -251,6 +288,10 @@ class WsCborDescriptor:
             return self.prep_commit(obj)
         elif obj.method == RequestMethod.CANCEL:
             return self.prep_cancel(obj)
+        elif obj.method == RequestMethod.RUN:
+            return self.prep_run(obj)
+        elif obj.method in _PLAIN_METHODS:
+            return self.prep_plain(obj)
 
         raise ValueError(f"Invalid method for Cbor WS encoding: {obj.method}")
 
@@ -262,19 +303,28 @@ class WsCborDescriptor:
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
+
+    def prep_plain(self, obj: RequestMessage) -> bytes:
+        """A method whose ``params`` kwarg is already the wire's params list."""
+        data: dict[str, Any] = {"id": obj.id, "method": obj.method.value}
+        params = obj.kwargs.get("params")
+        if params is not None:
+            data["params"] = list(params)
+        _inject_session_txn(data, obj)
+        return encode(data, v2=obj.v2)
 
     def prep_info(self, obj: RequestMessage) -> bytes:
         data = {"id": obj.id, "method": obj.method.value}
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_version(self, obj: RequestMessage) -> bytes:
         data = {"id": obj.id, "method": obj.method.value}
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_signup(self, obj: RequestMessage) -> bytes:
         passed_params = cast(dict[str, Any], obj.kwargs.get("data"))
@@ -289,7 +339,7 @@ class WsCborDescriptor:
             "params": [params_dict],
         }
         _inject_session_txn(data, obj)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_signin(self, obj: RequestMessage) -> bytes:
         params = obj.kwargs.get("params")
@@ -304,7 +354,7 @@ class WsCborDescriptor:
             "params": [params_dict],
         }
         _inject_session_txn(data, obj)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_authenticate(self, obj: RequestMessage) -> bytes:
         data = {
@@ -314,13 +364,13 @@ class WsCborDescriptor:
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_invalidate(self, obj: RequestMessage) -> bytes:
         data = {"id": obj.id, "method": obj.method.value}
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_let(self, obj: RequestMessage) -> bytes:
         data = {
@@ -330,7 +380,7 @@ class WsCborDescriptor:
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_unset(self, obj: RequestMessage) -> bytes:
         data = {
@@ -340,16 +390,21 @@ class WsCborDescriptor:
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_live(self, obj: RequestMessage) -> bytes:
         table = obj.kwargs.get("table")
         if isinstance(table, str):
             table = Table(table)
-        data = {"id": obj.id, "method": obj.method.value, "params": [table]}
+        # The `live` RPC takes `[what, diff]`. Sending only `[what]` left the
+        # server on its default of full records, so `live(table, diff=True)`
+        # was accepted, documented, and typed - and silently delivered
+        # something other than the JSON Patch it promised.
+        params: list[Any] = [table, bool(obj.kwargs.get("diff", False))]
+        data = {"id": obj.id, "method": obj.method.value, "params": params}
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_kill(self, obj: RequestMessage) -> bytes:
         data = {
@@ -359,17 +414,51 @@ class WsCborDescriptor:
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_query(self, obj: RequestMessage) -> bytes:
         data = {
             "id": obj.id,
             "method": obj.method.value,
-            "params": [obj.kwargs.get("query"), obj.kwargs.get("params", dict())],
+            "params": [obj.kwargs.get("query"), obj.kwargs.get("params", {})],
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
+
+    def prep_query_stream(self, obj: RequestMessage) -> bytes:
+        data = {
+            "id": obj.id,
+            "method": obj.method.value,
+            "params": [obj.kwargs.get("query"), obj.kwargs.get("params", {})],
+        }
+        _inject_session_txn(data, obj)
+        _validate_payload(data, obj.method)
+        return encode(data, v2=obj.v2)
+
+    def prep_query_cancel(self, obj: RequestMessage) -> bytes:
+        # Guarded like `prep_cancel`, and for a sharper reason: the validator
+        # only checks that `params` holds one item, so a missing or misnamed
+        # keyword encodes as `params: [None]`, which the server answers by
+        # reporting no such stream. The caller is then told its cancel
+        # succeeded in finding nothing to stop, and the real stream runs on.
+        stream = obj.kwargs.get("stream")
+        if stream is None:
+            raise ValueError("query_cancel requires stream (the request id)")
+        data = {
+            "id": obj.id,
+            "method": obj.method.value,
+            "params": [stream],
+        }
+        # Session only, like `prep_cancel` and `prep_commit`: this names a
+        # stream in the connection's own registry rather than running anything
+        # on a transaction, and forwarding `txn` would ask the server to run it
+        # inside the transaction the stream being cancelled is still holding.
+        session = obj.kwargs.get("session")
+        if session is not None:
+            data["session"] = str(session) if isinstance(session, UUID) else session
+        _validate_payload(data, obj.method)
+        return encode(data, v2=obj.v2)
 
     def prep_insert(self, obj: RequestMessage) -> bytes:
         data = {
@@ -382,7 +471,7 @@ class WsCborDescriptor:
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_patch(self, obj: RequestMessage) -> bytes:
         data = {
@@ -397,7 +486,7 @@ class WsCborDescriptor:
             raise ValueError("parameters cannot be None for a patch method")
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_select(self, obj: RequestMessage) -> bytes:
         data = {
@@ -407,7 +496,7 @@ class WsCborDescriptor:
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_create(self, obj: RequestMessage) -> bytes:
         params: list[Any] = [
@@ -423,7 +512,7 @@ class WsCborDescriptor:
 
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_update(self, obj: RequestMessage) -> bytes:
         data = {
@@ -431,12 +520,12 @@ class WsCborDescriptor:
             "method": obj.method.value,
             "params": [
                 process_record(cast(RecordIdType, obj.kwargs.get("record_id"))),
-                obj.kwargs.get("data", dict()),
+                obj.kwargs.get("data", {}),
             ],
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_merge(self, obj: RequestMessage) -> bytes:
         data = {
@@ -444,12 +533,12 @@ class WsCborDescriptor:
             "method": obj.method.value,
             "params": [
                 process_record(cast(RecordIdType, obj.kwargs.get("record_id"))),
-                obj.kwargs.get("data", dict()),
+                obj.kwargs.get("data", {}),
             ],
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_delete(self, obj: RequestMessage) -> bytes:
         data = {
@@ -459,7 +548,7 @@ class WsCborDescriptor:
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_insert_relation(self, obj: RequestMessage) -> bytes:
         params_list: list[Any] = [Table(cast(str, obj.kwargs.get("table")))]
@@ -473,7 +562,7 @@ class WsCborDescriptor:
 
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_upsert(self, obj: RequestMessage) -> bytes:
         data = {
@@ -481,12 +570,12 @@ class WsCborDescriptor:
             "method": obj.method.value,
             "params": [
                 process_record(cast(RecordIdType, obj.kwargs.get("record_id"))),
-                obj.kwargs.get("data", dict()),
+                obj.kwargs.get("data", {}),
             ],
         }
         _inject_session_txn(data, obj)
         _validate_payload(data, obj.method)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_attach(self, obj: RequestMessage) -> bytes:
         session = obj.kwargs.get("session")
@@ -497,7 +586,7 @@ class WsCborDescriptor:
             "method": obj.method.value,
             "session": str(session) if isinstance(session, UUID) else session,
         }
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_detach(self, obj: RequestMessage) -> bytes:
         session = obj.kwargs.get("session")
@@ -508,12 +597,12 @@ class WsCborDescriptor:
             "method": obj.method.value,
             "session": str(session) if isinstance(session, UUID) else session,
         }
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_begin(self, obj: RequestMessage) -> bytes:
         data = {"id": obj.id, "method": obj.method.value}
         _inject_session_txn(data, obj)
-        return encode(data)
+        return encode(data, v2=obj.v2)
 
     def prep_commit(self, obj: RequestMessage) -> bytes:
         txn = obj.kwargs.get("txn")
@@ -527,7 +616,29 @@ class WsCborDescriptor:
         session = obj.kwargs.get("session")
         if session is not None:
             data["session"] = str(session) if isinstance(session, UUID) else session
-        return encode(data)
+        return encode(data, v2=obj.v2)
+
+    def prep_run(self, obj: RequestMessage) -> bytes:
+        name = obj.kwargs.get("name")
+        if name is None:
+            raise ValueError("run requires name (str)")
+        params: list[Any] = [name]
+        version = obj.kwargs.get("version")
+        if version is not None:
+            params.append(version)
+        args = obj.kwargs.get("args")
+        if args is not None:
+            # Pad version slot with None when args provided without version
+            if version is None:
+                params.append(None)
+            params.append(args)
+        data = {
+            "id": obj.id,
+            "method": obj.method.value,
+            "params": params,
+        }
+        _inject_session_txn(data, obj)
+        return encode(data, v2=obj.v2)
 
     def prep_cancel(self, obj: RequestMessage) -> bytes:
         txn = obj.kwargs.get("txn")
@@ -541,4 +652,4 @@ class WsCborDescriptor:
         session = obj.kwargs.get("session")
         if session is not None:
             data["session"] = str(session) if isinstance(session, UUID) else session
-        return encode(data)
+        return encode(data, v2=obj.v2)

@@ -14,6 +14,7 @@ from time import perf_counter
 from typing import Any, Literal
 
 import sqlalchemy
+import sqlalchemy.sql.elements
 from airbyte.exceptions import PyAirbyteInputError
 from google.cloud import secretmanager
 

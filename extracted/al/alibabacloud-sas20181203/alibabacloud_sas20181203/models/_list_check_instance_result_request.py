@@ -20,29 +20,29 @@ class ListCheckInstanceResultRequest(DaraModel):
         sort_types: List[str] = None,
         statuses: List[str] = None,
     ):
-        # The check item ID.
+        # The ID of the check item.
         # 
         # This parameter is required.
         self.check_id = check_id
-        # The page number of the current page in a paged query. This parameter is used for paging.
+        # The page number of the current page for a paging query.
         self.current_page = current_page
-        # The instance ID of the check item.
+        # The instance ID for the check item.
         self.instance_id_key = instance_id_key
-        # The collection of cloud service instance IDs to query.
+        # The instance IDs of the cloud services to query.
         self.instance_ids = instance_ids
-        # The instance name of the check item.
+        # The instance name for the check item.
         self.instance_name_key = instance_name_key
-        # The language type for the request and response messages. Default value: **zh**. Valid values:
-        # - **zh**: Chinese
-        # - **en**: English
+        # The language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese.
+        # - **en**: English.
         self.lang = lang
-        # The maximum number of entries per page in a paged query. Maximum value: 100. This parameter is used for paging.
+        # The maximum number of entries to return on each page for a paging query. Maximum value: 100.
         self.page_size = page_size
         # The region ID of the instance.
         self.region_id_key = region_id_key
-        # The list of sort types for the check item.
+        # The sort types for the check items.
         self.sort_types = sort_types
-        # The collection of check item statuses.
+        # The statuses of the check items.
         self.statuses = statuses
 
     def validate(self):

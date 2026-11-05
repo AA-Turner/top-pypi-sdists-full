@@ -8,7 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 from markdown_it.tree import SyntaxTreeNode
 
 from airbyte_ops_mcp.connector_ops.utils import (
-    Connector,  # type: ignore
+    Connector,
 )
 
 from .helpers import documentation_node, header_name, remove_step_from_heading
@@ -63,7 +63,7 @@ class Content:
 
     def _headers(self) -> list[str]:
         headers = []
-        for n in self.node:  # type: ignore
+        for n in self.node:
             if n.type == self.HEADING and n.tag in self.supported_header_levels:
                 headers.append(remove_step_from_heading(header_name(n)))
 
@@ -74,10 +74,10 @@ class Content:
         starts = []
         header_line_map: dict[str, list[SectionLines]] = {}
 
-        for n in self.node:  # type: ignore
+        for n in self.node:
             if n.type == self.HEADING:
                 headers.append(header_name(n))
-                starts.append(n.map[1])
+                starts.append(n.map[1])  # ty: ignore[not-subscriptable]
 
         i = 0
         while len(headers) > i:
@@ -88,12 +88,12 @@ class Content:
             )
             if header not in header_line_map:
                 header_line_map[header] = [
-                    SectionLines(start=starts[start_index], end=end_index)
-                ]  # type: ignore
+                    SectionLines(start=starts[start_index], end=end_index)  # ty: ignore[invalid-argument-type]
+                ]
             else:
                 header_line_map[header] = header_line_map[header] + [
-                    SectionLines(start=starts[start_index], end=end_index)
-                ]  # type: ignore
+                    SectionLines(start=starts[start_index], end=end_index)  # ty: ignore[invalid-argument-type]
+                ]
             i += 1
 
         return header_line_map
@@ -111,7 +111,7 @@ class DocumentationContent(Content):
         self.links = self._links()
 
     def _content(self) -> str:
-        return self.connector.documentation_file_path.read_text().rstrip()
+        return self.connector.documentation_file_path.read_text().rstrip()  # ty: ignore[unresolved-attribute]
 
     def _links(self) -> list[str]:
         return re.findall(r"(?<!example: )(https?://[^\s\`)]+)", self.content)
@@ -119,7 +119,7 @@ class DocumentationContent(Content):
     def _sections(self) -> list[SectionContent]:
         sections_list = []
 
-        with open(self.connector.documentation_file_path) as docs_file:
+        with open(self.connector.documentation_file_path) as docs_file:  # ty: ignore[invalid-argument-type]
             doc_lines = docs_file.readlines()
 
             for key, value in self.header_line_map.items():
@@ -128,7 +128,7 @@ class DocumentationContent(Content):
 
                 for lines in value:
                     section_content = "".join(doc_lines[lines.start : lines.end])
-                    section.content = section_content  # type: ignore
+                    section.content = section_content
 
         return sections_list
 
@@ -159,13 +159,13 @@ class TemplateContent(Content):
 
             for lines in value:
                 section_content = "".join(template_lines[lines.start : lines.end])
-                section.content = section_content  # type: ignore
+                section.content = section_content
 
         return sections_list
 
     def headers_with_tag(self) -> list[str]:
         headers = []
-        for n in self.node:  # type: ignore
+        for n in self.node:
             if n.type == self.HEADING and n.tag in self.supported_header_levels:
                 header = (
                     "#" * int(n.tag.replace("h", ""))

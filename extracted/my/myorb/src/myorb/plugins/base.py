@@ -207,6 +207,10 @@ class ActionResult:
 
     message: str
     undo: Callable[[WidgetContext], Awaitable[str]] | None = None
+    # Whose text it read, when that text can hold instructions written for Claude (e.g. "the
+    # email “Invoice” from Martin"): what Claude proposes after it to reach others comes with a
+    # warning (AskAction.outward).
+    read_from: str = ""
 
 
 class ActionError(Exception):
@@ -235,6 +239,10 @@ class AskAction:
     refresh: bool = False
     # What the chat shows while it runs without confirmation, e.g. "Reading the email…".
     working: str = "Working…"
+    # It sends something others see or reach: an invitation, a comment, a website to check.
+    # Proposed after Claude read someone's text, an email that might have asked for it, its
+    # confirmation warns the user.
+    outward: bool = False
 
 
 @dataclass(frozen=True)

@@ -49,6 +49,15 @@ def _iter_file(fh, chunk_size: int, limit: int | None = None):
         yield chunk
 
 
+def _build_file_extension(fh: Any, size: int) -> dict:
+    """The relay's file-body mark for an open handle (`relay.FILE_BODY_EXTENSION`): its fd from byte
+    0, so the service reads exactly the bytes this process checked. None for a handle with no fd."""
+    try:
+        return {FILE_BODY_EXTENSION: (fh.fileno(), 0, size)}
+    except (AttributeError, OSError, ValueError):
+        return {}
+
+
 def _blob_label(url: str) -> str:
     """A presigned URL reduced to host + path: the query carries the signature and never
     enters the buffer; a reader needs which store, which object."""
@@ -160,11 +169,13 @@ class BlobsMixin:
             attempt_timeout, clamped = self._attempt_timeout(None, f"PUT {_blob_label(url)}")
             try:
                 with open(path, "rb") as fh:
-                    request_headers["Content-Length"] = str(os.fstat(fh.fileno()).st_size)
+                    size = os.fstat(fh.fileno()).st_size
+                    request_headers["Content-Length"] = str(size)
                     resp = self._client.put(
                         url,
-                        content=_iter_file(fh, chunk_size),
+                        content=_iter_file(fh, chunk_size, size),
                         headers=request_headers,
+                        extensions={FILE_BODY_EXTENSION: (fh.fileno(), 0, size)},
                         **({"timeout": attempt_timeout} if attempt_timeout is not None else {}),
                     )
             except httpx.HTTPError as exc:
@@ -210,6 +221,7 @@ class BlobsMixin:
                         url,
                         content=_iter_file(fh, chunk_size, length),
                         headers=headers,
+                        extensions={FILE_BODY_EXTENSION: (fh.fileno(), offset, length)},
                         **({"timeout": attempt_timeout} if attempt_timeout is not None else {}),
                     )
             except httpx.HTTPError as exc:
@@ -261,6 +273,7 @@ class BlobsMixin:
                     url,
                     content=_iter_file(fh, chunk_size, size),
                     headers=request_headers,
+                    extensions=_build_file_extension(fh, size),
                     **({"timeout": attempt_timeout} if attempt_timeout is not None else {}),
                 )
             except httpx.HTTPError as exc:
@@ -288,7 +301,7 @@ class BlobsMixin:
         while True:
             attempt += 1
             try:
-                resp = self._client.get(url)
+                resp = self._client.get(url, extensions={DOWNLOAD_EXTENSION: 0})
             except httpx.HTTPError as exc:
                 if attempt <= self.max_retries and self._retry_pause(attempt):
                     continue
@@ -319,7 +332,9 @@ class BlobsMixin:
         while True:
             attempt += 1
             try:
-                with self._client.stream("GET", url) as resp:
+                extensions = {DOWNLOAD_EXTENSION: max_bytes or 0,
+                              SINK_DIR_EXTENSION: os.path.dirname(os.path.abspath(dest))}
+                with self._client.stream("GET", url, extensions=extensions) as resp:
                     if (
                         resp.status_code in _RETRYABLE
                         and attempt <= self.max_retries
@@ -337,6 +352,17 @@ class BlobsMixin:
                         declared = resp.headers.get("content-length")
                         if declared is not None and int(declared) > max_bytes:
                             raise ValueError("artifact download exceeds its byte budget")
+                    sink_path = resp.extensions.get(SINK_PATH_EXTENSION)
+                    if sink_path:
+                        # The Probe service wrote the body beside `dest` (M-3): renamed into place
+                        # first (the stream's end would remove the temp file), then hashed as read.
+                        os.replace(sink_path, dest)
+                        for chunk in resp.iter_bytes(chunk_size):
+                            hasher.update(chunk)
+                            size += len(chunk)
+                        if max_bytes is not None and size > max_bytes:
+                            raise ValueError("artifact download exceeds its byte budget")
+                        return size, hasher.hexdigest()
                     with open(dest, "wb") as fh:
                         for chunk in resp.iter_bytes(chunk_size):
                             if max_bytes is not None and size + len(chunk) > max_bytes:
@@ -351,6 +377,7 @@ class BlobsMixin:
                 raise errors.TransportError(f"GET {_blob_label(url)}: {exc}") from exc
 
 from probe.sdk.delivery.transport.deadlines import _request_deadline  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.delivery.transport.relay import DOWNLOAD_EXTENSION, FILE_BODY_EXTENSION, SINK_DIR_EXTENSION, SINK_PATH_EXTENSION  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.transport.transport import _RETRYABLE  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.transport.failures import _presigned_put_error  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.delivery.transport.deadlines import _with_retry_after  # noqa: E402 -- pieces need each other; the front door loads this one first

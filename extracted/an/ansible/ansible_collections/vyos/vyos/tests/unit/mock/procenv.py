@@ -19,7 +19,6 @@
 # Make coding more python3-ish
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 import json
@@ -29,7 +28,6 @@ from contextlib import contextmanager
 from io import BytesIO, StringIO
 
 from ansible.module_utils._text import to_bytes
-from ansible.module_utils.six import PY3
 
 from ansible_collections.vyos.vyos.tests.unit.compat import unittest
 
@@ -42,11 +40,11 @@ def swap_stdin_and_argv(stdin_data="", argv_data=tuple()):
     real_stdin = sys.stdin
     real_argv = sys.argv
 
-    if PY3:
-        fake_stream = StringIO(stdin_data)
-        fake_stream.buffer = BytesIO(to_bytes(stdin_data))
-    else:
-        fake_stream = BytesIO(to_bytes(stdin_data))
+    # if PY3:
+    fake_stream = StringIO(stdin_data)
+    fake_stream.buffer = BytesIO(to_bytes(stdin_data))
+    # else:
+    # fake_stream = BytesIO(to_bytes(stdin_data))
 
     try:
         sys.stdin = fake_stream
@@ -65,10 +63,10 @@ def swap_stdout():
     """
     old_stdout = sys.stdout
 
-    if PY3:
-        fake_stream = StringIO()
-    else:
-        fake_stream = BytesIO()
+    # if PY3:
+    fake_stream = StringIO()
+    # else:
+    # fake_stream = BytesIO()
 
     try:
         sys.stdout = fake_stream

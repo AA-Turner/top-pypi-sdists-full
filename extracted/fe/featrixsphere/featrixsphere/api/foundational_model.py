@@ -3073,6 +3073,26 @@ class FoundationalModel:
         response = self._ctx.get_json(f"/compute/session/{self.id}/columns")
         return response.get('column_names', response.get('columns', []))
 
+    def get_column_types(self) -> Dict[str, str]:
+        """
+        Each column's type as the embedding space encodes it.
+
+        The column's codec owns its type, so this is what decides whether a
+        predictor for that column is a regressor ("scalar") or a classifier
+        ("set").
+
+        Returns:
+            {"age": "scalar", "plan": "set", ...}
+        """
+        if not self._ctx:
+            raise ValueError("FoundationalModel not connected to client")
+
+        response = self._ctx.get_json(f"/compute/session/{self.id}/columns")
+        types = response.get('column_types')
+        if not isinstance(types, dict):
+            raise ValueError(f"Session {self.id}: the server returned no column_types")
+        return types
+
     @property
     def columns(self) -> List[str]:
         """Column names in this foundational model's embedding space."""

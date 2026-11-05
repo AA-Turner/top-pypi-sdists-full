@@ -22,6 +22,7 @@ from ...shared.reads.search_contract import EntityType
 from ..generated.views import View
 from ...analytics import core as core
 from ...analytics.events import EVENT_MCP_TOOL_SERVED
+from ...analytics.generated import ProductSurface
 from ...sdk.agent_session import (
     AGENT_HEADER,
     AGENT_SESSION_HEADER,
@@ -474,7 +475,10 @@ def emit(state: dict, identity: dict | None) -> None:
         # no analytical gain, on the exact surface where account deletion is already
         # a known gap.
         ident = {k: v for k, v in ident.items() if k != "email"}
-        properties: dict[str, Any] = {"tool": tool, "response_bytes": holder["response_bytes"]}
+        # `surface`: the hosted MCP served it (S6); `client_kind` below says whose client called.
+        properties: dict[str, Any] = {
+            "tool": tool, "response_bytes": holder["response_bytes"], "surface": ProductSurface.MCP.value,
+        }
         delivery = holder.get("delivery")
         if isinstance(delivery, dict):
             properties.update(

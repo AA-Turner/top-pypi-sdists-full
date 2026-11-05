@@ -241,9 +241,6 @@ class _Waits:
 
             self._say_queued(exc.queue_position, _queue_eta(exc), time.monotonic() - t_wait0,
                              exc.details.get("reason"), exc.hint)
-
-            warn(f"queued for a seat (position {exc.queue_position}); waiting {wait:.0f}s before asking "
-                 f"again ({wait_for.until() if wait_for.bounds_a_line else 'the line ends at the deployment' + chr(39) + 's queue_timeout_s'})")
             if self._interrupt.wait(wait):
                 raise self._gave_up(Interrupted())
             return
@@ -266,15 +263,7 @@ class _Waits:
 
 
 
-
-
-
-
-
-
-
         self._on_warming(wait_for.waited(), wait)
-        warn(f"model is warming up; waiting {wait:.0f}s before retrying ({wait_for.until()})")
 
 
         if self._interrupt.wait(wait):

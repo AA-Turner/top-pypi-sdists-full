@@ -40,6 +40,9 @@ use crate::plugin::{
     test_initialize_plugin_host_exact, test_validate_static_plugin_config,
 };
 use futures::StreamExt;
+use nemo_relay::diagnostics::{
+    DiagnosticLimits, DiagnosticQuery, Diagnostics, DiagnosticsSettings,
+};
 use nemo_relay::observability::OpenTelemetryType;
 use nemo_relay::observability::atif::{AtifAgentInfo, AtifExporter};
 use nemo_relay::observability::atof::{AtofExporter, AtofExporterConfig};
@@ -64,6 +67,9 @@ static TEST_LOGGING: Once = Once::new();
 
 #[path = "trajectory_status_tests.rs"]
 mod trajectory_status_tests;
+
+#[path = "trajectory_tool_correlation_tests.rs"]
+mod trajectory_tool_correlation_tests;
 
 fn enable_operational_logs() {
     TEST_LOGGING.call_once(|| {
@@ -90,6 +96,151 @@ fn plugin_config(config: Json) -> PluginConfig {
         version: 1,
         components: vec![component(config)],
         policy: Default::default(),
+    }
+}
+
+#[tokio::test]
+async fn selector_diagnostics_use_plugin_registration_context() {
+    let diagnostics = Diagnostics::from_settings(
+        Diagnostics::default().source().clone(),
+        DiagnosticsSettings {
+            enabled: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let ctx = PluginRegistrationContext::with_diagnostics(&diagnostics);
+    let backend = with_selector_diagnostics(
+        CompiledBuiltinBackend::new(
+            BuiltinBackendConfig {
+                action: "redact".into(),
+                detector: Some("email".into()),
+                target_paths: vec!["/text".into()],
+                ..BuiltinBackendConfig::default()
+            },
+            None,
+        )
+        .unwrap(),
+        &ctx,
+        None,
+    );
+    let sanitized = tool_sanitize_callback(backend)(
+        "example.tool".into(),
+        json!({"text": "alice@example.com"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(sanitized["text"], "[REDACTED]");
+    let snapshot = diagnostics
+        .snapshot(&DiagnosticQuery::default())
+        .unwrap()
+        .to_snapshot()
+        .unwrap();
+    assert!(snapshot.events.iter().any(|event| {
+        event.code() == "pii_redaction.selector_evaluated"
+            && event.component.key == "pii_redaction.selector"
+            && event.detail.as_ref().is_some_and(|detail| {
+                detail.message == "matched_paths=1 eligible_string_leaves=1 affected_values=1"
+            })
+    }));
+
+    let profile_backend = with_selector_diagnostics(
+        CompiledBuiltinBackend::new(
+            BuiltinBackendConfig {
+                action: "redact".into(),
+                detector: Some("email".into()),
+                ..BuiltinBackendConfig::default()
+            },
+            None,
+        )
+        .unwrap(),
+        &ctx,
+        Some("profile_1"),
+    );
+    let sanitized = tool_sanitize_callback(profile_backend)(
+        "example.tool".into(),
+        json!({"text": "alice@example.com"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(sanitized["text"], "[REDACTED]");
+    let snapshot = diagnostics
+        .snapshot(&DiagnosticQuery::default())
+        .unwrap()
+        .to_snapshot()
+        .unwrap();
+    assert!(snapshot.events.iter().any(|event| {
+        event.code() == "pii_redaction.selector_evaluated"
+            && event.component.key == "pii_redaction.selector.profile_1"
+    }));
+}
+
+#[tokio::test]
+async fn selector_diagnostic_admission_failures_do_not_disable_redaction() {
+    let source = Diagnostics::default().source().clone();
+    for (case, enabled, limits) in [
+        ("disabled", false, DiagnosticLimits::default()),
+        (
+            "component_rejected",
+            true,
+            DiagnosticLimits {
+                max_components: 1,
+                ..Default::default()
+            },
+        ),
+        (
+            "extension_rejected",
+            true,
+            DiagnosticLimits {
+                max_extensions: 0,
+                ..Default::default()
+            },
+        ),
+    ] {
+        let diagnostics =
+            Diagnostics::from_settings(source.clone(), DiagnosticsSettings { enabled, limits })
+                .unwrap();
+        let ctx = PluginRegistrationContext::with_diagnostics(&diagnostics);
+        let backend = with_selector_diagnostics(
+            CompiledBuiltinBackend::new(
+                BuiltinBackendConfig {
+                    action: "redact".into(),
+                    detector: Some("email".into()),
+                    target_paths: vec!["/text".into()],
+                    ..BuiltinBackendConfig::default()
+                },
+                None,
+            )
+            .unwrap(),
+            &ctx,
+            None,
+        );
+        let sanitized = tool_sanitize_callback(backend)(
+            "example.tool".into(),
+            json!({"text": "alice@example.com"}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(sanitized["text"], "[REDACTED]", "{case}");
+
+        if enabled {
+            let snapshot = diagnostics
+                .snapshot(&DiagnosticQuery::default())
+                .unwrap()
+                .to_snapshot()
+                .unwrap();
+            assert!(snapshot.events.is_empty(), "{case}");
+            assert_eq!(
+                snapshot
+                    .components
+                    .iter()
+                    .any(|component| component.identity.key == "pii_redaction.selector"),
+                case == "extension_rejected",
+                "{case}"
+            );
+        } else {
+            assert!(diagnostics.snapshot(&DiagnosticQuery::default()).is_err());
+        }
     }
 }
 
@@ -547,19 +698,19 @@ fn trajectory_typed_request_matrix_preserves_only_approved_structure() {
                 {"type": "audio", "audio": {"data": "SECRET"}},
                 {"type": "file", "file": {"data": "SECRET"}},
                 {"type": "refusal", "refusal": "SECRET"},
-                {"type": "tool_use", "id": "SECRET", "name": "search", "input": {"q": "SECRET"}},
-                {"type": "tool_result", "tool_use_id": "SECRET", "content": {"text": "SECRET"}, "is_error": true},
+                {"type": "tool_use", "id": "call-parts", "name": "search", "input": {"q": "SECRET"}},
+                {"type": "tool_result", "tool_use_id": "call-parts", "content": {"text": "SECRET"}, "is_error": true},
                 {"type": "provider_native", "provider": "openai", "kind": "output_text", "value": {"text": "SECRET"}}
             ]},
             {"role": "developer", "content": "SECRET"},
             {"role": "assistant", "content": "SECRET", "tool_calls": [{
-                "id": "SECRET", "type": "function",
+                "id": "call-chat", "type": "function",
                 "function": {"name": "terminal", "arguments": "SECRET"}
             }]},
-            {"role": "tool", "tool_call_id": "SECRET", "content": "SECRET"},
+            {"role": "tool", "tool_call_id": "call-chat", "content": "SECRET"},
             {"role": "function", "name": "legacy_tool", "content": "SECRET"},
-            {"role": "tool_call", "id": "SECRET", "call_id": "SECRET", "name": "browser", "arguments": {"q": "SECRET"}, "future": "SECRET"},
-            {"role": "tool_result", "id": "SECRET", "call_id": "SECRET", "output": {"text": "SECRET"}, "future": "SECRET"},
+            {"role": "tool_call", "id": "SECRET", "call_id": "call-responses", "name": "browser", "arguments": {"q": "SECRET"}, "future": "SECRET"},
+            {"role": "tool_result", "id": "SECRET", "call_id": "call-responses", "output": {"text": "SECRET"}, "future": "SECRET"},
             {"role": "provider_native", "provider": "anthropic", "kind": "tool_result", "value": {"text": "SECRET"}}
         ],
         "instructions": "SECRET",
@@ -619,7 +770,23 @@ fn trajectory_typed_request_matrix_preserves_only_approved_structure() {
     );
     assert_eq!(value["messages"][1]["content"][6]["name"], "search");
     assert_eq!(value["messages"][1]["content"][6]["input"], json!({}));
-    assert_eq!(value["messages"][4]["tool_call_id"], "[REDACTED]");
+    assert_eq!(value["messages"][1]["content"][6]["id"], "call-parts");
+    assert_eq!(
+        value["messages"][1]["content"][7]["tool_use_id"],
+        "call-parts"
+    );
+    assert_eq!(value["messages"][3]["tool_calls"][0]["id"], "call-chat");
+    assert_eq!(value["messages"][4]["tool_call_id"], "call-chat");
+    assert_eq!(value["messages"][6]["call_id"], "call-responses");
+    assert_eq!(value["messages"][7]["call_id"], "call-responses");
+    assert_eq!(value["messages"][6]["id"], "[REDACTED]");
+    assert_eq!(value["messages"][7]["id"], "[REDACTED]");
+    assert_eq!(
+        trajectory_sanitizer()
+            .sanitize_annotated_request(sanitized)
+            .unwrap(),
+        serde_json::from_value(value.clone()).unwrap()
+    );
     assert_eq!(value["messages"][6]["name"], "browser");
     assert_eq!(value["messages"][6]["arguments"], json!({}));
     assert_eq!(value["messages"][8]["value"], json!({}));
@@ -740,7 +907,7 @@ async fn trajectory_event_profile_preserves_provider_and_marks_identifiers() {
         Some(
             CategoryProfile::builder()
                 .model_name("gpt-5.6-sol")
-                .tool_call_id("SECRET")
+                .tool_call_id("call-profile")
                 .subtype("SECRET")
                 .tool_result_annotation(json!({"secret": "SECRET"}))
                 .extra(BTreeMap::from([
@@ -767,7 +934,7 @@ async fn trajectory_event_profile_preserves_provider_and_marks_identifiers() {
     assert_eq!(sanitized.metadata, Some(json!({})));
     let profile = sanitized.category_profile.unwrap();
     assert_eq!(profile.model_name.as_deref(), Some("gpt-5.6-sol"));
-    assert_eq!(profile.tool_call_id.as_deref(), Some("[REDACTED]"));
+    assert_eq!(profile.tool_call_id.as_deref(), Some("call-profile"));
     assert_eq!(profile.subtype.as_deref(), Some("[REDACTED]"));
     assert_eq!(profile.tool_result_annotation, Some(json!({})));
     assert_eq!(
@@ -2908,10 +3075,14 @@ fn pii_redaction_defaults_enable_mark_sanitization() {
 
 #[test]
 fn generated_registration_names_sort_in_profile_array_order() {
-    assert!(
-        registration_name(Some("profile_2"), "mark")
-            < registration_name(Some("profile_10"), "mark")
-    );
+    assert_eq!(profile_registration_prefix("profile_0"), "profile_a_0");
+    assert_eq!(profile_registration_prefix("profile_10"), "profile_b_10");
+    for (earlier, later) in [(2, 3), (9, 10), (99, 100), (999, 1000)] {
+        assert!(
+            registration_name(Some(&format!("profile_{earlier}")), "mark")
+                < registration_name(Some(&format!("profile_{later}")), "mark")
+        );
+    }
 }
 
 #[test]
@@ -3142,8 +3313,8 @@ fn local_profile_registrations_receive_generated_namespaces() {
     futures::executor::block_on(plugin.register(&config, &mut ctx)).unwrap();
     let mut registrations = ctx.into_registrations();
     let registrations_debug = format!("{registrations:?}");
-    assert!(registrations_debug.contains("profiles::profile_00000000000000000000/shared"));
-    assert!(registrations_debug.contains("profiles::profile_00000000000000000001/shared"));
+    assert!(registrations_debug.contains("profiles::profile_a_0/shared"));
+    assert!(registrations_debug.contains("profiles::profile_a_1/shared"));
     rollback_registrations(&mut registrations);
     assert!(registrations.is_empty());
 }

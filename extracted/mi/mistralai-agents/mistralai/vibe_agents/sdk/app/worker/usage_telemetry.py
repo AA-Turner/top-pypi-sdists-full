@@ -56,23 +56,25 @@ class CompletionAttribution:
 def completion_attribution(
     *,
     session_id: str,
-    principal: wire.Principal,
+    principal: wire.Principal | None,
     parent_session_id: UUID | None = None,
     root_session_id: UUID | None = None,
     agent_id: UUID | None = None,
     application_id: UUID | None = None,
     correlation_id: str | None = None,
 ) -> CompletionAttribution:
-    attributes = {
-        "session_id": session_id,
-        "customer_id": str(principal.customer_id),
-        "organization_id": str(principal.organization_id),
-        "workspace_id": str(principal.workspace_id),
-    }
+    """`principal` is the attested caller; a Session that runs for no user has none."""
+    attributes = {"session_id": session_id}
+    if principal is not None:
+        attributes.update(
+            customer_id=str(principal.customer_id),
+            organization_id=str(principal.organization_id),
+            workspace_id=str(principal.workspace_id),
+        )
     optional = {
         "parent_session_id": parent_session_id,
         "root_session_id": root_session_id,
-        "user_id": principal.user_id,
+        "user_id": principal.user_id if principal is not None else None,
         "agent_id": agent_id,
         "application_id": application_id,
         "correlation_id": wire.known_correlation_id(correlation_id),

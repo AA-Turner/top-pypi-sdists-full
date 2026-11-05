@@ -30,7 +30,7 @@ from test.apps.catalog.grpc.descriptors import (
     users_descriptor_set,
 )
 
-pytest.importorskip("grpc", reason="grpcio has no free-threaded build")
+grpc_transport = pytest.importorskip("schemathesis.transport.grpc", reason="grpcio has no free-threaded build")
 
 ANY_URL = "type.googleapis.com/"
 NO_USER_INFO = base64.b64encode(error_details_pb2.ErrorInfo(reason="NO_USER").SerializeToString()).decode()
@@ -48,11 +48,11 @@ def test_ok_response(ctx):
         response.status_code,
         response.status_line,
         response.headers,
-        json.loads(response.render_content(response.content)),
+        response.json(),
         response.request.method,
         response.request.url,
     ) == (
-        200,
+        0,
         "OK",
         {
             "x-served-by": ["users"],
@@ -69,7 +69,7 @@ def test_ok_response(ctx):
 def test_internal_error(ctx):
     _, response = get_user(ctx.grpc.apps.users(), -1)
     assert (response.status_code, response.status_line, response.headers, response.content) == (
-        500,
+        13,
         "INTERNAL: negative id",
         {"grpc-status": ["13"], "grpc-message": ["negative id"]},
         b"",
@@ -80,15 +80,15 @@ def test_unparsable_status_leaves_later_responses_intact(ctx):
     operation = load(ctx.grpc.apps.echo_status())["pkg.Users"]["GetUser"]
     responses = [operation.Case(body={"userId": user_id}).call() for user_id in (-1, 5)]
     assert [(response.status_code, response.status_line) for response in responses] == [
-        (500, "INTERNAL: Stream removed (Error parsing 'grpc-status' metadata)"),
-        (404, "NOT_FOUND"),
+        (13, "INTERNAL: Stream removed (Error parsing 'grpc-status' metadata)"),
+        (5, "NOT_FOUND"),
     ]
 
 
 def test_ok_without_a_message_is_an_internal_error(ctx):
     response = load(ctx.grpc.apps.echo_status())["pkg.Users"]["GetUser"].Case(body={"userId": 0}).call()
     assert (response.status_code, response.status_line, response.headers, response.content) == (
-        500,
+        13,
         "INTERNAL: cardinality violation: received no response message from non-server-streaming RPC",
         {
             "grpc-status": ["13"],
@@ -101,7 +101,7 @@ def test_ok_without_a_message_is_an_internal_error(ctx):
 def test_large_error_trailers(ctx):
     _, response = get_user(ctx.grpc.apps.users(), 400)
     assert (response.status_code, response.status_line, response.headers) == (
-        400,
+        3,
         "INVALID_ARGUMENT: invalid",
         {"x-details": ["x" * 65536], "grpc-status": ["3"], "grpc-message": ["invalid"]},
     )
@@ -128,12 +128,22 @@ def test_malformed_ok_body_is_reported_as_binary(ctx):
 
 @pytest.mark.parametrize(
     ("user_id", "expected"),
-    [(503, (503, "UNAVAILABLE")), (504, (504, "DEADLINE_EXCEEDED: upstream timed out"))],
+    [(503, (14, "UNAVAILABLE")), (504, (4, "DEADLINE_EXCEEDED: upstream timed out"))],
     ids=["unavailable", "deadline-exceeded"],
 )
 def test_server_sent_status_is_a_response(ctx, user_id, expected):
     _, response = get_user(ctx.grpc.apps.users(), user_id)
     assert (response.status_code, response.status_line) == expected
+
+
+def test_unavailable_reachability_probe_is_excluded_from_response_elapsed(ctx):
+    server = ctx.grpc.apps.users()
+    operation = load(server)["pkg.Users"]["GetUser"]
+    operation.Case(body={"userId": 7}).call()
+
+    response = operation.Case(body={"userId": 503}).call()
+
+    assert response.elapsed < 0.1
 
 
 def relay(source, target):
@@ -172,7 +182,7 @@ def test_server_unavailable_once_the_target_refuses_connections_is_a_connection_
 def test_status_code_agrees_with_call_outcome(ctx):
     case, response = get_user(ctx.grpc.apps.users(), 9)
     assert (response.status_code, case.operation.schema.classify_call_outcome(case, response)) == (
-        409,
+        9,
         CallOutcome.CONFLICT,
     )
 
@@ -260,6 +270,60 @@ def test_tls_client_certificate(ctx, tmp_path, combined):
         cert = (str(server.client_cert_path), str(server.client_key_path))
     get_user(server, 7, verify=str(server.ca_path), cert=cert)
     assert server.calls[-1].peer_names == [b"client"]
+
+
+def test_missing_tls_client_certificate_keeps_grpc_details_and_gives_a_hint(ctx):
+    server = ctx.grpc.apps.users(tls=True, client_auth=True)
+    with pytest.raises(requests.exceptions.ConnectionError) as exc_info:
+        get_user(server, 7, verify=str(server.ca_path))
+    prefix = (
+        "failed to connect to all addresses; last error: UNAVAILABLE: "
+        f"ipv4:127.0.0.1:{server.target.rsplit(':', 1)[1]}: "
+    )
+    suffix = ". The server may require a client certificate; use `--request-cert` and `--request-cert-key`"
+    # The closed connection text depends on the platform.
+    assert re.fullmatch(f"{re.escape(prefix)}.+{re.escape(suffix)}", str(exc_info.value), re.DOTALL)
+
+
+@pytest.mark.parametrize(
+    "closed",
+    [
+        "Socket closed",
+        "End of TCP stream",
+        "Delayed close due to in-progress write (End of TCP stream)",
+        "WSARecv: Connection aborted (An established connection was aborted by the software in your host machine.\r\n"
+        " -- 10053)",
+        "Delayed close due to in-progress write (WSARecv: Connection reset (An existing connection was forcibly closed "
+        "by the remote host.\r\n -- 10054))",
+    ],
+    ids=["socket-closed", "end-of-stream", "delayed-end-of-stream", "aborted", "delayed-reset"],
+)
+def test_closed_tls_connection_hints_at_a_client_certificate(ctx, closed):
+    server = ctx.grpc.apps.users(tls=True, client_auth=True)
+    address = server.target.removeprefix("grpcs://")
+    details = f"failed to connect to all addresses; last error: UNAVAILABLE: ipv4:{address}: {closed}"
+    assert grpc_transport.connection_configuration_hint(address, True, details) == grpc_transport.MTLS_EXPECTED
+
+
+def test_http1_server_keeps_grpc_details_and_gives_a_protocol_hint(ctx, tmp_path):
+    api = ctx.openapi.apps.success()
+    schema = load_descriptor_set(
+        tmp_path,
+        users_descriptor_set(),
+        **{"base-url": api.base_url.replace("http://", "grpc://")},
+    )
+    with pytest.raises(requests.exceptions.ConnectionError) as exc_info:
+        schema["pkg.Users"]["GetUser"].Case(body={}).call()
+    prefix = (
+        f"failed to connect to all addresses; last error: UNAVAILABLE: ipv4:{api.base_url.removeprefix('http://')}: "
+        "Failed parsing HTTP/2 (Expected SETTINGS frame as the first frame, got frame type "
+    )
+    suffix = ". The server does not support HTTP/2; use a gRPC endpoint"
+    # Older Python patch releases answer an HTTP/2 request with an error page and no status line.
+    assert str(exc_info.value) in {
+        f"{prefix}80) (Trying to connect an http1.x server (HTTP status 505)){suffix}",
+        f"{prefix}79){suffix}",
+    }
 
 
 def test_settings_from_config(ctx):
@@ -466,4 +530,4 @@ def test_observed_fields_are_filled(ctx, tmp_path):
     for observation in parse_observations(operation, rejected, rejected.call()):
         store.record(observation)
     cases = generate_many(operation.as_strategy(feedback=FeedbackSources(error_feedback=store)), 20)
-    assert [case.call().status_code for case in cases] == [200] * 20
+    assert [case.call().status_code for case in cases] == [0] * 20

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-s3tables
-Version: 1.43.0
-Summary: Type annotations for boto3 S3Tables 1.43.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.124
+Summary: Type annotations for boto3 S3Tables 1.43.124 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 S3Tables 1.43.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 S3Tables 1.43.124](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.124' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `S3Tables` service.
 4. Use provided commands to install generated packages.
@@ -340,6 +340,7 @@ from mypy_boto3_s3tables import S3TablesClient
 from mypy_boto3_s3tables.paginator import (
     ListNamespacesPaginator,
     ListTableBucketsPaginator,
+    ListTableMigrationsPaginator,
     ListTablesPaginator,
 )
 
@@ -349,6 +350,9 @@ client: S3TablesClient = Session().client("s3tables")
 # Types should be correctly discovered by mypy and IDEs
 list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
 list_table_buckets_paginator: ListTableBucketsPaginator = client.get_paginator("list_table_buckets")
+list_table_migrations_paginator: ListTableMigrationsPaginator = client.get_paginator(
+    "list_table_migrations"
+)
 list_tables_paginator: ListTablesPaginator = client.get_paginator("list_tables")
 ```
 
@@ -363,10 +367,10 @@ Full list of `S3Tables` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/literals/).
 
 ```python
-from mypy_boto3_s3tables.literals import IcebergCompactionStrategyType
+from mypy_boto3_s3tables.literals import CompressionCodecType
 
 
-def check_value(value: IcebergCompactionStrategyType) -> bool: ...
+def check_value(value: CompressionCodecType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>
@@ -381,12 +385,12 @@ Full list of `S3Tables` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_s3tables.type_defs import CreateNamespaceRequestTypeDef
+from mypy_boto3_s3tables.type_defs import CompleteTableMigrationRequestTypeDef
 
 
-def get_value() -> CreateNamespaceRequestTypeDef:
+def get_value() -> CompleteTableMigrationRequestTypeDef:
     return {
-        "tableBucketARN": ...,
+        "tableARN": ...,
     }
 ```
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import os
 from typing import Any
-from ....recording_rules import ignore as _ignore
+from ....recording_rules import recording_rules as _ignore
 from ... import owndirs as _owndirs
 from probe.sdk.capture.code.code import (
     SKIP_GENERATED_DIRS,
@@ -150,8 +150,6 @@ def capture_directory_manifest(
         for name in sorted(filenames):
             full = os.path.join(root, name)
             rel = _posix(os.path.relpath(full, cwd))
-            if ignored.config_excluded(rel):
-                continue  # a researcher's `.probe.config`: not even its name is recorded
             if own is not None and own.top(rel) is not None:
                 skipped.append({"path": rel, "reason": _owndirs.REASON})
                 continue
@@ -215,7 +213,7 @@ def capture_directory_manifest(
         "n_referenced_offsite": sum(1 for e in entries if e["source"] == "reference"),
         "n_withheld": sum(1 for e in entries if e["source"] == "withheld"),
         "vcs": None,
-        "skipped": ignored.unnamed(skipped),
+        "skipped": skipped,
         **({"n_probeignore": ignored.count} if ignored.count else {}),
     }
 from probe.sdk.capture.code.content_gate import _ContentGate  # noqa: E402 -- pieces need each other; the front door loads this one first

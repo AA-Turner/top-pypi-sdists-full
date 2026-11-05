@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_s3tables.type_defs import CreateNamespaceRequestTypeDef
+    from mypy_boto3_s3tables.type_defs import CompleteTableMigrationRequestTypeDef
 
-    data: CreateNamespaceRequestTypeDef = ...
+    data: CompleteTableMigrationRequestTypeDef = ...
     ```
 """
 
@@ -22,11 +22,18 @@ from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
+    CompressionCodecType,
+    FindingCategoryType,
     IcebergCompactionStrategyType,
     IcebergNullOrderType,
     IcebergSortDirectionType,
+    IncompatibleValuesPolicyType,
     JobStatusType,
     MaintenanceStatusType,
+    MigrationFailureCodeType,
+    MigrationRequestedStateType,
+    MigrationStateType,
+    MigrationTypeType,
     ReplicationStatusType,
     SSEAlgorithmType,
     StorageClassType,
@@ -36,6 +43,7 @@ from .literals import (
     TableRecordExpirationJobStatusType,
     TableRecordExpirationStatusType,
     TableTypeType,
+    UnmatchedSourceFieldsPolicyType,
 )
 
 if sys.version_info >= (3, 12):
@@ -45,12 +53,15 @@ else:
 
 
 __all__ = (
+    "CompleteTableMigrationRequestTypeDef",
     "CreateNamespaceRequestTypeDef",
     "CreateNamespaceResponseTypeDef",
     "CreateTableBucketRequestTypeDef",
     "CreateTableBucketResponseTypeDef",
     "CreateTableRequestTypeDef",
     "CreateTableResponseTypeDef",
+    "DataMigrationOverviewTypeDef",
+    "DataMigrationSettingsTypeDef",
     "DeleteNamespaceRequestTypeDef",
     "DeleteTableBucketEncryptionRequestTypeDef",
     "DeleteTableBucketMetricsConfigurationRequestTypeDef",
@@ -60,6 +71,7 @@ __all__ = (
     "DeleteTablePolicyRequestTypeDef",
     "DeleteTableReplicationRequestTypeDef",
     "DeleteTableRequestTypeDef",
+    "DestinationTableTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionConfigurationTypeDef",
     "GetNamespaceRequestTypeDef",
@@ -86,6 +98,8 @@ __all__ = (
     "GetTableMaintenanceJobStatusResponseTypeDef",
     "GetTableMetadataLocationRequestTypeDef",
     "GetTableMetadataLocationResponseTypeDef",
+    "GetTableMigrationRequestTypeDef",
+    "GetTableMigrationResponseTypeDef",
     "GetTablePolicyRequestTypeDef",
     "GetTablePolicyResponseTypeDef",
     "GetTableRecordExpirationConfigurationRequestTypeDef",
@@ -100,6 +114,7 @@ __all__ = (
     "GetTableResponseTypeDef",
     "GetTableStorageClassRequestTypeDef",
     "GetTableStorageClassResponseTypeDef",
+    "GlueTableSourceTypeDef",
     "IcebergCompactionSettingsTypeDef",
     "IcebergMetadataTypeDef",
     "IcebergPartitionFieldTypeDef",
@@ -117,14 +132,29 @@ __all__ = (
     "ListTableBucketsRequestPaginateTypeDef",
     "ListTableBucketsRequestTypeDef",
     "ListTableBucketsResponseTypeDef",
+    "ListTableMigrationsRequestPaginateTypeDef",
+    "ListTableMigrationsRequestTypeDef",
+    "ListTableMigrationsResponseTypeDef",
     "ListTablesRequestPaginateTypeDef",
     "ListTablesRequestTypeDef",
     "ListTablesResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "MaintenanceSettingsTypeDef",
     "ManagedTableInformationTypeDef",
+    "MigrationCompactionSettingsTypeDef",
+    "MigrationFailureReasonTypeDef",
+    "MigrationOutputConfigurationTypeDef",
+    "MigrationOutputOverviewTypeDef",
+    "MigrationPoliciesTypeDef",
+    "MigrationReportPrefixesTypeDef",
+    "MigrationSnapshotManagementSettingsTypeDef",
+    "MigrationStatsTypeDef",
+    "MigrationSummaryTypeDef",
+    "MigrationTablePropertiesTypeDef",
     "NamespaceSummaryTypeDef",
     "PaginatorConfigTypeDef",
+    "PlanningStatsTypeDef",
     "PutTableBucketEncryptionRequestTypeDef",
     "PutTableBucketMaintenanceConfigurationRequestTypeDef",
     "PutTableBucketMetricsConfigurationRequestTypeDef",
@@ -141,10 +171,16 @@ __all__ = (
     "ReplicationDestinationStatusModelTypeDef",
     "ReplicationDestinationTypeDef",
     "ReplicationInformationTypeDef",
+    "ReportOverviewTypeDef",
     "ResponseMetadataTypeDef",
     "SchemaFieldTypeDef",
     "SchemaV2FieldTypeDef",
+    "SourceConfigurationTypeDef",
+    "StartTableMigrationRequestTypeDef",
+    "StartTableMigrationResponseTypeDef",
     "StorageClassConfigurationTypeDef",
+    "SyncTableMigrationRequestTypeDef",
+    "SyncTableMigrationResponseTypeDef",
     "TableBucketMaintenanceConfigurationValueTypeDef",
     "TableBucketMaintenanceSettingsTypeDef",
     "TableBucketReplicationConfigurationOutputTypeDef",
@@ -170,7 +206,13 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateTableMetadataLocationRequestTypeDef",
     "UpdateTableMetadataLocationResponseTypeDef",
+    "UpdateTableMigrationRequestTypeDef",
+    "UpdateTableMigrationResponseTypeDef",
 )
+
+
+class CompleteTableMigrationRequestTypeDef(TypedDict):
+    tableARN: str
 
 
 class CreateNamespaceRequestTypeDef(TypedDict):
@@ -193,6 +235,11 @@ class EncryptionConfigurationTypeDef(TypedDict):
 
 class StorageClassConfigurationTypeDef(TypedDict):
     storageClass: StorageClassType
+
+
+class MigrationPoliciesTypeDef(TypedDict):
+    unmatchedSourceFieldsPolicy: NotRequired[UnmatchedSourceFieldsPolicyType]
+    incompatibleValuesPolicy: NotRequired[IncompatibleValuesPolicyType]
 
 
 class DeleteNamespaceRequestTypeDef(TypedDict):
@@ -237,6 +284,13 @@ class DeleteTableRequestTypeDef(TypedDict):
     namespace: str
     name: str
     versionToken: NotRequired[str]
+
+
+class MigrationTablePropertiesTypeDef(TypedDict):
+    writeFormat: NotRequired[Literal["parquet"]]
+    icebergFormatVersion: NotRequired[int]
+    compressionCodec: NotRequired[CompressionCodecType]
+    dictionaryEncoding: NotRequired[bool]
 
 
 class GetNamespaceRequestTypeDef(TypedDict):
@@ -302,6 +356,28 @@ class GetTableMetadataLocationRequestTypeDef(TypedDict):
     name: str
 
 
+class GetTableMigrationRequestTypeDef(TypedDict):
+    migrationId: NotRequired[str]
+    tableARN: NotRequired[str]
+
+
+class MigrationFailureReasonTypeDef(TypedDict):
+    code: MigrationFailureCodeType
+    detail: NotRequired[str]
+
+
+class MigrationStatsTypeDef(TypedDict):
+    objectsMigrated: NotRequired[int]
+    objectsFailedMigration: NotRequired[int]
+    objectsPendingMigration: NotRequired[int]
+
+
+class PlanningStatsTypeDef(TypedDict):
+    objectsScanned: NotRequired[int]
+    objectsPlanned: NotRequired[int]
+    partitionCount: NotRequired[int]
+
+
 class GetTablePolicyRequestTypeDef(TypedDict):
     tableBucketARN: str
     namespace: str
@@ -341,6 +417,12 @@ class GetTableStorageClassRequestTypeDef(TypedDict):
     tableBucketARN: str
     namespace: str
     name: str
+
+
+class GlueTableSourceTypeDef(TypedDict):
+    catalogId: str
+    databaseName: str
+    tableName: str
 
 
 class IcebergCompactionSettingsTypeDef(TypedDict):
@@ -442,6 +524,34 @@ TableBucketSummaryTypeDef = TypedDict(
 )
 
 
+class ListTableMigrationsRequestTypeDef(TypedDict):
+    tableBucketARN: NotRequired[str]
+    namespace: NotRequired[str]
+    name: NotRequired[str]
+    tableARN: NotRequired[str]
+    state: NotRequired[MigrationStateType]
+    hasValidPlan: NotRequired[bool]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+MigrationSummaryTypeDef = TypedDict(
+    "MigrationSummaryTypeDef",
+    {
+        "migrationId": str,
+        "tableBucketARN": str,
+        "namespace": str,
+        "name": str,
+        "type": MigrationTypeType,
+        "state": MigrationStateType,
+        "createdAt": datetime,
+        "stateUpdatedAt": datetime,
+        "tableARN": NotRequired[str],
+        "hasValidPlan": NotRequired[bool],
+    },
+)
+
+
 class ListTablesRequestTypeDef(TypedDict):
     tableBucketARN: str
     namespace: NotRequired[str]
@@ -470,8 +580,31 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+class MigrationCompactionSettingsTypeDef(TypedDict):
+    targetFileSizeMB: NotRequired[int]
+    strategy: NotRequired[IcebergCompactionStrategyType]
+
+
+class MigrationSnapshotManagementSettingsTypeDef(TypedDict):
+    minSnapshotsToKeep: NotRequired[int]
+    maxSnapshotAgeHours: NotRequired[int]
+
+
 class ReplicationInformationTypeDef(TypedDict):
     sourceTableARN: str
+
+
+class MigrationReportPrefixesTypeDef(TypedDict):
+    tableCompatibilityReport: NotRequired[str]
+    objectCompatibilityReport: NotRequired[str]
+    objectMigrationReport: NotRequired[str]
+
+
+class ReportOverviewTypeDef(TypedDict):
+    prefix: NotRequired[str]
+    key: NotRequired[str]
+    checksumCRC64NVME: NotRequired[str]
+    invalidFindings: NotRequired[dict[FindingCategoryType, int]]
 
 
 class PutTableBucketMetricsConfigurationRequestTypeDef(TypedDict):
@@ -523,6 +656,13 @@ class UpdateTableMetadataLocationRequestTypeDef(TypedDict):
     name: str
     versionToken: str
     metadataLocation: str
+
+
+class UpdateTableMigrationRequestTypeDef(TypedDict):
+    requestedState: MigrationRequestedStateType
+    tableARN: NotRequired[str]
+    migrationId: NotRequired[str]
+    updateDescription: NotRequired[str]
 
 
 class CreateNamespaceResponseTypeDef(TypedDict):
@@ -614,12 +754,31 @@ class PutTableReplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StartTableMigrationResponseTypeDef(TypedDict):
+    migrationId: str
+    state: MigrationStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SyncTableMigrationResponseTypeDef(TypedDict):
+    migrationId: str
+    state: MigrationStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateTableMetadataLocationResponseTypeDef(TypedDict):
     name: str
     tableARN: str
     namespace: list[str]
     versionToken: str
     metadataLocation: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateTableMigrationResponseTypeDef(TypedDict):
+    migrationId: str
+    state: MigrationStateType
+    tableARN: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -672,6 +831,10 @@ class GetTableRecordExpirationJobStatusResponseTypeDef(TypedDict):
     failureMessage: str
     metrics: TableRecordExpirationJobMetricsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SourceConfigurationTypeDef(TypedDict):
+    glueTable: NotRequired[GlueTableSourceTypeDef]
 
 
 class IcebergPartitionSpecTypeDef(TypedDict):
@@ -732,6 +895,16 @@ ListTableBucketsRequestPaginateTypeDef = TypedDict(
 )
 
 
+class ListTableMigrationsRequestPaginateTypeDef(TypedDict):
+    tableBucketARN: NotRequired[str]
+    namespace: NotRequired[str]
+    name: NotRequired[str]
+    tableARN: NotRequired[str]
+    state: NotRequired[MigrationStateType]
+    hasValidPlan: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListTablesRequestPaginateTypeDef(TypedDict):
     tableBucketARN: str
     namespace: NotRequired[str]
@@ -751,14 +924,37 @@ class ListTableBucketsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListTableMigrationsResponseTypeDef(TypedDict):
+    migrations: list[MigrationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ListTablesResponseTypeDef(TypedDict):
     tables: list[TableSummaryTypeDef]
     continuationToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class MaintenanceSettingsTypeDef(TypedDict):
+    icebergCompaction: NotRequired[MigrationCompactionSettingsTypeDef]
+    icebergSnapshotManagement: NotRequired[MigrationSnapshotManagementSettingsTypeDef]
+
+
 class ManagedTableInformationTypeDef(TypedDict):
     replicationInformation: NotRequired[ReplicationInformationTypeDef]
+
+
+class MigrationOutputConfigurationTypeDef(TypedDict):
+    bucket: str
+    prefixes: NotRequired[MigrationReportPrefixesTypeDef]
+
+
+class MigrationOutputOverviewTypeDef(TypedDict):
+    bucket: str
+    tableCompatibilityReport: ReportOverviewTypeDef
+    objectCompatibilityReport: ReportOverviewTypeDef
+    objectMigrationReport: ReportOverviewTypeDef
 
 
 class TableBucketReplicationRuleOutputTypeDef(TypedDict):
@@ -787,6 +983,18 @@ class TableMaintenanceConfigurationValueTypeDef(TypedDict):
     settings: NotRequired[TableMaintenanceSettingsTypeDef]
 
 
+class DestinationTableTypeDef(TypedDict):
+    tableBucketARN: str
+    namespace: str
+    name: str
+    encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    storageClassConfiguration: NotRequired[StorageClassConfigurationTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    properties: NotRequired[MigrationTablePropertiesTypeDef]
+    schema: NotRequired[IcebergSchemaV2TypeDef]
+    icebergSortOrder: NotRequired[IcebergSortOrderTypeDef]
+
+
 class IcebergMetadataTypeDef(TypedDict):
     schema: NotRequired[IcebergSchemaTypeDef]
     schemaV2: NotRequired[IcebergSchemaV2TypeDef]
@@ -804,6 +1012,16 @@ class GetTableReplicationStatusResponseTypeDef(TypedDict):
     sourceTableArn: str
     destinations: list[ReplicationDestinationStatusModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DataMigrationOverviewTypeDef(TypedDict):
+    maintenanceSettings: MaintenanceSettingsTypeDef
+    migrationPolicies: MigrationPoliciesTypeDef
+
+
+class DataMigrationSettingsTypeDef(TypedDict):
+    maintenanceSettings: NotRequired[MaintenanceSettingsTypeDef]
+    migrationPolicies: NotRequired[MigrationPoliciesTypeDef]
 
 
 GetTableResponseTypeDef = TypedDict(
@@ -829,6 +1047,13 @@ GetTableResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class SyncTableMigrationRequestTypeDef(TypedDict):
+    roleARN: str
+    tableARN: str
+    migrationOutput: MigrationOutputConfigurationTypeDef
+    reviewMigrationPlan: NotRequired[bool]
 
 
 class TableBucketReplicationConfigurationOutputTypeDef(TypedDict):
@@ -899,6 +1124,41 @@ PutTableBucketMaintenanceConfigurationRequestTypeDef = TypedDict(
         "value": TableBucketMaintenanceConfigurationValueTypeDef,
     },
 )
+GetTableMigrationResponseTypeDef = TypedDict(
+    "GetTableMigrationResponseTypeDef",
+    {
+        "migrationId": str,
+        "tableBucketARN": str,
+        "namespace": str,
+        "tableARN": str,
+        "name": str,
+        "type": MigrationTypeType,
+        "state": MigrationStateType,
+        "roleARN": str,
+        "reviewMigrationPlan": bool,
+        "hasValidPlan": bool,
+        "createdAt": datetime,
+        "stateUpdatedAt": datetime,
+        "failureReason": MigrationFailureReasonTypeDef,
+        "planningStats": PlanningStatsTypeDef,
+        "migrationStats": MigrationStatsTypeDef,
+        "sourceType": Literal["glueTable"],
+        "source": SourceConfigurationTypeDef,
+        "dataMigration": DataMigrationOverviewTypeDef,
+        "migrationOutput": MigrationOutputOverviewTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
+class StartTableMigrationRequestTypeDef(TypedDict):
+    roleARN: str
+    destinationTable: DestinationTableTypeDef
+    sourceType: Literal["glueTable"]
+    source: SourceConfigurationTypeDef
+    migrationOutput: MigrationOutputConfigurationTypeDef
+    dataMigration: NotRequired[DataMigrationSettingsTypeDef]
+    reviewMigrationPlan: NotRequired[bool]
 
 
 class GetTableBucketReplicationResponseTypeDef(TypedDict):

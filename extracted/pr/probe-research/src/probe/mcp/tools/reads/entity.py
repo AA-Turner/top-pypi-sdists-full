@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import hashlib
+from dataclasses import replace as dataclass_replace
 from typing import Any
 from ....sdk import errors
 from ....sdk.reads import links
@@ -146,6 +147,16 @@ class GetEntityMixin:
             result = getattr(self, _VIEWS[(kind, view)])(entity, request)
         if hide_session is not None:
             result = self._without_session_work(result, created(), own_id=own_id)
+            if view in (View.SUMMARY, View.OVERVIEW, View.SUMMARY_HISTORY):
+                # A page is prose the scrub cannot reach: it may tell this session's own work.
+                result = dataclass_replace(
+                    result,
+                    missing=list(
+                        dict.fromkeys(
+                            [*result.missing, MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED]
+                        )
+                    ),
+                )
 
         data: dict[str, Any] = {
             "entity_type": kind,

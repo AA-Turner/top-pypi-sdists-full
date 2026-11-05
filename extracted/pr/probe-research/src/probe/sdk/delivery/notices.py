@@ -4,6 +4,7 @@ refused, in plain lines."""
 from __future__ import annotations
 import threading
 from typing import Any
+from ...foundation.request_identity.surface import Surface
 from ...foundation.safe_warn import safe_warn as _diagnostics
 from .journal.journal import Journal
 from .status_fields import StatusField
@@ -255,10 +256,13 @@ class DeliveryNoticesMixin:
             }
             self._reported_at = now
             base_url = self.settings.base_url
+            # A `probe` command's client says so; every other journaled client is a script's.
+            surface = (_telemetry.ProductSurface.CLI if getattr(self.transport, "surface", None) == Surface.CLI.value
+                       else _telemetry.ProductSurface.SDK)
 
             def send(flush: bool = False) -> None:
                 try:
-                    _telemetry.emit_delivery_summary(base_url=base_url, flush=flush, **props)
+                    _telemetry.emit_delivery_summary(base_url=base_url, surface=surface, flush=flush, **props)
                 except Exception:  # noqa: BLE001 -- observability is a bystander
                     pass
 

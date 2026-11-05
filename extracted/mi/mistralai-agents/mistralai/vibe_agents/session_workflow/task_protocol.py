@@ -224,6 +224,8 @@ class AlertStateContent(_TaskProtocolModel):
     title: str
     body_md: str = ""
     level: Literal["public", "private"] = "public"
+    # The notice's data, such as a connector's status and reason, as in a Session API notice.
+    details: JsonValue = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class AlertStatePayload(_TaskProtocolModel):

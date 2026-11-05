@@ -598,6 +598,12 @@ void optimize_sequential_single_knapsack(
                 auto kp_output = optimize(kp_instance, kp_parameters);
                 return kp_output.solution_pool;
             };
+        // Simplify the shapes once for all the subproblems of this iteration,
+        // with the approximation budget of the whole instance, instead of
+        // once per subproblem, with the much smaller budget of a single bin.
+        instance.get_simplified_instance(
+                maximum_approximation_ratio,
+                algorithm_formatter.end_boolean());
         SequentialValueCorrectionParameters<Instance, Solution, irregular::Output> svc_parameters;
         svc_parameters.verbosity_level = 0;
         svc_parameters.timer = parameters.timer;
@@ -658,6 +664,13 @@ void optimize_sequential_value_correction(
                 parameters.sequential_value_correction_subproblem_tree_search_queue_size - 1,
                 parameters.anytime_sequential_value_correction_growing_queue_maximum_number_of_iterations);
     }
+
+    // Simplify the shapes once for all the subproblems, which are solved with
+    // the not-anytime maximum approximation ratio, with the approximation
+    // budget of the whole instance.
+    instance.get_simplified_instance(
+            parameters.not_anytime_maximum_approximation_ratio,
+            algorithm_formatter.end_boolean());
 
     SequentialValueCorrectionFunction<Instance, Solution> kp_solve
         = [&algorithm_formatter, &parameters](const Instance& kp_instance)

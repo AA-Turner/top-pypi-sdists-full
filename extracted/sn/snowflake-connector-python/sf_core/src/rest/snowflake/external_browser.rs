@@ -92,8 +92,9 @@ pub enum ExternalBrowserError {
         #[snafu(implicit)]
         location: Location,
     },
-    #[snafu(display("Failed to bind local listener on 127.0.0.1"))]
+    #[snafu(display("Failed to bind local listener on 127.0.0.1:{port}: {source}"))]
     ListenerBind {
+        port: u16,
         source: std::io::Error,
         #[snafu(implicit)]
         location: Location,
@@ -177,7 +178,9 @@ pub enum ExternalBrowserError {
 
 /// Run the full external browser authentication flow:
 ///
-/// 1. Bind a local TCP listener on an OS-assigned port.
+/// 1. Bind a local TCP listener on 127.0.0.1. Port 0 lets the OS assign an
+///    ephemeral port; any other port listens on that port. The bound port is
+///    sent as `BROWSER_MODE_REDIRECT_PORT`.
 /// 2. Ask Snowflake for the SSO URL and proof key.
 /// 3. Open the SSO URL in the user's default browser.
 /// 4. Wait for the IdP to redirect back with a token (or time out).
@@ -190,6 +193,7 @@ pub(crate) async fn external_browser_authenticate(
     login_parameters: &LoginParameters,
     username: &str,
     authentication_timeout_secs: u64,
+    browser_redirect_port: u16,
     browser_opener: Arc<dyn BrowserOpener>,
     retry_policy: &RetryPolicy,
 ) -> Result<ExternalBrowserAuthResult, ExternalBrowserError> {
@@ -197,10 +201,17 @@ pub(crate) async fn external_browser_authenticate(
     let start = Instant::now();
     tracing::info!("Starting external browser authentication");
 
-    let listener = TcpListener::bind("127.0.0.1:0")
+    let listener = TcpListener::bind(("127.0.0.1", browser_redirect_port))
         .await
-        .context(ListenerBindSnafu)?;
-    let local_port = listener.local_addr().context(ListenerBindSnafu)?.port();
+        .context(ListenerBindSnafu {
+            port: browser_redirect_port,
+        })?;
+    let local_port = listener
+        .local_addr()
+        .context(ListenerBindSnafu {
+            port: browser_redirect_port,
+        })?
+        .port();
     tracing::debug!(port = local_port, "Local callback listener bound");
 
     let idp_data =
@@ -1600,8 +1611,9 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn injected_opener_receives_sso_url_and_completes_callback() {
+    /// SSO URL the opener received. Wiremock copied `BROWSER_MODE_REDIRECT_PORT`
+    /// into `browser_mode_redirect_port`. The callback must complete.
+    async fn sso_url_from_completed_callback(browser_redirect_port: u16) -> String {
         use std::io::{Read, Write};
         use std::sync::{Arc, Mutex};
         use wiremock::matchers::{method, path};
@@ -1638,14 +1650,7 @@ mod tests {
         let seen_cb = Arc::clone(&seen);
         let opener = FnBrowserOpener(Arc::new(move |url: &str| {
             *seen_cb.lock().expect("lock") = Some(url.to_string());
-            let port: u16 = url::Url::parse(url)
-                .expect("sso url")
-                .query_pairs()
-                .find(|(k, _)| k == "browser_mode_redirect_port")
-                .expect("port query")
-                .1
-                .parse()
-                .expect("port");
+            let port = callback_port_from_sso_url(url);
             let mut stream =
                 std::net::TcpStream::connect(("127.0.0.1", port)).expect("loopback connect");
             stream
@@ -1662,6 +1667,7 @@ mod tests {
                 username: "alice".to_string(),
                 authentication_timeout_secs: 30,
                 client_store_temporary_credential: false,
+                browser_redirect_port,
             },
             server_url: server.uri(),
             database: None,
@@ -1682,18 +1688,109 @@ mod tests {
             &login_parameters,
             "alice",
             30,
+            browser_redirect_port,
             Arc::new(opener),
             &crate::config::retry::RetryPolicy::default(),
         )
         .await
         .expect("sso flow");
-
         assert_eq!(result.token.reveal(), "sso-token");
         assert_eq!(result.proof_key.reveal(), "proof");
-        let seen_url = seen.lock().expect("lock").clone().expect("opener called");
+        seen.lock().expect("lock").clone().expect("opener called")
+    }
+
+    fn callback_port_from_sso_url(url: &str) -> u16 {
+        url::Url::parse(url)
+            .expect("sso url")
+            .query_pairs()
+            .find(|(k, _)| k == "browser_mode_redirect_port")
+            .expect("port query")
+            .1
+            .parse()
+            .expect("port")
+    }
+
+    #[tokio::test]
+    async fn injected_opener_receives_sso_url_and_completes_callback() {
+        let url = sso_url_from_completed_callback(0).await;
+        let port = callback_port_from_sso_url(&url);
+        assert_ne!(port, 0, "port 0 must bind an ephemeral port");
         assert!(
-            seen_url.starts_with("https://idp.snowflake.com/sso?"),
-            "opener must receive the IdP URL, got {seen_url}"
+            url.starts_with(&format!(
+                "https://idp.snowflake.com/sso?browser_mode_redirect_port={port}"
+            )),
+            "opener must receive the IdP URL, got {url}"
+        );
+    }
+
+    #[tokio::test]
+    async fn taken_browser_redirect_port_reports_the_port_and_address_in_use() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let opener = FnBrowserOpener(Arc::new(|_url: &str| Ok(())));
+        let login_parameters = crate::config::rest_parameters::LoginParameters {
+            account_name: "testaccount".to_string(),
+            login_method: crate::config::rest_parameters::LoginMethod::ExternalBrowser {
+                username: "alice".to_string(),
+                authentication_timeout_secs: 30,
+                client_store_temporary_credential: false,
+                browser_redirect_port: port,
+            },
+            server_url: "http://127.0.0.1".to_string(),
+            database: None,
+            schema: None,
+            warehouse: None,
+            role: None,
+            secondary_roles: None,
+            client_info: crate::config::rest_parameters::test_fixtures::test_client_info(),
+            session_parameters: None,
+            spcs_token: None,
+            disable_parallel_user_prompt: true,
+            validate_session_token: true,
+            browser_opener: None,
+        };
+
+        let err = external_browser_authenticate(
+            &reqwest::Client::new(),
+            &login_parameters,
+            "alice",
+            30,
+            port,
+            Arc::new(opener),
+            &crate::config::retry::RetryPolicy::default(),
+        )
+        .await
+        .expect_err("taken port must fail at bind");
+
+        let ExternalBrowserError::ListenerBind {
+            source,
+            port: reported,
+            ..
+        } = &err
+        else {
+            panic!("expected ListenerBind, got {err}");
+        };
+        assert_eq!(*reported, port);
+        assert_eq!(source.kind(), std::io::ErrorKind::AddrInUse);
+        assert_eq!(
+            err.to_string(),
+            format!("Failed to bind local listener on 127.0.0.1:{port}: {source}")
+        );
+    }
+
+    #[tokio::test]
+    async fn configured_browser_redirect_port_is_the_callback_port() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        // ponytail: race after drop; pass the listener in if this flakes
+        drop(listener);
+        let url = sso_url_from_completed_callback(port).await;
+        assert!(
+            url.starts_with(&format!(
+                "https://idp.snowflake.com/sso?browser_mode_redirect_port={port}"
+            )),
+            "opener must receive the IdP URL on the configured port, got {url}"
         );
     }
 
@@ -1739,6 +1836,7 @@ mod tests {
                 username: "alice".to_string(),
                 authentication_timeout_secs: 30,
                 client_store_temporary_credential: false,
+                browser_redirect_port: 0,
             },
             server_url: server.uri(),
             database: None,
@@ -1760,6 +1858,7 @@ mod tests {
             &login_parameters,
             "alice",
             30,
+            0,
             Arc::new(opener),
             &crate::config::retry::RetryPolicy::default(),
         )

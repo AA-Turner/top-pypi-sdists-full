@@ -13,29 +13,23 @@ or its host reboots, the lock goes with the process and the next run to start
 takes over. Nothing has to clean up after a crash, which matters for a component
 whose entire purpose is to be present when things die badly.
 
-DETACHED, AND DELIBERATELY NOT A CHILD. `start_new_session` puts the watcher in
-its own session and process group. A watcher that stayed in the training job's
-group would take the same Ctrl-C the job takes -- and a Ctrl-C is precisely one
-of the deaths it is supposed to observe. The observer cannot share the fate of
-the observed.
+NEVER THE JOB'S CHILD. The run asks the Probe service to watch (plan D9, D20:
+the training process only observes): the service runs the watcher as a THREAD
+(`thread.WatcherThread`), or as a child of its own on this interpreter when
+this process's login or network settings differ from the service's, starting
+the service where none runs. Either way it takes this same lease, and it never
+shares the job's process group or its Ctrl-C, one of the deaths it observes.
 
-Fail-open throughout. A watcher that cannot be spawned costs the box its
-explanations and costs the run nothing.
-
-WHEN A PROBE SERVICE RUNS (plan Q5, X9), the run asks it to watch instead
-(`probe.sdk.delivery.outbox.drainers.service_handoff.box_watch`): the service
-runs the watcher as a THREAD (`thread.WatcherThread`), no process at all, and
-the thread takes this same lease, so a detached watcher and the service's
-thread never both watch one registry. A run whose environment holds a
-credential, or a service that cannot, spawns it here as above.
+Fail-open throughout. A watcher the service cannot start costs the box its
+explanations and costs the run nothing; nothing is forked here.
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import subprocess
 import sys
+import threading
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -80,11 +74,11 @@ def already_running(directory: Path | str | None = None) -> bool:
 
 
 def maybe_spawn(directory: Path | str | None = None) -> bool:
-    """Start a watcher if this box has none. Returns whether one was started.
+    """Ask the service to watch this box when no watcher holds the lease (plan D9): on a thread of
+    its own, so a run's start never waits on the service's. True when the ask went out.
 
-    Cheap by requirement: this runs when a run starts beating, which on a
-    sixty-four rank job means sixty-four calls within a second. The only work
-    before the lock probe is a path join.
+    Cheap by requirement: this runs when a run starts beating, which on a sixty-four rank job
+    means sixty-four calls within a second; the lease probe stops all but the first.
     """
     try:
         from probe.sdk.run.watcher import watcher as watch
@@ -93,37 +87,34 @@ def maybe_spawn(directory: Path | str | None = None) -> bool:
             return False
         if already_running(directory):
             return False
-        from probe.sdk.delivery.outbox.drainers import service_handoff
-
-        handed = service_handoff.box_watch(directory)
-        if handed is not None:
-            # A Probe service runs here and starts the watcher as its own
-            # child (plan Q5): the same module on this interpreter, in a
-            # session of its own; the lease is still what keeps it one.
-            # STARTED: one starts now; RUNNING: one holds the lease.
-            from probe.foundation.service_api.vocabularies import BackgroundState
-
-            return handed == BackgroundState.STARTED
-        env = dict(os.environ)
-        if directory is not None:
-            env["PROBE_WATCHER_DIR"] = str(directory)
-        # `-m` rather than a console script: the watcher must run on the SAME
-        # interpreter as the job that spawned it, which is the one that has
-        # the client installed. A console script resolves through PATH and can
-        # find a different environment entirely.
-        subprocess.Popen(  # noqa: S603 -- argv is ours, not a caller's
-            [sys.executable, "-m", WATCHER_MODULE],
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-            close_fds=True,
-        )
+        thread = threading.Thread(target=ask_service, args=(directory,), name="probe-box-watch", daemon=True)
+        thread.start()
         return True
     except Exception as exc:  # noqa: BLE001 -- never let this touch the run
-        logger.debug("box: could not spawn a watcher: %s", exc)
+        logger.debug("box: could not ask for a watcher: %s", exc)
         return False
+
+
+def ask_service(directory: Path | str | None = None) -> str | None:
+    """`box.watch` for the registry `directory` (default: this process's): the service's answer's
+    state, or None (no service, a refusal). Its env: this process's settings and credentials
+    (plan D11), `PROBE_BOX_DIR` the registry. Never raises."""
+    try:
+        from probe.foundation.service_api import handoff
+        from probe.foundation.service_api.wire import Method
+        from probe.sdk.run.watcher import registry
+
+        env = {**handoff.runtime_env(), **handoff.credential_env()}
+        env["PROBE_BOX_DIR"] = os.path.abspath(str(directory if directory is not None else registry.default_dir()))
+        parameters = {"python": sys.executable, "env": env}
+        cwd = handoff.cwd()
+        if cwd:
+            parameters["cwd"] = cwd
+        answer = handoff.request(Method.BOX_WATCH, parameters, timeout=10.0)
+        return answer.get("state") if isinstance(answer, dict) and answer.get("accepted") else None
+    except Exception as exc:  # noqa: BLE001 -- the watcher is never the run's problem
+        logger.debug("box: the service took no watcher: %s", exc)
+        return None
 
 
 def hold_lease(directory: Path | str | None = None):

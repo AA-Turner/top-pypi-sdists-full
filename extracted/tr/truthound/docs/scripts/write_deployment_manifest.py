@@ -12,6 +12,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PAGES = (
+    "/guides/gx-parity/",
+    "/en/guides/gx-parity/",
+    "/guides/datasources/files/",
+    "/en/guides/datasources/files/",
+    "/cli/core/check/",
+    "/en/cli/core/check/",
+    "/guides/data-validation-mcp/",
+    "/en/guides/data-validation-mcp/",
+    "/guides/local-mcp-example/",
+    "/en/guides/local-mcp-example/",
     "/guides/mcp/",
     "/en/guides/mcp/",
     "/guides/ci-testing/",

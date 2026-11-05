@@ -416,8 +416,10 @@ class DrainPass(_DrainPassParts):
             try:
                 from ..... import analytics as _telemetry
 
+                # A worker's surface in a worker; `sdk` in a script's or a command's own drain.
                 _telemetry.emit_outbox_discarded(
-                    report.superseded, reason=_telemetry.DiscardReason.SUPERSEDED
+                    report.superseded, reason=_telemetry.DiscardReason.SUPERSEDED,
+                    surface=_telemetry.get_worker_surface(),
                 )
             except Exception:  # noqa: BLE001 -- telemetry never stops delivery
                 pass

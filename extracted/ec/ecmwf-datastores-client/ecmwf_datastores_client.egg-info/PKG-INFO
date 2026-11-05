@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ecmwf-datastores-client
-Version: 0.5.3
+Version: 0.6.0
 Summary: ECMWF Data Stores Service (DSS) API Python client
 License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable

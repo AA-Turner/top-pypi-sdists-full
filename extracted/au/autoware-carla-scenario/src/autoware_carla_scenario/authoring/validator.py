@@ -23,10 +23,11 @@ from .models import (
     ConstraintNode,
     Entity,
     LaneletSlot,
+    RouteSearch,
     ScenarioDocument,
     condition_refs,
 )
-from ..route.model import anchor_problem, parse_route_search
+from ..route.model import anchor_problem, parse_anchor, parse_route_search
 from ..trajectory.authoring import (
     parse_relative_vertices,
     parse_route_vertices,
@@ -35,7 +36,11 @@ from ..trajectory.authoring import (
     vertex_problems,
 )
 from ..constants import MIN_BACKGROUND_SPEED_KMH
-from ._builders_generated import ONCE_ACTIONS, OVERRIDING_ACTIONS
+from ._builders_generated import (
+    FAILURE_ONLY_CONDITIONS,
+    ONCE_ACTIONS,
+    OVERRIDING_ACTIONS,
+)
 from .registry import (
     EQUAL_TO_DEFAULT_TOLERANCE,
     INT_KINDS,
@@ -47,6 +52,7 @@ from .registry import (
     get_binding_spec,
     get_condition_spec,
     get_constraint_spec,
+    read_bool,
 )
 
 __all__ = ["Issue", "Severity", "ValidationReport", "validate_document"]
@@ -195,6 +201,16 @@ def _check_field(
             )
         else:
             _check_bounds(out, path, spec, float(str(value).strip()), object_id)
+    elif spec.kind == "bool":
+        # The compiler reads it with the same read_bool, so a spelling it
+        # would not take as true or false is refused here, not compiled to
+        # a quiet False (#1459).
+        if read_bool(value) is None:
+            out.error(
+                f"{path}.{spec.name}",
+                f"{spec.label} must be true or false, got {value!r}.",
+                object_id,
+            )
     elif spec.kind == "select":
         allowed = {o.value for o in spec.options}
         if str(value) not in allowed:
@@ -424,6 +440,7 @@ def _check_condition(
         )
 
     _check_collision_names_one_target(out, path, node)
+    _check_persistent_child(out, path, node)
     _check_filter_ranges(out, path, node)
     _check_condition_frame(out, path, node)
     _check_equal_tolerance(out, path, spec, node)
@@ -454,6 +471,39 @@ def _check_collision_names_one_target(
             "A collision condition names an entity or a class of object, not "
             "both: they are two ways of saying what was hit, so one of them "
             "would have to be ignored.",
+            node.id,
+        )
+
+
+def _check_persistent_child(out: _Collector, path: str, node: ConditionNode) -> None:
+    """Warn about a persistent block around a condition that only ever reports
+    a failure (#1374).
+
+    A persistent block counts only the ticks its child passes, and a
+    collision, off-road, existence or timeout condition never passes: it
+    fails or says nothing.  The block then never fires, and a fail condition
+    built that way never fails the run.  A warning, not an error: such a
+    document built and ran before this check, and still does.
+    """
+    if node.type != "persistent":
+        return
+    for child in node.children:
+        if child.type not in FAILURE_ONLY_CONDITIONS:
+            continue
+        spec = get_condition_spec(child.type)
+        title = spec.title if spec is not None else child.type
+        out.warn(
+            path,
+            f"Persistent never fires around {title}: that condition only ever "
+            "reports a failure, and Persistent counts only the ticks its child "
+            "passes. A Collision or Timeout keeps its failure once it has "
+            "fired, so there is nothing to wait out: use it on its own (under "
+            "a NOT it would only fail the run later). Off the road and Exists "
+            "re-check every tick: under a NOT, which turns their failure into "
+            "a pass, Persistent fires once the failure has held for its "
+            "duration. To say a state has not held for a while, put the "
+            "condition for that state under a NOT with *Holds while the child "
+            "does not* (holds_when_pending), as the cut-in example does.",
             node.id,
         )
 
@@ -1112,9 +1162,11 @@ def _check_condition_frame(out: _Collector, path: str, node: ConditionNode) -> N
             "or a route pose.",
             node.id,
         )
+    # A bool is read as the compiler reads it, so "yes" or "on" is checked as
+    # True is (#1462).
     if (
         node.type == "entity_distance"
-        and params.get("signed") is True
+        and read_bool(params.get("signed")) is True
         and str(params.get("measure", "entity")) != "lane"
     ):
         out.error(
@@ -1139,7 +1191,7 @@ def _check_condition_frame(out: _Collector, path: str, node: ConditionNode) -> N
     if (
         node.type in ("entity_distance", "ttc")
         and in_lane
-        and params.get("edge_to_edge") is True
+        and read_bool(params.get("edge_to_edge")) is True
     ):
         out.error(
             f"{path}.edge_to_edge",
@@ -1767,6 +1819,112 @@ def _check_route(out: _Collector, document: ScenarioDocument) -> None:
             problem = anchor_problem(node.params.get("anchor"), segments, junctions)
             if problem is not None:
                 out.error(node.id, f"Route progress: {problem}.", node.id)
+                continue
+            _check_route_progress_bounds(out, node, route)
+
+
+def _route_bound(anchor: Any, route: RouteSearch) -> Optional[str]:
+    """``"start"`` when *anchor* is route s 0 on every match of *route*,
+    ``"end"`` when it is the route's length on every match, else ``None``.
+
+    The route's length is only known once the search runs on a map, but its
+    first segment always starts at 0 and its last always ends at the length,
+    so these anchors are pinned to a bound whatever the map.
+    """
+    text = "start" if anchor is None or not str(anchor).strip() else str(anchor)
+    try:
+        kind, index, end = parse_anchor(text)
+    except ValueError:
+        return None
+    if kind in ("start", "end"):
+        return kind
+    if kind == "junction":
+        junction_at = [
+            k for k, segment in enumerate(route.segments) if segment.kind == "junction"
+        ]
+        if index >= len(junction_at):
+            return None
+        index = junction_at[index]
+    if index == 0 and end in ("start", "entry"):
+        return "start"
+    if index == len(route.segments) - 1 and end in ("end", "exit"):
+        return "end"
+    return None
+
+
+def _check_route_progress_bounds(
+    out: _Collector, node: ConditionNode, route: RouteSearch
+) -> None:
+    """Warn about a ``route_progress`` whose target lies off the route (#1385).
+
+    An entity's route s is clamped to ``[0, length]``, so a target before the
+    route's start or past its end is one the rule always or never meets: from
+    ``start - 15 m``, ``>=`` holds from the first tick the entity is on the map
+    (one not spawned yet, or hidden below the route, has no progress), even
+    behind the start; to ``end + 5 m`` it never holds, and a waypoint waiting
+    on it never departs.  A target exactly on a bound with a strict rule
+    pointing off the route never holds either (#1389): ``<`` the start, ``>``
+    the end.  The other rules there -- the default ``>=`` the start, and
+    ``<=`` the end, ``>`` the start, ``<`` the end, ``=`` either -- can all
+    hold.  Only an anchor pinned to a bound (:func:`_route_bound`) is judged,
+    the length being the map's.  A warning, not an error, as for the other
+    conditions that never fire (:func:`_check_persistent_child`,
+    :func:`_check_equal_tolerance`): the document builds and runs as it did.
+    """
+    params = node.params
+    value = _number(params, "value")
+    if value is None:
+        return
+    bound = _route_bound(params.get("anchor"), route)
+    rule = str(params.get("rule") or "greater_than_or_equal")
+    hint = "Give a distance that puts the target on the route."
+    if bound == "start" and value < 0:
+        where = f"{-value:g} m before the route's start"
+        below = True
+    elif bound == "end" and value > 0:
+        where = f"{value:g} m past the route's end"
+        below = False
+    elif bound == "start" and value == 0 and rule == "less_than":
+        where = "the route's start"
+        below = True
+        hint = 'Use "less than or equal" (or a positive distance) instead.'
+    elif bound == "end" and value == 0 and rule == "greater_than":
+        where = "the route's end"
+        below = False
+        hint = 'Use "greater than or equal" (or a negative distance) instead.'
+    else:
+        return
+    rising = rule in ("greater_than", "greater_than_or_equal")
+    falling = rule in ("less_than", "less_than_or_equal")
+    if rule == "equal_to":
+        tolerance = _number(params, "tolerance")
+        if tolerance is None:
+            tolerance = EQUAL_TO_DEFAULT_TOLERANCE
+        if abs(value) <= tolerance:
+            return
+        always = False
+    elif rising or falling:
+        always = rising == below
+    else:
+        return  # an unknown rule is the field check's
+    reading = rule.replace("_", " ")
+    if always:
+        extreme = "behind the route's start" if below else "at the route's end"
+        verdict = (
+            f'"{reading}" holds from the first tick the entity is on the map, '
+            f"even for one {extreme}"
+        )
+    else:
+        verdict = (
+            f'"{reading}" can never hold: an action waiting on it never '
+            "fires, and a waypoint never departs"
+        )
+    out.warn(
+        node.id,
+        f"Route progress: the target is {where}. Progress is clamped to the "
+        f"route, from 0 to its length, so {verdict}. {hint}",
+        node.id,
+    )
 
 
 def _check_lanelet_slots(out: _Collector, document: ScenarioDocument) -> None:

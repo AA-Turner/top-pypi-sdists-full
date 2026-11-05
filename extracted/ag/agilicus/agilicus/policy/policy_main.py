@@ -46,9 +46,17 @@ def cli_command_list_multifactor_policies(ctx, **kwargs):
 @click.option("--include-invalid", type=bool, default=None)
 @click.option("--object-id", type=str, default=None)
 @click.option("--name", default=None)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Filter policy templates by tag (multiple allowed)",
+)
 @click.pass_context
-def cli_command_list_policy_templates(ctx, **kwargs):
-    results = policies.list_policy_templates(ctx, **kwargs)
+def cli_command_list_policy_templates(ctx, tag=None, **kwargs):
+    results = policies.list_policy_templates(
+        ctx, tag=list(tag) if tag else None, **kwargs
+    )
     print(policies.format_policy_templates(ctx, results))
 
 
@@ -161,12 +169,67 @@ def cli_command_find_orgs_with_legacy_policies(ctx, **kwargs):
 
 @click.command(name="update-resource-policy")
 @click.option("--org-id", default=None)
-@click.option("--instance-id", default=None)
+@click.option("--instance-id", default=None, required=True)
 @click.option("--clear-default-actions", is_flag=True, default=None)
 @click.option("--default-action", multiple=True, default=None)
+@click.option(
+    "--rule-name",
+    default=None,
+    help=(
+        "Name of the rule in the template to update tags for "
+        "(also updates matching structure)"
+    ),
+)
+@click.option(
+    "--structure-name",
+    default=None,
+    help="Name of the structure in the template to update tags for",
+)
+@click.option(
+    "--all-rules",
+    is_flag=True,
+    default=False,
+    help="Apply tag updates to all rules and structures in the template",
+)
+@click.option(
+    "--tag",
+    default=None,
+    multiple=True,
+    help="Set tags (replaces existing tags, multiple allowed)",
+)
+@click.option(
+    "--add-tag",
+    default=None,
+    multiple=True,
+    help="Add tags to existing tags (multiple allowed)",
+)
+@click.option(
+    "--remove-tag",
+    default=None,
+    multiple=True,
+    help="Remove tags from existing tags (multiple allowed)",
+)
+@click.option(
+    "--clear-tags",
+    is_flag=True,
+    default=False,
+    help="Clear all tags",
+)
 @click.pass_context
-def cli_command_update_resource_policies(ctx, **kwargs):
-    result = policies.update_resource_policy(ctx, **kwargs)
+def cli_command_update_resource_policies(
+    ctx,
+    tag=None,
+    add_tag=None,
+    remove_tag=None,
+    **kwargs,
+):
+    result = policies.update_resource_policy(
+        ctx,
+        tag=list(tag) if tag else None,
+        add_tag=list(add_tag) if add_tag else None,
+        remove_tag=list(remove_tag) if remove_tag else None,
+        **kwargs,
+    )
     output_entry(ctx, result.to_dict())
 
 

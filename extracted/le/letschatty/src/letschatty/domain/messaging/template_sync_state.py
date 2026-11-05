@@ -11,9 +11,9 @@ nothing is cached.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional, Protocol, Union
+from typing import Any, Mapping, Optional, Protocol, Union
 
 
 @dataclass(frozen=True)
@@ -28,6 +28,9 @@ class TemplateSyncState:
     last_sync_error: Optional[str] = None
     message_template_limit: Optional[int] = None
     updated_at: Optional[datetime] = None
+    # The keys of the stored document that this model does not name, by their stored name and as stored: the legacy
+    # store hands its callers the whole document, as `main` did (tanda 17b).
+    others: Mapping[str, Any] = field(default_factory=dict)
 
 
 def is_fresh(state: Optional[TemplateSyncState], now: datetime, ttl_seconds: int) -> bool:

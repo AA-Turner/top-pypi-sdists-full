@@ -26,8 +26,14 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListNamespacesPaginator, ListTableBucketsPaginator, ListTablesPaginator
+from .paginator import (
+    ListNamespacesPaginator,
+    ListTableBucketsPaginator,
+    ListTableMigrationsPaginator,
+    ListTablesPaginator,
+)
 from .type_defs import (
+    CompleteTableMigrationRequestTypeDef,
     CreateNamespaceRequestTypeDef,
     CreateNamespaceResponseTypeDef,
     CreateTableBucketRequestTypeDef,
@@ -68,6 +74,8 @@ from .type_defs import (
     GetTableMaintenanceJobStatusResponseTypeDef,
     GetTableMetadataLocationRequestTypeDef,
     GetTableMetadataLocationResponseTypeDef,
+    GetTableMigrationRequestTypeDef,
+    GetTableMigrationResponseTypeDef,
     GetTablePolicyRequestTypeDef,
     GetTablePolicyResponseTypeDef,
     GetTableRecordExpirationConfigurationRequestTypeDef,
@@ -86,6 +94,8 @@ from .type_defs import (
     ListNamespacesResponseTypeDef,
     ListTableBucketsRequestTypeDef,
     ListTableBucketsResponseTypeDef,
+    ListTableMigrationsRequestTypeDef,
+    ListTableMigrationsResponseTypeDef,
     ListTablesRequestTypeDef,
     ListTablesResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -103,10 +113,16 @@ from .type_defs import (
     PutTableReplicationRequestTypeDef,
     PutTableReplicationResponseTypeDef,
     RenameTableRequestTypeDef,
+    StartTableMigrationRequestTypeDef,
+    StartTableMigrationResponseTypeDef,
+    SyncTableMigrationRequestTypeDef,
+    SyncTableMigrationResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateTableMetadataLocationRequestTypeDef,
     UpdateTableMetadataLocationResponseTypeDef,
+    UpdateTableMigrationRequestTypeDef,
+    UpdateTableMigrationResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -163,6 +179,16 @@ class S3TablesClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/generate_presigned_url.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#generate_presigned_url)
+        """
+
+    def complete_table_migration(
+        self, **kwargs: Unpack[CompleteTableMigrationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Completes the migration of a table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/complete_table_migration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#complete_table_migration)
         """
 
     def create_namespace(
@@ -415,6 +441,17 @@ class S3TablesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#get_table_metadata_location)
         """
 
+    def get_table_migration(
+        self, **kwargs: Unpack[GetTableMigrationRequestTypeDef]
+    ) -> GetTableMigrationResponseTypeDef:
+        """
+        Gets the details of a migration, including its state, the reason it failed, its
+        statistics and the location of its reports.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_migration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#get_table_migration)
+        """
+
     def get_table_policy(
         self, **kwargs: Unpack[GetTablePolicyRequestTypeDef]
     ) -> GetTablePolicyResponseTypeDef:
@@ -496,6 +533,17 @@ class S3TablesClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/list_table_buckets.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#list_table_buckets)
+        """
+
+    def list_table_migrations(
+        self, **kwargs: Unpack[ListTableMigrationsRequestTypeDef]
+    ) -> ListTableMigrationsResponseTypeDef:
+        """
+        Lists the migrations whose destination is in a table bucket, a namespace or a
+        table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/list_table_migrations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#list_table_migrations)
         """
 
     def list_tables(self, **kwargs: Unpack[ListTablesRequestTypeDef]) -> ListTablesResponseTypeDef:
@@ -630,6 +678,28 @@ class S3TablesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#rename_table)
         """
 
+    def start_table_migration(
+        self, **kwargs: Unpack[StartTableMigrationRequestTypeDef]
+    ) -> StartTableMigrationResponseTypeDef:
+        """
+        Starts migrating an Amazon Web Services Glue Data Catalog table into a new
+        table in a table bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/start_table_migration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#start_table_migration)
+        """
+
+    def sync_table_migration(
+        self, **kwargs: Unpack[SyncTableMigrationRequestTypeDef]
+    ) -> SyncTableMigrationResponseTypeDef:
+        """
+        Migrates the changes in the source table since the previous start or sync, such
+        as added and deleted source objects, into the destination table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/sync_table_migration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#sync_table_migration)
+        """
+
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Applies one or more user-defined tags to an Amazon S3 Tables resource or
@@ -657,6 +727,16 @@ class S3TablesClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#update_table_metadata_location)
         """
 
+    def update_table_migration(
+        self, **kwargs: Unpack[UpdateTableMigrationRequestTypeDef]
+    ) -> UpdateTableMigrationResponseTypeDef:
+        """
+        Requests a state change for a migration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/update_table_migration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#update_table_migration)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_namespaces"]
@@ -672,6 +752,17 @@ class S3TablesClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_table_buckets"]
     ) -> ListTableBucketsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3tables/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_table_migrations"]
+    ) -> ListTableMigrationsPaginator:
         """
         Create a paginator for an operation.
 

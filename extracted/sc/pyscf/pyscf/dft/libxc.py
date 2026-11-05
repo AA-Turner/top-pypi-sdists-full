@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright 2014-2021 The PySCF Developers. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -203,7 +202,8 @@ XC_CODES.update({
     'REVPBE0'       : '.25*HF + .75*PBE_R, PBE',
     'B1B95'         : 440,
     'TPSS0'         : '.25*HF + .75*TPSS, TPSS',
-})  # noqa: E501
+    'BHHLYP'        : 'BHANDHLYP',
+})
 
 if getattr(__config__, 'B3LYP_WITH_VWN5', False):
     XC_CODES['B3P86' ] = 'B3P86V5'
@@ -329,21 +329,11 @@ def is_lda(xc_code):
 def is_hybrid_xc(xc_code):
     if xc_code is None:
         return False
-    elif isinstance(xc_code, str):
-        if 'HF' in xc_code:
-            return True
-        xc = _get_xc(xc_code)
-        return _is_hybrid_xc(xc.xc_objs, xc.hyb, xc.facs, xc_code)
-    elif numpy.issubdtype(type(xc_code), numpy.integer):
-        xc = _get_xc(xc_code)
-        return _is_hybrid_xc(xc.xc_objs, xc.hyb, xc.facs, xc_code)
-    else:
-        return any((is_hybrid_xc(x) for x in xc_code))
-
-def _is_hybrid_xc(xc_objs, hyb, facs, xc_code):
-    if _hybrid_coeff(xc_objs, hyb, facs) != 0:
+    if not isinstance(xc_code, (str, int, numpy.integer)):
+        return any(is_hybrid_xc(x) for x in xc_code)
+    if rsh_coeff(xc_code) != (0, 0, 0):
         return True
-    if _rsh_coeff(xc_objs, hyb, facs, xc_code) != (0, 0, 0):
+    if hybrid_coeff(xc_code) != 0:
         return True
     return False
 
@@ -359,12 +349,11 @@ def is_gga(xc_code):
 
 def is_nlc(xc_code):
     # identify nlc by xc_code itself if enable_nlc is None
-    if isinstance(xc_code, str) or \
-            numpy.issubdtype(type(xc_code), numpy.integer):
+    if isinstance(xc_code, (str, int, numpy.integer)):
         xc = _get_xc(xc_code)
         return xc.is_nlc
     else:
-        return any((is_nlc(x) for x in xc_code))
+        return any(is_nlc(x) for x in xc_code)
 
 def _is_nlc(nfunc, xc_arr):
     return _itrf.LIBXC_is_nlc(nfunc, xc_arr)
@@ -539,7 +528,7 @@ def parse_xc(description):
     Returns:
         decoded XC description, with the data structure
         (hybrid, alpha, omega), ((libxc-Id, fac), (libxc-Id, fac), ...)
-    '''  # noqa: E501
+    '''
 
     hyb = [0, 0, 0]  # hybrid, alpha, omega (== SR_HF, LR_HF, omega)
     if description is None:
@@ -550,7 +539,8 @@ def parse_xc(description):
         return parse_xc('%s,%s' % tuple(description))
 
     description = description.upper()
-    if '-D3' in description or '-D4' in description:
+    if ('-D3' in description or '-D4' in description or
+            description.endswith(('-3C', '_3C'))):
         from pyscf.scf.dispersion import parse_dft
         description, _, _ = parse_dft(description)
         description = description.upper()
@@ -692,6 +682,7 @@ _NAME_WITH_DASH = {'SR-HF'    : 'SR_HF',
                    'B97-1'    : 'B97_1',
                    'B97-2'    : 'B97_2',
                    'B97-3'    : 'B97_3',
+                   'B97-3C'   : 'B97_3C',
                    'B97-K'    : 'B97_K',
                    'B97-D'    : 'B97_D',
                    'HCTH-93'  : 'HCTH_93',
@@ -861,7 +852,7 @@ def eval_xc(xc_code, rho, spin=0, relativity=0, deriv=1, omega=None, verbose=Non
           | v3tau3[:,4]         = (u_u_u, u_u_d, u_d_d, d_d_d)
 
         see also libxc_itrf.c
-    '''  # noqa: E501
+    '''
     outbuf = _eval_xc(xc_code, rho, spin, deriv, omega)
     exc = outbuf[0]
     vxc = fxc = kxc = None
@@ -1539,4 +1530,3 @@ def unregister_custom_functional_(xc_code):
         del _CUSTOM_FUNC_U[xc_code]
     except KeyError:
         pass
-

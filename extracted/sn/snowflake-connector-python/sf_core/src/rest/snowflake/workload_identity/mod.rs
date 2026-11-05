@@ -157,9 +157,11 @@ pub fn ensure_allowed_host(server_url: &str) -> Result<(), AttestationError> {
 pub(crate) struct AttestationEndpoints {
     /// AWS EC2 instance-metadata service (IMDS) base URL, used only to
     /// resolve the AWS region when `AWS_REGION`/`AWS_DEFAULT_REGION` are
-    /// unset. AWS STS itself is never called directly by the default
-    /// (pre-signed `GetCallerIdentity`) path — that path only builds a URL
-    /// string embedded in the attestation body for Snowflake GS to replay.
+    /// unset. `AWS_EC2_METADATA_SERVICE_ENDPOINT` overrides the default
+    /// `http://169.254.169.254`. AWS STS itself is never called directly by
+    /// the default (pre-signed `GetCallerIdentity`) path — that path only
+    /// builds a URL string embedded in the attestation body for Snowflake GS
+    /// to replay.
     pub(crate) aws_imds_base_url: String,
     /// Azure IMDS base URL for the Managed Identity token endpoint.
     pub(crate) azure_imds_base_url: String,
@@ -173,10 +175,21 @@ pub(crate) struct AttestationEndpoints {
     pub(crate) gcp_iam_credentials_base_url: String,
 }
 
+/// Cloud SDKs retarget the metadata service with
+/// `AWS_EC2_METADATA_SERVICE_ENDPOINT` when a test needs a different address.
+/// Region discovery follows that convention for the same reason. Unset or
+/// empty keeps `http://169.254.169.254`.
+fn aws_imds_base_url() -> String {
+    match std::env::var(crate::env_vars::AWS_EC2_METADATA_SERVICE_ENDPOINT) {
+        Ok(value) if !value.is_empty() => value,
+        _ => "http://169.254.169.254".to_string(),
+    }
+}
+
 impl Default for AttestationEndpoints {
     fn default() -> Self {
         Self {
-            aws_imds_base_url: "http://169.254.169.254".to_string(),
+            aws_imds_base_url: aws_imds_base_url(),
             azure_imds_base_url: "http://169.254.169.254".to_string(),
             azure_entra_base_url: "https://login.microsoftonline.com".to_string(),
             gcp_metadata_base_url: "http://metadata.google.internal".to_string(),
@@ -193,14 +206,14 @@ impl Default for AttestationEndpoints {
 /// `aws_sdk_http` backs the AWS provider's STS calls (which need the
 /// SDK-constrained transport, see `tls::aws_http_client`). Pass a
 /// connection-scoped client so those calls honour the connection's TLS
-/// policy; `None` builds a default-TLS one, for callers with no connection
-/// context (the `wif_create_attestation` RPC). The other providers only use
+/// policy. `None` builds a default-TLS client from `roots`, or from a fresh
+/// [`RootStoreProvider`] when `roots` is `None`. The other providers only use
 /// `client`.
 pub(crate) async fn create_attestation(
     client: &reqwest::Client,
     aws_sdk_http: Option<&AwsSdkReqwestClient>,
     config: &WorkloadIdentityConfig,
-    roots: RootStoreProvider,
+    roots: Option<RootStoreProvider>,
 ) -> Result<Attestation, AttestationError> {
     // The AWS, Azure and GCP providers exchange authentication material over
     // the supplied clients (OIDC makes no request). Every caller now passes a
@@ -215,7 +228,8 @@ pub(crate) async fn create_attestation(
             let sdk_http = match aws_sdk_http {
                 Some(sdk_http) => sdk_http,
                 None => {
-                    default_sdk_http = AwsSdkReqwestClient::with_default_tls(roots.clone())
+                    let roots = roots.unwrap_or_default();
+                    default_sdk_http = AwsSdkReqwestClient::with_default_tls(roots)
                         .await
                         .context(aws::SdkHttpClientSnafu)
                         .context(AwsAttestationSnafu)?;
@@ -255,5 +269,34 @@ pub(crate) async fn create_attestation(
                 token,
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_aws_imds_base_url_reads_metadata_service_endpoint() {
+        temp_env::with_var(
+            crate::env_vars::AWS_EC2_METADATA_SERVICE_ENDPOINT,
+            Some("http://127.0.0.1:1"),
+            || {
+                assert_eq!(
+                    AttestationEndpoints::default().aws_imds_base_url,
+                    "http://127.0.0.1:1"
+                );
+            },
+        );
+        temp_env::with_var(
+            crate::env_vars::AWS_EC2_METADATA_SERVICE_ENDPOINT,
+            None::<&str>,
+            || {
+                assert_eq!(
+                    AttestationEndpoints::default().aws_imds_base_url,
+                    "http://169.254.169.254"
+                );
+            },
+        );
     }
 }

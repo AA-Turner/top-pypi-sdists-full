@@ -170,5 +170,6 @@ def ask_actions() -> list[AskAction]:
             _schema(comment={"type": "string"}),
             _comment_summary,
             _comment,
+            outward=True,
         ),
     ]

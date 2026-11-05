@@ -18,10 +18,12 @@ class CronAggregateBackfillTarget(int, metaclass=_enum_type_wrapper.EnumTypeWrap
     CRON_AGGREGATE_BACKFILL_TARGET_UNSPECIFIED: _ClassVar[CronAggregateBackfillTarget]
     CRON_AGGREGATE_BACKFILL_TARGET_ONLINE: _ClassVar[CronAggregateBackfillTarget]
     CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE: _ClassVar[CronAggregateBackfillTarget]
+    CRON_AGGREGATE_BACKFILL_TARGET_ONLINE_SUMMARIES: _ClassVar[CronAggregateBackfillTarget]
 
 CRON_AGGREGATE_BACKFILL_TARGET_UNSPECIFIED: CronAggregateBackfillTarget
 CRON_AGGREGATE_BACKFILL_TARGET_ONLINE: CronAggregateBackfillTarget
 CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE: CronAggregateBackfillTarget
+CRON_AGGREGATE_BACKFILL_TARGET_ONLINE_SUMMARIES: CronAggregateBackfillTarget
 
 class CronAggregateBackfill(_message.Message):
     __slots__ = (

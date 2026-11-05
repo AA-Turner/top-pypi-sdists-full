@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import dataclasses
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from pathlib import Path
 from typing import Any, Protocol, cast, overload
@@ -40,6 +41,7 @@ from mistralai.vibe.harness.app_server.session.models.content import (
 from mistralai.vibe.harness.runtime.completion import CompletionProvider
 from mistralai.vibe_agents.sdk.assembly import assemble
 from mistralai.vibe_agents.sdk.authoring.errors import (
+    InvalidCursorError,
     SdkError,
     UnsupportedSessionProcedureError,
     public_errors,
@@ -77,6 +79,7 @@ from mistralai.vibe_agents.sdk.transport import client_tools as client_tools_reg
 from mistralai.vibe_agents.sdk.transport import local
 from mistralai.vibe_agents.sdk.transport import remote as remote_transport
 from mistralai.vibe_agents.sdk.transport.client_tools import NO_CLIENT_TOOLS, ClientToolRegistry
+from mistralai.vibe_agents.sdk.transport.event_ids import _session_cursor
 from mistralai.vibe_agents.sessions_client import IdempotencyKey
 
 __all__ = [
@@ -90,9 +93,9 @@ __all__ = [
 
 
 def left_wait_note(session_id: str, turn_id: str) -> str:
-    """The note on a cancel that left a wait on the turn: the turn goes on, and how to stop it."""
+    """The note on a cancel that stopped a wait on the turn: the cancel did not stop the turn, and how to stop it."""
     return (
-        f"Left the wait: turn {turn_id} of session {session_id} goes on. To stop it: "
+        f"Stopped waiting for turn {turn_id} of session {session_id}. The cancel does not stop the turn. To stop it: "
         f"await agent.session({session_id!r}).turn({turn_id!r}).interrupt()"
     )
 
@@ -321,9 +324,10 @@ class Session:
     async def start_turn(self, content: UserContentLike, *, idempotency_key: str | None = None) -> Turn | Busy:
         """Start a new turn. Returns ``Busy``, with the running turn in ``busy.turn``, when one is active.
 
-        The ``idempotency_key`` names the start: the same key returns the turn that key started,
-        even with another message. A retry with a key refused with ``Busy`` starts a turn once the
-        running one ends. A start never joins a running turn, so ``turn.started`` is ``True``.
+        The same ``idempotency_key`` returns the turn that key started; reusing it for another
+        message raises ``agents.SessionIdempotencyConflictError`` while the session runs. A retry
+        with a key refused with ``Busy`` starts a turn once the running one ends. A start never
+        joins a running turn, so ``turn.started`` is ``True``.
 
         Raises ``SessionBusyError`` when the session cannot take a start for another reason, such
         as a limit on running subagents; nothing was applied.
@@ -340,7 +344,9 @@ class Session:
             except harness_session.SessionTurnActiveError as error:
                 # The refusal names the running turn: a read after it could find that turn ended.
                 return Busy(
-                    session_id=self.id, active_turn_id=error.active_turn_id, turn=Turn(self, error.active_turn_id)
+                    session_id=self.id,
+                    active_turn_id=error.active_turn_id,
+                    turn=host_named_turn(self, error.active_turn_id),
                 )
         return Turn(self, response.turn.id, started=True)
 
@@ -380,9 +386,10 @@ class Session:
 
         Returns ``Busy`` when another turn is active, and the turn's record otherwise. ``timeout``
         bounds the wait, not the start. Leaving the wait never stops the turn (see ``Turn.result``).
-        With ``on_event``, one read before the start gives the position the turn's events follow;
-        with ``idempotency_key`` too, they are read from the turn's start, as ``turn.result`` does,
-        since a retry can return a turn that started before that read.
+        With ``on_event``, one read before the start gives where the turn's events are read from:
+        the last turn's start, since the events that name no turn after its end are this turn's
+        too. With ``idempotency_key`` too, they are read as ``turn.result`` reads them, since a
+        retry can return a turn that started before that read.
         ``output_type`` validates the output of a ``Completed`` record (see ``Turn.result``);
         without it, the handle's Agent's ``output_type`` does, if it has one. With the handle's
         ``on_client_tool``, it raises what ``Turn.result`` raises for a client tool answer.
@@ -408,10 +415,10 @@ class Session:
         """``run``; the wait does not return on a call of ``client_tools``, which the caller answers."""
         start = None
         if on_event is not None and idempotency_key is None:
-            # The start's answer has no position before the turn's first event: read it first.
+            # The start's answer has no position before the turn's events: read one first.
             # A retry with a key can return a turn that started before that read: not then.
             async with self._connect() as raw:
-                start = (await _read_session(raw, self.id)).last_event_id
+                start = await _last_turn_start(raw, self.id)
         try:
             turn = await self.start_turn(content, idempotency_key=idempotency_key)
         except (asyncio.CancelledError, KeyboardInterrupt) as error:
@@ -439,7 +446,8 @@ class Session:
 
         Raises:
             ObservationLost: The session's events could not be read again; continue after its cursor.
-            ValueError: At the first iteration, ``after`` is a record of another session.
+            InvalidCursorError: At the first iteration, ``after`` is a record or a cursor of another session,
+                or a cursor that is not valid.
         """
         return _iter_events(self, after, turn_id=None)
 
@@ -527,12 +535,14 @@ class Turn:
     Get one with ``session.turn(turn_id)``, or from a send.
     """
 
-    __slots__ = ("_id", "_session", "_started")
+    __slots__ = ("_host_named", "_id", "_session", "_started")
 
     def __init__(self, session: Session, turn_id: str, *, started: bool | None = None) -> None:
         self._id = turn_id
         self._session = session
         self._started = started
+        # Set by ``host_named_turn``: the host named this turn in an answer, as a refused start does.
+        self._host_named = False
 
     @property
     def id(self) -> str:
@@ -560,16 +570,21 @@ class Turn:
         callback, such as an approval: ``Blocked.callbacks`` lists it with the subagent's ids.
         A turn of a session that ended
         is never ``Running``: when the host did not report how it ended, it ended with its session.
+        A turn a send returned is ``Running`` until the host lists it: a deployment answers the
+        send before it does.
 
         Raises:
-            TurnNotFoundError: The session has no turn with this id.
+            TurnNotFoundError: The session has no turn with this id. Never for a turn a send returned,
+                nor for ``busy.turn``.
         """
         return await self._get(None)
 
     async def _get(self, output_type: type[BaseModel] | None) -> TurnState[Any]:
         """``get``, parsing a ``Completed`` output with ``output_type`` when given one."""
         async with self._session._connect() as raw:
-            state = await read_turn(raw, self._session.id, self.id, tools=self._session._tools)
+            state = await read_turn(
+                raw, self._session.id, self.id, tools=self._session._tools, confirmed=self._confirmed()
+            )
         return self._typed(state, output_type)
 
     @overload
@@ -609,9 +624,10 @@ class Turn:
         a record of this session, or its ``cursor``, the same position. Without ``after``, a turn
         that waits on any callback returns at once. A subagent's callback blocks the turn as on
         ``get()``; the session's events do not order it, so the wait returns while one is open,
-        except one that a ``Blocked`` given as ``after`` lists. A cursor that is not one of the
-        session's raises only when the wait reads the session's events: a turn that already ended
-        returns its record without reading them.
+        except one that a ``Blocked`` given as ``after`` lists. A record or a cursor of another
+        session raises before any read. A cursor the session never had raises only when the wait
+        reads the session's events: a turn that already ended returns its record without reading
+        them.
 
         ``timeout`` is the time the SDK waits for the host, in seconds, its first read included; the
         time an ``on_approval`` or ``on_sign_in`` handler takes counts too. At the deadline, one more read returns
@@ -619,10 +635,11 @@ class Turn:
         lists: a timeout raises nothing, but a read that fails raises.
 
         ``on_event``, a plain or async function, gets the turn's events in order while the call
-        waits: from the turn's start, or after ``after``, up to the record returned, at the deadline
-        too. When the turn ended, the last is ``TurnEnded`` with that record. It sends no request of
-        its own; without ``after``, the events are read from the turn's start position the host
-        recorded, or, from a host that records none, from the session's start, within
+        waits: from the previous turn's end (the events that name no turn since then are this
+        turn's), or after ``after``, up to the record returned, at the deadline too. When the turn
+        ended, the last is ``TurnEnded`` with that record. It sends no request of its own; without
+        ``after``, the events are read from the previous turn's start position the host recorded,
+        or, for the first turn or from a host that records none, from the session's start, within
         ``timeout``. ``after`` is this turn's record, a record read before this turn started (such
         as the previous turn's result), or a position inside this turn: another turn's record read
         while this one ran would lose this turn's events that name no turn. The events are read up
@@ -630,22 +647,25 @@ class Turn:
         ``cursor`` is the position reached, so a next wait after it neither repeats nor misses an
         event. An error it raises ends the wait, and the deadline can cancel an async one mid-call.
 
-        Leaving the wait sends nothing to the host: the turn goes on. A cancel, such as
+        Leaving the wait sends nothing to the host: the turn does not stop. A cancel, such as
         ``asyncio.wait_for`` or Ctrl-C, gets a note with the ids and how to stop the turn.
 
         With ``output_type``, a Pydantic model, ``Completed.output`` is the turn's text
         validated as JSON into that model, as ``agent.run`` does, or ``InvalidOutput`` when it does
         not validate. It is ``None`` when the turn did not end ``"completed"``: it reached its
-        iteration limit, or a hook skipped it. This only parses the text: the model is asked for
+        iteration limit, a hook skipped it, a hook rejected its reply (``stop_reason``
+        ``"rejected"``), or the model's last reply stopped at the output token limit
+        (``"output_limit"``). This only parses the text: the model is asked for
         that format only when the Agent that runs the session sets ``output_type``. Without
         ``output_type``, the handle's Agent's ``output_type`` applies, if it has one.
 
         Raises:
             ObservationLost: The session's events, or its subagents' callbacks, could not be read;
                 the turn goes on.
-            TurnNotFoundError: The session has no turn with this id.
-            LocalSessionProcedureError: In-process, ``after`` is a cursor the session never had.
-            RemoteSessionConflictError: On a deployment, ``after`` is not a cursor.
+            TurnNotFoundError: The session has no turn with this id. Never for a turn a send
+                returned, nor for ``busy.turn``: until the host lists it, the wait follows its events.
+            InvalidCursorError: ``after`` is a record or a cursor of another session, or, while the turn
+                runs, a cursor that is not valid.
             ClientToolAnswerError: The handle's ``on_client_tool`` answered a call, and the answer
                 could not be sent; the call stays open.
             Exception: With ``tool_errors="raise"``, the exception a client tool answer raised; its
@@ -701,7 +721,11 @@ class Turn:
         start: str | None,
         client_tools: ClientToolRegistry,
     ) -> TurnState[str]:
-        _position(after, self._session.id)
+        cursor = _position(after, self._session.id)
+        if isinstance(after, str):
+            after = cursor
+        elif after is not None and cursor is not None and after.cursor != cursor:
+            after = dataclasses.replace(after, cursor=cursor)  # A cursor an earlier version gave.
         handler, on_sign_in = self._session._on_approval, self._session._on_sign_in
         approvals = None if handler is None and on_sign_in is None else Approvals(handler, on_sign_in=on_sign_in)
         transport = self._session._bind()
@@ -724,6 +748,7 @@ class Turn:
                     approvals=approvals,
                     tools=self._session._tools,
                     client_tools=client_tools,
+                    confirmed=self._confirmed(),
                 )
         except (asyncio.CancelledError, KeyboardInterrupt) as error:
             error.add_note(left_wait_note(self._session.id, self.id))
@@ -739,16 +764,25 @@ class Turn:
         a position at or after its end yields nothing, at once. Until the turn's ``TurnEnded``, it
         yields the events the session has, then the live ones, with no time limit: a turn that
         waits on an approval can send no event for hours. Never changes anything. It reads
-        the turn first (at least 2 requests). Without ``after``, it starts at the turn's start: it
-        reads from the position the host recorded there, or, from a host that records none, reads
-        the session's events from the session's start to find it.
+        the turn first (at least 2 requests). Without ``after``, it starts after the previous
+        turn's end: the events that name no turn since then are this turn's. It reads from the
+        previous turn's start position the host recorded, or, for the first turn or from a host
+        that records none, from the session's start.
 
         Raises:
             ObservationLost: The session's events could not be read again; continue after its cursor.
-            TurnNotFoundError: At the first iteration, the session has no turn with this id.
-            ValueError: At the first iteration, ``after`` is a record of another session.
+            TurnNotFoundError: At the first iteration, the session has no turn with this id. Never
+                for a turn a send returned, nor for ``busy.turn``.
+            InvalidCursorError: At the first iteration, ``after`` is a record or a cursor of another session,
+                or a cursor that is not valid.
         """
-        return _iter_events(self._session, after, turn_id=self.id)
+        return _iter_events(self._session, after, turn_id=self.id, confirmed=self._confirmed())
+
+    def _confirmed(self) -> bool:
+        """Whether the host confirmed this turn: a send returned the handle, or the host named the turn
+        in an answer. A deployment answers before its session read lists the turn, so a read that
+        does not list it says it runs."""
+        return self._started is not None or self._host_named
 
     def _typed(self, state: TurnState[str], output_type: type[BaseModel] | None) -> TurnState[Any]:
         model = output_type if output_type is not None else self._session._output_type
@@ -874,6 +908,15 @@ def checked_message(content: UserContentLike) -> list[harness_session.ContentBlo
     return blocks
 
 
+def host_named_turn(session: Session, turn_id: str) -> Turn:
+    """The handle of a turn the host named in an answer, such as the running turn of a refused start.
+    Its waits and reads take it as running until the session read lists it, as for a turn a send
+    returned; ``turn.started`` stays ``None``, since no send started or joined it."""
+    turn = Turn(session, turn_id)
+    turn._host_named = True
+    return turn
+
+
 def _send_started(receipt: harness_session.MessageSendResponse) -> bool:
     """Whether the send that gave ``receipt`` started its turn rather than joining the running one."""
     if receipt.steered is not None:
@@ -890,17 +933,24 @@ def _control_plane(deployment: remote_transport.RemoteAgentDeployment) -> str:
 
 
 def _position(after: TurnState[object] | str | None, session_id: str) -> str | None:
-    """The cursor of ``after``. A record of another session is refused before any request."""
-    if after is None or isinstance(after, str):
-        return after
+    """The cursor of ``after``. A record or a cursor of another session is refused before any request."""
+    if after is None:
+        return None
+    if isinstance(after, str):
+        return _session_cursor(after, session_id)
     if after.session_id != session_id:
-        raise ValueError(f"after= is a record of session {after.session_id}, not of {session_id}")
-    return after.cursor
+        raise InvalidCursorError(
+            f"after= is a record of session {after.session_id}, not of {session_id}: pass a record or a cursor "
+            "this session gave, or after=None",
+            cursor=after.cursor,
+        )
+    # A record an earlier version gave holds a cursor without the session id.
+    return _session_cursor(after.cursor, session_id)
 
 
 @public_iter_errors
 async def _iter_events(
-    session: Session, after: TurnState[object] | str | None, *, turn_id: str | None
+    session: Session, after: TurnState[object] | str | None, *, turn_id: str | None, confirmed: bool = False
 ) -> AsyncIterator[Event]:
     cursor = _position(after, session.id)
     if turn_id is not None and ended_record(after, turn_id):
@@ -910,21 +960,32 @@ async def _iter_events(
         active = active_turn_at(after, turn_id)
         state = None
         if turn_id is not None:
-            state, start = await read_turn_and_start(raw, session.id, turn_id, tools=session._tools)
+            state, start = await read_turn_and_start(
+                raw, session.id, turn_id, tools=session._tools, confirmed=confirmed
+            )
             if after is None and start is not None:
-                # The host recorded where the turn started: read from there, not the session's start.
+                # The host recorded where the previous turn started: read from there, not the session's start.
                 cursor = start
+            if after is not None and not isinstance(after, str) and active != turn_id:
+                # A record taken where the turn does not run, such as the previous turn's result: read
+                # from the previous turn's start, as without ``after``, and a loss names it. The
+                # notices since the previous turn's end are this turn's, those before the record too,
+                # and a cursor between the turns would not say that no turn runs there.
+                cursor = start
+                active = None
         ends = {} if turn_id is None or state is None or isinstance(state, Running | Blocked) else {turn_id: state}
         events = follow(
             raw,
             transport,
             session.id,
             after=cursor,
+            start=cursor,
             active_turn_id=active,
             active_known=not isinstance(after, str),
             tools=session._tools,
             turn_id=turn_id,
             ends=ends,
+            confirmed=confirmed,
         )
         if ends and state is not None:
             async for event in up_to_end(events, after=cursor, state=state):
@@ -938,6 +999,25 @@ async def _iter_events(
 
 async def _active_turn_id(raw: _RawSession, session_id: str) -> str | None:
     return (await _read_session(raw, session_id)).state.active_turn_id
+
+
+async def _last_turn_start(raw: _RawSession, session_id: str) -> str | None:
+    """The position the session's last turn started after.
+
+    ``None`` before its first turn, or when the host records no start: the turn's events are then
+    read from the session's start, as ``Turn.result`` reads them.
+    """
+    read = await raw.request(
+        "app_server/session/read",
+        harness_session.SessionReadParams(
+            session_id=session_id,
+            history=harness_session.PageRequest(limit=1),
+            turns=harness_session.PageRequest(limit=1, direction="backward"),
+        ),
+        harness_session.SessionReadResponse,
+    )
+    last = read.state.turns.items if read.state.turns is not None else []
+    return last[0].started_after_event_id if last else None
 
 
 @contextlib.contextmanager

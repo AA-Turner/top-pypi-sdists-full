@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # SPDX-FileCopyrightText: 2025 Felix Fontein <felix@fontein.de>
 
+version = 1
+
 [collection_sources]
 "ansible.posix" = "git+https://github.com/ansible-collections/ansible.posix.git,main"
 "community.crypto" = "git+https://github.com/ansible-collections/community.crypto.git,main"
@@ -13,6 +15,26 @@
 vcs = "git"
 development_branch = "main"
 stable_branches = [ "stable-*" ]
+
+[releaser]
+type = "zuul+github"
+zuul_base_url = "https://gateway-cloud-softwarefactory.apps.ocp.cloud.ci.centos.org/zuul/"
+zuul_tenant = "ansible"
+zuul_project_name = "ansible-collections/community.general"
+github_org = "ansible-collections"
+github_repo = "community.general"
+github_release_title = "{version}"
+github_release_body = "See {repository_url}/blob/{branch}/CHANGELOG.md for all changes."
+git_release_branch = "stable-13"
+git_tag_format = "{version}"
+git_sign_commits = true
+git_sign_tags = true
+git_release_commit_message = "Release {version}."
+git_release_tag_message = "{version}"
+git_prepare_commit_message = "Prepare {version}."
+git_sign_other_commits = false
+git_post_release_bump = "next-bugfix"
+git_post_release_commit_message = "The next release will be {new-version}."
 
 [sessions]
 
@@ -151,6 +173,7 @@ retry_on_error = "in-ci"
 "quay.io/ansible-community/test-image:debian-bookworm" = "Debian 12"
 "quay.io/ansible-community/test-image:debian-13-trixie" = "Debian 13"
 "quay.io/ansible-community/test-image:archlinux" = "Arch Linux"
+"quay.io/ansible-community/test-image:opensuse-leap-16.0" = "OpenSuSE Leap 16.0"
 "quay.io/ansible-community/test-image:opensuse-tumbleweed" = "OpenSuSE Tumbleweed"
 
 ##################################################################################################
@@ -202,7 +225,6 @@ ansible_core = "2.19"
 target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
 remote = [
     "rhel/10.1",
-    # "freebsd/14.2",
 ]
 
 # Ansible-core 2.20:
@@ -227,8 +249,8 @@ ansible_core = "2.20"
 target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
 remote = [
     "macos/15.3",
-    "rhel/10.1",
-    # "freebsd/14.3",
+    "rhel/10.2",
+    # "freebsd/14.5",
 ]
 
 # Ansible-core 2.21:
@@ -258,9 +280,9 @@ ansible_core = "2.21"
 target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
 remote = [
     # "macos/26.3",
-    "rhel/10.1",
-    # "rhel/9.7",
-    "freebsd/15.0",
+    # "rhel/10.2",
+    "rhel/9.8",
+    # "freebsd/15.1",
 ]
 
 # Ansible-core 2.22:
@@ -323,6 +345,12 @@ ansible_core = "devel"
 target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
 python_version = "3.13"
 docker = "quay.io/ansible-community/test-image:debian-13-trixie"
+
+[[sessions.ansible_test_integration.groups.sessions]]
+ansible_core = "devel"
+target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
+python_version = "3.13"
+docker = "quay.io/ansible-community/test-image:opensuse-leap-16.0"
 
 [[sessions.ansible_test_integration.groups.sessions]]
 ansible_core = "devel"

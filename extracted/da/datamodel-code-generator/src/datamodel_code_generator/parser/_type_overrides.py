@@ -22,15 +22,18 @@ from datamodel_code_generator._constraint_applicability import (
     untaken_minimums,
 )
 from datamodel_code_generator._model_keys import model_key_of
-from datamodel_code_generator._requirements import REQUIREMENTS
+from datamodel_code_generator._module_paths import dotted_name
+from datamodel_code_generator._requirements import REQUIREMENTS, python_target_meets
+from datamodel_code_generator._target_unicode import is_dotted_python_name
 from datamodel_code_generator.enums import _pydantic_version_key
 from datamodel_code_generator.imports import Import, _import_key, _import_path
-from datamodel_code_generator.model.base import ConstraintsBase
+from datamodel_code_generator.model.base import BaseClassDataType, ConstraintsBase
 from datamodel_code_generator.parser._passes._shared import (
     _TYPE_DEPENDENT_CONSTRAINTS_KEY,
     TypeOverrideHost,
     enum_site_override_import,
 )
+from datamodel_code_generator.python_literal import message_repr
 from datamodel_code_generator.types import _copy_data_type
 
 if TYPE_CHECKING:
@@ -57,6 +60,7 @@ __all__ = [
     "is_target_python_builtin_type",
     "mark_untaken_constraints",
     "override_annotation",
+    "override_spells_builtin",
     "python_type_data_type",
     "record_overridden_constraints",
     "reject_unavailable_imports",
@@ -229,6 +233,13 @@ def resolve_qualified_type_import(parser: TypeOverridesHost, qualified_name: str
     return _qualified_python_type_import(parser._get_target_python_type_path(qualified_name))  # noqa: SLF001
 
 
+def _registry_import(binding: object, version_key: tuple[int, int]) -> bool:
+    """Return whether what a bare name binds is the import of a type that the registry lists for the target."""
+    from datamodel_code_generator._python_type_import_registry import is_known_python_type_path  # noqa: PLC0415
+
+    return isinstance(binding, Import) and is_known_python_type_path(_import_path(binding), version_key)
+
+
 def bind_python_type(parser: TypeOverridesHost, expression: PythonTypeExpr) -> BoundPythonType:
     """Bind names/imports without returning to runtime-dependent text parsing.
 
@@ -238,6 +249,7 @@ def bind_python_type(parser: TypeOverridesHost, expression: PythonTypeExpr) -> B
     """
     # Binding is exclusive to x-python-type. Import it only after that
     # extension is present so ordinary schema generation keeps its fast path.
+    from datamodel_code_generator._python_target_names import target_stdlib_module_names  # noqa: PLC0415
     from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
         PythonTypeBoundName,
         PythonTypeExpr,
@@ -264,6 +276,33 @@ def bind_python_type(parser: TypeOverridesHost, expression: PythonTypeExpr) -> B
         imports.setdefault(import_, None)
         return import_, name
 
+    def resolve_name(name: str) -> Import | PythonTypeExpr | None:
+        """Return what a bare name binds: nothing for a builtin, else the registry's import or the schema's."""
+        if name not in resolved_name_imports:
+            try:
+                is_builtin = parser._is_target_python_builtin_type(name)  # noqa: SLF001
+                import_ = None if is_builtin else parser._resolve_type_import(name)  # noqa: SLF001
+            except Error:
+                if not (import_ := parser._resolve_type_import_from_defs(name)):  # noqa: SLF001
+                    raise
+                resolved_name_imports[name] = import_
+            else:
+                resolved_name_imports[name] = (
+                    None if is_builtin else import_ or parser._resolve_type_import_from_defs(name)  # noqa: SLF001
+                )
+        return resolved_name_imports[name]
+
+    def names_class(name: str) -> bool:
+        """Return whether a bare name binds a class that it imports.
+
+        A name of a standard-library module of the target stays that module, unless the schema imports a class by
+        that name, which the registry does not list.
+        """
+        version_key = parser.target_python_version.version_key
+        return isinstance(binding := resolve_name(name), Import | PythonTypeRuntimeSymbol) and (
+            name not in target_stdlib_module_names(version_key) or not _registry_import(binding, version_key)
+        )
+
     def bind_leaf(item: PythonTypeExpr) -> PythonTypeExpr:
         nonlocal resolving_names
         match item:
@@ -274,27 +313,15 @@ def bind_python_type(parser: TypeOverridesHost, expression: PythonTypeExpr) -> B
                 import_, _ = bind_import(Import(import_=module))
                 return PythonTypeRuntimeSymbol(import_.alias, item.qualname_parts) if import_.alias else item
             case PythonTypeName(value=name):
-                if name not in resolved_name_imports:
-                    try:
-                        is_builtin = parser._is_target_python_builtin_type(name)  # noqa: SLF001
-                        import_ = None if is_builtin else parser._resolve_type_import(name)  # noqa: SLF001
-                    except Error:
-                        if not (import_ := parser._resolve_type_import_from_defs(name)):  # noqa: SLF001
-                            raise
-                        resolved_name_imports[name] = import_
-                    else:
-                        resolved_name_imports[name] = (
-                            None if is_builtin else import_ or parser._resolve_type_import_from_defs(name)  # noqa: SLF001
-                        )
-                if isinstance(resolved := resolved_name_imports[name], PythonTypeExpr):
+                if isinstance(resolved := resolve_name(name), PythonTypeExpr):
                     if resolving_names is None:
                         resolving_names = set()
                     if name in resolving_names:
-                        msg = f"Cyclic x-python-import type expression involving {name!r}"
+                        msg = f"Cyclic x-python-import type expression involving {message_repr(name)}"
                         raise Error(msg)
                     resolving_names.add(name)
                     try:
-                        return rewrite_python_type_expr(read_literal_enum_members(resolved), bind_leaf)
+                        return rewrite_python_type_expr(read_literal_enum_members(resolved, names_class), bind_leaf)
                     finally:
                         resolving_names.remove(name)
                 if resolved:
@@ -302,7 +329,9 @@ def bind_python_type(parser: TypeOverridesHost, expression: PythonTypeExpr) -> B
                     return PythonTypeBoundName(bound_name, import_.from_, import_.import_)
         return item
 
-    return BoundPythonType(rewrite_python_type_expr(read_literal_enum_members(expression), bind_leaf), tuple(imports))
+    return BoundPythonType(
+        rewrite_python_type_expr(read_literal_enum_members(expression, names_class), bind_leaf), tuple(imports)
+    )
 
 
 def python_type_data_type(
@@ -321,22 +350,79 @@ def python_type_data_type(
     )
 
 
+def _override_expression(parser: TypeOverridesHost, path: str) -> PythonTypeExpr | None:
+    """Return the annotation a ``--type-overrides`` value spells, or None when it names a class to import.
+
+    A value that names no type, such as an empty one, is an error, and so is a value with brackets that is no
+    annotation, as neither has an import to write. A value without brackets names a class to import when it is a
+    dotted path, or a bare name that no builtin and no standard-library type of the registry has; a bare name that one
+    has, or a union of names such as ``str | None``, is an annotation. A name or a dotted path is read by the target's
+    identifier characters, which the parser of the Python that runs the generator may not know; the parser reads the
+    other values.
+    """
+    from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
+        PythonTypeName,
+        PythonTypeQualifiedName,
+    )
+
+    if "[" not in path and is_dotted_python_name(path, parser.target_python_version):
+        if "." in path or not (
+            parser._is_target_python_builtin_type(path)  # noqa: SLF001
+            or parser._resolve_type_import(path)  # noqa: SLF001
+        ):
+            return None
+        return PythonTypeName(path)
+    expression = _parse_override_annotation(path)
+    if expression is None and ("[" in path or _parse_override_annotation(path.strip()) is None):
+        msg = f"--type-overrides value {message_repr(path)} must be a valid Python type annotation"
+        raise Error(msg)
+    return None if expression is None or isinstance(expression, PythonTypeQualifiedName) else expression
+
+
 def override_annotation(
     parser: TypeOverridesHost, override_import: Import, *, is_optional: bool = False
 ) -> DataType | None:
     """Return the type a ``--type-overrides`` value spells as an annotation, or None when it names a class.
 
-    A value with brackets, such as ``typing.Literal[1, 2]``, names no class to import: it is written as
-    ``x-python-type`` writes it, with the imports of its names and the keywords that type takes. A value with
-    brackets that is no annotation is an error, as it has no import to write either.
+    A value that is an annotation, such as ``typing.Literal[1, 2]``, ``str`` or ``str | None``, names no class to
+    import: it is written as ``x-python-type`` writes it, with the imports of its names, none for a builtin, and the
+    keywords that type takes.
     """
-    path = _import_path(override_import)
-    if "[" not in path:
+    if (expression := _override_expression(parser, _import_path(override_import))) is None:
         return None
-    if (expression := _parse_override_annotation(path)) is None:
-        msg = f"--type-overrides value {path!r} must be a valid Python type annotation"
-        raise Error(msg)
     return python_type_data_type(parser, expression, is_optional=is_optional)
+
+
+def override_spells_builtin(override_import: Import | None, names: frozenset[str]) -> bool:
+    """Return whether a ``--type-overrides`` value spells one of the builtins ``names``, alone or unioned with ``None``.
+
+    ``bytes``, ``builtins.bytes``, ``bytes | None``, ``None | bytes``, ``typing.Optional[bytes]`` and
+    ``Union[bytes, None]`` spell ``bytes``. A union of two builtins, ``bytes | Decimal``, ``list[bytes]`` and a class
+    path such as ``module.bytes`` spell none.
+    """
+    from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
+        PythonTypeName,
+        PythonTypeQualifiedName,
+        is_union_python_type_expr,
+        python_type_expr_arguments,
+    )
+
+    if override_import is None or (expression := _parse_override_annotation(_import_path(override_import))) is None:
+        return False
+    spelled: set[str] = set()
+    pending = [expression]
+    while pending:
+        member = pending.pop()
+        if is_union_python_type_expr(member):
+            pending.extend(python_type_expr_arguments(member))
+        elif isinstance(member, PythonTypeName):
+            spelled.add(member.value)
+        elif isinstance(member, PythonTypeQualifiedName) and member.parts[:-1] == ("builtins",):
+            spelled.add(member.parts[-1])
+        else:
+            return False
+    spelled.discard("None")
+    return len(spelled) == 1 and spelled <= names
 
 
 def apply_override_to_field(parser: TypeOverridesHost, field: DataModelFieldBase, override_import: Import) -> None:
@@ -470,15 +556,71 @@ def mark_untaken_constraints(
     )
 
 
+def _is_class_name(annotation: DataType) -> bool:
+    """Return whether an override annotation is a bare class name, such as ``str`` or ``Decimal``, but not ``None``."""
+    from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
+        PythonTypeBoundName,
+        PythonTypeName,
+    )
+
+    return (
+        annotation.python_type is not None
+        and isinstance(expression := annotation.python_type.expression, PythonTypeName | PythonTypeBoundName)
+        and expression.value != "None"
+    )
+
+
+def _base_class_refusal(parser: TypeOverridesHost, override_import: Import, annotation: DataType | None) -> str | None:
+    """Return why an override cannot replace a base class, or None when it names a class.
+
+    A class path names a class, and so does an annotation that is a bare class name (``_is_class_name``);
+    ``typing.Any``, by its path or as ``Any``, is a class only on a target that can subclass it.
+    """
+    from datamodel_code_generator._python_type_annotation import (  # noqa: PLC0415
+        PythonTypeBoundName,
+        PythonTypeName,
+    )
+
+    path = _import_path(override_import)
+    if annotation is not None:
+        if annotation.python_type is None or not _is_class_name(annotation):
+            return "is no class"
+        expression = annotation.python_type.expression
+        path = (
+            dotted_name(expression.import_from, expression.import_name)
+            if isinstance(expression, PythonTypeBoundName)
+            else expression.value
+            if isinstance(expression, PythonTypeName)
+            else path
+        )
+    if path == "typing.Any" and not python_target_meets(
+        "python.subclass_any", parser.target_python_version.version_key
+    ):
+        return f"is no class before Python {REQUIREMENTS['python.subclass_any'].minimum}"
+    return None
+
+
 def apply_override_to_data_type(parser: TypeOverridesHost, data_type: DataType) -> bool:
-    """Recursively apply model-level overrides to a DataType; a stand-in takes the import it stands for first."""
+    """Recursively apply model-level overrides to a DataType; a stand-in takes the import it stands for first.
+
+    A base class takes a class: a class path, or an annotation that is a bare class name such as ``str`` or
+    ``Decimal``. Any other annotation, such as ``typing.Literal[1, 2]``, ``list[int]``, ``str | None`` or ``None``, is
+    no class, and replacing a base class with it is an error.
+    """
     overridden = False
     if (reference := data_type.reference) and (
         override_import := parser._base_stand_in_imports.get(model_key_of(reference))  # noqa: SLF001
         or parser._model_type_override_imports.get(reference.name)  # noqa: SLF001
         or enum_site_override_import(parser, reference)
     ):
-        if (annotation := parser._override_annotation(override_import)) is None:  # noqa: SLF001
+        annotation = parser._override_annotation(override_import)  # noqa: SLF001
+        if isinstance(data_type, BaseClassDataType) and (
+            refusal := _base_class_refusal(parser, override_import, annotation)
+        ):
+            name, value = message_repr(reference.name), message_repr(_import_path(override_import))
+            msg = f"--type-overrides {name}: {value} {refusal}, so it cannot replace {reference.name} as a base class"
+            raise Error(msg)
+        if annotation is None:
             parser._graph_builder.override_type_import(data_type, override_import)  # noqa: SLF001
             parser._graph_builder.name_reference(data_type, override_import.binding_name)  # noqa: SLF001
             parser._graph_builder.detach_data_type_ref(data_type)  # noqa: SLF001

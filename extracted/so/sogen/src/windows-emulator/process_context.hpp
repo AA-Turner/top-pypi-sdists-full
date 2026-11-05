@@ -205,14 +205,18 @@ namespace sogen
             emulator_pointer guest_obj_addr{};
             EMU_WNDCLASSEX wnd_class{};
             CLSMENUNAME<EmulatorTraits<Emu64>> menu_name{};
+            bool ansi_proc{};
+            uint16_t atom{};
 
             class_entry() = default;
 
             class_entry(const emulator_pointer guest_obj, const EMU_WNDCLASSEX& wnd_class,
-                        const CLSMENUNAME<EmulatorTraits<Emu64>>& menu_name)
+                        const CLSMENUNAME<EmulatorTraits<Emu64>>& menu_name, const uint16_t atom, const bool ansi_proc = false)
                 : guest_obj_addr(guest_obj),
                   wnd_class(wnd_class),
-                  menu_name(menu_name)
+                  menu_name(menu_name),
+                  ansi_proc(ansi_proc),
+                  atom(atom)
             {
             }
         };
@@ -498,6 +502,7 @@ namespace sogen
         std::map<uint32_t, gdi_bitmap_surface> gdi_bitmap_surfaces{};
         std::map<uint32_t, EMU_LOGFONTW> gdi_fonts{};
         std::map<uint32_t, std::vector<RECT>> gdi_regions{};
+        std::map<uint32_t, std::vector<EMU_PALETTEENTRY>> gdi_palettes{};
         // Persistent per-top-level-window paint surface; child controls composite into it at their offset.
         std::map<uint32_t, gdi_bitmap_surface> gdi_window_surfaces{};
         dxgk_state dxgk{};

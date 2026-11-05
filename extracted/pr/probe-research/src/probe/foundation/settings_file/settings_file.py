@@ -33,6 +33,10 @@ class SettingsUnreadable(ValueError):
     """settings.json exists but is not a settings file this version reads: readers fall back to live homes."""
 
 
+class SettingsTooNew(SettingsUnreadable):
+    """settings.json is a newer Probe's (a higher `version`): never set aside or rewritten by this one."""
+
+
 @dataclass(frozen=True)
 class Claim:
     """An applier working on `revision`: the process (pid + kernel start time) and since when."""
@@ -133,16 +137,20 @@ def parse_text(text: str) -> SettingsDoc:
         raw = json.loads(text)
     except ValueError as exc:
         raise SettingsUnreadable(f"settings.json is not JSON: {exc}") from None
-    if not isinstance(raw, dict) or raw.get("version") != SCHEMA_VERSION or not isinstance(raw.get("settings"), dict):
+    version = raw.get("version") if isinstance(raw, dict) else None
+    if isinstance(version, int) and version > SCHEMA_VERSION:
+        raise SettingsTooNew(f"settings.json is version {version}, newer than this Probe reads; update Probe")
+    if not isinstance(raw, dict) or version != SCHEMA_VERSION or not isinstance(raw.get("settings"), dict):
         raise SettingsUnreadable("settings.json is not a version 1 settings file")
     doc = SettingsDoc()
     for name, record in raw["settings"].items():
         try:
             key = SettingKey(name)
-        except ValueError:
-            doc.unknown[name] = record  # a newer writer's setting: written back untouched
-            continue
-        doc.settings[key] = _parse_record(key, record)
+            doc.settings[key] = _parse_record(key, record)
+        except (ValueError, SettingsUnreadable):
+            # A newer writer's setting, or one record this version cannot read: written back untouched (a
+            # publish of that setting replaces it), never a reason to set the whole file aside.
+            doc.unknown[name] = record
     return doc
 
 
@@ -160,16 +168,21 @@ class SettingsFile:
             text = self.path.read_text(encoding="utf-8")
         except FileNotFoundError:
             return SettingsDoc()
+        except UnicodeDecodeError as exc:
+            raise SettingsUnreadable(f"settings.json is not text: {exc}") from None  # set aside, as the app does
         return parse_text(text)
 
     def publish(self, key: SettingKey, value: Any, *, by: SetBy, context: str | None = None,
-                account_id: str | None = None, then: Callable[[Setting], None] | None = None) -> Setting:
+                account_id: str | None = None, then: Callable[[Setting], None] | None = None,
+                is_claimed: bool = False, is_merged: bool = False) -> Setting:
         """A new choice: the next revision, its value, who and when. `then` runs inside the same locked
-        step after the file is written (transcripts off drops its markers there). Returns the record."""
+        step after the file is written (transcripts off drops its markers there). `is_claimed`: this process
+        applies it itself, claimed in the same step, so no keeper takes it meanwhile. `is_merged`: a per-agent value
+        names only the agents it changes, merged into the newest value under the lock. Returns the record."""
         with self._hold_document() as doc:
             record = doc.get(key)
             record.revision += 1
-            record.value = value
+            record.value = {**(record.value or {}), **value} if is_merged and isinstance(value, dict) else value
             record.by = SetBy(by).value
             record.at = get_now_iso()
             if key is SettingKey.WORKSPACE:
@@ -178,6 +191,9 @@ class SettingsFile:
                 record.log.append(LogEntry(record.revision, value, record.by, record.at))
             if record.error is not None and record.error.revision < record.revision:
                 record.error = None  # a new choice replaces the old one's failure
+            if is_claimed:
+                pid = os.getpid()
+                record.claim = Claim(record.revision, pid, procid.start_time(pid) or "", record.at)
             doc.settings[key] = record
             self._write(doc)
             if then is not None:
@@ -224,6 +240,15 @@ class SettingsFile:
             self._write(doc)
             return claim.revision == record.revision
 
+    def release(self, key: SettingKey, claim: Claim) -> None:
+        """Give `claim` back without a result: the choice stays pending for the next applier (the keeper)."""
+        with self._hold_document() as doc:
+            record = doc.get(key)
+            if record.claim is not None and (record.claim.pid, record.claim.start) == (claim.pid, claim.start):
+                record.claim = None
+                doc.settings[key] = record
+                self._write(doc)
+
     def adopt(self, key: SettingKey, value: Any) -> Setting:
         """A live home an older Probe copy changed directly: its value becomes the newest choice, already applied."""
         with self._hold_document() as doc:
@@ -263,6 +288,8 @@ class SettingsFile:
         with file_lock(self.lock_path):
             try:
                 doc = self.load()
+            except SettingsTooNew:
+                raise  # a newer Probe's file: this one writes nothing over it
             except SettingsUnreadable:
                 # Kept for a look, never lost; the live homes still hold every value (`seed` refills them).
                 os.replace(self.path, self.path.with_name(FILE_NAME + UNREADABLE_SUFFIX))

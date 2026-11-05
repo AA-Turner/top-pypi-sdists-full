@@ -55,6 +55,7 @@ echo "GeoAlchemy2 Test Container"
 echo ""
 echo 'run tests with `tox --workdir /output -v run`'
 echo 'run only a specific job, e.g. `py310-sqlalatest`, with `tox --workdir /output -v run -e py310-sqlalatest`'
+echo 'run the PyPy job with `tox --workdir /output -v run -e pypy3-sqlalatest`'
 echo "MSSQL defaults: server=${MSSQL_HOST} db=${MSSQL_TEST_DB} user=${MSSQL_TEST_LOGIN} password=${MSSQL_TEST_PASSWORD}"
 echo "CockroachDB defaults: server=${COCKROACH_HOST}:${COCKROACH_PORT} db=${COCKROACH_DATABASE} user=${COCKROACH_USER}"
 echo "###############################"
@@ -69,7 +70,7 @@ done
 cd /geoalchemy2
 
 # remove links that would cause issues if they are present and read-only
-rm -f .mypy_cache .eggs *.egg-info .git .gitignore doc reports
+rm -rf .mypy_cache .ruff_cache .pytest_cache .eggs *.egg-info .git .gitignore doc reports
 
 # copy these items instead of symlinking
 cp -r /geoalchemy2_read_only/doc /geoalchemy2/doc
@@ -88,6 +89,7 @@ git add --all
 git commit -m "dummy commit" > /dev/null
 
 export MYPY_CACHE_DIR=/output/.mypy_cache
+export RUFF_CACHE_DIR=/output/.ruff_cache
 
 ###############################
 

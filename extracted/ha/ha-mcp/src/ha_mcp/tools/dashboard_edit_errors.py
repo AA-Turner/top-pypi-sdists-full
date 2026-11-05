@@ -7,8 +7,14 @@ from typing import Any, NoReturn
 
 from ha_mcp._vendor.fastmcp.exceptions import ToolError
 
+from ..client.rest_client import HomeAssistantAuthError
 from ..errors import ErrorCode, create_error_response, get_error_code, get_error_message
-from .helpers import extract_tool_error_message, raise_tool_error
+from .dashboard_read_errors import CONFIG_NOT_FOUND_CODE
+from .helpers import (
+    exception_to_structured_error,
+    extract_tool_error_message,
+    raise_tool_error,
+)
 
 _MODE_SUGGESTIONS = [
     "Use a storage-mode dashboard created through the Home Assistant UI or API",
@@ -105,6 +111,29 @@ def raise_dashboard_edit_error(
     )
 
 
+def raise_dashboard_edit_unsent(
+    exc: Exception, url_path: str | None, action: str, reason: str
+) -> NoReturn:
+    """Raise for an edit that failed before anything was sent; a token rejected
+    on connect (the error itself or its ``__cause__``) is reported as that auth
+    error instead of under the code ``reason`` maps to. That includes a token
+    rejected on this call's capability probe; a probe failure cached by an
+    earlier call arrives without a cause and keeps ``reason``'s code."""
+    auth = exc if isinstance(exc, HomeAssistantAuthError) else exc.__cause__
+    if isinstance(auth, HomeAssistantAuthError):
+        exception_to_structured_error(
+            auth,
+            context={
+                "action": action,
+                "url_path": url_path,
+                "reason": reason,
+                "write_committed": False,
+                "post_write_verified": False,
+            },
+        )
+    raise_dashboard_edit_error(url_path, reason, str(exc), False, action)
+
+
 def raise_dashboard_edit_fetch_error(
     exc: ToolError, url_path: str, action: str
 ) -> NoReturn:
@@ -115,7 +144,7 @@ def raise_dashboard_edit_fetch_error(
         data = None
     reason = (
         "not_found"
-        if isinstance(data, dict) and data.get("ha_error_code") == "config_not_found"
+        if isinstance(data, dict) and data.get("ha_error_code") == CONFIG_NOT_FOUND_CODE
         else "load_failed"
     )
     raise_dashboard_edit_error(
@@ -137,7 +166,7 @@ def raise_known_dashboard_save_rejection(
     message = get_error_message(response) or "Dashboard save rejected"
     if code in {"unauthorized", "invalid_format"}:
         raise_dashboard_edit_error(url_path, code, message, False, action)
-    if code == "config_not_found":
+    if code == CONFIG_NOT_FOUND_CODE:
         raise_dashboard_edit_error(url_path, "not_found", message, False, action)
     if code == "error" and message.removeprefix("Command failed: ") == "Not supported":
         raise_dashboard_edit_error(

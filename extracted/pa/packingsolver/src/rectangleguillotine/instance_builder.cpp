@@ -1,7 +1,12 @@
 #include "packingsolver/rectangleguillotine/instance_builder.hpp"
 
+#include "rectangleguillotine/block.hpp"
+#include "rectangleguillotine/instance_cache.hpp"
+
 #include "optimizationtools/utils/utils.hpp"
 #include "optimizationtools/containers/indexed_set.hpp"
+
+#include <algorithm>
 
 using namespace packingsolver;
 using namespace packingsolver::rectangleguillotine;
@@ -396,10 +401,21 @@ void InstanceBuilder::add_resource_consumption(
     bin_type.resources[resource_id].item_consumptions.push_back({item_type_id, schedule});
 }
 
-BinTypeId InstanceBuilder::add_bin_type(
-        const Instance& original_instance,
+const Instance& InstanceBuilder::original_instance() const
+{
+    if (original_instance_ == nullptr) {
+        throw std::logic_error(
+                FUNC_SIGNATURE + ": "
+                "the original instance must be set with "
+                "'set_original_instance'.");
+    }
+    return *original_instance_;
+}
+
+BinTypeId InstanceBuilder::add_bin_type_from_original_instance(
         BinTypeId original_bin_type_id)
 {
+    const Instance& original_instance = this->original_instance();
     const BinType& bin_type = original_instance.bin_type(original_bin_type_id);
     BinTypeId bin_type_id = add_bin_type(
             bin_type.rect.w,
@@ -441,6 +457,67 @@ BinTypeId InstanceBuilder::add_bin_type(
                 resource.penalty);
     }
     return bin_type_id;
+}
+
+void InstanceBuilder::crop_bin_type(
+        BinTypeId bin_type_id,
+        Length width,
+        Length height)
+{
+    if (bin_type_id < 0 || bin_type_id >= instance_.bin_types_.size()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "invalid 'bin_type_id'; "
+                "bin_type_id: " + std::to_string(bin_type_id) + "; "
+                "instance_.bin_types_.size(): " + std::to_string(instance_.bin_types_.size()) + ".");
+    }
+
+    BinType& bin_type = instance_.bin_types_[bin_type_id];
+    if (width <= 0 || width > bin_type.rect.w) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "requires '0 < width <= w'; "
+                "width: " + std::to_string(width) + "; "
+                "w: " + std::to_string(bin_type.rect.w) + ".");
+    }
+    if (height <= 0 || height > bin_type.rect.h) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "requires '0 < height <= h'; "
+                "height: " + std::to_string(height) + "; "
+                "h: " + std::to_string(bin_type.rect.h) + ".");
+    }
+
+    // Trims.
+    Length right_trim = (std::max)(
+            Length(0),
+            bin_type.right_trim - (bin_type.rect.w - width));
+    Length top_trim = (std::max)(
+            Length(0),
+            bin_type.top_trim - (bin_type.rect.h - height));
+    bin_type.rect.w = width;
+    bin_type.rect.h = height;
+    add_trims(
+            bin_type_id,
+            bin_type.left_trim,
+            bin_type.left_trim_type,
+            right_trim,
+            bin_type.right_trim_type,
+            bin_type.bottom_trim,
+            bin_type.bottom_trim_type,
+            top_trim,
+            bin_type.top_trim_type);
+
+    // Defects.
+    std::vector<Defect> defects;
+    for (Defect defect: bin_type.defects) {
+        if (defect.left() >= width || defect.bottom() >= height)
+            continue;
+        defect.rect.w = (std::min)(defect.right(), width) - defect.left();
+        defect.rect.h = (std::min)(defect.top(), height) - defect.bottom();
+        defects.push_back(defect);
+    }
+    bin_type.defects = defects;
 }
 
 void InstanceBuilder::set_bin_type_copies(
@@ -559,8 +636,7 @@ void InstanceBuilder::set_bin_types_unweighted()
 ItemTypeId InstanceBuilder::add_item_type(
         Length width,
         Length height,
-        bool oriented,
-        StackId stack_id)
+        bool oriented)
 {
     if (width <= 0) {
         throw std::invalid_argument(
@@ -581,22 +657,22 @@ ItemTypeId InstanceBuilder::add_item_type(
     item_type.profit = width * height;
     item_type.copies = 1;
     item_type.copies_min = -1;
-    item_type.stack_id = stack_id;
+    item_type.stack_id = -1;
     item_type.oriented = oriented;
     instance_.item_types_.push_back(item_type);
     return instance_.item_types_.size() - 1;
 }
 
-ItemTypeId InstanceBuilder::add_item_type(
-        const Instance& original_instance,
+ItemTypeId InstanceBuilder::add_item_type_from_original_instance(
         ItemTypeId original_item_type_id)
 {
+    const Instance& original_instance = this->original_instance();
     const ItemType& item_type = original_instance.item_type(original_item_type_id);
     ItemTypeId item_type_id = add_item_type(
             item_type.rect.w,
             item_type.rect.h,
-            item_type.oriented,
-            item_type.stack_id);
+            item_type.oriented);
+    set_item_type_stack_id(item_type_id, item_type.stack_id);
     if ((ItemTypeId)orig_to_sub_item_type_ids_.size() <= original_item_type_id)
         orig_to_sub_item_type_ids_.resize(original_item_type_id + 1, -1);
     orig_to_sub_item_type_ids_[original_item_type_id] = item_type_id;
@@ -604,7 +680,7 @@ ItemTypeId InstanceBuilder::add_item_type(
     set_item_type_copies(item_type_id, item_type.copies);
     // Copy the consumption of this item type for the resources of
     // already-added bin types. Assumes the relevant bin types have already
-    // been added via 'add_bin_type(original_instance, ...)'.
+    // been added via 'add_bin_type_from_original_instance'.
     for (BinTypeId original_bin_type_id = 0;
             original_bin_type_id < (BinTypeId)orig_to_sub_bin_type_ids_.size();
             ++original_bin_type_id) {
@@ -639,6 +715,21 @@ void InstanceBuilder::set_item_type_profit(
     }
 
     instance_.item_types_[item_type_id].profit = profit;
+}
+
+void InstanceBuilder::set_item_type_stack_id(
+        ItemTypeId item_type_id,
+        StackId stack_id)
+{
+    if (item_type_id < 0 || item_type_id >= (ItemTypeId)instance_.item_types_.size()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "invalid 'item_type_id'; "
+                "item_type_id: " + std::to_string(item_type_id) + "; "
+                "instance_.item_types_.size(): " + std::to_string(instance_.item_types_.size()) + ".");
+    }
+
+    instance_.item_types_[item_type_id].stack_id = stack_id;
 }
 
 void InstanceBuilder::set_item_type_copies(
@@ -1065,8 +1156,8 @@ void InstanceBuilder::read_item_types(
         ItemTypeId item_type_id = add_item_type(
                 w,
                 h,
-                oriented,
-                stack_id);
+                oriented);
+        set_item_type_stack_id(item_type_id, stack_id);
         set_item_type_profit(item_type_id, profit);
         set_item_type_copies(item_type_id, copies);
         set_item_type_copies_min(item_type_id, copies_min);
@@ -1261,7 +1352,8 @@ void InstanceBuilder::read(
         Length height = json_item_type["height"];
         bool oriented = json_item_type.value("oriented", false);
         StackId stack_id = json_item_type.value("stack_id", (StackId)-1);
-        ItemTypeId item_type_id = add_item_type(width, height, oriented, stack_id);
+        ItemTypeId item_type_id = add_item_type(width, height, oriented);
+        set_item_type_stack_id(item_type_id, stack_id);
         if (json_item_type.contains("profit"))
             set_item_type_profit(item_type_id, json_item_type["profit"]);
         if (json_item_type.contains("copies"))
@@ -1624,5 +1716,154 @@ Instance InstanceBuilder::build()
             instance_.item_types_[fixed_item.item_type_id].copies_fixed += bin_type.copies;
     }
 
+    instance_.blocks_cache_ = std::make_shared<BlocksCache>();
+    if (original_instance_ != nullptr)
+        copy_cache_from_original_instance();
+
     return std::move(instance_);
+}
+
+void InstanceBuilder::copy_cache_from_original_instance()
+{
+    const Instance& original_instance = *original_instance_;
+
+    // Only the blocks already computed are copied, without waiting for a
+    // computation in progress in another thread.
+    std::unique_lock<std::mutex> original_lock(
+            original_instance.blocks_cache_->mutex,
+            std::try_to_lock);
+    if (original_lock.owns_lock() && original_instance.blocks_cache_->computed) {
+        const std::vector<std::vector<Block>>& original_instance_blocks
+            = original_instance.blocks_cache_->blocks;
+        // The blocks are only valid with the same cut thickness, if all the
+        // bin types come from the original instance, and if the bins are not
+        // larger than the original ones.
+        bool valid = (instance_.parameters().cut_thickness
+                == original_instance.parameters().cut_thickness);
+
+        std::vector<BinTypeId> sub_to_orig_bin_type_ids(instance_.number_of_bin_types(), -1);
+        for (BinTypeId original_bin_type_id = 0;
+                original_bin_type_id < (BinTypeId)orig_to_sub_bin_type_ids_.size();
+                ++original_bin_type_id) {
+            BinTypeId bin_type_id = orig_to_sub_bin_type_ids_[original_bin_type_id];
+            if (bin_type_id != -1)
+                sub_to_orig_bin_type_ids[bin_type_id] = original_bin_type_id;
+        }
+        for (BinTypeId bin_type_id = 0;
+                bin_type_id < instance_.number_of_bin_types();
+                ++bin_type_id) {
+            BinTypeId original_bin_type_id = sub_to_orig_bin_type_ids[bin_type_id];
+            if (original_bin_type_id == -1) {
+                valid = false;
+                break;
+            }
+            const BinType& bin_type = instance_.bin_type(bin_type_id);
+            const BinType& original_bin_type = original_instance.bin_type(original_bin_type_id);
+            if (bin_type.rect.w > original_bin_type.rect.w
+                    || bin_type.rect.h > original_bin_type.rect.h) {
+                valid = false;
+                break;
+            }
+        }
+
+        if (valid) {
+            // The blocks of an item type are kept if it comes from the
+            // original instance with the same dimensions and orientation.
+            // The other item types are new: only their simple blocks are
+            // added.
+            std::vector<ItemTypeId> orig_to_sub_item_type_ids(
+                    original_instance.number_of_item_types(),
+                    -1);
+            std::vector<bool> new_item_type(instance_.number_of_item_types(), true);
+            for (ItemTypeId original_item_type_id = 0;
+                    original_item_type_id < (ItemTypeId)orig_to_sub_item_type_ids_.size();
+                    ++original_item_type_id) {
+                ItemTypeId item_type_id = orig_to_sub_item_type_ids_[original_item_type_id];
+                if (item_type_id == -1)
+                    continue;
+                const ItemType& item_type = instance_.item_type(item_type_id);
+                const ItemType& original_item_type = original_instance.item_type(original_item_type_id);
+                if (item_type.rect.w != original_item_type.rect.w
+                        || item_type.rect.h != original_item_type.rect.h
+                        || item_type.oriented != original_item_type.oriented) {
+                    continue;
+                }
+                orig_to_sub_item_type_ids[original_item_type_id] = item_type_id;
+                new_item_type[item_type_id] = false;
+            }
+
+            // With at most 3 item types, 'compute_blocks' only keeps the
+            // blocks without waste.
+            bool only_full_blocks = (instance_.number_of_item_types() <= 3);
+            std::vector<std::vector<Block>> blocks(instance_.number_of_bin_types());
+            for (BinTypeId bin_type_id = 0;
+                    bin_type_id < instance_.number_of_bin_types();
+                    ++bin_type_id) {
+                const BinType& bin_type = instance_.bin_type(bin_type_id);
+                const std::vector<Block>& original_blocks
+                    = original_instance_blocks[sub_to_orig_bin_type_ids[bin_type_id]];
+                // Keep the blocks which fit in the bin and whose items are
+                // available in the sub-instance. A combined block is only kept
+                // if its two children are, so that the children of a block are
+                // still before it.
+                std::vector<ItemPos> orig_to_sub_block_ids(original_blocks.size(), -1);
+                for (ItemPos original_block_id = 0;
+                        original_block_id < (ItemPos)original_blocks.size();
+                        ++original_block_id) {
+                    const Block& original_block = original_blocks[original_block_id];
+                    if (original_block.rect.w > bin_type.rect.w
+                            || original_block.rect.h > bin_type.rect.h) {
+                        continue;
+                    }
+                    if (only_full_blocks && original_block.fill_rate() != 1.0)
+                        continue;
+                    if (!original_block.is_simple
+                            && (orig_to_sub_block_ids[original_block.child_1_id] == -1
+                                || orig_to_sub_block_ids[original_block.child_2_id] == -1)) {
+                        continue;
+                    }
+                    Block block = original_block;
+                    bool available = true;
+                    for (std::pair<ItemTypeId, ItemPos>& item_copy: block.item_copies) {
+                        item_copy.first = orig_to_sub_item_type_ids[item_copy.first];
+                        if (item_copy.first == -1
+                                || item_copy.second > instance_.item_type(item_copy.first).copies) {
+                            available = false;
+                            break;
+                        }
+                    }
+                    if (!available)
+                        continue;
+                    std::sort(block.item_copies.begin(), block.item_copies.end());
+                    if (block.is_simple) {
+                        block.item_type_id = block.item_copies.front().first;
+                        block.item_profit = block.number_of_items
+                            * instance_.item_type(block.item_type_id).profit;
+                    } else {
+                        block.child_1_id = orig_to_sub_block_ids[original_block.child_1_id];
+                        block.child_2_id = orig_to_sub_block_ids[original_block.child_2_id];
+                        block.item_profit = blocks[bin_type_id][block.child_1_id].item_profit
+                            + blocks[bin_type_id][block.child_2_id].item_profit;
+                    }
+                    orig_to_sub_block_ids[original_block_id] = (ItemPos)blocks[bin_type_id].size();
+                    blocks[bin_type_id].push_back(std::move(block));
+                }
+
+                // Simple blocks of the new item types.
+                for (ItemTypeId item_type_id = 0;
+                        item_type_id < instance_.number_of_item_types();
+                        ++item_type_id) {
+                    if (!new_item_type[item_type_id])
+                        continue;
+                    for (Block& block: compute_simple_blocks(instance_, bin_type_id, item_type_id)) {
+                        if (only_full_blocks && block.fill_rate() != 1.0)
+                            continue;
+                        blocks[bin_type_id].push_back(std::move(block));
+                    }
+                }
+            }
+            instance_.blocks_cache_->blocks = std::move(blocks);
+            instance_.blocks_cache_->computed = true;
+        }
+    }
 }

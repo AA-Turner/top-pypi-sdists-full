@@ -43,14 +43,6 @@ impl TlsVersion {
         }
     }
 
-    #[cfg(not(feature = "fips"))]
-    pub(crate) fn to_reqwest(self) -> reqwest::tls::Version {
-        match self {
-            Self::Tls12 => reqwest::tls::Version::TLS_1_2,
-            Self::Tls13 => reqwest::tls::Version::TLS_1_3,
-        }
-    }
-
     pub(crate) fn to_rustls(self) -> &'static rustls::SupportedProtocolVersion {
         match self {
             Self::Tls12 => &rustls::version::TLS12,

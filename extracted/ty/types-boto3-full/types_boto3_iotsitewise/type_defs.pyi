@@ -1391,6 +1391,7 @@ class ExportJobSummaryTypeDef(TypedDict):
     status: DatasetExportJobStatusType
     startedAt: datetime
     destinationS3Uri: str
+    jobName: NotRequired[str]
     completedAt: NotRequired[datetime]
 
 class FormatSettingsTypeDef(TypedDict):
@@ -3943,6 +3944,7 @@ DescribeDatasetExportJobResponseTypeDef = TypedDict(
     {
         "jobId": str,
         "workspaceName": str,
+        "jobName": str,
         "status": DatasetExportJobStatusType,
         "startedAt": datetime,
         "completedAt": datetime,
@@ -4102,6 +4104,7 @@ CreateDatasetExportJobRequestTypeDef = TypedDict(
         "input": ProcessingInputUnionTypeDef,
         "errorReportLocation": ExportErrorReportLocationTypeDef,
         "clientToken": NotRequired[str],
+        "jobName": NotRequired[str],
     },
 )
 FileUnionTypeDef = Union[FileTypeDef, FileOutputTypeDef]

@@ -38,8 +38,8 @@ def build_workflow(
     preflight.require_worker_sandbox_config(resolved_harness)
     deployment.use_mistral_api_url()
     deployment.enable_default_payload_compression()
-    # Every deployed worker calls the Agents API with its own credential, so each Session can run
-    # subagents under the policy its start input carries. A Session without one runs none.
+    # Every deployed worker calls the Agents API with its own credential, so when the agent serves
+    # subagents each Session runs them under the policy its start input carries. A Session without one runs none.
     session_control_plane = WorkflowSessionControlPlaneBinding.from_worker_credential()
     # The builder defaults to the control-plane session workflow, the only class vibe_agents can
     # dispatch to: it sends SessionWorkflowStartInput and a submit_command signal.

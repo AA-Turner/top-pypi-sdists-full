@@ -1,9 +1,7 @@
-use std::{fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash, sync::LazyLock};
 
 use enumset::{EnumSet, EnumSetType, enum_set};
 use memchr::{memchr, memmem::find};
-use nom::Parser;
-use start_sequence::StartSequence;
 use variant_struct::VariantStruct;
 
 #[cfg(doc)]
@@ -12,9 +10,11 @@ use super::{
 	scope::Scope,
 };
 
-use super::{Input, error::ParseError, node::inline::link};
-
-mod start_sequence;
+use super::{
+	Input,
+	node::inline::{code, code_block, emoji, link, mention, timestamp},
+	util::ByteSet,
+};
 
 /// One way of writing markup, which a caller can enable or disable on its own.
 ///
@@ -249,20 +249,93 @@ impl Syntax {
 		Self::Small,
 	];
 
-	/// A parser for whatever begins this syntax. Running text stops wherever an allowed syntax
-	/// could begin, so that its parser gets a chance there.
+	/// Whether `input` begins with whatever begins this syntax. Running text stops wherever an
+	/// allowed syntax could begin, so that its parser gets a chance there.
 	///
-	/// Fails for syntax with no such opener: modifiers, which the inline parser records as
+	/// False for syntax with no such opener: modifiers, which the inline parser records as
 	/// delimiters instead, unicode emoji, which text checks for itself, and block syntax, which
 	/// only begins a line.
 	#[must_use]
-	pub fn start_sequence<'data, E>(
-		self,
-	) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-	where
-		E: ParseError<'data>,
-	{
-		StartSequence(self, PhantomData)
+	pub fn starts_at(self, input: &Input) -> bool {
+		match self {
+			Self::MaskedLink => input.as_bytes().first() == Some(&link::masked::TEXT_OPENER),
+			Self::DetectedLink => link::detection::starts_at(input),
+			_ => self
+				.opener()
+				.is_some_and(|opener| input.starts_with(opener)),
+		}
+	}
+
+	/// The syntaxes whose parser can match at an input beginning with `byte`.
+	///
+	/// Every parser of a syntax that [`Self::starts_at`] gates begins by consuming what it checks,
+	/// so the others cannot match here. Unicode emoji and block syntax have no such gate, so they
+	/// are always included.
+	#[must_use]
+	pub fn may_parse_at(byte: u8) -> SyntaxSet {
+		Self::starting_with(byte) | Self::INLINE.complement() | Self::UnicodeEmoji
+	}
+
+	/// The syntaxes that [`Self::starts_at`] can accept at an input beginning with `byte`.
+	#[must_use]
+	pub fn starting_with(byte: u8) -> SyntaxSet {
+		static STARTING_WITH: LazyLock<[SyntaxSet; 256]> = LazyLock::new(|| {
+			let mut table = [SyntaxSet::empty(); 256];
+			for syntax in SyntaxSet::all() {
+				let mut bytes = ByteSet::default();
+				syntax.insert_first_bytes(&mut bytes);
+				for byte in bytes.iter() {
+					table[usize::from(byte)] |= syntax;
+				}
+			}
+			table
+		});
+
+		STARTING_WITH[usize::from(byte)]
+	}
+
+	/// Add every byte that can begin this syntax, by [`Self::starts_at`], to `bytes`.
+	pub fn insert_first_bytes(self, bytes: &mut ByteSet) {
+		match self {
+			Self::MaskedLink => bytes.insert(link::masked::TEXT_OPENER),
+			Self::DetectedLink => link::detection::insert_first_bytes(bytes),
+			_ => bytes.extend(self.opener().and_then(|opener| opener.bytes().next())),
+		}
+	}
+
+	/// The one fixed sequence that begins this syntax, for the syntax that has one.
+	fn opener(self) -> Option<&'static str> {
+		Some(match self {
+			Self::CustomEmoji => emoji::custom::OPEN_DELIMITER,
+			Self::ColonEmoji => emoji::colon_delimited::DELIMITER,
+			Self::AutoLink | Self::ContactLink => link::auto::OPEN_DELIMITER,
+			Self::UserMention => mention::USER_MENTION_OPEN_DELIMITER,
+			Self::ChannelMention => mention::CHANNEL_MENTION_OPEN_DELIMITER,
+			Self::RoleMention => mention::ROLE_MENTION_OPEN_DELIMITER,
+			Self::GameMention => mention::GAME_MENTION_OPEN_DELIMITER,
+			Self::CommandMention => mention::command::OPEN_DELIMITER,
+			Self::EveryoneMention => mention::EVERYONE,
+			Self::HereMention => mention::HERE,
+			Self::StaticMention => mention::r#static::PREFIX,
+			Self::Timestamp => timestamp::OPEN_DELIMITER,
+			Self::CodeBlock => code_block::DELIMITER,
+			Self::Code => code::SINGLE_DELIMITER,
+			Self::DoubleCode => code::DOUBLE_DELIMITER,
+			Self::MaskedLink
+			| Self::DetectedLink
+			| Self::UnicodeEmoji
+			| Self::Bold
+			| Self::AsteriskItalic
+			| Self::UnderscoreItalic
+			| Self::Underline
+			| Self::Strikethrough
+			| Self::Spoiler
+			| Self::Heading
+			| Self::List
+			| Self::Quote
+			| Self::MultilineQuote
+			| Self::Small => return None,
+		})
 	}
 
 	/// Compute a precheck hint for this syntax given the remaining input.

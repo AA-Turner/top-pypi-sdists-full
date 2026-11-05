@@ -17,7 +17,8 @@ from typing_extensions import assert_type
 
 import jsonpatch
 from jsonpatch import (InvalidJsonPatch, JsonPatch, JsonPatchConflict,
-                       JsonPatchException, JsonPatchTestFailed,
+                       JsonPatchException, JsonPatchPathNotFound,
+                       JsonPatchTestFailed,
                        PatchOperation)
 
 doc = {'foo': 'bar'}
@@ -26,6 +27,7 @@ ops = [{'op': 'add', 'path': '/baz', 'value': 'qux'}]
 # module-level functions
 assert_type(jsonpatch.apply_patch(doc, ops), Any)
 assert_type(jsonpatch.apply_patch(doc, ops, in_place=True), Any)
+assert_type(jsonpatch.apply_patch(doc, ops, in_place=True, atomic=True), Any)
 assert_type(jsonpatch.apply_patch(doc, json.dumps(ops)), Any)
 assert_type(jsonpatch.apply_patch(doc, json.dumps(ops).encode()), Any)
 assert_type(jsonpatch.make_patch(doc, {}), JsonPatch)
@@ -39,6 +41,7 @@ jsonpatch.apply_patch(doc, str_ops)
 patch = JsonPatch(ops)
 JsonPatch(op for op in ops)
 assert_type(patch.apply(doc), Any)
+assert_type(patch.apply(doc, in_place=True, atomic=True), Any)
 assert_type(patch.to_string(), str)
 assert_type(patch.to_string(dumps=json.dumps), str)
 assert_type(bool(patch), bool)
@@ -85,6 +88,11 @@ except (InvalidJsonPatch, JsonPatchConflict, JsonPatchTestFailed) as ex:
     assert_type(ex, InvalidJsonPatch | JsonPatchConflict | JsonPatchTestFailed)
     failed = ex.op
 JsonPatchException('message', op=None)
+try:
+    patch.apply(doc)
+except JsonPatchPathNotFound as ex:
+    assert_type(ex, JsonPatchPathNotFound)
+    conflict: JsonPatchConflict = ex
 
 # names that jsonpatch re-exports from jsonpointer
 try:

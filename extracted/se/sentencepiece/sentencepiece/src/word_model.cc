@@ -14,8 +14,7 @@
 
 #include "word_model.h"
 
-#include "third_party/absl/strings/string_view.h"
-#include "util.h"
+#include "absl/strings/string_view.h"
 
 namespace sentencepiece {
 namespace word {
@@ -25,7 +24,7 @@ Model::Model(const ModelProto& model_proto) {
   InitializePieces(/* use_reserved_id_map= */ true);
 }
 
-Model::~Model() {}
+Model::~Model() = default;
 
 EncodeResult Model::Encode(absl::string_view normalized) const {
   if (!status().ok() || normalized.empty()) {
@@ -34,7 +33,9 @@ EncodeResult Model::Encode(absl::string_view normalized) const {
 
   EncodeResult output;
   for (const auto& w : SplitIntoWords(normalized)) {
-    output.emplace_back(w, PieceToId(w));
+    const int id = PieceToIdNoReserved(w);
+    output.emplace_back(w,
+                        (id != unk_id_ && IsUnusedInlined(id)) ? unk_id_ : id);
   }
 
   return output;

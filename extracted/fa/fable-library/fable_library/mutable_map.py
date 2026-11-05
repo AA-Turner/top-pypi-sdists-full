@@ -22,7 +22,7 @@ from .types import FSharpRef as FSharpRef_1
 from .util import UNIT, Disposable, Unit, dispose, equals, get_enumerator, ignore, nullable, to_enumerable
 
 
-def _expr16(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr12(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return class_type("Fable.Collections.Dictionary", Array([gen0, gen1]), Dictionary)
 
 
@@ -128,13 +128,13 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
     def System_Collections_Generic_IDictionary_2_get_Keys(self, __unit: Unit = UNIT) -> ICollection[KEY]:
         this: Dictionary[Any, Any] = self
 
-        def _arrow13(__unit: Unit = UNIT) -> IEnumerable_1[KEY]:
-            def _arrow12(pair: Any) -> KEY:
+        def _arrow9(__unit: Unit = UNIT) -> IEnumerable_1[KEY]:
+            def _arrow8(pair: Any) -> KEY:
                 return pair[0]
 
-            return map(_arrow12, this)
+            return map(_arrow8, this)
 
-        return Array[Any](delay(_arrow13))
+        return Array[Any](delay(_arrow9))
 
     def System_Collections_Generic_IDictionary_2_Remove2B595(self, key: KEY = UNIT) -> bool:
         this: Dictionary[Any, Any] = self
@@ -154,13 +154,13 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
     def System_Collections_Generic_IDictionary_2_get_Values(self, __unit: Unit = UNIT) -> ICollection[VALUE]:
         this: Dictionary[Any, Any] = self
 
-        def _arrow15(__unit: Unit = UNIT) -> IEnumerable_1[VALUE]:
-            def _arrow14(pair: Any) -> VALUE:
+        def _arrow11(__unit: Unit = UNIT) -> IEnumerable_1[VALUE]:
+            def _arrow10(pair: Any) -> VALUE:
                 return pair[1]
 
-            return map(_arrow14, this)
+            return map(_arrow10, this)
 
-        return Array[Any](delay(_arrow15))
+        return Array[Any](delay(_arrow11))
 
     def get_item(self, key: KEY = UNIT) -> VALUE:
         this: Dictionary[Any, Any] = self
@@ -207,7 +207,7 @@ class Dictionary[KEY, VALUE](MutableMapping[Any, Any], Mapping[Any, Any], Enumer
         self.Remove(key)
 
 
-Dictionary_reflection = _expr16
+Dictionary_reflection = _expr12
 
 
 def Dictionary__ctor_6623D9B3[KEY, VALUE](
@@ -221,20 +221,20 @@ def Dictionary__TryFindIndex_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: 
     match_value: tuple[bool, list[Any]]
     out_arg: list[Any] = cast(list[Any], None)
 
-    def _arrow17(__unit: Unit = UNIT) -> list[Any]:
+    def _arrow13(__unit: Unit = UNIT) -> list[Any]:
         return out_arg
 
-    def _arrow18(v: list[Any]) -> None:
+    def _arrow14(v: list[Any]) -> None:
         nonlocal out_arg
         out_arg = v
 
-    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow17, _arrow18)), out_arg)
+    match_value = (try_get_value(this.hash_map, h, FSharpRef(_arrow13, _arrow14)), out_arg)
     if match_value[0]:
 
-        def _arrow19(pair: Any, this: Any = this, k: Any = k) -> bool:
+        def _arrow15(pair: Any, this: Any = this, k: Any = k) -> bool:
             return this.comparer.Equals(k, pair[0])
 
-        return (True, h, find_index(_arrow19, match_value[1]))
+        return (True, h, find_index(_arrow15, match_value[1]))
 
     else:
         return (False, h, -1)

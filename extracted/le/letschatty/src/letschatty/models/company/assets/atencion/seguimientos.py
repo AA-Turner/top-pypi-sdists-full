@@ -220,7 +220,8 @@ class SiVuelve(BaseModel):
 # Las claves del documento viejo (hasta 0.4.562). Las nuevas, para saber si un documento ya viene
 # con la forma combinable.
 _CLAVES_VIEJAS = frozenset({"que", "target_funnel_id", "target_stage_id"})
-_CLAVES_NUEVAS = frozenset({"etiquetas", "archivar", "dejar_esperando", "mover_a", "si_vuelve", "despues_de_minutos"})
+_CLAVES_NUEVAS = frozenset({"etiquetas", "archivar", "dejar_esperando", "mover_a", "si_vuelve", "despues_de_minutos",
+                            "workflow_ids"})
 
 #: El cierre sale 24 h después del último paso, salvo que el bloque diga otra cosa (`AlTerminar.despues_de_minutos`).
 ESPERA_DEL_CIERRE_POR_DEFECTO_MINUTOS = 24 * 60
@@ -234,7 +235,8 @@ class AlTerminar(BaseModel):
     - **Siempre (del sistema, no es un campo):** el chat pasa a «Sin respuesta»
       (`Chat.seguimiento_estado`) y se registra la etapa del funnel en la que se cayó.
     - **Además, combinables:** etiquetar (agregar/sacar), archivar, dejar esperando (sacarle el
-      agente), crear un pendiente (`pendiente_titulo`), mover a una etapa (`mover_a`).
+      agente), crear un pendiente (`pendiente_titulo`), mover a una etapa (`mover_a`) y, desde 0.6.57,
+      enganchar workflows (`workflow_ids`; como en `AccionesFijas`: uno que ya estaba no se duplica).
     - **Si vuelve a escribir** (`si_vuelve`): vuelve a la etapa donde estaba (default), va a una etapa
       fija o pasa de nuevo por el flujo; y opcionalmente se le sacan las etiquetas del cierre.
 
@@ -268,6 +270,10 @@ class AlTerminar(BaseModel):
             "Minutos hasta pasar a «Sin respuesta»: desde el último paso, o sin pasos desde la entrada. "
             "None = 24 h después del último paso."
         ),
+    )
+    workflow_ids: list[StrObjectId] = Field(
+        default_factory=list,
+        description="Workflows (de la empresa) que se enganchan al chat al pasar a «Sin respuesta»",
     )
 
     @model_validator(mode="before")
@@ -312,6 +318,8 @@ class AlTerminar(BaseModel):
     def validar(self) -> "AlTerminar":
         if self.archivar and self.dejar_esperando:
             raise ValueError("Archivar y dejar esperando no van juntos: el chat termina en un solo lugar")
+        if len(set(self.workflow_ids)) != len(self.workflow_ids):
+            raise ValueError("Hay un workflow repetido")
         return self
 
     @property
@@ -319,6 +327,7 @@ class AlTerminar(BaseModel):
         """¿Hace algo además de pasar a «Sin respuesta»?"""
         return bool(
             not self.etiquetas.vacio or self.archivar or self.dejar_esperando or self.pendiente_titulo or self.mover_a
+            or self.workflow_ids
         )
 
 

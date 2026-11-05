@@ -56,3 +56,13 @@ def per_hour(v: Any) -> str:
 def whole(v: Any) -> str:
     """A plan's monthly fee or its monthly credit: whole dollars (`$20`)."""
     return f"${Decimal(repr(float(v or 0))).quantize(_DOLLAR, rounding=ROUND_HALF_UP):,}"
+
+
+def cents(v: Any) -> str:
+    """An amount the database already keeps to the cent - a period's spend (period_spent_usd), a monthly figure: two
+    decimals, always. money() shows below $1 to four places, which on a cent-rounded value is false precision (and read
+    against an un-rounded figure like free credit used, the two looked inconsistent).
+"""
+    x = float(v or 0)
+    sign, a = ("-" if x < 0 else ""), abs(x)
+    return f"{sign}${Decimal(repr(a)).quantize(_CENT, rounding=ROUND_HALF_UP):,}"

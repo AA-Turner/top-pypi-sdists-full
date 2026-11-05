@@ -197,6 +197,123 @@ class TestSplitQuery(unittest.TestCase):
         self.assertIn('"my-db"', stmts[0].statement)
 
 
+class TestRedshiftSplitQuery(unittest.TestCase):
+    """split_query must send Redshift statements as typed (no sqlglot re-rendering)."""
+
+    def _split(self, query):
+        from sagemaker_studio.sql_engine.redshift_transformer import RedshiftTransformer
+
+        return RedshiftTransformer.split_query(query)
+
+    def test_iceberg_create_table_preserved(self):
+        query = (
+            "CREATE TABLE awsdatacatalog.sample_db.t1 (id int, name varchar) "
+            "USING ICEBERG LOCATION 's3://b/t1/' PARTITIONED BY (id)"
+        )
+        stmts = self._split(query)
+        self.assertEqual(len(stmts), 1)
+        self.assertEqual(stmts[0].statement, query)
+        self.assertEqual(stmts[0].statement_type, "CREATE")
+
+    def test_iceberg_ctas_preserved(self):
+        query = (
+            "CREATE TABLE awsdatacatalog.sample_db.t2 USING ICEBERG "
+            "LOCATION 's3://b/t2/' AS SELECT 1 AS id"
+        )
+        stmts = self._split(query)
+        self.assertEqual([s.statement for s in stmts], [query])
+
+    def test_s3_tables_catalog_preserved(self):
+        query = 'CREATE TABLE "bkt@s3tablescatalog".ns.t (id int) USING ICEBERG'
+        stmts = self._split(query)
+        self.assertEqual([s.statement for s in stmts], [query])
+
+    def test_multi_statement_split_on_real_semicolons_only(self):
+        query = (
+            "select 'a;b' as x;\n"
+            "-- note; not a boundary\n"
+            "CREATE TABLE s.t (id int) USING ICEBERG LOCATION 's3://b/t/';"
+        )
+        stmts = self._split(query)
+        self.assertEqual(
+            [s.statement for s in stmts],
+            [
+                "select 'a;b' as x",
+                "-- note; not a boundary\n"
+                "CREATE TABLE s.t (id int) USING ICEBERG LOCATION 's3://b/t/'",
+            ],
+        )
+        self.assertEqual([s.statement_type for s in stmts], ["SELECT", "CREATE"])
+
+    def test_dollar_quoted_procedure_body_not_split(self):
+        proc = (
+            "CREATE OR REPLACE PROCEDURE p() AS $$ BEGIN RAISE INFO 'x'; END; $$ "
+            "LANGUAGE plpgsql"
+        )
+        stmts = self._split(f"{proc}; CALL p()")
+        self.assertEqual([s.statement for s in stmts], [proc, "CALL p()"])
+
+    def test_named_bind_parameter_preserved(self):
+        stmts = self._split("SELECT * FROM t WHERE id = :id")
+        self.assertEqual(stmts[0].statement, "SELECT * FROM t WHERE id = :id")
+
+    def test_comment_only_and_empty_chunks_skipped(self):
+        stmts = self._split("SELECT 1;; -- trailing comment")
+        self.assertEqual([s.statement for s in stmts], ["SELECT 1"])
+
+    def test_unparseable_statement_sent_as_unknown(self):
+        stmts = self._split("SELECT (; SELECT 1")
+        self.assertEqual(
+            [(s.statement, s.statement_type) for s in stmts],
+            [("SELECT (", "UNKNOWN"), ("SELECT 1", "SELECT")],
+        )
+
+    def test_tokenizer_failure_falls_back_to_semicolon_split(self):
+        # Unterminated string literal makes the tokenizer raise.
+        stmts = self._split("SELECT 'abc; SELECT 2")
+        self.assertEqual(
+            [(s.statement, s.statement_type) for s in stmts],
+            [("SELECT 'abc", "UNKNOWN"), ("SELECT 2", "UNKNOWN")],
+        )
+
+    def test_external_schema_iceberg_preserved(self):
+        query = (
+            "CREATE TABLE ext_schema.t (id int, name varchar) USING ICEBERG "
+            "LOCATION 's3://b/t/' PARTITIONED BY (id)"
+        )
+        self.assertEqual([s.statement for s in self._split(query)], [query])
+
+
+class TestAthenaSplitQuery(unittest.TestCase):
+    """split_query must send Athena DDL byte-for-byte as typed."""
+
+    def _split(self, query):
+        from sagemaker_studio.sql_engine.athena_transformer import AthenaTransformer
+
+        return AthenaTransformer.split_query(query)
+
+    def test_iceberg_create_table_preserved(self):
+        query = (
+            "CREATE TABLE db.t (id int, name string, ts timestamp) "
+            "PARTITIONED BY (day(ts), bucket(16, id)) LOCATION 's3://b/t/' "
+            "TBLPROPERTIES ('table_type'='ICEBERG')"
+        )
+        self.assertEqual([s.statement for s in self._split(query)], [query])
+
+    def test_iceberg_ctas_preserved(self):
+        query = (
+            "CREATE TABLE db.t2 WITH (table_type='ICEBERG', is_external=false, "
+            "location='s3://b/t2/') AS SELECT 1 AS id"
+        )
+        self.assertEqual([s.statement for s in self._split(query)], [query])
+
+    def test_hive_external_table_preserved(self):
+        query = "CREATE EXTERNAL TABLE db.h (a string) STORED AS PARQUET LOCATION 's3://b/h/'"
+        stmts = self._split(query)
+        self.assertEqual([s.statement for s in stmts], [query])
+        self.assertEqual(stmts[0].statement_type, "CREATE")
+
+
 class TestGetExecutionMetadata(unittest.TestCase):
     """Base class get_execution_metadata returns None."""
 

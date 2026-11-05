@@ -1,15 +1,14 @@
 Metadata-Version: 2.1
 Name: airbyte-source-salesforce
-Version: 2.10.4
+Version: 2.10.5
 Summary: Source implementation for Salesforce.
 Home-page: https://airbyte.com
 License: ELv2
 Author: Airbyte
 Author-email: contact@airbyte.io
-Requires-Python: >=3.10,<3.14
+Requires-Python: >=3.11,<3.14
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13

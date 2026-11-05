@@ -636,6 +636,141 @@ def test_cfn_nested_stack_fails_a_list_parameter(cfn, s3):
         s3.delete_bucket(Bucket=name)
 
 
+# The account that owns the bucket in the cross-account S3 tests. The stacks run in the default test account.
+_S3_OWNER_ACCOUNT = "222233334444"
+
+
+def _zip_bytes(files):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for name, text in files.items():
+            z.writestr(name, text)
+    return buf.getvalue()
+
+
+@pytest.fixture
+def cross_account_bucket(sts):
+    """A bucket in another account, with the files and policy of the AWS run (us-east-1, 2026-11-03). Its policy
+    lets the test account read the keys under allowed/, but not the keys under denied/. Yields the bucket and
+    its files."""
+    endpoint = os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566")
+    owner = boto3.client("s3", endpoint_url=endpoint, region_name="us-east-1",
+                         aws_access_key_id=_S3_OWNER_ACCOUNT, aws_secret_access_key="test")
+    bucket = f"cfn-xacct-{_uuid_mod.uuid4().hex[:12]}"
+    account = sts.get_caller_identity()["Account"]
+    template = b"Resources:\n  Handle:\n    Type: AWS::CloudFormation::WaitConditionHandle\n"
+    files = {
+        "root.yaml": template,
+        "nested.yaml": template,
+        "definition.json": b'{"StartAt": "P", "States": {"P": {"Type": "Pass", "End": true}}}',
+        "function.zip": _zip_bytes({"index.py": "def handler(event, context):\n    return event\n"}),
+        "layer.zip": _zip_bytes({"python/proof_layer.py": "VALUE = 1\n"}),
+    }
+    keys = [f"{prefix}/{name}" for prefix in ("allowed", "denied") for name in files]
+    owner.create_bucket(Bucket=bucket)
+    try:
+        owner.put_bucket_policy(Bucket=bucket, Policy=json.dumps({"Version": "2012-10-17", "Statement": [{
+            "Effect": "Allow", "Principal": {"AWS": f"arn:aws:iam::{account}:root"}, "Action": "s3:GetObject",
+            "Resource": f"arn:aws:s3:::{bucket}/allowed/*"}]}))
+        for key in keys:
+            owner.put_object(Bucket=bucket, Key=key, Body=files[key.split("/", 1)[1]])
+        yield bucket, files
+    finally:
+        for key in keys:
+            owner.delete_object(Bucket=bucket, Key=key)
+        owner.delete_bucket(Bucket=bucket)
+        owner.close()
+
+
+def _cross_account_stack_source(sts, bucket, prefix, case):
+    """The CreateStack template argument of one case: a TemplateURL for root, else a body with one resource
+    that reads its file from the bucket, as in the AWS run."""
+    url = f"https://s3.amazonaws.com/{bucket}/{prefix}"
+    if case == "root":
+        return {"TemplateURL": f"{url}/root.yaml"}
+    role = f"arn:aws:iam::{sts.get_caller_identity()['Account']}:role/r"
+    resources = {
+        "nested": {"Child": {"Type": "AWS::CloudFormation::Stack", "Properties": {
+            "TemplateURL": f"{url}/nested.yaml"}}},
+        "sfn": {"Machine": {"Type": "AWS::StepFunctions::StateMachine", "Properties": {
+            "RoleArn": role, "DefinitionS3Location": {"Bucket": bucket, "Key": f"{prefix}/definition.json"}}}},
+        "function": {"Function": {"Type": "AWS::Lambda::Function", "Properties": {
+            "Runtime": "python3.12", "Handler": "index.handler", "Role": role,
+            "Code": {"S3Bucket": bucket, "S3Key": f"{prefix}/function.zip"}}}},
+        "layer": {"Layer": {"Type": "AWS::Lambda::LayerVersion", "Properties": {
+            "CompatibleRuntimes": ["python3.12"], "Content": {"S3Bucket": bucket, "S3Key": f"{prefix}/layer.zip"}}}},
+    }
+    return {"TemplateBody": json.dumps({"Resources": resources[case]})}
+
+
+@pytest.mark.auth_contract
+@pytest.mark.parametrize("case", ["root", "nested", "sfn"])
+def test_cfn_reads_a_template_or_definition_in_another_accounts_bucket_when_its_policy_allows(
+        cfn, sts, cross_account_bucket, case):
+    """As observed on AWS: a TemplateURL, a nested stack TemplateURL and a DefinitionS3Location in another
+    account's bucket work when the bucket policy lets the stack's account read them."""
+    bucket, _ = cross_account_bucket
+    name = f"cfn-xacct-{case}-{_uuid_mod.uuid4().hex[:8]}"
+    try:
+        cfn.create_stack(StackName=name, DisableRollback=True,
+                         **_cross_account_stack_source(sts, bucket, "allowed", case))
+        assert _wait_stack(cfn, name)["StackStatus"] == "CREATE_COMPLETE"
+    finally:
+        _delete_cfn_test_stack(cfn, name)
+
+
+@pytest.mark.auth_contract
+@pytest.mark.parametrize("case", ["function", "layer"])
+def test_cfn_reads_lambda_code_in_another_accounts_bucket_when_its_policy_allows(
+        cfn, lam, sts, cross_account_bucket, case):
+    """As observed on AWS: a Lambda function or layer gets the whole zip from another account's bucket when the
+    bucket policy lets the stack's account read it."""
+    bucket, files = cross_account_bucket
+    name = f"cfn-xacct-{case}-{_uuid_mod.uuid4().hex[:8]}"
+    try:
+        cfn.create_stack(StackName=name, DisableRollback=True,
+                         **_cross_account_stack_source(sts, bucket, "allowed", case))
+        assert _wait_stack(cfn, name)["StackStatus"] == "CREATE_COMPLETE"
+        physical = cfn.describe_stack_resources(StackName=name)["StackResources"][0]["PhysicalResourceId"]
+        if case == "function":
+            size = lam.get_function(FunctionName=physical)["Configuration"]["CodeSize"]
+        else:
+            size = lam.get_layer_version_by_arn(Arn=physical)["Content"]["CodeSize"]
+        assert size == len(files[f"{case}.zip"])
+    finally:
+        _delete_cfn_test_stack(cfn, name)
+
+
+@pytest.mark.auth_contract
+def test_cfn_template_url_in_another_accounts_bucket_needs_its_policy(cfn, cross_account_bucket):
+    """As observed on AWS: CreateStack fails with ValidationError when the bucket policy does not let the stack's
+    account read the template."""
+    bucket, _ = cross_account_bucket
+    name = f"cfn-xacct-root-denied-{_uuid_mod.uuid4().hex[:8]}"
+    try:
+        with pytest.raises(ClientError) as exc:
+            cfn.create_stack(StackName=name, DisableRollback=True,
+                             TemplateURL=f"https://s3.amazonaws.com/{bucket}/denied/root.yaml")
+        assert exc.value.response["Error"]["Code"] == "ValidationError"
+    finally:
+        _delete_cfn_test_stack(cfn, name)
+
+
+@pytest.mark.auth_contract
+@pytest.mark.parametrize("case", ["nested", "sfn"])
+def test_cfn_resource_file_in_another_accounts_bucket_needs_its_policy(cfn, sts, cross_account_bucket, case):
+    """As observed on AWS: a nested stack or a state machine fails to create when the bucket policy does not let
+    the stack's account read its file."""
+    bucket, _ = cross_account_bucket
+    name = f"cfn-xacct-{case}-denied-{_uuid_mod.uuid4().hex[:8]}"
+    try:
+        cfn.create_stack(StackName=name, DisableRollback=True,
+                         **_cross_account_stack_source(sts, bucket, "denied", case))
+        assert _wait_stack(cfn, name)["StackStatus"] == "CREATE_FAILED"
+    finally:
+        _delete_cfn_test_stack(cfn, name)
+
+
 _E2E_STACK = "e2e-test"
 
 _E2E_TEMPLATE = """
@@ -3173,6 +3308,79 @@ def test_cfn_secretsmanager_reference_by_arn_version_id_and_json_number(cfn, ssm
             sm.delete_secret(SecretId=secret, ForceDeleteWithoutRecovery=True)
         except ClientError:
             pass
+
+
+@pytest.fixture
+def other_account_secret():
+    sm = boto3.client("secretsmanager", endpoint_url=os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566"),
+                      region_name="us-east-1", aws_access_key_id="111122223333", aws_secret_access_key="test")
+    name = f"cfn-dynref-xacct-{_uuid_mod.uuid4().hex[:8]}"
+    yield sm.create_secret(Name=name, SecretString="vpc-0abc")["ARN"]
+    sm.delete_secret(SecretId=name, ForceDeleteWithoutRecovery=True)
+
+
+@pytest.mark.parametrize("arn_form", ["full", "partial"])
+def test_cfn_secretsmanager_reference_reads_another_account(cfn, ssm, other_account_secret, arn_form):
+    """A secret ARN that names another account resolves in that account, with
+    or without the 6-character suffix, as on AWS (observed 2026-11-02)."""
+    uid = _uuid_mod.uuid4().hex[:8]
+    stack_name = f"cfn-dynref-xacct-{uid}"
+    arn = other_account_secret if arn_form == "full" else other_account_secret.rsplit("-", 1)[0]
+    out = f"/cfn-dynref-xacct/{uid}"
+    template = json.dumps({"Resources": {"P": {
+        "Type": "AWS::SSM::Parameter",
+        "Properties": {"Name": out, "Type": "String", "Value": f"{{{{resolve:secretsmanager:{arn}}}}}"}}}})
+    try:
+        cfn.create_stack(StackName=stack_name, TemplateBody=template)
+        stack = _wait_stack(cfn, stack_name)
+        assert stack["StackStatus"] == "CREATE_COMPLETE", _stack_event_reasons(cfn, stack_name)
+        assert _ssm_value(ssm, out) == "vpc-0abc"
+    finally:
+        _delete_cfn_test_stack(cfn, stack_name)
+
+
+@pytest.mark.auth_contract
+def test_cfn_secretsmanager_reference_to_another_account_needs_its_grants(auth_enabled):
+    """Under AUTH=true a secret in another account resolves only with an Allow in its resource policy and a
+    customer managed key whose policy grants kms:Decrypt (the AWS managed key cannot be shared); under
+    AUTH=false it always resolves."""
+    endpoint = os.environ.get("MINISTACK_ENDPOINT", "http://localhost:4566")
+
+    def client(service, account):
+        return boto3.client(service, endpoint_url=endpoint, region_name="us-east-1",
+                            aws_access_key_id=account, aws_secret_access_key="test")
+
+    owner_sm, owner_kms, cfn = client("secretsmanager", "111122223333"), client("kms", "111122223333"), \
+        client("cloudformation", "000000000000")
+    stack_root = {"AWS": "arn:aws:iam::000000000000:root"}
+    owner_root = {"Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::111122223333:root"},
+                  "Action": "kms:*", "Resource": "*"}
+    granting = owner_kms.create_key(Policy=json.dumps({"Version": "2012-10-17", "Statement": [
+        owner_root, {"Effect": "Allow", "Principal": stack_root, "Action": "kms:Decrypt", "Resource": "*"}]}))
+    policy = json.dumps({"Version": "2012-10-17", "Statement": [
+        {"Effect": "Allow", "Principal": stack_root, "Action": "secretsmanager:GetSecretValue", "Resource": "*"}]})
+
+    def deploy(with_policy, key_id):
+        name = f"cfn-xacct-grant-{_uuid_mod.uuid4().hex[:8]}"
+        arn = owner_sm.create_secret(Name=name, SecretString="v", **({"KmsKeyId": key_id} if key_id else {}))["ARN"]
+        if with_policy:
+            owner_sm.put_resource_policy(SecretId=name, ResourcePolicy=policy)
+        stack = f"cfn-xacct-grant-{_uuid_mod.uuid4().hex[:8]}"
+        cfn.create_stack(StackName=stack, TemplateBody=json.dumps({"Resources": {"P": {
+            "Type": "AWS::SSM::Parameter",
+            "Properties": {"Name": f"/{stack}", "Type": "String", "Value": f"{{{{resolve:secretsmanager:{arn}}}}}"}}}}))
+        try:
+            return _wait_stack(cfn, stack)["StackStatus"]
+        finally:
+            _delete_cfn_test_stack(cfn, stack)
+            owner_sm.delete_secret(SecretId=name, ForceDeleteWithoutRecovery=True)
+
+    key = granting["KeyMetadata"]["Arn"]
+    refused = "ROLLBACK_COMPLETE" if auth_enabled else "CREATE_COMPLETE"
+    assert deploy(False, None) == refused
+    assert deploy(True, None) == refused
+    assert deploy(False, key) == refused
+    assert deploy(True, key) == "CREATE_COMPLETE"
 
 
 def test_cfn_dynamic_reference_that_cannot_resolve_fails_the_resource(cfn, ssm):
@@ -18839,6 +19047,120 @@ def test_cfn_lambda_function_unheld_foreign_layer_attaches_empty():
     finally:
         cfn.delete_stack(StackName=stack_name)
         _wait_stack(cfn, stack_name)
+
+
+def test_cfn_lambda_function_architectures_pin_the_docker_platform(monkeypatch):
+    """A template's Architectures pins the container platform the way
+    CreateFunction's does, and an update declares what a create of the same
+    template would. Observed on AWS (eu-west-1, 2026-11-02, a stack of inline
+    python3.12 functions returning platform.machine()): [x86_64] runs x86_64,
+    [arm64] runs aarch64, none reports and runs x86_64; an in-place update that
+    removes [arm64] reports and runs x86_64, and one that adds [arm64] runs
+    aarch64. The reported Architectures follow AWS; a function that declares
+    none is deliberately left unpinned (None, the host's platform) rather than
+    pinned to x86_64, as for CreateFunction."""
+    from ministack.services import lambda_svc as _lam
+    from ministack.services.cloudformation import provisioners
+
+    monkeypatch.setattr(_lam, "_functions", _lam.AccountRegionScopedDict())
+    stack = "cfn-arch-stack"
+
+    def props(name, arch):
+        p = {"FunctionName": name, "Runtime": "python3.12", "Handler": "index.handler",
+             "Code": {"ZipFile": "def handler(event, context):\n    return 1\n"}}
+        if arch:
+            p["Architectures"] = [arch]
+        return p
+
+    def platform(name):
+        return _lam._declared_docker_platform(_lam._functions[name]["config"])
+
+    before = {"arch-x86": "x86_64", "arch-arm": "arm64", "arch-none": None}
+    for name, arch in before.items():
+        provisioners._lambda_create(name, props(name, arch), stack)
+    assert platform("arch-x86") == "linux/amd64"
+    assert platform("arch-arm") == "linux/arm64"
+    assert platform("arch-none") is None
+    assert _lam._functions["arch-none"]["config"]["Architectures"] == ["x86_64"]
+
+    after = {"arch-x86": None, "arch-arm": None, "arch-none": "arm64"}
+    for name, arch in after.items():
+        physical_id, _ = provisioners._lambda_update(
+            name, props(name, before[name]), props(name, arch), stack, name)
+        assert physical_id == name
+    for name in ("arch-x86", "arch-arm"):
+        assert _lam._functions[name]["config"]["Architectures"] == ["x86_64"]
+        assert platform(name) is None
+    assert _lam._functions["arch-none"]["config"]["Architectures"] == ["arm64"]
+    assert platform("arch-none") == "linux/arm64"
+
+
+def test_cfn_sam_globals_architectures_reach_the_lambda_function():
+    """SAM's Globals.Function.Architectures lands on the AWS::Lambda::Function
+    the transform emits, so _lambda_create sees it declared. Observed on AWS
+    (eu-west-1, 2026-11-02): an AWS::Serverless::Function under Globals
+    Architectures [arm64] has [arm64] in the processed template and runs
+    aarch64. That the translator emits no Architectures when neither Globals
+    nor the function names one is samtranslator's own behaviour, which keeps
+    such a function undeclared."""
+    pytest.importorskip("samtranslator")
+    from ministack.services.cloudformation.engine import _apply_transforms
+
+    def emitted(template):
+        out = _apply_transforms(json.loads(json.dumps(template)))
+        return out["Resources"]["Fn"]["Properties"]
+
+    fn = {"Type": "AWS::Serverless::Function", "Properties": {
+        "Runtime": "python3.12", "Handler": "index.handler", "CodeUri": "s3://b/k"}}
+    base = {"AWSTemplateFormatVersion": "2010-09-09",
+            "Transform": "AWS::Serverless-2016-10-31", "Resources": {"Fn": fn}}
+    assert emitted({**base, "Globals": {"Function": {"Architectures": ["arm64"]}}})[
+        "Architectures"] == ["arm64"]
+    assert "Architectures" not in emitted(base)
+
+
+@pytest.mark.data_plane
+def test_cfn_lambda_function_runs_on_the_architecture_it_declares(cfn, lam):
+    """A template's function runs as the architecture it declares where the
+    host can run it, and on the host's own architecture where it cannot (no
+    qemu/Rosetta), never failing the invoke; a function that declares none
+    runs on the host's. On AWS (eu-west-1, 2026-11-02) [x86_64] ran x86_64,
+    [arm64] aarch64, and none x86_64."""
+    import platform as _platform
+    import sys as _sys
+
+    native = {"x86_64": "x86_64", "amd64": "x86_64", "arm64": "aarch64",
+              "aarch64": "aarch64"}.get(_platform.machine().lower())
+
+    def emulated(machine):
+        return machine == native or _sys.platform == "darwin" or os.path.exists(
+            f"/proc/sys/fs/binfmt_misc/qemu-{machine}")
+
+    s = _uuid_mod.uuid4().hex[:8]
+    stack = f"cfn-arch-run-{s}"
+    code = "import platform\ndef handler(event, context):\n    return {'machine': platform.machine()}\n"
+    declared = {"X86": ["x86_64"], "Arm": ["arm64"], "None": None}
+    resources = {}
+    for logical, arch in declared.items():
+        props = {"FunctionName": f"cfn-arch-{logical.lower()}-{s}", "Runtime": "python3.12",
+                 "Handler": "index.handler", "Role": "arn:aws:iam::000000000000:role/cfn-role",
+                 "Timeout": 30, "Code": {"ZipFile": code}}
+        if arch:
+            props["Architectures"] = arch
+        resources[logical] = {"Type": "AWS::Lambda::Function", "Properties": props}
+    cfn.create_stack(StackName=stack, TemplateBody=json.dumps({"Resources": resources}))
+    try:
+        assert _wait_stack(cfn, stack)["StackStatus"] == "CREATE_COMPLETE"
+        expected = {"X86": "x86_64", "Arm": "aarch64", "None": native}
+        for logical, machine in expected.items():
+            for _ in range(2):
+                resp = lam.invoke(FunctionName=f"cfn-arch-{logical.lower()}-{s}", Payload=b"{}")
+                payload = json.loads(resp["Payload"].read())
+                assert resp.get("FunctionError") is None, (logical, payload)
+                ran = payload["machine"]
+                assert ran == (machine if emulated(machine) else native), (logical, ran)
+    finally:
+        _delete_cfn_test_stack(cfn, stack)
 
 
 def test_cfn_lambda_layer_version_permission(cfn, s3, lam):
@@ -37205,7 +37527,7 @@ def _ec_cache_stack(s, *, rg_description="sessions", num_cache_clusters=2,
                 "maxmemory-policy": "allkeys-lru", "timeout": "300"},
         }},
         "User": {"Type": "AWS::ElastiCache::User", "Properties": {
-            "UserId": f"app-{s}", "UserName": f"app-{s}", "Engine": "redis",
+            "UserId": f"app-{s}", "UserName": "default", "Engine": "redis",
             "AccessString": access_string, "Passwords": ["correct-horse-battery"],
         }},
         "Users": {"Type": "AWS::ElastiCache::UserGroup", "Properties": {
@@ -37255,6 +37577,107 @@ def _ec_cache_stack(s, *, rg_description="sessions", num_cache_clusters=2,
         "SinglePort": att("Single", "RedisEndpoint.Port"),
     })
     return {"Resources": resources, "Outputs": outputs}
+
+
+def test_cfn_elasticache_user_group_tags_only_update_keeps_outside_changes(cfn, ec):
+    """Real AWS (us-east-1): a stack update, or the rollback of one, that leaves UserIds alone keeps the
+    membership changes made outside the stack and still applies the tags."""
+    s = _uuid_mod.uuid4().hex[:8]
+    stack, group = f"ec-ugt-{s}", f"ugt-{s}"
+    default, member, extra, other, bad = f"d-{s}", f"m-{s}", f"e-{s}", f"o-{s}", f"b-{s}"
+    for user_id, name in ((default, "default"), (member, member), (extra, extra), (other, other)):
+        ec.create_user(UserId=user_id, UserName=name, Engine="redis", AccessString="on ~* +@all",
+                       NoPasswordRequired=True)
+
+    def template(rev, failing=False):
+        resources = {"Group": {"Type": "AWS::ElastiCache::UserGroup", "Properties": {
+            "UserGroupId": group, "Engine": "redis", "UserIds": [default, member],
+            "Tags": [{"Key": "Rev", "Value": rev}]}}}
+        if failing:
+            resources["Bad"] = {"Type": "AWS::ElastiCache::User", "DependsOn": "Group", "Properties": {
+                "UserId": bad, "UserName": bad, "Engine": "redis", "AccessString": "on ~* +doesnotexist",
+                "NoPasswordRequired": True}}
+        return {"Resources": resources}
+
+    def members():
+        return sorted(ec.describe_user_groups(UserGroupId=group)["UserGroups"][0]["UserIds"])
+
+    def rev():
+        arn = ec.describe_user_groups(UserGroupId=group)["UserGroups"][0]["ARN"]
+        return {t["Key"]: t["Value"] for t in ec.list_tags_for_resource(ResourceName=arn)["TagList"]}.get("Rev")
+
+    _ec_create(cfn, stack, template("1"))
+    try:
+        ec.modify_user_group(UserGroupId=group, UserIdsToAdd=[extra])
+        ec.modify_user_group(UserGroupId=group, UserIdsToRemove=[member])
+        _ec_update(cfn, stack, template("2"))
+        assert (members(), rev()) == (sorted([default, extra]), "2")
+
+        ec.modify_user_group(UserGroupId=group, UserIdsToAdd=[other])
+        cfn.update_stack(StackName=stack, TemplateBody=json.dumps(template("3", failing=True)))
+        assert _wait_stack(cfn, stack, timeout=120)["StackStatus"] == "UPDATE_ROLLBACK_COMPLETE"
+        assert members() == sorted([default, extra, other])
+    finally:
+        cfn.delete_stack(StackName=stack)
+        _wait_stack(cfn, stack, timeout=120)
+        for user_id in (default, member, extra, other):
+            ec.delete_user(UserId=user_id)
+
+
+def test_cfn_elasticache_user_group_reorder_keeps_outside_changes(cfn, ec):
+    """Real AWS (us-east-1): a template that only reorders UserIds keeps a user added outside the stack."""
+    s = _uuid_mod.uuid4().hex[:8]
+    stack, group = f"ec-ugo-{s}", f"ugo-{s}"
+    default, member, extra = f"d-{s}", f"m-{s}", f"e-{s}"
+    for user_id, name in ((default, "default"), (member, member), (extra, extra)):
+        ec.create_user(UserId=user_id, UserName=name, Engine="redis", AccessString="on ~* +@all",
+                       NoPasswordRequired=True)
+
+    def template(ids):
+        return {"Resources": {"Group": {"Type": "AWS::ElastiCache::UserGroup", "Properties": {
+            "UserGroupId": group, "Engine": "redis", "UserIds": ids}}}}
+
+    def members():
+        return sorted(ec.describe_user_groups(UserGroupId=group)["UserGroups"][0]["UserIds"])
+
+    _ec_create(cfn, stack, template([default, member]))
+    try:
+        ec.modify_user_group(UserGroupId=group, UserIdsToAdd=[extra])
+        _ec_update(cfn, stack, template([member, default]))
+        assert members() == sorted([default, member, extra])
+        assert ec.describe_users(UserId=extra)["Users"][0]["UserGroupIds"] == [group]
+    finally:
+        cfn.delete_stack(StackName=stack)
+        _wait_stack(cfn, stack, timeout=120)
+        for user_id in (default, member, extra):
+            ec.delete_user(UserId=user_id)
+
+
+def test_cfn_elasticache_user_group_engine_update_resets_outside_changes(cfn, ec):
+    """Real AWS (us-east-1): an update that changes only Engine leaves the group with the template's users, dropping
+    a user added outside the stack."""
+    s = _uuid_mod.uuid4().hex[:8]
+    stack, group = f"ec-uge-{s}", f"uge-{s}"
+    default, member, other = f"d-{s}", f"m-{s}", f"o-{s}"
+    for user_id, name in ((default, "default"), (member, member), (other, other)):
+        ec.create_user(UserId=user_id, UserName=name, Engine="redis", AccessString="on ~* +@all",
+                       Passwords=[f"password-{s}-{s}"])
+
+    def template(engine):
+        return {"Resources": {"Group": {"Type": "AWS::ElastiCache::UserGroup", "Properties": {
+            "UserGroupId": group, "Engine": engine, "UserIds": [default, member]}}}}
+
+    _ec_create(cfn, stack, template("redis"))
+    try:
+        ec.modify_user_group(UserGroupId=group, UserIdsToAdd=[other])
+        _ec_update(cfn, stack, template("valkey"))
+        assert sorted(ec.describe_user_groups(UserGroupId=group)["UserGroups"][0]["UserIds"]) == sorted([default, member])
+        assert ec.describe_users(UserId=other)["Users"][0]["UserGroupIds"] == []
+    finally:
+        cfn.delete_stack(StackName=stack)
+        _wait_stack(cfn, stack, timeout=120)
+        for user_id in (default, member, other):
+            ec.delete_user(UserId=user_id)
 
 
 def test_cfn_elasticache_stack_create_and_delete(cfn, ec):
@@ -37313,6 +37736,96 @@ def test_cfn_elasticache_stack_create_and_delete(cfn, ec):
     assert _ec_error_code(lambda: ec.describe_users(UserId=f"app-{s}")) == "UserNotFound"
     assert _ec_error_code(lambda: ec.describe_user_groups(
         UserGroupId=f"users-{s}")) == "UserGroupNotFound"
+
+
+def _ec_user_group_stack(s, *, with_default, default_in_group, engine="redis"):
+    resources = {
+        "Iam": {"Type": "AWS::ElastiCache::User", "Properties": {
+            "UserId": f"{s}-iam", "UserName": f"{s}-iam", "Engine": "redis", "AccessString": "on ~* +@all",
+            "AuthenticationMode": {"Type": "iam"}}},
+        "Group": {"Type": "AWS::ElastiCache::UserGroup", "Properties": {
+            "UserGroupId": f"{s}-ug", "Engine": engine,
+            "UserIds": ([{"Ref": "Def"}] if default_in_group else []) + [{"Ref": "Iam"}]}},
+    }
+    if with_default:
+        resources["Def"] = {"Type": "AWS::ElastiCache::User", "Properties": {
+            "UserId": f"{s}-def", "UserName": "default", "Engine": "redis", "AccessString": "on ~* +@all",
+            "AuthenticationMode": {"Type": "password", "Passwords": ["msc-capture-default-password-1"]}}}
+    return {"Resources": resources}
+
+
+def test_cfn_elasticache_redis_user_group_needs_default_user(cfn, ec):
+    """A Redis user group without a `default` user fails the stack's create and rolls it back, and an
+    update taking `default` out of the group fails and rolls back (real AWS, us-east-2, round5-cfn.py:
+    cfn1-describe ROLLBACK_COMPLETE, cfn1-events Group CREATE_FAILED; cfn2-describe-after-update
+    UPDATE_ROLLBACK_COMPLETE, cfn2-events Group UPDATE_FAILED). The reason text and the group's members
+    afterwards are MiniStack checks."""
+    s = f"ecdu-{_uuid_mod.uuid4().hex[:8]}"
+    bad, good = f"{s}-1", f"{s}-2"
+    try:
+        cfn.create_stack(StackName=bad, TemplateBody=json.dumps(
+            _ec_user_group_stack(bad, with_default=False, default_in_group=False)))
+        assert _wait_stack(cfn, bad, timeout=120)["StackStatus"] == "ROLLBACK_COMPLETE"
+        assert any("Redis user group needs to contain a user with the user name default." in r
+                   for r in _ec_reasons(cfn, bad, "Group"))
+
+        _ec_create(cfn, good, _ec_user_group_stack(good, with_default=True, default_in_group=True))
+        cfn.update_stack(StackName=good, TemplateBody=json.dumps(
+            _ec_user_group_stack(good, with_default=True, default_in_group=False)))
+        assert _wait_stack(cfn, good, timeout=120)["StackStatus"] == "UPDATE_ROLLBACK_COMPLETE"
+        assert any("Redis user group needs to contain a user with the user name default." in r
+                   for r in _ec_reasons(cfn, good, "Group"))
+        group = ec.describe_user_groups(UserGroupId=f"{good}-ug")["UserGroups"][0]
+        assert group["UserIds"] == [f"{good}-def", f"{good}-iam"]
+    finally:
+        _delete_cfn_test_stack(cfn, bad)
+        _delete_cfn_test_stack(cfn, good)
+
+
+def test_cfn_elasticache_user_group_engine_change_to_valkey_drops_default_user(cfn, ec):
+    """An update that changes the group's Engine to Valkey while taking `default` out completes (real AWS,
+    us-east-2, round7-modify-engine.py: cfn-valkey-describe UPDATE_COMPLETE, cfn-valkey-group)."""
+    s = f"ecde-{_uuid_mod.uuid4().hex[:8]}"
+    try:
+        _ec_create(cfn, s, _ec_user_group_stack(s, with_default=True, default_in_group=True))
+        _ec_update(cfn, s, _ec_user_group_stack(s, with_default=True, default_in_group=False, engine="valkey"))
+        group = ec.describe_user_groups(UserGroupId=f"{s}-ug")["UserGroups"][0]
+        assert (group["Engine"], group["UserIds"]) == ("valkey", [f"{s}-iam"])
+    finally:
+        _delete_cfn_test_stack(cfn, s)
+
+
+def test_cfn_elasticache_user_group_engine_change_then_drop_default_user(cfn, ec):
+    """An update changing only the group's Engine to Valkey completes and keeps its users, and a later
+    update dropping `default` completes too (real AWS, us-east-2, round8-engine-sequence.py:
+    cfn-seq-describe-after-engine, cfn-seq-group-after-engine, cfn-seq-describe-after-drop,
+    cfn-seq-group-after-drop)."""
+    s = f"ecds-{_uuid_mod.uuid4().hex[:8]}"
+    try:
+        _ec_create(cfn, s, _ec_user_group_stack(s, with_default=True, default_in_group=True))
+        _ec_update(cfn, s, _ec_user_group_stack(s, with_default=True, default_in_group=True, engine="valkey"))
+        group = ec.describe_user_groups(UserGroupId=f"{s}-ug")["UserGroups"][0]
+        assert (group["Engine"], group["UserIds"]) == ("valkey", [f"{s}-def", f"{s}-iam"])
+        _ec_update(cfn, s, _ec_user_group_stack(s, with_default=True, default_in_group=False, engine="valkey"))
+        group = ec.describe_user_groups(UserGroupId=f"{s}-ug")["UserGroups"][0]
+        assert (group["Engine"], group["UserIds"]) == ("valkey", [f"{s}-iam"])
+    finally:
+        _delete_cfn_test_stack(cfn, s)
+
+
+def test_cfn_elasticache_user_group_engine_redis_case_keeps_default_user(cfn, ec):
+    """An update changing Engine to `Redis` while dropping `default` fails and rolls back (real AWS,
+    us-east-2, round12-attached-cfn.py: cfn-rcase-describe UPDATE_ROLLBACK_COMPLETE, cfn-rcase-group)."""
+    s = f"ecdr-{_uuid_mod.uuid4().hex[:8]}"
+    try:
+        _ec_create(cfn, s, _ec_user_group_stack(s, with_default=True, default_in_group=True))
+        cfn.update_stack(StackName=s, TemplateBody=json.dumps(
+            _ec_user_group_stack(s, with_default=True, default_in_group=False, engine="Redis")))
+        assert _wait_stack(cfn, s, timeout=120)["StackStatus"] == "UPDATE_ROLLBACK_COMPLETE"
+        group = ec.describe_user_groups(UserGroupId=f"{s}-ug")["UserGroups"][0]
+        assert (group["Engine"], group["UserIds"]) == ("redis", [f"{s}-def", f"{s}-iam"])
+    finally:
+        _delete_cfn_test_stack(cfn, s)
 
 
 def test_cfn_elasticache_update_in_place(cfn, ec):
@@ -37469,6 +37982,47 @@ def test_cfn_elasticache_memcached_configuration_endpoint(cfn, ec):
         assert (out["Address"], out["Port"]) == (node["Endpoint"]["Address"], str(node["Endpoint"]["Port"]))
     finally:
         _delete_cfn_test_stack(cfn, stack)
+
+
+def test_cfn_elasticache_user_group_update_sets_template_users(cfn, ec):
+    """A stack update leaves the group with exactly the template's users, diffed against the live group,
+    so members added or removed outside the stack don't fail it (real AWS, us-east-1)."""
+    s = _uuid_mod.uuid4().hex[:8]
+    stack = f"ec-ug-{s}"
+    dflt, a, b, c = f"d-{s}", f"a-{s}", f"b-{s}", f"c-{s}"
+    ec.create_user(UserId=dflt, UserName="default", Engine="redis", AccessString="on ~* +@all", NoPasswordRequired=True)
+    for user in (a, b, c):
+        ec.create_user(UserId=user, UserName=user, Engine="redis", AccessString="on ~* +@all", NoPasswordRequired=True)
+
+    def tmpl(users):
+        return {"Resources": {"G": {"Type": "AWS::ElastiCache::UserGroup", "Properties": {
+            "UserGroupId": f"ug-{s}", "Engine": "redis", "UserIds": users}}}}
+
+    members = lambda: sorted(ec.describe_user_groups(UserGroupId=f"ug-{s}")["UserGroups"][0]["UserIds"])
+    try:
+        _ec_create(cfn, stack, tmpl([dflt, a]))
+        ec.modify_user_group(UserGroupId=f"ug-{s}", UserIdsToAdd=[b, c])
+        _ec_update(cfn, stack, tmpl([dflt, a, b]))
+        assert members() == sorted([dflt, a, b])
+        assert ec.describe_users(UserId=c)["Users"][0]["UserGroupIds"] == []
+        ec.modify_user_group(UserGroupId=f"ug-{s}", UserIdsToRemove=[a])
+        _ec_update(cfn, stack, tmpl([dflt, b]))
+        assert members() == sorted([dflt, b])
+        cfn.update_stack(StackName=stack, TemplateBody=json.dumps(tmpl([dflt, b, b])))
+        assert _wait_stack(cfn, stack, timeout=120)["StackStatus"] == "UPDATE_ROLLBACK_COMPLETE"
+        assert members() == sorted([dflt, b])
+        cfn.update_stack(StackName=stack, TemplateBody=json.dumps(tmpl([dflt, b, f"ghost-{s}"])))
+        assert _wait_stack(cfn, stack, timeout=120)["StackStatus"] == "UPDATE_ROLLBACK_COMPLETE"
+        assert any(re.fullmatch(
+            rf'Resource handler returned message: "User ghost-{s} not found\. \(Service: ElastiCache, Status Code: 404, '
+            r'Request ID: [0-9a-f-]{36}\) \(SDK Attempt Count: 1\)" \(RequestToken: [0-9a-f-]{36}, '
+            r'HandlerErrorCode: GeneralServiceException\)', r) for r in _ec_reasons(cfn, stack, "G"))
+        assert members() == sorted([dflt, b])
+    finally:
+        cfn.delete_stack(StackName=stack)
+        _wait_stack(cfn, stack, timeout=120)
+        for user in (dflt, a, b, c):
+            ec.delete_user(UserId=user)
 
 
 @pytest.mark.parametrize("rtype,old,new,expected", [
@@ -38775,3 +39329,59 @@ def test_cfn_stackset_capabilities_and_reads_contract(auth_enabled, cfn, iam_use
             user.describe_stacks(StackName=name)
     finally:
         _delete_cfn_test_stack(cfn, name)
+
+
+def test_cfn_ecs_task_definition_reaches_the_ecs_api_shape(cfn):
+    """Every nested template property reaches DescribeTaskDefinition in the ECS API's names (Secrets,
+    RepositoryCredentials, HealthCheck, LinuxParameters, volumes, runtime platform...), user-keyed maps
+    such as DockerLabels and log options keep their keys."""
+    from conftest import make_client
+
+    ecs = make_client("ecs")
+    stack = f"cfn-td-shape-{_uuid_mod.uuid4().hex[:8]}"
+    family = f"td-shape-{_uuid_mod.uuid4().hex[:8]}"
+    cfn.create_stack(StackName=stack, TemplateBody=json.dumps({"Resources": {"TD": {
+        "Type": "AWS::ECS::TaskDefinition", "Properties": {
+            "Family": family, "Cpu": "256", "Memory": "512", "NetworkMode": "awsvpc",
+            "RequiresCompatibilities": ["FARGATE"],
+            "RuntimePlatform": {"CpuArchitecture": "ARM64", "OperatingSystemFamily": "LINUX"},
+            "EphemeralStorage": {"SizeInGiB": 30},
+            "Volumes": [{"Name": "data", "Host": {"SourcePath": "/tmp/data"}},
+                        {"Name": "efs", "EFSVolumeConfiguration": {"FilesystemId": "fs-1", "TransitEncryption": "ENABLED",
+                                                                   "AuthorizationConfig": {"AccessPointId": "fsap-1", "IAM": "ENABLED"}}},
+                        {"Name": "dv", "DockerVolumeConfiguration": {"Driver": "local", "DriverOpts": {"Type": "nfs"},
+                                                                     "Labels": {"Team": "a"}}}],
+            "ContainerDefinitions": [{
+                "Name": "app", "Image": "alpine:3.22", "Essential": True,
+                "Secrets": [{"Name": "DB_PASSWORD", "ValueFrom": "/repro/db-password"}],
+                "RepositoryCredentials": {"CredentialsParameter": "arn:aws:secretsmanager:us-east-1:000000000000:secret:x"},
+                "HealthCheck": {"Command": ["CMD", "true"], "Interval": 30, "Retries": 3},
+                "LinuxParameters": {"InitProcessEnabled": True, "Capabilities": {"Add": ["SYS_PTRACE"]}},
+                "Ulimits": [{"Name": "nofile", "SoftLimit": 1024, "HardLimit": 2048}],
+                "DependsOn": [{"ContainerName": "side", "Condition": "START"}],
+                "DockerLabels": {"Team": "payments"},
+                "LogConfiguration": {"LogDriver": "awslogs", "Options": {"awslogs-group": "g", "Mode": "x"},
+                                     "SecretOptions": [{"Name": "Key", "ValueFrom": "arn"}]}}]}}}}))
+    try:
+        assert _wait_stack(cfn, stack)["StackStatus"] == "CREATE_COMPLETE"
+        td = ecs.describe_task_definition(taskDefinition=family)["taskDefinition"]
+        cdef = td["containerDefinitions"][0]
+        assert cdef["secrets"] == [{"name": "DB_PASSWORD", "valueFrom": "/repro/db-password"}]
+        assert cdef["repositoryCredentials"] == {"credentialsParameter": "arn:aws:secretsmanager:us-east-1:000000000000:secret:x"}
+        assert cdef["healthCheck"] == {"command": ["CMD", "true"], "interval": 30, "retries": 3}
+        assert cdef["linuxParameters"] == {"initProcessEnabled": True, "capabilities": {"add": ["SYS_PTRACE"]}}
+        assert cdef["ulimits"] == [{"name": "nofile", "softLimit": 1024, "hardLimit": 2048}]
+        assert cdef["dependsOn"] == [{"containerName": "side", "condition": "START"}]
+        assert cdef["dockerLabels"] == {"Team": "payments"}
+        assert cdef["logConfiguration"] == {"logDriver": "awslogs", "options": {"awslogs-group": "g", "Mode": "x"},
+                                            "secretOptions": [{"name": "Key", "valueFrom": "arn"}]}
+        assert td["volumes"] == [
+            {"name": "data", "host": {"sourcePath": "/tmp/data"}},
+            {"name": "efs", "efsVolumeConfiguration": {"fileSystemId": "fs-1", "transitEncryption": "ENABLED",
+                                                       "authorizationConfig": {"accessPointId": "fsap-1", "iam": "ENABLED"}}},
+            {"name": "dv", "dockerVolumeConfiguration": {"driver": "local", "driverOpts": {"Type": "nfs"},
+                                                         "labels": {"Team": "a"}}}]
+        assert td["runtimePlatform"] == {"cpuArchitecture": "ARM64", "operatingSystemFamily": "LINUX"}
+        assert td["ephemeralStorage"] == {"sizeInGiB": 30}
+    finally:
+        _delete_cfn_test_stack(cfn, stack)

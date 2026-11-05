@@ -429,11 +429,45 @@ void optimize_sequential_strips_onedimensional(
     sequential_strips_onedimensional(instance, sso_parameters);
 }
 
+/**
+ * Return true iff the tree search maximal spaces supports the parameters of
+ * 'instance'.
+ */
+bool tree_search_maximal_spaces_supported(
+        const Instance& instance)
+{
+    return instance.number_of_stages_unlimited()
+        && instance.number_of_defects() == 0
+        && instance.number_of_stacks() == instance.number_of_item_types()
+        && instance.parameters().minimum_waste_length == 0
+        && instance.parameters().minimum_distance_1_cuts == 0
+        && instance.parameters().maximum_distance_1_cuts == -1
+        && instance.parameters().minimum_distance_2_cuts == 0
+        && instance.parameters().maximum_distance_2_cuts == -1
+        && instance.parameters().maximum_number_1_cuts == -1
+        && instance.parameters().maximum_number_2_cuts == -1;
+}
+
+/**
+ * Compute the blocks of the tree search maximal spaces of 'instance' if this
+ * algorithm may solve its sub-instances, so that they are computed once for
+ * all the subproblems of the algorithms which solve sub-instances, instead
+ * of once per subproblem (see 'Instance::get_blocks').
+ */
+void request_blocks(
+        const Instance& instance,
+        AlgorithmFormatter& algorithm_formatter)
+{
+    if (tree_search_maximal_spaces_supported(instance))
+        instance.get_blocks(algorithm_formatter.end_boolean());
+}
+
 void optimize_sequential_single_knapsack(
         const Instance& instance,
         const OptimizeParameters& parameters,
         AlgorithmFormatter& algorithm_formatter)
 {
+    request_blocks(instance, algorithm_formatter);
     for (Counter iteration = 0, queue_size = 1;; ++iteration) {
         NodeId queue_size_ms = queue_size;
         if (parameters.optimization_mode != OptimizationMode::Anytime
@@ -505,6 +539,7 @@ void optimize_sequential_value_correction(
         const OptimizeParameters& parameters,
         AlgorithmFormatter& algorithm_formatter)
 {
+    request_blocks(instance, algorithm_formatter);
     SequentialValueCorrectionFunction<Instance, Solution> kp_solve
         = [&algorithm_formatter, &parameters](const Instance& kp_instance)
         {
@@ -618,6 +653,7 @@ void optimize_column_generation(
         AlgorithmFormatter& algorithm_formatter,
         BinPos lower_bound)
 {
+    request_blocks(instance, algorithm_formatter);
     ColumnGenerationPricingFunction<Instance, InstanceBuilder, Solution, rectangleguillotine::Output> pricing_function
         = [&algorithm_formatter, &parameters](const Instance& kp_instance, PricingType)
         {
@@ -893,18 +929,8 @@ packingsolver::rectangleguillotine::Output packingsolver::rectangleguillotine::o
                         || instance.objective() == Objective::BinPackingWithLeftovers
                         || instance.objective() == Objective::OpenDimensionX
                         || instance.objective() == Objective::OpenDimensionY)
-                    && instance.number_of_stages_unlimited()
                     //&& mean_number_of_items_in_bins > parameters.many_items_in_bins_threshold_2
-                    && instance.number_of_defects() == 0
-                    && instance.number_of_stacks() == instance.number_of_item_types()
-                    && instance.parameters().minimum_waste_length == 0
-                    && instance.parameters().minimum_distance_1_cuts == 0
-                    && instance.parameters().maximum_distance_1_cuts == -1
-                    && instance.parameters().minimum_distance_2_cuts == 0
-                    && instance.parameters().maximum_distance_2_cuts == -1
-                    && instance.parameters().maximum_number_1_cuts == -1
-                    && instance.parameters().maximum_number_2_cuts == -1
-                    ) {
+                    && tree_search_maximal_spaces_supported(instance)) {
                 use_tree_search_maximal_spaces = true;
             } else if ((instance.objective() == Objective::Knapsack
                         || instance.objective() == Objective::OpenDimensionX

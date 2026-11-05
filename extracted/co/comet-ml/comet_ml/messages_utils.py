@@ -12,12 +12,21 @@
 # *******************************************************
 from typing import Optional, Union
 
+from .api_key.masking import mask_value
 from .convert_utils import data_to_fp
 from .file_uploader import is_user_text
 from .file_utils import write_file_like_to_tmp_file
 from .messages import (
+    BaseMessage,
+    HtmlMessage,
+    HtmlOverrideMessage,
     Log3DCloudMessage,
+    LogOtherMessage,
+    ParameterMessage,
     RemoteAssetMessage,
+    StandardOutputMessage,
+    SystemDetailsMessage,
+    SystemInfoMessage,
     UploadFileMessage,
     UploadInMemoryMessage,
 )
@@ -133,3 +142,25 @@ def create_upload_message_from_options(
         )
 
     return None
+
+
+def mask_api_keys(message: BaseMessage, api_key: Optional[str]) -> None:
+    """Masks the experiment's own API key and self-identifying keys in the logged data, in place."""
+    if isinstance(message, ParameterMessage):
+        for param in (message.param, message.params):
+            if param is not None:
+                param["paramValue"] = mask_value(param["paramValue"], api_key)
+    elif isinstance(message, LogOtherMessage):
+        message.value = mask_value(message.value, api_key)
+    elif isinstance(message, SystemDetailsMessage):
+        message.command = mask_value(message.command, api_key)
+        message.env = mask_value(message.env, api_key)
+    elif isinstance(message, SystemInfoMessage):
+        message.system_info["value"] = mask_value(message.system_info["value"], api_key)
+    elif isinstance(message, HtmlMessage):
+        message.html = mask_value(message.html, api_key)
+    elif isinstance(message, HtmlOverrideMessage):
+        message.htmlOverride = mask_value(message.htmlOverride, api_key)
+    elif isinstance(message, StandardOutputMessage):
+        # Defensive: StdLogger masks stdout itself and puts it on the streamer directly.
+        message.output = mask_value(message.output, api_key)

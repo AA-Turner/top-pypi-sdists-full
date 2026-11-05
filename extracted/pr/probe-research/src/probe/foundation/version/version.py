@@ -4,7 +4,8 @@ reads it here (`import probe` loads the SDK's errors, which foundation and analy
 
 from __future__ import annotations
 
-from importlib import metadata
+import os
+import sys
 
 # The distribution name, not the import name (`probe`). Renamed from `probe-agent` on
 # 2026-07-15: that name is an unrelated project on PyPI that we never owned, so
@@ -13,7 +14,55 @@ from importlib import metadata
 # --version` to the dev fallback below.
 DISTRIBUTION = "probe-research"
 
-try:  # the installed dist is the single source of version truth (pyproject)
-    VERSION = metadata.version(DISTRIBUTION)
-except metadata.PackageNotFoundError:  # running from a source tree
-    VERSION = "0.0.0.dev0"
+
+
+def read_installed_version() -> str | None:
+    """The first `probe_research-<v>.dist-info` on sys.path says the version, as
+    `importlib.metadata.version` finds it, without importing that (~40 ms of every `probe`)."""
+    prefix = DISTRIBUTION.replace("-", "_") + "-"
+    for entry in sys.path:
+        try:
+            names = os.listdir(entry or ".")
+        except OSError:
+            continue
+        for name in names:
+            if not (name.lower().startswith(prefix) and name.endswith(".dist-info")):
+                continue
+            try:
+                with open(os.path.join(entry or ".", name, "METADATA"), encoding="utf-8") as handle:
+                    for line in handle:
+                        if line.startswith("Version:"):
+                            return line.split(":", 1)[1].strip()
+                        if not line.strip():
+                            break
+            except OSError:
+                continue
+    return None
+
+
+def _read_version() -> str:
+    found = read_installed_version()
+    if found:
+        return found
+    from importlib import metadata
+
+    try:  # the installed dist is the single source of version truth (pyproject)
+        return metadata.version(DISTRIBUTION)
+    except metadata.PackageNotFoundError:  # running from a source tree
+        return "0.0.0.dev0"
+
+
+VERSION = _read_version()
+
+
+def is_older(found: object, own: object) -> bool:
+    """Is release `found` older than release `own`? False when either is no release
+    (`0.0.0.dev0`, a local build): nothing to compare."""
+    def parse(value: object) -> tuple | None:
+        if not isinstance(value, str):
+            return None
+        head = value.split("+", 1)[0].split(".")
+        return tuple(int(p) for p in head) if len(head) >= 3 and all(p.isdigit() for p in head) else None
+
+    older, newer = parse(found), parse(own)
+    return older is not None and newer is not None and older < newer

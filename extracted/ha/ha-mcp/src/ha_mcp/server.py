@@ -34,6 +34,12 @@ from .server_tool_text import (
     SKILL_TOOL_NAME,
     SKILL_USE_BEFORE_KEYWORDS,
 )
+from .tool_catalog import (
+    CATALOG_MODES,
+    default_catalog_mode,
+    install_catalog_instructions,
+    set_search_available,
+)
 from .tools.helpers import raise_tool_error
 from .tools.tool_hints import read_only_hints
 from .transforms import DEFAULT_PINNED_TOOLS
@@ -41,6 +47,7 @@ from .utils.skill_loader import (
     BEST_PRACTICES_SKILL_NAME,
     best_practices_skill,
     list_skill_files,
+    log_skill_registration_summary,
     parse_skill_frontmatter,
 )
 
@@ -113,12 +120,18 @@ class HomeAssistantSmartMCPServer:
             server_name = self.settings.mcp_server_name
             server_version = self.settings.mcp_server_version
 
-        instructions = self._build_instructions()
+        skills = self._build_skills_instructions()
+        self._instructions = {
+            mode: compose_instructions(
+                skills, self.settings, tool_search=mode == "search"
+            )
+            for mode in CATALOG_MODES
+        }
 
         self.mcp = FastMCP(
             name=server_name,
             version=server_version,
-            instructions=instructions,
+            instructions=self._instructions[default_catalog_mode()],
             lifespan=server_lifespan,
         )
 
@@ -198,7 +211,7 @@ class HomeAssistantSmartMCPServer:
 
         # Enrich tool descriptions with BM25 keyword boosts. Runs
         # unconditionally so Claude's native deferred-tool search
-        # (claude.ai) benefits even when ENABLE_TOOL_SEARCH is off.
+        # (claude.ai) benefits on full-catalog connections too.
         # Must come before _apply_tool_search so CategorizedSearchTransform
         # indexes the enriched descriptions.
         self._apply_search_keyword_enrichment()
@@ -216,9 +229,12 @@ class HomeAssistantSmartMCPServer:
         # Keep the pre-rename tool names callable for clients that still hold
         # an older catalog. First in the chain, so everything after it sees the
         # current name it is keyed on.
+        from .mcp_client_context import McpClientDebugLogMiddleware
         from .tools.renamed_tool_middleware import RenamedToolAliasMiddleware
 
         self.mcp.add_middleware(RenamedToolAliasMiddleware())
+        # After the alias, so the DEBUG line logs the current tool name.
+        self.mcp.add_middleware(McpClientDebugLogMiddleware())
 
         # Convert Pydantic type-validation errors to structured ToolErrors so
         # models get actionable guidance instead of raw Pydantic messages.
@@ -227,7 +243,7 @@ class HomeAssistantSmartMCPServer:
         self.mcp.add_middleware(ValidationErrorMiddleware())
 
         # Replace the opaque "Unknown tool" FastMCP raises when a client calls
-        # ha_search_tools / the ha_call_* proxies while Tool Search is off
+        # ha_search_tools / the ha_call_* proxies on a full-catalog connection
         # (stale client tool-list cache) with an actionable refresh hint.
         from .tools.tool_search_hint_middleware import ToolSearchHintMiddleware
 
@@ -317,14 +333,10 @@ class HomeAssistantSmartMCPServer:
 
         return get_skills_dir()
 
-    def _build_instructions(self) -> str:
-        """Compose the server instructions sent in the MCP initialize response."""
-        return compose_instructions(self._build_skills_instructions(), self.settings)
-
     def _build_skills_instructions(self) -> str | None:
         """The skills section of the instructions, or None without skills."""
         return build_skills_instructions(
-            self._get_skills_dir(), self.settings, skill_tool_hidden(self.settings)
+            self._get_skills_dir(), skill_tool_hidden(self.settings)
         )
 
     _parse_skill_frontmatter = staticmethod(parse_skill_frontmatter)
@@ -390,8 +402,8 @@ class HomeAssistantSmartMCPServer:
 
     # Description overrides that REPLACE the original description for BM25.
     # Used to narrow overly broad tools so they stop matching generic queries
-    # against ha-mcp's internal BM25 search tool. Only applied when
-    # enable_tool_search=True, because they are tuned specifically for the
+    # against ha-mcp's internal BM25 search tool. Only applied to
+    # search-mode connections, because they are tuned specifically for the
     # categorized search transform and replacing the base description would
     # unnecessarily trim context for other clients.
     _SEARCH_DESCRIPTION_OVERRIDES: ClassVar[dict[str, str]] = {}
@@ -476,7 +488,7 @@ class HomeAssistantSmartMCPServer:
         list-tools time via ``SearchKeywordsTransform``.
 
         Description overrides (``_SEARCH_DESCRIPTION_OVERRIDES``) are only
-        applied when ``enable_tool_search`` is also set, because they
+        applied to search-mode connections, because they
         REPLACE the original description and are tuned specifically for
         ha-mcp's internal BM25 search tool.
 
@@ -492,11 +504,7 @@ class HomeAssistantSmartMCPServer:
             )
             return
 
-        overrides = (
-            self._SEARCH_DESCRIPTION_OVERRIDES
-            if self.settings.enable_tool_search
-            else None
-        )
+        overrides = self._SEARCH_DESCRIPTION_OVERRIDES
         try:
             self.mcp.add_transform(
                 SearchKeywordsTransform(
@@ -513,32 +521,15 @@ class HomeAssistantSmartMCPServer:
             logger.exception("Failed to apply SearchKeywordsTransform")
 
     def _apply_tool_search(self) -> None:
-        """Apply the CategorizedSearchTransform if enabled.
+        """Install the CategorizedSearchTransform and per-endpoint instructions.
 
-        Replaces the full tool catalog with a unified BM25 search tool and
-        three categorized call proxies (read/write/delete). Pinned tools
-        remain directly visible in list_tools() for individual permission
-        gating. The ``ha_get_skill_guide`` tool is pinned via
-        ``DEFAULT_PINNED_TOOLS`` (transforms/categorized_search.py) so the
-        bundled skill trigger-conditions stay in the catalog — no explicit
-        ``pinned.append(...)`` for it here.
-
-        Note: ``_apply_search_keyword_enrichment`` already ran before this
-        method and installed ``SearchKeywordsTransform`` — the enriched
+        For endpoints in search mode (see ``tool_catalog``), replaces the full
+        catalog with a BM25 search tool and read/write/delete call proxies.
+        Pinned tools, ``ha_get_skill_guide`` among them via
+        ``DEFAULT_PINNED_TOOLS``, stay directly visible for permission gating.
+        ``_apply_search_keyword_enrichment`` already ran, so the enriched
         catalog is what the categorized transform indexes.
         """
-        if not self.settings.enable_tool_search:
-            return
-
-        try:
-            from .transforms import CategorizedSearchTransform
-        except ImportError:
-            logger.error(
-                "CategorizedSearchTransform not available but ENABLE_TOOL_SEARCH=true — "
-                "full tool catalog will be exposed. Install fastmcp>=3.1 to fix."
-            )
-            return
-
         # Build the always_visible list: defaults (minus tools the user
         # explicitly toggled to "enabled" in the Tools tab) + user pins.
         # The skill guide tool is part of DEFAULT_PINNED_TOOLS, and in
@@ -572,6 +563,8 @@ class HomeAssistantSmartMCPServer:
         )
 
         try:
+            from .transforms import CategorizedSearchTransform
+
             self.mcp.add_transform(
                 CategorizedSearchTransform(
                     max_results=self.settings.tool_search_max_results,
@@ -585,14 +578,24 @@ class HomeAssistantSmartMCPServer:
                     enable_code_mode=self.settings.enable_code_mode,
                 )
             )
-            logger.info(
-                "Tool search transform applied (%d pinned tools, max_results=%d, code_mode=%s)",
-                len(pinned),
-                self.settings.tool_search_max_results,
-                self.settings.enable_code_mode,
-            )
         except Exception:
-            logger.exception("Failed to apply tool search transform")
+            # Import or install failed: no endpoint can serve search, so every
+            # one serves, and describes, the full catalog.
+            logger.exception(
+                "Tool search transform unavailable; every endpoint serves the "
+                "full tool catalog"
+            )
+            set_search_available(False)
+            self.mcp.instructions = self._instructions["full"]
+            return
+        set_search_available(True)
+        install_catalog_instructions(self.mcp, self._instructions)
+        logger.info(
+            "Tool search transform applied (%d pinned tools, max_results=%d, code_mode=%s)",
+            len(pinned),
+            self.settings.tool_search_max_results,
+            self.settings.enable_code_mode,
+        )
 
     def _apply_tool_security_policies(self) -> None:
         """Register the tool security policies middleware (#966).
@@ -882,31 +885,7 @@ class HomeAssistantSmartMCPServer:
             )
             status["tool"] = "failed"
 
-        self._log_skill_registration_summary(status)
-
-    @staticmethod
-    def _log_skill_registration_summary(status: dict[str, str | int]) -> None:
-        """Emit one-line summary of skill registration outcome.
-
-        ``info`` when both provider and tool registered AND at least one
-        skill bundle parsed; ``warning`` otherwise. The guidance>0 gate
-        catches the "tool registered but exposes nothing" case (skills
-        directory missing, empty, or every SKILL.md fails to parse) —
-        the tool stays present so the failure is reachable via a tool
-        call, but operators should grep for this warning when a user
-        reports missing skill features.
-        """
-        provider = status.get("provider")
-        tool = status.get("tool")
-        raw_guidance = status.get("guidance_count", 0)
-        guidance = raw_guidance if isinstance(raw_guidance, int) else 0
-
-        message = "Skill system summary: provider=%s, tool=%s, guidance_count=%d"
-        args = (provider, tool, guidance)
-        if provider == "ok" and tool == "ok" and guidance > 0:
-            logger.info(message, *args)
-        else:
-            logger.warning(message, *args)
+        log_skill_registration_summary(status)
 
     def _register_skill_guide_tool(self, skills_dir: Path | None) -> int:
         """Register the ``ha_get_skill_guide`` tool unconditionally.

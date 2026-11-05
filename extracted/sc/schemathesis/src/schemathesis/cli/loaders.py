@@ -1,7 +1,7 @@
 """Automatic schema loading.
 
 This module handles the automatic detection and loading of API schemas,
-supporting both GraphQL and OpenAPI specifications.
+supporting OpenAPI, GraphQL, and gRPC services.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import click
 from schemathesis import graphql, grpc, openapi
 from schemathesis.cli.constants import MISSING_BASE_URL_MESSAGE
 from schemathesis.cli.events import LoadingFinished, LoadingStarted
+from schemathesis.cli.validation import validate_tls_verify
 from schemathesis.config import ProjectConfig, ReportFormat
 from schemathesis.core.errors import HookExecutionError, IncorrectUsage, InvalidSchema, LoaderError, LoaderErrorKind
 from schemathesis.core.fs import file_exists
@@ -30,9 +31,13 @@ if TYPE_CHECKING:
     from schemathesis.schemas import BaseSchema
 
 GRPC_HTTP_REPORTS_MESSAGE = (
-    "HAR, VCR and pytest reports describe HTTP/1.1 requests and are not available for gRPC targets"
+    "HAR, VCR, WFC and pytest reports describe HTTP/1.1 requests and are not available for gRPC targets"
+)
+GRPC_WFC_AUTH_MESSAGE = (
+    "Web Fuzzing Commons authentication (`--auth-wfc`, `[auth.wfc]`) is not available for gRPC targets"
 )
 GRPC_DESCRIPTOR_SET_EXTENSIONS = (".binpb", ".pb", ".protoset")
+TEXT_SCHEMA_EXTENSIONS = (".json", ".yaml", ".yml")
 PROTO_FILE_MESSAGE = f"Schemathesis reads descriptor sets, not `.proto` files. {BUILD_HINT} and run `schemathesis run api.binpb --url URL`"
 
 
@@ -43,13 +48,16 @@ def into_event_stream(
     filter_set: dict[str, Any],
     engine_callback: Callable[[BaseSchema], Iterable[events.EngineEvent]],
 ) -> EventGenerator:
+    validate_tls_verify(config.tls_verify)
     # Checked before any report handler creates its file.
     if is_grpc_location(location):
         if any(
             config.reports.get(report_format).enabled
-            for report_format in (ReportFormat.HAR, ReportFormat.VCR, ReportFormat.PYTEST)
+            for report_format in (ReportFormat.HAR, ReportFormat.VCR, ReportFormat.WFC, ReportFormat.PYTEST)
         ):
             raise click.UsageError(GRPC_HTTP_REPORTS_MESSAGE)
+        if config.auth.wfc is not None:
+            raise click.UsageError(GRPC_WFC_AUTH_MESSAGE)
         try:
             require_extra()
         except ImportError as exc:
@@ -177,7 +185,7 @@ def _try_load_schema(location: str, config: ProjectConfig, modules: tuple[Module
 
 
 def _load_schema(location: str, config: ProjectConfig, module: Any) -> BaseSchema:
-    """Unified schema loader for both GraphQL and OpenAPI."""
+    """Unified schema loader for OpenAPI, GraphQL, and gRPC."""
     loader = detect_loader(location, module)
 
     kwargs: dict = {}
@@ -207,7 +215,22 @@ def is_probably_graphql(location: str) -> bool:
 def is_grpc_location(location: str) -> bool:
     if location.startswith(("grpc://", "grpcs://")):
         return True
-    return location.endswith(GRPC_DESCRIPTOR_SET_EXTENSIONS) and file_exists(location)
+    if not file_exists(location):
+        return False
+    if location.endswith(GRPC_DESCRIPTOR_SET_EXTENSIONS):
+        return True
+    # Descriptor sets may have any extension, but JSON and YAML files are text schemas even when malformed.
+    return not location.lower().endswith(TEXT_SCHEMA_EXTENSIONS) and _is_binary_file(location)
+
+
+def _is_binary_file(location: str) -> bool:
+    with open(location, "rb") as file:
+        data = file.read()
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        return True
+    return any(byte < 32 and byte not in b"\t\n\r" for byte in data)
 
 
 def is_openapi_file(location: str) -> bool:

@@ -11,7 +11,7 @@ import torch
 from numpy.typing import NDArray
 
 from albucore._float_cast import _cast_float_numpy
-from albucore._types import ArrayT, ImageArrayT, ImageType, TensorImageLayout
+from albucore._types import ArrayT, ImageArrayT, TensorImageLayout
 from albucore.convert import convert_dtype
 from albucore.tensor_bridge import dispatch_tensor_image
 from albucore.utils import (
@@ -48,7 +48,9 @@ def hflip(img: ImageArrayT) -> ImageArrayT: ...
 def hflip(img: torch.Tensor) -> torch.Tensor: ...
 
 
-def hflip(img: ImageType | torch.Tensor) -> ImageType | torch.Tensor:
+def hflip(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Flip image horizontally (mirror left-right).
 
     Routing:
@@ -90,7 +92,9 @@ def vflip(img: ImageArrayT) -> ImageArrayT: ...
 def vflip(img: torch.Tensor) -> torch.Tensor: ...
 
 
-def vflip(img: ImageType | torch.Tensor) -> ImageType | torch.Tensor:
+def vflip(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Flip image vertically (mirror top-bottom).
 
     Routing:
@@ -109,24 +113,15 @@ def vflip(img: ImageType | torch.Tensor) -> ImageType | torch.Tensor:
     return vflip_numpy(img)
 
 
-def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
-    """Process images with more than OpenCV's flip channel limit.
-
-    OpenCV's maximum encoded channel count depends on the major version. This
-    function works around the active build's limit by splitting wider images
-    into safe chunks, flipping each chunk separately, and then joining the results.
-
-    Args:
-        img: Input image with many channels
-        flip_code: OpenCV flip code (0 for vertical, 1 for horizontal, -1 for both)
-
-    Returns:
-        Flipped image with all channels preserved
-    """
+def _flip_multichannel(
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32],
+    flip_code: int,
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]:
+    """Flip with OpenCV, chunking channels beyond the active build's flip limit."""
     num_channels = img.shape[2]
 
     if num_channels <= MAX_OPENCV_FLIP_CHANNELS:
-        return cast("ImageType", cv2.flip(img, flip_code))
+        return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", cv2.flip(img, flip_code))
 
     result: np.ndarray | None = None
     offset = 0
@@ -148,7 +143,7 @@ def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     if result is None:
         msg = "Flip chunking produced no output."
         raise RuntimeError(msg)
-    return cast("ImageType", result)
+    return cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", result)
 
 
 def _median_blur_uint8(
@@ -200,11 +195,11 @@ def median_blur(img: torch.Tensor, ksize: int, *, layout: TensorImageLayout | No
 
 
 def median_blur(
-    img: ImageType | torch.Tensor,
+    img: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor,
     ksize: int,
     *,
     layout: TensorImageLayout | None = None,
-) -> ImageType | torch.Tensor:
+) -> NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32] | torch.Tensor:
     """Median blur with dtype- and kernel-aware OpenCV routing.
 
     uint8 images use OpenCV directly, chunking high-channel inputs for kernels 7 and larger. Float32 kernels 3 and 5
@@ -225,17 +220,17 @@ def median_blur(
         return dispatch_tensor_image(img, layout, median_blur, ksize)
 
     if not img.flags["C_CONTIGUOUS"]:
-        img = cast("ImageType", np.ascontiguousarray(img))
+        img = cast("NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]", np.ascontiguousarray(img))
 
-    result: ImageType
+    result: NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]
     if img.dtype == np.uint8:
         result = _median_blur_uint8(cast("NDArray[np.uint8]", img), ksize)
     elif img.dtype == np.float32 and ksize in (3, 5):
         destination = np.empty_like(img, order="C") if img.shape[-1] == 1 else None
-        result = cast("ImageType", cv2.medianBlur(img, ksize, dst=destination))
-    elif img.dtype == np.float32:
-        quantized = convert_dtype(cast("NDArray[np.float32]", img), dtype=np.dtype(np.uint8))
-        result = convert_dtype(_median_blur_uint8(quantized, ksize), np.float32)
+        result = cast(
+            "NDArray[np.uint8] | NDArray[np.float16] | NDArray[np.float32]",
+            cv2.medianBlur(img, ksize, dst=destination),
+        )
     elif (
         img.dtype == np.float16
         and ksize == 5
@@ -331,17 +326,15 @@ def pairwise_distances_squared(
     - Other sets: NumPy coordinate differences accumulated into one distance matrix.
 
     Args:
-        points1: First set of points, shape (N, D), dtype float32
-        points2: Second set of points, shape (M, D), dtype float32
+        points1: First set of points, shape (N, D), dtype float32.
+        points2: Second set of points, shape (M, D), dtype float32.
 
     Returns:
-        Matrix of squared distances, shape (N, M), dtype float32
-        Element [i, j] contains ||points1[i] - points2[j]||²
+        Float32 matrix of shape (N, M) where element [i, j] is ||points1[i] - points2[j]||².
 
     Examples:
         >>> import numpy as np
         >>> from albucore import pairwise_distances_squared
-        >>> # Control points for thin plate spline
         >>> src_points = np.array([[0, 0], [1, 0], [0, 1]], dtype=np.float32)
         >>> dst_points = np.array([[0.1, 0.1], [0.9, 0.1]], dtype=np.float32)
         >>> distances_sq = pairwise_distances_squared(src_points, dst_points)
@@ -352,18 +345,11 @@ def pairwise_distances_squared(
         The caller validates matching coordinate counts. NumPy arithmetic follows
         the caller's floating-point error settings.
 
-        Returns SQUARED distances (not Euclidean distances).
-        This is often what's needed (e.g., for RBF kernels in TPS),
-        and avoids the expensive sqrt operation.
-
-        For actual Euclidean distances: np.sqrt(result)
-
         Subtracting coordinates before squaring avoids overflow and cancellation
         from large common offsets. Squared distances exceeding the float32 range
         are returned as infinity. The NumPy route uses one scratch matrix of
         shape (N, M), rather than a temporary of shape (N, M, D).
     """
-    # Keep dtype normalization cheap; only force contiguity on the nk.cdist branch below.
     if isinstance(points1, torch.Tensor) and isinstance(points2, torch.Tensor):
         tensor_output = True
         points1_array = points1.numpy()

@@ -13,6 +13,14 @@ def _json_schema_path(name: str) -> str | None:
     return json_schema_path(name)
 
 
+def _skill_options_given(namespace: Namespace) -> bool:
+    """Return whether a parsed command gives ``--skill-scope`` or ``--overwrite-skill``, options of ``--install-skill``.
+
+    Without ``--install-skill`` the command line refuses them, so the fast paths of a parsed command step aside.
+    """
+    return namespace.skill_scope is not None or bool(namespace.overwrite_skill)
+
+
 def _print_json_schema(name: str) -> int:
     """Print a JSON Schema on a fast path and return the exit code, an error if Pydantic lacks JSON output support."""
     from datamodel_code_generator import _StructuredOutputUnavailableError  # noqa: PLC0415
@@ -59,7 +67,7 @@ if not any(arg.startswith("--rec") for arg in sys.argv[1:]) and any(
 
     sys.exit(run_agent_skill_installer(sys.argv[1:]))
 
-# Fast path for prompt helper outputs
+# Fast path for prompt helper outputs; a command with the options of --install-skill, which _main refuses, steps aside
 if not any(arg.startswith("--rec") for arg in sys.argv[1:]) and any(
     arg.startswith(("--generate-prompt", "--output-format-json-schema=")) or arg == "--output-format-json-schema"
     for arg in sys.argv[1:]
@@ -69,9 +77,10 @@ if not any(arg.startswith("--rec") for arg in sys.argv[1:]) and any(
     _reset_namespace(namespace)
     arg_parser.parse_args(namespace=namespace)
     schema_output_name = namespace.output_format_json_schema
-    if schema_output_name is not None and _json_schema_path(schema_output_name) != "main":
+    steps_aside = _skill_options_given(namespace)
+    if not steps_aside and schema_output_name is not None and _json_schema_path(schema_output_name) != "main":
         sys.exit(_print_json_schema(schema_output_name))
-    if namespace.output_format_json_schema is None and namespace.generate_prompt is not None:
+    if not steps_aside and schema_output_name is None and namespace.generate_prompt is not None:
         from datamodel_code_generator.prompt import generate_prompt
 
         help_text = arg_parser.format_help()
@@ -114,7 +123,7 @@ from datamodel_code_generator._cli_config import (
     _RawConfigValue,
     _template_data,
 )
-from datamodel_code_generator._config_fields import JSON_FIELDS, MODEL_JSON_FIELDS, TARGET_SELECTORS
+from datamodel_code_generator._config_fields import JSON_FIELDS, TARGET_SELECTORS, names_file
 from datamodel_code_generator._format_types import Formatter, PythonVersion
 from datamodel_code_generator._generation_timestamp import current_timestamp
 from datamodel_code_generator._json_output import OUTPUT_HEAD, json_schema_text, write_streamed_json
@@ -123,9 +132,11 @@ from datamodel_code_generator._option_names import (
     GENERATE_FIELD_NAMES,
     SENSITIVE_FIELDS,
     TomlValue,
+    compact_json,
     config_table,
     field_name,
     hyphenated,
+    mapping_argument,
     option_arguments,
     option_flag,
     shell_command,
@@ -134,13 +145,15 @@ from datamodel_code_generator._option_names import (
     values_arguments,
 )
 from datamodel_code_generator._option_names import json_ready as _json_ready
-from datamodel_code_generator._paths import concrete_parent, files_under, names_directory, overlaps, resolved, same_file
+from datamodel_code_generator._paths import files_under, names_directory, overlaps, resolved, same_file
 from datamodel_code_generator._project_config import (
     _find_datamodel_codegen_project_config_with_path,
     _get_pyproject_toml_config_with_path,
     _normalize_pyproject_config,
     _resolve_profile_extends,
     _resolve_pyproject_relative_paths,
+    _resolve_relative_paths_from,
+    names_profile,
 )
 from datamodel_code_generator._python_syntax import normalize_newlines
 from datamodel_code_generator._url_redaction import is_url, redact_url
@@ -209,6 +222,7 @@ EXCLUDED_CONFIG_OPTIONS: frozenset[str] = frozenset({
     "no_color",
     "output_format",
     "output_format_json_schema",
+    "fail_on_multi_module_stdout",
     "disable_warnings",
     "list_deprecations",
     "list_experimental",
@@ -398,16 +412,11 @@ class _StagedJobPlan(NamedTuple):
         return None if self.staging is None or self.staging.output is None else self.staging.output.target
 
 
-def _lock_parent(pyproject_path: Path | None) -> Path:
-    """Return the directory of the default lock file: the pyproject.toml directory, or the working directory."""
-    return pyproject_path.parent if pyproject_path is not None else Path.cwd()
-
-
 def _remote_lock_plan(config: Config, pyproject_path: Path | None) -> _RemoteLockPlan:
     """Resolve the project-relative default lock path without importing lock machinery."""
-    from datamodel_code_generator._lock_plan import remote_lock_plan  # noqa: PLC0415
+    from datamodel_code_generator._lock_plan import default_lock_parent, remote_lock_plan  # noqa: PLC0415
 
-    return remote_lock_plan(config, _lock_parent(pyproject_path), "lexical")
+    return remote_lock_plan(config, default_lock_parent(pyproject_path), "lexical")
 
 
 def _watch_remote_lock_setup(
@@ -668,7 +677,7 @@ def _get_job_config(  # noqa: PLR0913
         raise Error(msg)
 
     resolved_config = dict(base_config)
-    if profile_name is not None:
+    if names_profile(profile_name):
         resolved_profile = _resolve_profile_extends(
             profiles, profile_name, missing=f"Profile '{profile_name}' not found for job '{name}'"
         )
@@ -705,6 +714,8 @@ def _get_job_config(  # noqa: PLR0913
         msg = f"Job '{name}' cannot use {options}; jobs must generate code"
         raise Error(msg)
 
+    from datamodel_code_generator._publication import artifact_roots  # noqa: PLC0415
+
     context = {key: normalized_config[key] for key in BATCH_CONFIG_CONTEXT_FIELDS if key in normalized_config}
     return JobPlan(
         name,
@@ -713,14 +724,8 @@ def _get_job_config(  # noqa: PLR0913
         normalized_config,
         dict(cli_config_args),
         pyproject_path,
-        *_resolved_artifact_paths(config.output),
-        *_resolved_artifact_paths(config.emit_model_metadata),
+        *artifact_roots(config.output, config.emit_model_metadata),
     )
-
-
-def _resolved_artifact_paths(path: Path | None) -> tuple[Path | None, Path | None]:
-    """Resolve an artifact path and its parent, the root and anchor its staged publication binds to."""
-    return (None, None) if path is None else (resolved(path), concrete_parent(path))
 
 
 def _paths_overlap_or_samefile(first: Path, second: Path) -> bool:
@@ -870,7 +875,7 @@ def _record_raw_profile_dependencies(
     seen_profiles: set[str],
 ) -> None:
     """Collect one raw profile chain without reproducing validation failures."""
-    if profile_name in seen_profiles:
+    if not names_profile(profile_name) or profile_name in seen_profiles:
         return
     seen_profiles.add(profile_name)
     profile = profiles.get(profile_name)
@@ -890,15 +895,19 @@ def _record_raw_job_config_dependencies(
 ) -> None:
     """Register raw local inputs and JSON option files for failed-plan recovery.
 
-    As in a planned job, the JSON files of model options stay relative to the working directory.
+    Each value is read as the planned job reads it, by ``_resolve_relative_paths_from``: ``~`` expands, a path field is
+    relative to the pyproject.toml directory, the JSON files of model options stay relative to the working directory,
+    and inline JSON is a value, not a file unless a file of that name exists (``names_file``). Only lexical, as the plan
+    may have failed before it read any file; a ``~user`` that names no user is left unwatched.
     """
     for raw_name, raw_value in config.items():
         if not isinstance(raw_name, str) or (name := field_name(raw_name)) not in (JSON_FIELDS | {"input"}):
             continue
-        if not isinstance(raw_value, str | Path):
+        if not names_file(name, raw_value):
             continue
-        path = Path(raw_value)
-        dependencies.add_recovery_file(path if path.is_absolute() or name in MODEL_JSON_FIELDS else base_path / path)
+        with suppress(Error):
+            path = _resolve_relative_paths_from({name: raw_value}, base_path)[name]
+            dependencies.add_recovery_file(Path(path))
 
 
 def _plan_jobs_unchecked(args: Namespace) -> BatchPlan:
@@ -906,7 +915,7 @@ def _plan_jobs_unchecked(args: Namespace) -> BatchPlan:
     if args.ignore_pyproject:
         msg = "--ignore-pyproject cannot be used with --job or --all-jobs"
         raise Error(msg)
-    if args.profile:
+    if names_profile(args.profile):
         msg = "--profile cannot be used with --job or --all-jobs; set profile in each job instead"
         raise Error(msg)
     if args.generate_cli_command:
@@ -980,12 +989,7 @@ def _pyproject_toml_value(key: str, value: object) -> TomlValue:
 
     if key not in JsonConfigSpecs.by_field_name or not isinstance(value, Mapping):
         return cast("TomlValue", value)
-    return _compact_json(value)
-
-
-def _compact_json(value: Mapping[str, Any]) -> str:
-    """Serialize a mapping option as the compact JSON text its CLI option accepts."""
-    return json.dumps(_json_ready(value), ensure_ascii=False, separators=(",", ":"))
+    return compact_json(value)
 
 
 def _cli_config_values(args: Namespace) -> dict[str, TomlValue]:
@@ -1267,13 +1271,6 @@ def _format_cli_value(value: str | list[str]) -> str:
     return f'"{value}"' if " " in value else value
 
 
-def _format_cli_mapping(key: str, value: Mapping[str, Any]) -> str:
-    """Format a pyproject table as the argument its CLI option accepts."""
-    if key == "external_ref_mapping":
-        return " ".join(shlex.quote(f"{path}={package}") for path, package in value.items())
-    return shlex.quote(_compact_json(value))
-
-
 def generate_cli_command(config: dict[str, TomlValue]) -> str:
     """Generate CLI command from pyproject.toml configuration."""
     from datamodel_code_generator.cli_options import _negative_option  # noqa: PLC0415
@@ -1284,11 +1281,11 @@ def generate_cli_command(config: dict[str, TomlValue]) -> str:
         if key in EXCLUDED_CONFIG_OPTIONS:
             continue
         if isinstance(value, Mapping):
-            if argument := _format_cli_mapping(key, value):
+            if argument := mapping_argument(key, value):
                 parts.extend((option_flag(key), argument))
             continue
         match option_arguments(key, value, negative=_negative_option):
-            case [option, *items] if isinstance(value, list | tuple):
+            case [option, *items] if items and isinstance(value, list | tuple):
                 parts.extend((option, _format_cli_value(items)))
             case [option, *items]:
                 parts.extend((option, *(_format_cli_value(str(item)) for item in items)))
@@ -1732,9 +1729,9 @@ def _target_lockfile(config: Config, pyproject_path: Path | None) -> Path | None
     The default lock file sits next to pyproject.toml or in the working directory, so it reaches the target only
     while a policy uses it: an update, a locked run, or an existing file to verify.
     """
-    from datamodel_code_generator._lock_plan import models_lockfile  # noqa: PLC0415
+    from datamodel_code_generator._lock_plan import default_lock_parent, models_lockfile  # noqa: PLC0415
 
-    return models_lockfile(config, _lock_parent(pyproject_path))
+    return models_lockfile(config, default_lock_parent(pyproject_path))
 
 
 def _target_settings(config: Config, args: Sequence[str], lockfile: Path | None) -> GenerateConfig:
@@ -1894,10 +1891,15 @@ def _stage_job_plan(plan: JobPlan) -> _StagedJobPlan:
         staging = stage_outputs(
             plan.config.output,
             plan.config.emit_model_metadata,
-            (plan.resolved_output_root, plan.resolved_output_parent, plan.resolved_model_metadata_parent),
+            (
+                plan.resolved_output_root,
+                plan.resolved_output_parent,
+                plan.resolved_model_metadata_root,
+                plan.resolved_model_metadata_parent,
+            ),
             contexts,
             anchors,
-            make_directory=False,
+            existing_directory="legacy-cli-staged-directory-uncreated",
         )
         staged_config = plan.config.model_copy(update=staging.updates)
         staged_config._logical_model_metadata = plan.config.emit_model_metadata  # noqa: SLF001
@@ -2205,10 +2207,12 @@ def _run_jobs_json(
                     except ValidationError:
                         output.seek(0)
                         raw_output = output.read().strip()
+                        from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
                         context = (
-                            f"kind {payload['kind']!r}"
+                            f"kind {stable_repr(payload['kind'])}"
                             if isinstance(payload, Mapping) and "kind" in payload
-                            else f"raw JSON {raw_output!r}"
+                            else f"raw JSON {stable_repr(raw_output)}"
                         )
                         print(  # noqa: T201
                             f"Error: Job '{staged_plan.plan.name}' returned unsupported JSON batch output ({context}); "
@@ -2236,6 +2240,8 @@ def _run_jobs_json(
 
 def _single_job_plan(config: Config, pyproject_path: Path | None) -> JobPlan:
     """Adapt one command config to the existing staged-publication machinery."""
+    from datamodel_code_generator._publication import artifact_roots  # noqa: PLC0415
+
     return JobPlan(
         "command",
         config,
@@ -2243,8 +2249,7 @@ def _single_job_plan(config: Config, pyproject_path: Path | None) -> JobPlan:
         {},
         {},
         pyproject_path or Path.cwd() / "pyproject.toml",
-        *_resolved_artifact_paths(config.output),
-        *_resolved_artifact_paths(config.emit_model_metadata),
+        *artifact_roots(config.output, config.emit_model_metadata),
     )
 
 
@@ -2516,14 +2521,14 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
                 overwrite=namespace.overwrite_skill,
             )
         )
-    if namespace.skill_scope is not None or namespace.overwrite_skill:
+    if _skill_options_given(namespace):
         print("Error: --skill-scope and --overwrite-skill require --install-skill", file=sys.stderr)  # noqa: T201
         return Exit.ERROR
 
     if namespace.version:
         from datamodel_code_generator import get_version  # noqa: PLC0415
 
-        print(get_version())  # noqa: T201
+        print(f"datamodel-codegen {get_version()}")  # noqa: T201
         sys.exit(Exit.OK)
 
     if namespace.output_format_json_schema is not None:
@@ -2618,7 +2623,11 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
             lambda: {"config": _hyphenated_config_data(pyproject_config), "arguments": shlex.split(command_output)},
         )
 
-    pyproject_config = _resolve_pyproject_relative_paths(pyproject_config, pyproject_path)
+    try:
+        pyproject_config = _resolve_pyproject_relative_paths(pyproject_config, pyproject_path)
+    except Error as e:
+        print(e.message, file=sys.stderr)  # noqa: T201
+        return Exit.ERROR
 
     cli_config_args: dict[str, _RawConfigValue] = {}
     if _batch_config is not None:
@@ -2687,8 +2696,8 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
             pyproject_config,
             cli_config_args,
             pyproject_path,
-            selector=() if namespace.profile is None else ("--profile", namespace.profile),
-            table=CONFIG_TABLE if namespace.profile is None else config_table("profiles", namespace.profile),
+            selector=("--profile", namespace.profile) if names_profile(namespace.profile) else (),
+            table=config_table("profiles", namespace.profile) if names_profile(namespace.profile) else CONFIG_TABLE,
         )
 
     _imply_remote_refs(config)
@@ -2869,7 +2878,9 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
         print(_invalid_class_name_message(e, namespace, config.class_name), file=sys.stderr)  # noqa: T201
         return cleanup_and_return(Exit.ERROR)
     except UnicodeDecodeError as e:
-        print(f"Unable to decode input using encoding {config.encoding!r}: {e}", file=sys.stderr)  # noqa: T201
+        from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
+        print(f"Unable to decode input using encoding {stable_repr(config.encoding)}: {e}", file=sys.stderr)  # noqa: T201
         return cleanup_and_return(Exit.ERROR)
     except Error as e:
         print(str(e), file=sys.stderr)  # noqa: T201
@@ -2947,8 +2958,10 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
                 OutputComparisonOptions(is_directory_output=is_directory_output),
             )
         except _OutputDecodeError as e:
+            from datamodel_code_generator.python_literal import stable_repr  # noqa: PLC0415
+
             print(  # noqa: T201
-                f"Unable to decode output {e.path.as_posix()} using encoding {config.encoding!r}: {e}",
+                f"Unable to decode output {e.path.as_posix()} using encoding {stable_repr(config.encoding)}: {e}",
                 file=sys.stderr,
             )
             return cleanup_and_return(Exit.ERROR)

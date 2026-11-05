@@ -266,6 +266,8 @@ class ProgressTracker:
 def _kind_of(stall: Any) -> str | None:
     """A lane stall as a `DeliveryErrorKind` (None: waiting on the server, not an error)."""
     status = getattr(stall, "status", None)
+    if getattr(stall, "needs_newer", False):
+        return DeliveryErrorKind.NEEDS_NEWER
     if getattr(stall, "held", False):
         return DeliveryErrorKind.HELD_ELSEWHERE
     if status in (401, 403):

@@ -1,5 +1,11 @@
+from sphinx_needs._need_source import (
+    NeedSourceHop,
+    NeedSourcePhysical,
+    NeedSourceSemantic,
+)
 from sphinx_needs.exceptions import InvalidNeedException
 from sphinx_needs.need_content import MarkupContent
+from sphinx_needs.need_item import NeedItemSource
 
 from .configuration import (
     add_dynamic_function,
@@ -9,10 +15,12 @@ from .configuration import (
     add_need_type,
     get_need_types,
     reads,
+    resolve_need_option,
 )
 from .need import (
     add_external_need,
     add_need,
+    create_need,
     del_need,
     generate_need,
     generate_need_id,
@@ -23,6 +31,10 @@ from .need import (
 __all__ = (
     "InvalidNeedException",
     "MarkupContent",
+    "NeedItemSource",
+    "NeedSourceHop",
+    "NeedSourcePhysical",
+    "NeedSourceSemantic",
     "add_dynamic_function",
     "add_external_need",
     "add_extra_option",
@@ -30,6 +42,7 @@ __all__ = (
     "add_need",
     "add_need_layout",
     "add_need_type",
+    "create_need",
     "del_need",
     "generate_need",
     "generate_need_id",
@@ -37,4 +50,5 @@ __all__ = (
     "get_needs_view",
     "ingest_need_record",
     "reads",
+    "resolve_need_option",
 )

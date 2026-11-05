@@ -17,6 +17,9 @@ Two paths relate as written, without the filesystem: one lies inside the other w
 (``Path.is_relative_to``), and they overlap when either lies inside the other. Two existing paths name one file when
 they reach one inode; the callers decide which forms they compare and what an error of the filesystem means.
 
+A ``file`` URI names one local path on every Python version (``file_uri_path``): the generator splits the URI itself
+and hands only its path to ``url2pathname``, whose reading of a host and a query differs between Python versions.
+
 An output path names a directory, a package of modules, when it has no suffix. The files a generation stages or
 copies are the files below that directory, listed in path order. The files of a directory input are listed by file
 name, files of one name in the order the directory walk meets them.
@@ -34,7 +37,6 @@ if TYPE_CHECKING:
 
 AncestorTest = Literal["directory", "exists", "legacy-staging-parent-may-be-a-file"]
 AtRoot = Literal["root", "legacy-unbounded-ancestor-walk"]
-Tilde = Literal["expand", "legacy-metadata-tilde-as-written"]
 Missing = Literal["none", "legacy-missing-input-raises"]
 FileOrder = Literal["path", "name"]
 
@@ -84,15 +86,9 @@ def concrete_parent(path: Path) -> Path:
     return path.expanduser().parent.resolve(strict=False)
 
 
-def concrete(path: Path, *, tilde: Tilde = "expand") -> Path:
-    """Return where ``path`` is published: its concrete parent joined with its last component as written.
-
-    Rows of ``tilde``: ``expand`` reads a leading ``~`` as the home directory; ``legacy-metadata-tilde-as-written``
-    (the files a directory input leaves out, fix C17-1) keeps it as a directory named ``~``, so the model metadata of a
-    staged command spelled ``~/...`` is looked for where a direct run writes it, not where the staged run publishes it.
-    """
-    parent = concrete_parent(path) if tilde == "expand" else path.parent.resolve(strict=False)
-    return parent / path.name
+def concrete(path: Path) -> Path:
+    """Return where ``path`` is published: its concrete parent joined with its last component as written."""
+    return concrete_parent(path) / path.name
 
 
 def overlaps(first: Path, second: Path) -> bool:
@@ -110,6 +106,19 @@ def same_file(first: Path, second: Path, *, missing: Missing = "none") -> bool:
     if missing == "none" and not (first.exists() and second.exists()):
         return False
     return first.samefile(second)
+
+
+def file_uri_path(uri: str) -> Path:
+    """Return the local path a ``file`` URI names (RFC 8089): its path percent-decoded, without the query or fragment.
+
+    A host other than ``localhost``, in any letter case as RFC 3986 compares hosts, names a UNC share, ``//host/path``.
+    """
+    from urllib.parse import urlsplit  # noqa: PLC0415
+    from urllib.request import url2pathname  # noqa: PLC0415
+
+    parts = urlsplit(uri)
+    path = url2pathname(parts.path)
+    return Path(path if parts.netloc.lower() in {"", "localhost"} else f"//{parts.netloc}{path}")
 
 
 def names_directory(path: Path) -> bool:

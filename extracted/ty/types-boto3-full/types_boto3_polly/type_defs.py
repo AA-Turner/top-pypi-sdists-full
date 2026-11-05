@@ -63,6 +63,8 @@ __all__ = (
     "ListSpeechSynthesisTasksInputPaginateTypeDef",
     "ListSpeechSynthesisTasksInputTypeDef",
     "ListSpeechSynthesisTasksOutputTypeDef",
+    "ListTagsForResourceInputTypeDef",
+    "ListTagsForResourceOutputTypeDef",
     "PaginatorConfigTypeDef",
     "PutLexiconInputTypeDef",
     "ResponseMetadataTypeDef",
@@ -78,9 +80,11 @@ __all__ = (
     "SynthesisTaskTypeDef",
     "SynthesizeSpeechInputTypeDef",
     "SynthesizeSpeechOutputTypeDef",
+    "TagResourceInputTypeDef",
     "TextEventTypeDef",
     "ThrottlingExceptionTypeDef",
     "ThrottlingReasonTypeDef",
+    "UntagResourceInputTypeDef",
     "ValidationExceptionFieldTypeDef",
     "ValidationExceptionTypeDef",
     "VoiceTypeDef",
@@ -180,9 +184,14 @@ class ListSpeechSynthesisTasksInputTypeDef(TypedDict):
     Status: NotRequired[TaskStatusType]
 
 
+class ListTagsForResourceInputTypeDef(TypedDict):
+    ResourceArn: str
+
+
 class PutLexiconInputTypeDef(TypedDict):
     Name: str
     Content: str
+    Tags: NotRequired[Mapping[str, str]]
 
 
 class ServiceFailureExceptionTypeDef(TypedDict):
@@ -232,9 +241,19 @@ SynthesizeSpeechInputTypeDef = TypedDict(
 )
 
 
+class TagResourceInputTypeDef(TypedDict):
+    ResourceArn: str
+    Tags: Mapping[str, str]
+
+
 class ThrottlingReasonTypeDef(TypedDict):
     reason: NotRequired[str]
     resource: NotRequired[str]
+
+
+class UntagResourceInputTypeDef(TypedDict):
+    ResourceArn: str
+    TagKeys: Sequence[str]
 
 
 class ValidationExceptionFieldTypeDef(TypedDict):
@@ -256,6 +275,11 @@ class ListLexiconsInputPaginateTypeDef(TypedDict):
 class ListSpeechSynthesisTasksInputPaginateTypeDef(TypedDict):
     Status: NotRequired[TaskStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListTagsForResourceOutputTypeDef(TypedDict):
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SynthesizeSpeechOutputTypeDef(TypedDict):

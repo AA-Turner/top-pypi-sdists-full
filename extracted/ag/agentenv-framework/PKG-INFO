@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agentenv-framework
-Version: 0.9.1431
+Version: 0.9.1443
 Summary: SDK and CLI for building, deploying and running agent environments and the tasks that grade agents in them.
 Project-URL: Homepage, https://www.agentenvframework.com
 Project-URL: Documentation, https://www.agentenvframework.com/docs
@@ -29,7 +29,7 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Typing :: Typed
 Requires-Python: >=3.11.4
 Requires-Dist: a2a-sdk==0.3.26
-Requires-Dist: agentenv-framework-protocol[computer]==0.1.446
+Requires-Dist: agentenv-framework-protocol[computer]==0.1.458
 Requires-Dist: certifi>=2024.2.2
 Requires-Dist: click>=8.0.0
 Requires-Dist: cryptography>=42

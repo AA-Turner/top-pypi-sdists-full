@@ -199,15 +199,11 @@ class CloseDrainMixin:
 
     # -- the worker's close (D1, D2, R6, R15) --------------------------------------------------
     def _delivers_by_worker(self) -> bool:
-        """Whether the detached worker sends this run's queued writes: a client on the default
-        transport. An injected one (hosted MCP, tests) cannot be replayed by it (R4). Nor under a
-        SIGTERM: the job is going, its worker may go with the container, and the close's grace
-        (with its reserve for the terminal write) is spent sending this run's own writes."""
-        from ..launch import preempt as _preempt
-
+        """Whether the Probe service's drain sends this run's queued writes (plan D8): a client on
+        the default transport, a SIGTERM's close included (D9: it waits for "delivered" within its
+        grace, and a throwaway disk's close is sent through the service, `_close_preempted_directly`).
+        An injected transport (hosted MCP, tests) cannot be replayed by it (R4)."""
         client = self._client
-        if _preempt.ending() is not None:
-            return False
         return bool(getattr(client, "_default_transport", False)) and not getattr(
             client, "_drains_by_hand", False
         )
@@ -240,6 +236,8 @@ class CloseDrainMixin:
                 return self._close_unrecorded(unrecorded, wait=wait)
         if not wait:
             return self._hand_close_to_worker(left)
+        # Plan D21: the key passed in code goes to the service again, before the wait needs it.
+        self._client._hand_key_to_service()
         return self._settle_wait(
             self._wait_for_worker(wait_limit), status, summary, accounting, should_warn, verdict_sent,
             wait_limit=wait_limit,
@@ -326,7 +324,7 @@ class CloseDrainMixin:
 
     def _settle_wait(self, result, status, summary, accounting, should_warn, verdict_sent, *, wait_limit=None):
         """The outcomes table: the row, a queued report (stopped waiting), or `DeliveryIncomplete`."""
-        from ...delivery.outbox.waiter import DeliveryIncomplete
+        from ...delivery.outbox.waiter import DeliveryIncomplete, WaitOutcome
 
         self.stop_heartbeat()  # R6: the beat ends with the wait
         if result.is_delivered:
@@ -338,6 +336,10 @@ class CloseDrainMixin:
         if self._leased():
             self._draining_beat()  # the worker keeps sending: the lease stays live meanwhile
         self._release_run_lock()
+        if result.outcome == WaitOutcome.NO_SENDER and not self._client._was_key_handed():
+            # The key passed in code never reached a service: nothing else can send these (D21).
+            result.outcome = WaitOutcome.KEY_NOT_HANDED
+            result.outbox = str(self._client.journal.outbox_root)
         if result.is_still_sending:
             lost_with = None if verdict_sent else self._preempted_outbox_goes_with_machine()
             if lost_with is not None:

@@ -23,6 +23,7 @@ LOGGER_NAME = 'pyodata.service'
 
 HTTP_CODE_OK = 200
 HTTP_CODE_CREATED = 201
+HTTP_CODE_NO_CONTENT = 204
 
 
 def urljoin(*path):
@@ -249,27 +250,22 @@ class ODataHttpRequest:
 
     def get_path(self):
         """Get path of the HTTP request"""
-        # pylint: disable=no-self-use
         return ''
 
     def get_query_params(self):
         """Get query params"""
-        # pylint: disable=no-self-use
         return dict(self._customs)
 
     def get_method(self):
         """Get HTTP method"""
-        # pylint: disable=no-self-use
         return 'GET'
 
     def get_body(self):
         """Get HTTP body or None if not applicable"""
-        # pylint: disable=no-self-use
         return None
 
     def get_default_headers(self):
         """Get dict of Child specific HTTP headers"""
-        # pylint: disable=no-self-use
         return dict()
 
     def get_headers(self):
@@ -499,7 +495,6 @@ class EntityCreateRequest(ODataHttpRequest):
         return self._last_segment
 
     def get_method(self):
-        # pylint: disable=no-self-use
         return 'POST'
 
     def _get_body(self):
@@ -582,7 +577,6 @@ class EntityDeleteRequest(ODataHttpRequest):
         return self._encode_path
 
     def get_method(self):
-        # pylint: disable=no-self-use
         return 'DELETE'
 
 
@@ -623,11 +617,9 @@ class EntityModifyRequest(ODataHttpRequest):
         return self._entity_set.name + self._entity_key.to_key_string()
 
     def get_method(self):
-        # pylint: disable=no-self-use
         return self._method
 
     def get_body(self):
-        # pylint: disable=no-self-use
         body = {}
         for key, val in self._values.items():
             body[key] = val
@@ -869,33 +861,23 @@ class EntityProxy:
                     # entity type of navigation property
                     prop_etype = prop.to_role.entity_type
 
-                    # cache value according to multiplicity
-                    if prop.to_role.multiplicity in \
-                            [model.EndRole.MULTIPLICITY_ONE,
-                             model.EndRole.MULTIPLICITY_ZERO_OR_ONE]:
-
-                        # cache None in case we receive nothing (null) instead of entity data
-                        if proprties[prop.name] is None:
-                            self._cache[prop.name] = None
-                        else:
-                            self._cache[prop.name] = EntityProxy(service, None, prop_etype, proprties[prop.name])
-
-                    elif prop.to_role.multiplicity == model.EndRole.MULTIPLICITY_ZERO_OR_MORE:
-                        # default value is empty array
-                        self._cache[prop.name] = []
-
-                        # if there are no entities available, received data consists of
-                        # metadata properties only.
-                        if 'results' in proprties[prop.name]:
-                            # available entities are serialized in results array
-                            for entity in proprties[prop.name]['results']:
-                                self._cache[prop.name].append(EntityProxy(service, None, prop_etype, entity))
-                        elif isinstance(proprties[prop.name], list):
-                            for entity in proprties[prop.name]:
-                                self._cache[prop.name].append(EntityProxy(service, None, prop_etype, entity))
-                    else:
-                        raise PyODataException('Unknown multiplicity {0} of association role {1}'
-                                               .format(prop.to_role.multiplicity, prop.to_role.name))
+                    match prop.to_role.multiplicity:
+                        case model.EndRole.MULTIPLICITY_ONE | model.EndRole.MULTIPLICITY_ZERO_OR_ONE:
+                            if proprties[prop.name] is None:
+                                self._cache[prop.name] = None
+                            else:
+                                self._cache[prop.name] = EntityProxy(service, None, prop_etype, proprties[prop.name])
+                        case model.EndRole.MULTIPLICITY_ZERO_OR_MORE:
+                            self._cache[prop.name] = []
+                            if 'results' in proprties[prop.name]:
+                                for entity in proprties[prop.name]['results']:
+                                    self._cache[prop.name].append(EntityProxy(service, None, prop_etype, entity))
+                            elif isinstance(proprties[prop.name], list):
+                                for entity in proprties[prop.name]:
+                                    self._cache[prop.name].append(EntityProxy(service, None, prop_etype, entity))
+                        case _:
+                            raise PyODataException('Unknown multiplicity {0} of association role {1}'
+                                                   .format(prop.to_role.multiplicity, prop.to_role.name))
 
         # build entity key if not provided
         if self._entity_key is None:
@@ -1189,8 +1171,10 @@ class GetEntitySetFilterChainable:
         FirstName__contains='Tim'
         Age__gt=56
         Age__gte=6
+        Age__ge=6
         Age__lt=78
         Age__lte=90
+        Age__le=90
         Age__range=(5,9)
         FirstName__in=['Tim', 'Bob', 'Sam']
         FirstName__startswith='Tim'
@@ -1204,8 +1188,10 @@ class GetEntitySetFilterChainable:
         'endswith',
         'lt',
         'lte',
+        'le',
         'gt',
         'gte',
+        'ge',
         'contains',
         'range',
         'in',
@@ -1213,10 +1199,11 @@ class GetEntitySetFilterChainable:
         'eq'
     ]
 
-    def __init__(self, entity_type, filter_expressions, exprs):
+    def __init__(self, entity_type, filter_expressions, exprs, group=False):
         self._entity_type = entity_type
         self._filter_expressions = filter_expressions
         self._expressions = exprs
+        self._group = group
 
     @property
     def expressions(self):
@@ -1236,12 +1223,23 @@ class GetEntitySetFilterChainable:
         filter_expressions = [self._decode_expression(expr, val) for expr, val in filter_expression.expressions]
         return self._combine_expressions(filter_expressions)
 
+    def _decode_grouped_query_object(self, expr):
+        """Preserve every right-hand subtree in an opt-in grouped expression."""
+        lhs = self._decode_and_combine_filter_expression(expr)
+        if expr.other is None:
+            return lhs
+        rhs = self._decode_grouped_query_object(expr.other)
+        return f'({lhs}) {expr.operator} ({rhs})'
+
     def _process_query_objects(self):
         """Processes FilterExpression objects to OData lookups"""
 
         filter_expressions = []
 
         for expr in self._filter_expressions:
+            if self._group:
+                filter_expressions.append(self._decode_grouped_query_object(expr))
+                continue
             lhs_expressions = self._decode_and_combine_filter_expression(expr)
 
             if expr.other is not None:
@@ -1280,62 +1278,52 @@ class GetEntitySetFilterChainable:
 
         return expression
 
-    # pylint: disable=no-self-use
     def _combine_expressions(self, expressions):
+        if self._group and len(expressions) > 1:
+            expressions = [f'({expression})' for expression in expressions]
         return ' and '.join(expressions)
 
-    # pylint: disable=too-many-return-statements, too-many-branches
+    # pylint: disable=too-many-return-statements
     def _build_expression(self, field_name, operator, value):
         target_field = self.proprty_obj(field_name)
 
         if operator not in ['length', 'in', 'range']:
             value = target_field.to_literal(value)
 
-        if operator == 'lt':
-            return f'{field_name} lt {value}'
-
-        if operator == 'lte':
-            return f'{field_name} le {value}'
-
-        if operator == 'gte':
-            return f'{field_name} ge {value}'
-
-        if operator == 'gt':
-            return f'{field_name} gt {value}'
-
-        if operator == 'startswith':
-            return f'startswith({field_name}, {value}) eq true'
-
-        if operator == 'endswith':
-            return f'endswith({field_name}, {value}) eq true'
-
-        if operator == 'length':
-            value = int(value)
-            return f'length({field_name}) eq {value}'
-
-        if operator in ['contains']:
-            return f'substringof({value}, {field_name}) eq true'
-
-        if operator == 'range':
-            if not isinstance(value, tuple | list):
-                raise TypeError(f'Range must be tuple or list not {type(value)}')
-
-            if len(value) != 2:
-                raise ValueError('Only two items can be passed in a range.')
-
-            low_bound = target_field.to_literal(value[0])
-            high_bound = target_field.to_literal(value[1])
-
-            return f'{field_name} gte {low_bound} and {field_name} lte {high_bound}'
-
-        if operator == 'in':
-            literal_values = (f'{field_name} eq {target_field.to_literal(item)}' for item in value)
-            return ' or '.join(literal_values)
-
-        if operator == 'eq':
-            return f'{field_name} eq {value}'
-
-        raise ValueError(f'Invalid expression {operator}')
+        match operator:
+            case 'lt':
+                return f'{field_name} lt {value}'
+            # 'lte' / 'gte' are the Django-style lookup names (#113), not OData
+            # operators; 'le' / 'ge' are the OData names. Both emit the OData operator.
+            case 'lte' | 'le':
+                return f'{field_name} le {value}'
+            case 'gte' | 'ge':
+                return f'{field_name} ge {value}'
+            case 'gt':
+                return f'{field_name} gt {value}'
+            case 'startswith':
+                return f'startswith({field_name}, {value}) eq true'
+            case 'endswith':
+                return f'endswith({field_name}, {value}) eq true'
+            case 'length':
+                return f'length({field_name}) eq {int(value)}'
+            case 'contains':
+                return f'substringof({value}, {field_name}) eq true'
+            case 'range':
+                if not isinstance(value, tuple | list):
+                    raise TypeError(f'Range must be tuple or list not {type(value)}')
+                if len(value) != 2:
+                    raise ValueError('Only two items can be passed in a range.')
+                low_bound = target_field.to_literal(value[0])
+                high_bound = target_field.to_literal(value[1])
+                return f'{field_name} ge {low_bound} and {field_name} le {high_bound}'
+            case 'in':
+                literal_values = (f'{field_name} eq {target_field.to_literal(item)}' for item in value)
+                return ' or '.join(literal_values)
+            case 'eq':
+                return f'{field_name} eq {value}'
+            case _:
+                raise ValueError(f'Invalid expression {operator}')
 
     def __str__(self):
         expressions = self._process_expressions()
@@ -1356,16 +1344,24 @@ class GetEntitySetRequest(QueryRequest):
         proprty = self._entity_type.proprty(name)
         return GetEntitySetFilter(proprty)
 
-    def _set_filter(self, filter_val):
+    def _set_filter(self, filter_val, group=False):
+        if group:
+            if not filter_val:
+                return
+            filter_val = f'({filter_val})'
+            if self._filter:
+                self._filter = f'({self._filter})'
         filter_text = self._filter + ' and ' if self._filter else ''
         filter_text += filter_val
         self._filter = filter_text
 
-    def filter(self, *args, **kwargs):
+    def filter(self, *args, group=False, **kwargs):
+        """Set filters, optionally grouping conditions before joining them with and."""
         if args and len(args) == 1 and isinstance(args[0], str):
-            self._filter = args[0]
+            self._filter = f'({args[0]})' if group and args[0] else args[0]
         else:
-            self._set_filter(str(GetEntitySetFilterChainable(self._entity_type, args, kwargs)))
+            self._set_filter(str(GetEntitySetFilterChainable(self._entity_type, args, kwargs, group=group)),
+                             group=group)
 
         return self
 
@@ -1594,7 +1590,9 @@ class EntitySetProxy:
         def update_entity_handler(response):
             """Gets modified entity encoded in HTTP Response"""
 
-            if response.status_code != 204:
+            # OData V2 answers a successful update with 204 No Content, but some services
+            # (e.g. SAP SuccessFactors) reply 200 OK instead.
+            if response.status_code not in (HTTP_CODE_OK, HTTP_CODE_NO_CONTENT):
                 raise HttpError('HTTP modify request for Entity Set {} failed with status code {}'
                                 .format(self._name, response.status_code), response)
 
@@ -1722,32 +1720,29 @@ class FunctionContainer:
 
             response_data = response.json()['d']
 
-            # 1. if return type is an entity type or collection, resolve the entity set once
-            if isinstance(fimport.return_type, model.EntityType | model.Collection):
-                entity_set = self._service.schema.entity_set(fimport.entity_set_name)
-
-            if isinstance(fimport.return_type, model.EntityType):
-                return EntityProxy(self._service, entity_set, fimport.return_type, response_data)
-
-            if isinstance(fimport.return_type, model.Collection):
-                total_count = None
-                next_url = None
-                if '__count' in response_data:
-                    total_count = int(response_data['__count'])
-                if '__next' in response_data:
-                    next_url = response_data['__next']
-                results = response_data.get('results')
-                if results is None:
-                    raise PyODataException(
-                        f'Function import {fimport.name} returned a Collection response without a "results" key')
-                collection = ListWithTotalCount(total_count, next_url)
-                collection_item_type = fimport.return_type.item_type
-                for entity in results:
-                    collection.append(EntityProxy(self._service, entity_set, collection_item_type, entity))
-                return collection
-
-            # 2. return raw data for all other return types (primitives, complex types encoded in dicts, etc.)
-            return response_data
+            match fimport.return_type:
+                case model.EntityType():
+                    entity_set = self._service.schema.entity_set(fimport.entity_set_name)
+                    return EntityProxy(self._service, entity_set, fimport.return_type, response_data)
+                case model.Collection():
+                    entity_set = self._service.schema.entity_set(fimport.entity_set_name)
+                    total_count = None
+                    next_url = None
+                    if '__count' in response_data:
+                        total_count = int(response_data['__count'])
+                    if '__next' in response_data:
+                        next_url = response_data['__next']
+                    results = response_data.get('results')
+                    if results is None:
+                        raise PyODataException(
+                            f'Function import {fimport.name} returned a Collection response without a "results" key')
+                    collection = ListWithTotalCount(total_count, next_url)
+                    collection_item_type = fimport.return_type.item_type
+                    for entity in results:
+                        collection.append(EntityProxy(self._service, entity_set, collection_item_type, entity))
+                    return collection
+                case _:
+                    return response_data
 
         return FunctionRequest(self._service.url, self._service.connection,
                                partial(function_import_handler, fimport), fimport,
@@ -1936,7 +1931,6 @@ class MultipartRequest(ODataHttpRequest):
         return self.id
 
     def get_default_headers(self):
-        # pylint: disable=no-self-use
         return {'Content-Type': f'multipart/mixed;boundary={self.get_boundary()}'}
 
     def get_body(self):
@@ -1971,11 +1965,9 @@ class BatchRequest(MultipartRequest):
         return 'batch_' + self.id
 
     def get_path(self):
-        # pylint: disable=no-self-use
         return '$batch'
 
     def get_method(self):
-        # pylint: disable=no-self-use
         return 'POST'
 
 

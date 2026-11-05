@@ -30,45 +30,48 @@ class CreateOssScanConfigRequest(DaraModel):
     ):
         # Specifies whether to match all prefixes. If this parameter is set to true, the KeyPrefixList parameter does not take effect.
         self.all_key_prefix = all_key_prefix
-        # Specifies whether OSS buckets are automatically added to this policy. Valid values:
-        # - **true**: Enabled.
-        # - **false**: Disabled.
+        # Specifies whether to add new OSS buckets to this policy by default. Valid values:
+        # - **true**: yes.
+        # - **false**: no.
         self.auto_add = auto_add
         # The list of bucket names.
         self.bucket_name_list = bucket_name_list
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must ensure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # The maximum number of files to decompress. Minimum value: 1. Maximum value: 1000. When the maximum number of decompressed files is exceeded, the decompression operation stops immediately. The scanning of files that have already been decompressed is not affected.
+        # The maximum number of files to decompress. Minimum value: 1. Maximum value: 1000. If the number of files exceeds this value, decompression stops, but the scan of already decompressed files is not affected.
         self.decompress_max_file_count = decompress_max_file_count
-        # The maximum number of decompression layers when nested compressed files exist. Minimum value: 1. Maximum value: 5. When the maximum number of decompression layers is exceeded, the decompression operation stops immediately. The scanning of files that have already been decompressed is not affected.
+        # The maximum number of decompression layers for nested archives. Minimum value: 1. Maximum value: 5. If the nesting depth exceeds this value, decompression stops, but the scan of already decompressed files is not affected.
         self.decompress_max_layer = decompress_max_layer
         # The list of decryption types.
         self.decryption_list = decryption_list
-        # Specifies whether to perform only a dry run, without performing the actual request. Valid values: true: performs only a dry run without performing the actual request. false: performs the actual request. Default value: false.
+        # Specifies whether to perform a dry run. Valid values:
+        # - **true**: performs a dry run without executing the actual operation.
+        # - **false**: executes the actual operation.
+        # Default value: false.
         self.dry_run = dry_run
         # Specifies whether to enable the policy. Valid values:
-        # - **1**: Enable.
-        # - **0**: Disable.
+        # - **1**: enabled.
+        # - **0**: disabled.
         self.enable = enable
-        # The scan stop time, in the HH:mm:ss format.
+        # The end time of the scan, in the HH:mm:ss format.
         self.end_time = end_time
         # The file prefix list.
         self.key_prefix_list = key_prefix_list
-        # The list of file suffixes to scan.
+        # The list of file name extensions to scan.
         self.key_suffix_list = key_suffix_list
-        # Scans files whose last modification time is after the specified timestamp. Unit: milliseconds.
+        # The timestamp after which the files to be scanned were last modified. Unit: milliseconds.
         self.last_modified_start_time = last_modified_start_time
         # The policy name.
         self.name = name
         # Specifies whether to enable real-time incremental scanning. If this parameter is set to true, the ScanDayList, StartTime, and EndTime parameters do not take effect.
         self.real_time_incr = real_time_incr
-        # The scan schedule. The number indicates the day of the week.
+        # The days of the week when the scan is performed, represented by numbers.
         self.scan_day_list = scan_day_list
-        # The business source. Valid values:
+        # The source service. Valid values:
         # - **OSS**: OSS.
         # - **NAS**: NAS.
         self.source = source
-        # The scan start time, in the HH:mm:ss format.
+        # The start time of the scan, in the HH:mm:ss format.
         self.start_time = start_time
 
     def validate(self):

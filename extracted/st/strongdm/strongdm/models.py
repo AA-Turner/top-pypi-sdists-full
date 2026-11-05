@@ -4145,6 +4145,7 @@ class ActiveDirectoryEngine:
         'max_backoff_duration',
         'name',
         'node_selector',
+        'path_credentials',
         'policy',
         'public_key',
         'request_timeout',
@@ -4172,6 +4173,7 @@ class ActiveDirectoryEngine:
         max_backoff_duration=None,
         name=None,
         node_selector=None,
+        path_credentials=None,
         policy=None,
         public_key=None,
         request_timeout=None,
@@ -4190,11 +4192,11 @@ class ActiveDirectoryEngine:
         '''
         self.binddn = binddn if binddn is not None else ''
         '''
-         Distinguished name of object to bind when performing user and group search. Example: cn=vault,ou=Users,dc=example,dc=com
+         Distinguished name of object to bind when performing user and group search. Example: cn=vault,ou=Users,dc=example,dc=com. With path_credentials it is a secret store path in the resource format path?key=username, otherwise it is the literal username.
         '''
         self.bindpass = bindpass if bindpass is not None else ''
         '''
-         Password to use along with binddn when performing user search.
+         Bindpass is the password to use along with binddn when performing user search. With path_credentials it is a secret store path in the resource format path?key=password, otherwise it is the literal password.
         '''
         self.certificate = certificate if certificate is not None else ''
         '''
@@ -4232,6 +4234,10 @@ class ActiveDirectoryEngine:
         self.node_selector = node_selector if node_selector is not None else ''
         '''
          node selector is used to narrow down the nodes used to communicate with with secret engine
+        '''
+        self.path_credentials = path_credentials if path_credentials is not None else False
+        '''
+         PathCredentials is true when username and password are secret store paths, which the control plane stores. When false, they are literal values and the password is rotated and kept in the engine's secret store.
         '''
         self.policy = policy if policy is not None else None
         '''
@@ -4292,6 +4298,7 @@ class ActiveDirectoryEngine:
             'max_backoff_duration: ' + repr(self.max_backoff_duration) + ' ' +\
             'name: ' + repr(self.name) + ' ' +\
             'node_selector: ' + repr(self.node_selector) + ' ' +\
+            'path_credentials: ' + repr(self.path_credentials) + ' ' +\
             'policy: ' + repr(self.policy) + ' ' +\
             'public_key: ' + repr(self.public_key) + ' ' +\
             'request_timeout: ' + repr(self.request_timeout) + ' ' +\
@@ -4319,6 +4326,7 @@ class ActiveDirectoryEngine:
             'max_backoff_duration': self.max_backoff_duration,
             'name': self.name,
             'node_selector': self.node_selector,
+            'path_credentials': self.path_credentials,
             'policy': self.policy,
             'public_key': self.public_key,
             'request_timeout': self.request_timeout,
@@ -4347,6 +4355,7 @@ class ActiveDirectoryEngine:
             max_backoff_duration=d.get('max_backoff_duration'),
             name=d.get('name'),
             node_selector=d.get('node_selector'),
+            path_credentials=d.get('path_credentials'),
             policy=d.get('policy'),
             public_key=d.get('public_key'),
             request_timeout=d.get('request_timeout'),
@@ -24456,6 +24465,7 @@ class MysqlEngine:
         'name',
         'node_selector',
         'password',
+        'path_credentials',
         'policy',
         'port',
         'public_key',
@@ -24478,6 +24488,7 @@ class MysqlEngine:
         name=None,
         node_selector=None,
         password=None,
+        path_credentials=None,
         policy=None,
         port=None,
         public_key=None,
@@ -24519,7 +24530,11 @@ class MysqlEngine:
         '''
         self.password = password if password is not None else ''
         '''
-         Password is the password to connect to the MySQL server.
+         Password is the password to connect to the MySQL server. With path_credentials it is a secret store path in the resource format path?key=password, otherwise it is the literal password.
+        '''
+        self.path_credentials = path_credentials if path_credentials is not None else False
+        '''
+         PathCredentials is true when username and password are secret store paths, which the control plane stores. When false, they are literal values and the password is rotated and kept in the engine's secret store.
         '''
         self.policy = policy if policy is not None else None
         '''
@@ -24559,7 +24574,7 @@ class MysqlEngine:
         '''
         self.username = username if username is not None else ''
         '''
-         Username is the username to connect to the MySQL server.
+         Username is the username to connect to the MySQL server. With path_credentials it is a secret store path in the resource format path?key=username, otherwise it is the literal username.
         '''
 
     def __repr__(self):
@@ -24572,6 +24587,7 @@ class MysqlEngine:
             'name: ' + repr(self.name) + ' ' +\
             'node_selector: ' + repr(self.node_selector) + ' ' +\
             'password: ' + repr(self.password) + ' ' +\
+            'path_credentials: ' + repr(self.path_credentials) + ' ' +\
             'policy: ' + repr(self.policy) + ' ' +\
             'port: ' + repr(self.port) + ' ' +\
             'public_key: ' + repr(self.public_key) + ' ' +\
@@ -24594,6 +24610,7 @@ class MysqlEngine:
             'name': self.name,
             'node_selector': self.node_selector,
             'password': self.password,
+            'path_credentials': self.path_credentials,
             'policy': self.policy,
             'port': self.port,
             'public_key': self.public_key,
@@ -24617,6 +24634,7 @@ class MysqlEngine:
             name=d.get('name'),
             node_selector=d.get('node_selector'),
             password=d.get('password'),
+            path_credentials=d.get('path_credentials'),
             policy=d.get('policy'),
             port=d.get('port'),
             public_key=d.get('public_key'),
@@ -27701,6 +27719,7 @@ class PostgresEngine:
         'name',
         'node_selector',
         'password',
+        'path_credentials',
         'policy',
         'port',
         'public_key',
@@ -27722,6 +27741,7 @@ class PostgresEngine:
         name=None,
         node_selector=None,
         password=None,
+        path_credentials=None,
         policy=None,
         port=None,
         public_key=None,
@@ -27762,7 +27782,11 @@ class PostgresEngine:
         '''
         self.password = password if password is not None else ''
         '''
-         Password is the password to connect to the Postgres server.
+         Password is the password to connect to the Postgres server. With path_credentials it is a secret store path in the resource format path?key=password, otherwise it is the literal password.
+        '''
+        self.path_credentials = path_credentials if path_credentials is not None else False
+        '''
+         PathCredentials is true when username and password are secret store paths, which the control plane stores. When false, they are literal values and the password is rotated and kept in the engine's secret store.
         '''
         self.policy = policy if policy is not None else None
         '''
@@ -27798,7 +27822,7 @@ class PostgresEngine:
         '''
         self.username = username if username is not None else ''
         '''
-         Username is the username to connect to the Postgres server.
+         Username is the username to connect to the Postgres server. With path_credentials it is a secret store path in the resource format path?key=username, otherwise it is the literal username.
         '''
 
     def __repr__(self):
@@ -27811,6 +27835,7 @@ class PostgresEngine:
             'name: ' + repr(self.name) + ' ' +\
             'node_selector: ' + repr(self.node_selector) + ' ' +\
             'password: ' + repr(self.password) + ' ' +\
+            'path_credentials: ' + repr(self.path_credentials) + ' ' +\
             'policy: ' + repr(self.policy) + ' ' +\
             'port: ' + repr(self.port) + ' ' +\
             'public_key: ' + repr(self.public_key) + ' ' +\
@@ -27832,6 +27857,7 @@ class PostgresEngine:
             'name': self.name,
             'node_selector': self.node_selector,
             'password': self.password,
+            'path_credentials': self.path_credentials,
             'policy': self.policy,
             'port': self.port,
             'public_key': self.public_key,
@@ -27854,6 +27880,7 @@ class PostgresEngine:
             name=d.get('name'),
             node_selector=d.get('node_selector'),
             password=d.get('password'),
+            path_credentials=d.get('path_credentials'),
             policy=d.get('policy'),
             port=d.get('port'),
             public_key=d.get('public_key'),
@@ -35250,6 +35277,7 @@ class SqlserverEngine:
         'name',
         'node_selector',
         'password',
+        'path_credentials',
         'policy',
         'port',
         'public_key',
@@ -35272,6 +35300,7 @@ class SqlserverEngine:
         name=None,
         node_selector=None,
         password=None,
+        path_credentials=None,
         policy=None,
         port=None,
         public_key=None,
@@ -35313,7 +35342,11 @@ class SqlserverEngine:
         '''
         self.password = password if password is not None else ''
         '''
-         Password is the password to connect to the SQL Server server.
+         Password is the password to connect to the SQL Server server. With path_credentials it is a secret store path in the resource format path?key=password, otherwise it is the literal password.
+        '''
+        self.path_credentials = path_credentials if path_credentials is not None else False
+        '''
+         PathCredentials is true when username and password are secret store paths, which the control plane stores. When false, they are literal values and the password is rotated and kept in the engine's secret store.
         '''
         self.policy = policy if policy is not None else None
         '''
@@ -35353,7 +35386,7 @@ class SqlserverEngine:
         '''
         self.username = username if username is not None else ''
         '''
-         Username is the username to connect to the SQL Server.
+         Username is the username to connect to the SQL Server. With path_credentials it is a secret store path in the resource format path?key=username, otherwise it is the literal username.
         '''
 
     def __repr__(self):
@@ -35366,6 +35399,7 @@ class SqlserverEngine:
             'name: ' + repr(self.name) + ' ' +\
             'node_selector: ' + repr(self.node_selector) + ' ' +\
             'password: ' + repr(self.password) + ' ' +\
+            'path_credentials: ' + repr(self.path_credentials) + ' ' +\
             'policy: ' + repr(self.policy) + ' ' +\
             'port: ' + repr(self.port) + ' ' +\
             'public_key: ' + repr(self.public_key) + ' ' +\
@@ -35388,6 +35422,7 @@ class SqlserverEngine:
             'name': self.name,
             'node_selector': self.node_selector,
             'password': self.password,
+            'path_credentials': self.path_credentials,
             'policy': self.policy,
             'port': self.port,
             'public_key': self.public_key,
@@ -35411,6 +35446,7 @@ class SqlserverEngine:
             name=d.get('name'),
             node_selector=d.get('node_selector'),
             password=d.get('password'),
+            path_credentials=d.get('path_credentials'),
             policy=d.get('policy'),
             port=d.get('port'),
             public_key=d.get('public_key'),

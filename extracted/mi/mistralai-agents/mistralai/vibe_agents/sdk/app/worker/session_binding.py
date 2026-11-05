@@ -5,6 +5,7 @@ legacy event envelopes. ``WorkflowSessionHost`` owns Session execution.
 """
 
 import asyncio
+import functools
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
@@ -28,7 +29,12 @@ from mistralai.vibe.harness.core import protocol as core_protocol
 from mistralai.vibe.harness.runtime.agents.commands import SESSION_FAILED_ERROR_CODE, session_end_message
 from mistralai.vibe.harness.runtime.agents.control_plane import SendCommandRequest
 from mistralai.vibe.harness.runtime.agents.execution import AgentRuntimeBinding
-from mistralai.vibe.harness.runtime.agents.models import AgentTopology, StartSessionRequest
+from mistralai.vibe.harness.runtime.agents.models import (
+    AgentTopology,
+    ChildLineage,
+    RootSandboxReference,
+    StartSessionRequest,
+)
 from mistralai.vibe.harness.runtime.agents.policy import SubagentPolicy
 from mistralai.vibe.harness.runtime.capabilities import MistralConnectorNotFoundError
 from mistralai.vibe.harness.runtime.completion.config import parse_completion_config
@@ -110,7 +116,9 @@ from mistralai.vibe_agents.sdk.app.worker import (
     message_receipts,
     runtime_metrics,
     sandbox_access,
+    session_caller,
     session_limits,
+    start_input,
     usage_telemetry,
 )
 from mistralai.vibe_agents.sdk.app.worker import callbacks as worker_callbacks
@@ -148,6 +156,7 @@ from .. import config
 logger = structlog.get_logger(__name__)
 
 _AGENT_WORKFLOW_TAG = "agents"
+_SANDBOX_METRICS = runtime_metrics.WorkerSandboxMetrics()
 _MAX_CARRIED_COMMAND_IDS = 1000
 _LIMIT_STOP_REASONS: dict[wire.SessionLimitCause, str] = {
     wire.SessionLimitCause.LIFETIME_LIMIT: "The Session reached its maximum lifetime",
@@ -182,6 +191,7 @@ def _interrupt_cause(command: wire.SystemCommand) -> str | None:
 _BACKGROUND_PROCESSES_PATCH = "agents-sdk.background-processes.v1"
 _LARGE_OUTPUT_PATCH = "agents-sdk.large-output-files.v1"
 _IDLE_STOP_PATCH = "agents-sdk.idle-stop-ends-session.v1"
+ROOT_SANDBOX_NOT_LENDABLE_ERROR_TYPE = "RootSandboxNotLendable"
 
 AdmittedWorkflowMessage = continuation.AdmittedWorkflowMessage
 CommandPublication = continuation.CommandPublication
@@ -225,6 +235,24 @@ class SessionInputsUnresolvedError(ValueError):
 
 class InitialMessageRejectedError(ValueError):
     """The Session refused its first message, so the first Turn will never run."""
+
+
+def _root_sandbox_reference(resource: WorkflowSandboxResource, session_id: str) -> RootSandboxReference | None:
+    """The Sandbox a root lends its children, refused when they could not borrow it.
+
+    A root names a Sandbox it creates after its Workflow ID, and a child proves ownership
+    against its root Session ID, so the two must be the same value. The controller always
+    starts a Session under its Session ID; only a hand-made Workflow start can differ.
+    """
+    reference = resource.root_reference()
+    execution_id = workflows.get_execution_id()
+    if reference is not None and execution_id is not None and execution_id != session_id:
+        raise ApplicationError(
+            "Subagents can share this Session's sandbox only when its Workflow ID is its Session ID",
+            type=ROOT_SANDBOX_NOT_LENDABLE_ERROR_TYPE,
+            non_retryable=True,
+        )
+    return reference
 
 
 class WorkflowSessionBinding:
@@ -294,7 +322,7 @@ class WorkflowSessionBinding:
         *,
         definition: WorkflowHarnessDefinition,
         sandbox: contracts.Sandbox,
-        principal: wire.Principal,
+        principal: wire.Principal | None,
         session_id: str,
         restored: WorkflowContinuationState | None = None,
         session_inputs: dict[str, JsonValue] | None = None,
@@ -308,6 +336,7 @@ class WorkflowSessionBinding:
         subagent_policy: SubagentPolicy | None = None,
         control_plane: worker_control_plane.ActivitySessionControlPlane | None = None,
         child_session: StartSessionRequest | None = None,
+        lineage: ChildLineage | None = None,
         program_policy: ProgramExecutionPolicy = DEFAULT_PROGRAM_EXECUTION_POLICY,
         wait_policy: ModelWaitPolicy = DEFAULT_MODEL_WAIT_POLICY,
         turn_policy: TurnExecutionPolicy = DEFAULT_TURN_EXECUTION_POLICY,
@@ -338,6 +367,7 @@ class WorkflowSessionBinding:
             session_id=session_id,
             terminal_hook_failures=True,
             lifecycle=sandbox_lifecycle,
+            metrics=_SANDBOX_METRICS,
         )
         # Checked before the Sandbox is provisioned: a Session missing a declared
         # input can never run, so it must fail without side effects. A restored
@@ -362,6 +392,9 @@ class WorkflowSessionBinding:
                 child_session.sandbox,
                 sandbox,
                 sandbox_adapter,
+                # The controller starts a child only under its owned parent's tree root; a direct
+                # Workflow start can still choose this value (AGE-2410).
+                root_session_id=child_session.root_session_id,
                 restored=restored.hosted.sandbox if restored is not None else None,
                 bash_max_timeout=bash_max_timeout,
             )
@@ -402,18 +435,7 @@ class WorkflowSessionBinding:
             if subagent_policy is not None:
                 if control_plane is None:
                     raise ValueError("Subagents require a Session-control-plane binding")
-                # Typed provider settings retain environment references, never resolved API keys.
-                completion = parse_completion_config(definition.agent_config.completion)
-                inherited_definition = definition.with_runtime_sandbox(
-                    sandbox=None, workdir=definition.agent_config.workdir
-                )
-                inherited_definition = inherited_definition.model_copy(
-                    update={
-                        "agent_config": inherited_definition.agent_config.model_copy(
-                            update={"completion": completion.model_dump(mode="json")}
-                        )
-                    }
-                )
+                inherited_definition = _definition_children_inherit(definition)
                 agents_binding = AgentRuntimeBinding(
                     control_plane=control_plane,
                     topology=AgentTopology(
@@ -428,7 +450,10 @@ class WorkflowSessionBinding:
                     if child_session
                     else subagent_policy,
                     definition=inherited_definition,
-                    sandbox=child_session.sandbox if child_session else sandbox_resource.root_reference(),
+                    sandbox=child_session.sandbox
+                    if child_session
+                    else _root_sandbox_reference(sandbox_resource, session_id),
+                    lineage=lineage or ChildLineage(),
                 )
             callbacks = worker_callbacks.WorkflowCallbackStore()
             session_condition_waiter = condition_waiter or (
@@ -1200,7 +1225,7 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
         The Runtime decides at admission, so a running Turn answers ``turn_active`` and nothing
         is kept: the same id starts the Turn once the running one ends, as a strict local start
         does. A retry of an accepted start replays its Turn, as does a start the ``/commands``
-        path took under the same id.
+        path took under the same id. The same id with another message conflicts.
         """
 
         return await self._take_message(message)
@@ -1238,11 +1263,15 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
                     return await self._decide_message(
                         message, command_id=command_id, digest=digest, busy_deadline=busy_deadline
                     )
-            # Start and steer replay by id alone (ADR 0038) and never wait, so they skip the lock a
-            # busy send_message holds, as on the local runtime. The Runtime dedupes a concurrent
-            # retry by id.
+            # A start keeps its digest, so its key reused for another message conflicts, as for
+            # send_message; a steer replays by id alone (ADR 0038). Neither waits, so both skip the
+            # lock a busy send_message holds, as on the local runtime. The Runtime dedupes a
+            # concurrent retry by id.
+            start_digest = (
+                message_receipts.build_message_digest(message) if isinstance(message, StartTurnInput) else None
+            )
             return await self._decide_message(
-                message, command_id=str(message.command_id), digest=None, busy_deadline=busy_deadline
+                message, command_id=str(message.command_id), digest=start_digest, busy_deadline=busy_deadline
             )
         finally:
             self._message_handlers_in_flight -= 1
@@ -1268,7 +1297,9 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
             # Before the stop check, so a retry of an accepted message is not refused for a later stop.
             receipt = self._message_receipts.get(command_id)
             if receipt is not None:
-                if receipt.digest != digest:
+                # TODO(after 1.1.0): compare always. A start receipt carried across Continue-As-New
+                # from an older worker has no digest, so its retry replays.
+                if receipt.digest is not None and receipt.digest != digest:
                     return _refuse_message(wire.SessionCommandVerdictReason.IDEMPOTENCY_CONFLICT)
                 if receipt.refused:
                     return _refuse_message(wire.SessionCommandVerdictReason.SESSION_NOT_ACCEPTING_COMMANDS)
@@ -1294,7 +1325,7 @@ class _UnifiedHarnessControlPlaneWorkflow(workflows.InteractiveWorkflow):
                 receipt.rejected = True
                 return _refuse_message(wire.SessionCommandVerdictReason.MESSAGE_REJECTED)
             if receipt is None and _command_was_observed(binding, command_id):
-                if digest is not None:
+                if isinstance(message, SendMessageInput):
                     # Another command path took this id, so there is no content to compare.
                     return _refuse_message(wire.SessionCommandVerdictReason.IDEMPOTENCY_CONFLICT)
                 # The same start or steer, sent first through /commands or before Continue-As-New:
@@ -1798,14 +1829,14 @@ def build_workflow_class(
 ) -> type:
     """Build the decorated control-plane Workflow around a Harness Session Host."""
 
-    # A binding lets each Session take the subagent policy its start input carries, so a binding
-    # alone is enough; a static policy has nothing to call without one. Every deployed worker has a
-    # binding, so only an agent with subagents or a subagent policy needs a Sandbox its children
-    # can share.
+    # A static policy has nothing to call without a binding. Every deployed worker has a binding,
+    # but only an agent with subagents or a subagent policy serves them: anyone who can start the
+    # Workflow writes the start input's policy and child Session, so they cannot enable subagents.
     if subagent_policy is not None and session_control_plane is None:
         raise ValueError("A subagent policy requires a Session-control-plane binding")
     declares_subagents = agent._to_agent_config().effective_subagent_policy() is not None
-    if session_control_plane is not None and (subagent_policy is not None or declares_subagents):
+    serves_subagents = session_control_plane is not None and (subagent_policy is not None or declares_subagents)
+    if serves_subagents:
         _reject_unborrowable_subagent_sandbox(harness.sandbox)
     if isinstance(harness.sandbox, contracts.MistralSandbox):
         from mistralai.vibe_agents.sdk.sandbox.koyeb import (  # noqa: PLC0415
@@ -1814,7 +1845,8 @@ def build_workflow_class(
 
         register_koyeb_sandbox_activities()
     settings = config.get_app_settings()
-    if session_control_plane is not None:
+    # Only a Workflow that serves subagents looks its binding up. The second check only narrows the type.
+    if serves_subagents and session_control_plane is not None:
         worker_control_plane.register_control_plane_binding(name, session_control_plane)
     frozen_agent = agent.model_copy()
     frozen_harness = harness.copy_for_isolation()
@@ -1829,6 +1861,7 @@ def build_workflow_class(
         tool_errors=frozen_agent.tool_errors,
     )
     frozen_definition = frozen_assembly.harness_definition
+    on_behalf_of = contracts.requires_on_behalf_of(frozen_harness, frozen_agent.subagents)
     # Before any Session starts: a Session's sandbox write resolves its references through the
     # resolver this registers and the local skill bytes it keeps in this process.
     frozen_skills = worker_skills.prepare(frozen_assembly.skills)
@@ -1848,7 +1881,7 @@ def build_workflow_class(
             session_input_classes=frozen_assembly.session_input_classes,
             skills=frozen_skills,
             subagent_policy=subagent_policy,
-            control_plane_binding_id=name if session_control_plane else None,
+            control_plane_binding_id=name if serves_subagents else None,
             program_policy=program_policy,
             wait_policy=wait_policy,
             turn_policy=turn_policy,
@@ -1856,14 +1889,10 @@ def build_workflow_class(
             # The authored description, not the generated workflow description fallback.
             agent_description=frozen_agent.description,
             sandbox_lifecycle_factory=sandbox_lifecycle_factory,
+            on_behalf_of=on_behalf_of,
         )
 
-    return _define_session_workflow(
-        run,
-        name=name,
-        on_behalf_of=contracts.requires_on_behalf_of(frozen_harness, frozen_agent.subagents),
-        settings=settings,
-    )
+    return _define_session_workflow(run, name=name, on_behalf_of=on_behalf_of, settings=settings)
 
 
 def build_shared_worker_workflow_class(*, on_behalf_of: bool) -> type:
@@ -1883,7 +1912,9 @@ def build_shared_worker_workflow_class(*, on_behalf_of: bool) -> type:
         definition, sandbox = _compile_shared_worker_agent(params, name=name, on_behalf_of=on_behalf_of)
         # Validated by the compile above. Names the Agent in GenAI traces, as a code-defined Agent's description does.
         description = wire.SharedWorkerAgentSpec.model_validate(params.shared_worker_agent).agent.description
-        return await _serve(self, definition, sandbox, params, settings, agent_description=description)
+        return await _serve(
+            self, definition, sandbox, params, settings, agent_description=description, on_behalf_of=on_behalf_of
+        )
 
     return _define_session_workflow(
         run,
@@ -2011,8 +2042,8 @@ def _session_observation_context(
     return for_turn
 
 
-def _sandbox_proxy_identity(principal: wire.Principal) -> dict[str, str] | None:
-    if principal.user_id is None:
+def _sandbox_proxy_identity(principal: wire.Principal | None) -> dict[str, str] | None:
+    if principal is None or principal.user_id is None:
         return None
     return {
         "customer_id": str(principal.customer_id),
@@ -2070,9 +2101,15 @@ def _reject_stateful_workflow_hooks(
                 )
 
 
-def _is_session_v1(params: wire.SessionWorkflowStartInput) -> bool:
-    # Fixed at creation and carried across continue-as-new, so the shape never changes mid-session.
-    return params.session_protocol == "session_v1"
+async def _resolve_session_caller(settings: config.AppSettings, *, on_behalf_of: bool) -> wire.Principal | None:
+    """The attested caller, or None for a Workflow that acts for no user and forwards no identity.
+
+    Identity headers make internal services act as the caller, so they need it attested: resolving it
+    fails the Session when the execution does not run on behalf of a user.
+    """
+    if not on_behalf_of and not settings.use_identity_headers:
+        return None
+    return await session_caller.resolve_session_caller()
 
 
 def _build_event_publisher(
@@ -2085,39 +2122,18 @@ def _build_event_publisher(
     return events.LegacyTaskSessionEventPublisher()
 
 
-def _with_session_agent_customization(
-    definition: WorkflowHarnessDefinition,
-    customization: wire.SessionAgentCustomization | None,
-) -> WorkflowHarnessDefinition:
-    if customization is None:
-        return definition
-    return definition.model_copy(
-        update={"agent_config": assemble.with_session_agent_customization(definition.agent_config, customization)}
-    )
+def _definition_children_inherit(definition: WorkflowHarnessDefinition) -> WorkflowHarnessDefinition:
+    """The definition a Session derives its children from: no sandbox, and a normalized completion.
 
-
-def _session_subagent_policy(
-    params: wire.SessionWorkflowStartInput,
-    static: SubagentPolicy | None,
-    *,
-    bound: bool,
-) -> SubagentPolicy | None:
-    """The Session's subagent policy: its start input's, else the Workflow's static one.
-
-    The Agents API writes the start input's policy for every Session of a tree that has one, so it
-    governs on a deployed worker. Without a Session-control-plane binding the worker cannot reach
-    the Agents API, so the Session runs without subagents.
+    Typed provider settings retain environment references, never resolved API keys.
     """
 
-    session = params.subagent_policy
-    if session is None or not bound:
-        return static
-    # Operator-only limits, such as the child interrupt timeout, stay the Workflow's.
-    return replace(
-        static or SubagentPolicy(concurrent_child_turn_limit=session.concurrent_child_turn_limit),
-        concurrent_child_turn_limit=session.concurrent_child_turn_limit,
-        idle_message_starts=session.idle_message_starts,
-        max_depth=session.max_depth,
+    completion = parse_completion_config(definition.agent_config.completion)
+    inherited = definition.with_runtime_sandbox(sandbox=None, workdir=definition.agent_config.workdir)
+    return inherited.model_copy(
+        update={
+            "agent_config": inherited.agent_config.model_copy(update={"completion": completion.model_dump(mode="json")})
+        }
     )
 
 
@@ -2139,12 +2155,10 @@ async def _serve(
     intake_limits: SessionIntakeLimits = DEFAULT_SESSION_INTAKE_LIMITS,
     agent_description: str | None = None,
     sandbox_lifecycle_factory: SandboxLifecycleFactory | None = None,
+    on_behalf_of: bool = False,
 ) -> wire.SessionWorkflowOutput:
     restored = continuation.build_continuation_state(params)
     carried_limits = restored.limits if restored is not None else None
-
-    async def refresh_no_log_headers() -> dict[str, str]:
-        return await customer_metadata.fetch_customer_no_log_headers(str(params.principal.customer_id))
 
     def observation_context_for_turn(turn_id: str | None) -> ObservationContext:
         attributes = {"session_id": str(params.session_id)}
@@ -2188,66 +2202,95 @@ async def _serve(
                 raise HarnessCompletionFailedError(result.error)
 
     try:
-        child_session = (
-            StartSessionRequest.model_validate(params.child_session) if params.child_session is not None else None
+        accepted = start_input.read_start_input(
+            params,
+            definition,
+            static_subagent_policy=subagent_policy,
+            bound=control_plane_binding_id is not None,
+            skill_files=skills,
         )
-        subagent_policy = _session_subagent_policy(params, subagent_policy, bound=control_plane_binding_id is not None)
+        definition, child_session, subagent_policy = (
+            accepted.definition,
+            accepted.child_session,
+            accepted.subagent_policy,
+        )
+        lineage, session_v1 = accepted.lineage, accepted.session_v1
+        # Never from the start input, which the caller writes. Resolved on every run: each run has
+        # its own execution token, which the Workflows API attests for the user who started the first.
+        principal = await _resolve_session_caller(settings, on_behalf_of=on_behalf_of)
+        completion_http_headers: dict[str, str] | None = None
+        completion_http_headers_provider: Callable[[], Awaitable[Mapping[str, str]]] | None = None
+        if settings.use_identity_headers and principal is not None:
+            completion_http_headers = assemble.build_completion_http_headers(
+                principal, correlation_id=params.correlation_id
+            )
+            completion_http_headers_provider = functools.partial(
+                customer_metadata.fetch_customer_completion_headers, str(principal.customer_id)
+            )
+        control_plane = (
+            worker_control_plane.ActivitySessionControlPlane(
+                control_plane_binding_id, execution_token=worker_control_plane.workflow_execution_token()
+            )
+            if control_plane_binding_id is not None
+            else None
+        )
         if child_session is not None:
-            if subagent_policy is None or control_plane_binding_id is None:
-                raise ValueError("Child Session requires the configured Session-control-plane binding")
-            definition = child_session.definition
-        definition = _with_session_agent_customization(definition, params.agent)
-        session_v1 = _is_session_v1(params)
-        if not session_v1 and (subagent_policy is not None or child_session is not None):
-            # Legacy Task Protocol history has no shape for agent context messages.
-            raise ValueError("Subagents run only on Session v1; a legacy-protocol Session cannot run them")
+            if control_plane is None:
+                # read_start_input already refuses an unbound child; never let one skip the check.
+                raise start_input.reject_start_input(
+                    params,
+                    start_input.StartInputRefusal(
+                        "Child Session requires the configured Session-control-plane binding"
+                    ),
+                )
+            # Before anything opens: no sandbox is attached and no tool runs for a child the
+            # Agents API did not start.
+            await start_input.verify_child_session(params, child_session, control_plane)
         sandbox_lifecycle = (
-            sandbox_lifecycle_factory(params, restored.sandbox_lifecycle if restored is not None else None)
+            sandbox_lifecycle_factory(params, principal, restored.sandbox_lifecycle if restored is not None else None)
             if sandbox_lifecycle_factory is not None and child_session is None and subagent_policy is None
             else None
         )
-        binding = await WorkflowSessionBinding.open(
-            definition=definition,
-            sandbox=sandbox,
-            principal=params.principal,
-            session_id=str(params.session_id),
-            session_inputs=session_input_assembly.with_omitted_optional_inputs(
-                session_input_classes, params.session_inputs or {}
-            ),
-            restored=restored,
-            skills=skills,
-            event_publisher=_build_event_publisher(params, session_v1=session_v1),
-            session_v1=session_v1,
-            subagent_policy=subagent_policy,
-            control_plane=worker_control_plane.ActivitySessionControlPlane(control_plane_binding_id, params.principal)
-            if control_plane_binding_id is not None
-            else None,
-            child_session=child_session,
-            program_policy=program_policy,
-            wait_policy=wait_policy,
-            turn_policy=turn_policy,
-            intake_limits=intake_limits,
-            callback_timeout=settings.callback_timeout,
-            sandbox_provisioning_timeout=timedelta(seconds=settings.sandbox_provisioning_timeout_seconds),
-            # Rebuilt from params on every run, so a continue-as-new keeps the same caller.
-            completion_http_headers_provider=refresh_no_log_headers if settings.use_identity_headers else None,
-            completion_observation_context=observation_context_for_turn,
-            completion_http_headers=(
-                assemble.build_completion_http_headers(
-                    params.principal,
-                    org_tier=params.org_tier,
-                    correlation_id=params.correlation_id,
-                )
-                if settings.use_identity_headers
-                else None
-            ),
-            genai_agent=_genai_agent(params, child_session, agent_description),
-            sandbox_lifecycle=sandbox_lifecycle,
-            agent_id=params.agent_id,
-            application_id=params.application_id,
-            correlation_id=params.correlation_id,
-            telemetry_enabled=settings.telemetry_enabled,
-        )
+        try:
+            binding = await WorkflowSessionBinding.open(
+                definition=definition,
+                sandbox=sandbox,
+                principal=principal,
+                session_id=str(params.session_id),
+                session_inputs=session_input_assembly.with_omitted_optional_inputs(
+                    session_input_classes, params.session_inputs or {}
+                ),
+                restored=restored,
+                skills=skills,
+                event_publisher=_build_event_publisher(params, session_v1=session_v1),
+                session_v1=session_v1,
+                subagent_policy=subagent_policy,
+                control_plane=control_plane,
+                child_session=child_session,
+                lineage=lineage,
+                program_policy=program_policy,
+                wait_policy=wait_policy,
+                turn_policy=turn_policy,
+                intake_limits=intake_limits,
+                callback_timeout=settings.callback_timeout,
+                sandbox_provisioning_timeout=timedelta(seconds=settings.sandbox_provisioning_timeout_seconds),
+                completion_http_headers_provider=completion_http_headers_provider,
+                completion_observation_context=observation_context_for_turn,
+                completion_http_headers=completion_http_headers,
+                genai_agent=_genai_agent(params, child_session, agent_description),
+                sandbox_lifecycle=sandbox_lifecycle,
+                agent_id=params.agent_id,
+                application_id=params.application_id,
+                correlation_id=params.correlation_id,
+                telemetry_enabled=settings.telemetry_enabled,
+            )
+        except ValueError as error:
+            # A child's start request carries fields its caller wrote (conversation, sandbox, context,
+            # Session inputs), which the binding reads as it opens: refuse them as the start input is
+            # refused. A Session input error has its own answer, which names only identifiers.
+            if child_session is None or isinstance(error, SessionInputsUnresolvedError):
+                raise
+            raise start_input.reject_start_input(params, error) from error
         if restored is not None:
             bootstrap_pending = restored.bootstrap_metric_pending
         else:
@@ -2357,8 +2400,14 @@ async def _serve(
         primary_error = error
         termination = wire.TerminationReason.FAILED
         failure_message = str(error)
+    except start_input.StartInputRejectedError as error:
+        primary_error = error
+        termination = wire.TerminationReason.FAILED
+        failure_message = str(error)
     except MistralConnectorNotFoundError as error:
         # No retry fixes a wrong connector name, so the Session fails with a message that names it.
+        # The Agents SDK's connector resource reports a wrong name as an unsupported connector
+        # instead; this is for a resource that still raises it.
         primary_error = error
         termination = wire.TerminationReason.FAILED
         failure_message = str(error)

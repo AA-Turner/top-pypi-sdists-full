@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nvtx
-Version: 0.2.16
+Version: 0.2.17
 Summary: Python NVTX - Python code annotation library
 Author: NVIDIA Corporation
 License-Expression: Apache-2.0 WITH LLVM-exception
@@ -25,6 +25,7 @@ License-File: LICENSE.txt
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: setuptools; extra == "test"
+Requires-Dist: pandas; extra == "test"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: nvidia_sphinx_theme; extra == "docs"
@@ -79,6 +80,11 @@ python -m pip install nvtx
 See [here](https://nvidia.github.io/NVTX/python/) for detailed docs.
 
 ## Release Notes
+
+### 0.2.17
+
+- Discover an NVTX injection from the CUDA driver when environment variable
+  `NVTX_INJECTION64_PATH` / `NVTX_INJECTION32_PATH` is not set (C langauge changes only).
 
 ### 0.2.16
 

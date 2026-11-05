@@ -16,6 +16,8 @@ description:
   - The module expects all replicaset nodes to be PRIMARY, SECONDARY or ARBITER.
   - Will wait until a timeout for the replicaset state to converge if required.
   - Can also be used to lookup the current PRIMARY member (see examples).
+  - This module sets the connection option directConnection to true and
+    this means multiple hosts cannot be specified in login_hosts.
 author: Rhys Campbell (@rhysmeister)
 version_added: "1.0.0"
 
@@ -116,7 +118,7 @@ replicaset:
 import time
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 from ansible_collections.community.mongodb.plugins.module_utils.mongodb_common import (
     missing_required_lib,
     mongodb_common_argument_spec,

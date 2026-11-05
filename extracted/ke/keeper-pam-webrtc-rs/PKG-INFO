@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keeper-pam-webrtc-rs
-Version: 2.2.10
+Version: 2.2.11
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -38,7 +38,8 @@ pip install keeper-pam-connections
 ```python
 import keeper_pam_connections
 
-keeper_pam_connections.initialize_logger()
+keeper_pam_connections.initialize_logger("gateway", verbose=False, level=20)
+# Debugging only: show_pwd=True also logs every guacd connect value (passwords, private keys, passphrases).
 registry = keeper_pam_connections.PyTubeRegistry()
 ```
 

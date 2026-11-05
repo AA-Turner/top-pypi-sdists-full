@@ -1,9 +1,10 @@
-requires = [ "tox>=4.64.7", "tox-uv>=1.36" ]
+requires = [ "tox>=4.67.8", "tox-uv>=1.37.4" ]
 env_list = [ "3.15", "3.14", "3.13", "3.12", "3.11", "3.15t", "docs", "fix", "pkg_meta", "pkg_sdist", "type" ]
 skip_missing_interpreters = true
 
 [env_run_base]
 runner = "uv-venv-lock-runner"
+uv_sync_locked = false
 description = "run pytest under {env_name}"
 default_base_python = [ "3.15" ]
 package = "wheel"
@@ -52,6 +53,9 @@ description = "build documentation"
 base_python = [ "3.15" ]
 dependency_groups = [ "docs" ]
 commands = [
+  [
+    "python", "../tasks/generate_changelog.py", "tox-toml-fmt",
+  ],
   [
     "sphinx-build",
     "-d",

@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence  # noqa: TC003 - used at runtime by Pydantic
 from pathlib import Path  # noqa: TC003 - used at runtime by Pydantic
-from typing import TYPE_CHECKING, Any, TypeAlias
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
-from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, PrivateAttr, ValidationInfo, field_validator, model_validator
 from typing_extensions import Self
 
 from datamodel_code_generator._config_fields import DEFAULT_ENCODING, TARGET_SELECTORS
 from datamodel_code_generator._format_types import (
+    NEWEST_TARGET,
     DateClassType,
     DatetimeClassType,
     Formatter,
@@ -62,6 +63,7 @@ from datamodel_code_generator.enums import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
     from collections.abc import Set as AbstractSet
 
     from datamodel_code_generator._source import DirectoryInputFilter
@@ -70,32 +72,108 @@ else:
     PresetNameValue: TypeAlias = str
 
 
-def _validate_additional_import_paths(value: list[str] | None) -> list[str] | None:
-    """Validate user-provided imports before they reach generated source."""
-    if value is None:
-        return None
+def _import_paths(field: str, paths: Iterable[object], target: PythonVersion) -> list[str]:
+    """Return the import paths a setting gives as plain strings, raising its error for one that is not identifiers.
 
+    Each path is read by ``validators._validate_python_import_path``: names of the target Python joined by dots.
+    """
     from datamodel_code_generator import Error  # noqa: PLC0415
     from datamodel_code_generator.validators import _validate_python_import_path  # noqa: PLC0415
 
     try:
-        return [_validate_python_import_path(import_path) for import_path in value]
+        return [_validate_python_import_path(path, target) for path in paths]
     except ValueError as exc:
-        msg = f"additional_imports {exc}"
+        msg = f"{field} {exc}"
         raise Error(msg) from None
 
 
-def _schema_validator_base_class_name_error(value: str | None) -> str | None:
+def _validate_additional_import_paths(value: list[str] | None, target: PythonVersion) -> list[str] | None:
+    """Validate user-provided imports before they reach generated source, their names as names of the target Python.
+
+    The configs check them for the newest target, and the parser again for the run's.
+    """
+    return None if value is None else _import_paths("additional_imports", value, target)
+
+
+def _given(values: Iterable[str]) -> list[str]:
+    """Return the values that give a path: those with text other than whitespace, which names none."""
+    return [value for value in values if value.strip()]
+
+
+def _decorator_paths(decorators: Iterable[str]) -> list[str]:
+    """Return the paths the class decorators name, read from their tokens by ``python_decorator_path``."""
+    from datamodel_code_generator._python_decorator import python_decorator_path  # noqa: PLC0415
+
+    return [python_decorator_path(decorator) for decorator in _given(decorators)]
+
+
+def _type_override_class_paths(type_overrides: Mapping[str, str]) -> Iterable[str]:
+    """Return the ``--type-overrides`` values that name a class to import, which have no brackets.
+
+    Such a value is names of a target joined by dots, or no annotation spells it; which values these are does not
+    depend on the Python that runs the generator, whose parser may not know a name of a newer target. A value with
+    brackets is an annotation or the parser's error (``parser/_type_overrides.py:_override_expression``).
+    """
+    from datamodel_code_generator._python_type_annotation_codec import parse_python_type_annotation  # noqa: PLC0415
+    from datamodel_code_generator._target_unicode import is_dotted_python_name  # noqa: PLC0415
+
+    return [
+        value
+        for value in _given(type_overrides.values())
+        if "[" not in value
+        and (is_dotted_python_name(value, NEWEST_TARGET) or parse_python_type_annotation(value) is None)
+    ]
+
+
+_NAMED_PATHS: Final[dict[str, Callable[[Any], Iterable[str]]]] = {
+    "base_class": lambda base_class: _given((base_class,)),
+    "base_class_map": lambda base_class_map: _given(
+        base for bases in base_class_map.values() for base in ((bases,) if isinstance(bases, str) else bases)
+    ),
+    "class_decorators": _decorator_paths,
+    "type_overrides": _type_override_class_paths,
+}
+"""The paths each setting that names Python objects by path names; a value or entry of only whitespace names none."""
+
+
+def _check_named_paths(field: str, value: Any, target: PythonVersion) -> None:
+    """Refuse a value of a setting ``_NAMED_PATHS`` lists that names a path other than target names joined by dots."""
+    if value:
+        _import_paths(field, _NAMED_PATHS[field](value), target)
+
+
+def validate_named_paths(value: Any, info: ValidationInfo) -> Any:
+    """Refuse a setting whose value names a Python object by a path that is not names of the target joined by dots.
+
+    The command line, ``generate()`` and the parser configs accept the same paths, read by ``_import_paths`` for the
+    newest target, and the parser refuses the names its target does not bind.
+    """
+    _check_named_paths(cast("str", info.field_name), value, NEWEST_TARGET)
+    return value
+
+
+def _check_config_named_paths(config: object, target: PythonVersion) -> None:
+    """Refuse a config whose settings name a path other than names of the target joined by dots, as its validators do.
+
+    The parsers check the config they read for the run's target, so that a config changed after validation is refused
+    as well.
+    """
+    for field in _NAMED_PATHS:
+        _check_named_paths(field, getattr(config, field), target)
+
+
+def _schema_validator_base_class_name_error(value: str | None, target: PythonVersion) -> str | None:
     """Return why a name cannot name the shared schema validator base class, or None when it can or none is given.
 
-    The command line and `generate()` accept the same names; each raises the message as its own error.
+    A name of the target Python can. The command line and `generate()` accept the same names for the newest target,
+    and the parser refuses the names its target does not bind; each raises the message as its own error.
     """
     if value is None:
         return None
 
     from datamodel_code_generator._target_unicode import is_python_name  # noqa: PLC0415
 
-    if is_python_name(value, rule="legacy-host-identifiers"):
+    if is_python_name(value, target):
         return None
     return f"--schema-validator-base-class-name '{value}' is not a valid Python identifier"
 
@@ -425,7 +503,9 @@ class BaseGenerateConfig(BaseModel):
     @classmethod
     def validate_additional_imports(cls, value: list[str] | None) -> list[str] | None:
         """Require additional imports to be safe Python import paths."""
-        return _validate_additional_import_paths(value)
+        return _validate_additional_import_paths(value, NEWEST_TARGET)
+
+    _validate_named_paths = field_validator(*_NAMED_PATHS)(validate_named_paths)
 
     @model_validator(mode="after")
     def normalize_schema_validator_type(self) -> Self:

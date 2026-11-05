@@ -149,7 +149,7 @@ def _resolve_dynamic_reference(literal: str) -> str:
     ``ssm`` / ``ssm-secure`` take ``name[:version]`` (no version = latest);
     ``secretsmanager`` takes
     ``secret-id[:SecretString[:json-key[:version-stage[:version-id]]]]``,
-    the secret id being a name or an ARN."""
+    the secret id being a name, or an ARN that can name another account."""
     from ministack.services import secretsmanager, ssm
 
     m = _DYNAMIC_REFERENCE.fullmatch(literal)
@@ -178,8 +178,11 @@ def _resolve_dynamic_reference(literal: str) -> str:
         raise ValueError(
             f"Dynamic reference {literal} is invalid: specify either a version "
             "stage or a version id, not both")
+    if not secretsmanager.foreign_secret_readable(secret_id):
+        raise ValueError(
+            f"Dynamic reference {literal} could not be resolved: access to secret {secret_id} denied")
     value = secretsmanager.resolve_secret_string(
-        secret_id, version_stage or "AWSCURRENT", version_id or None)
+        secret_id, version_stage or "AWSCURRENT", version_id or None, cross_account=True)
     if value is None:
         raise ValueError(
             f"Dynamic reference {literal} could not be resolved: secret "
@@ -1500,7 +1503,7 @@ def _fetch_include_snippet(location) -> dict:
     if not bucket or not key:
         raise _IncludeError(_INCLUDE_ERROR + "The location parameter is not a valid S3 uri.")
     from ministack.services import s3 as _s3
-    data = _s3._get_object_data(bucket, key)
+    data = _s3._get_object_data_for_caller(bucket, key)
     if data is None:
         raise _IncludeError(_INCLUDE_ERROR + f"The S3 object {location} does not exist.")
     snippet = _parse_snippet(data.decode("utf-8"))

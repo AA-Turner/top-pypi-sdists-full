@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 import time
+from typing import TYPE_CHECKING
 
-from probe.sdk.delivery.outbox.drainers.detached import _env_fingerprints, _spawn_detached, _worker_env, maybe_spawn
+from probe.sdk.delivery.outbox.drainers.detached import _LOG_NAME, _env_fingerprints, _worker_env, maybe_spawn
 from probe.sdk.delivery.status_fields import StatusField
 
 from ....foundation.durable import durable
+from ....foundation.os_backend import os_backend as oscompat
+from ....foundation.safe_warn import safe_warn as _diagnostics  # noqa: F401 -- served by the outbox front door
+
+if TYPE_CHECKING:  # the analytics door loads lazily here, on the paths that send
+    from ....analytics.generated import ProductSurface
 
 
 # -- rescuing writes stranded under a dead credential ------------------------
@@ -190,20 +198,21 @@ def maybe_rescue(journal, status: dict) -> bool:
     return spawn_rescuer(journal)
 
 
-def lift_stale_pause(journal, status: dict, *, base_url: str | None, wait: bool = True) -> bool:
+def lift_stale_pause(journal, status: dict, *, base_url: str | None, surface: ProductSurface,
+                     wait: bool = True) -> bool:
     """Delete the outbox's pause marker when it no longer holds (`Journal.lift_stale_pause`:
     its end passed, or an older CLI's endless one), forget the rescue's paused-time look as
     `probe outbox resume` does, and report `outbox.pause_lifted` with what it held
     (``status``, read before; ``base_url`` None reports nothing). The caller starts the
     drainer: the CLI's every-command check and the Probe service (`server._keep_outbox`).
-    Never raises; True when one was lifted."""
+    ``surface``: the caller's `ProductSurface`. Never raises; True when one was lifted."""
     try:
         if not journal.lift_stale_pause(wait=wait):
             return False
         _rescue_stamp(journal).unlink(missing_ok=True)
         from .... import analytics as telemetry
 
-        telemetry.emit_outbox_pause_lifted(status, base_url=base_url)
+        telemetry.emit_outbox_pause_lifted(status, base_url=base_url, surface=surface)
         return True
     except Exception:  # noqa: BLE001 -- the every-command path never raises
         return False
@@ -239,6 +248,28 @@ def _rescuer_env(base: dict | None = None) -> dict:
     for var in ("PROBE_TOKEN", "PROBE_INGEST_TOKEN", _IDEMPOTENCY_ENV):
         env.pop(var, None)
     return env
+
+
+def _spawn_detached(journal, args: list, env: dict):
+    """`python -m probe.sdk.outbox_worker <args>`, detached, output to ``journal``'s drainer.log;
+    what Popen returned, or False when it could not start. 0o600 and O_NOFOLLOW: the log carries
+    tracebacks, and a planted `drainer.log` symlink must not redirect it (review of #2054). Only
+    the rescuer forks now; the drain is the service's (plan D8)."""
+    try:
+        log_fd = os.open(
+            journal.dir / _LOG_NAME, os.O_WRONLY | os.O_CREAT | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0), 0o600,
+        )
+    except OSError:
+        return False
+    try:
+        return subprocess.Popen(  # noqa: S603 -- our own interpreter, our own module
+            [sys.executable, "-m", "probe.sdk.outbox_worker", *args],
+            stdin=subprocess.DEVNULL, stdout=log_fd, stderr=log_fd, **oscompat.DETACHED, close_fds=True, env=env,
+        )
+    except OSError:
+        return False
+    finally:
+        os.close(log_fd)
 
 
 def spawn_rescuer(journal, *, env: dict | None = None) -> bool:
@@ -351,7 +382,8 @@ def rescue(directory: str) -> int:
             from .... import analytics as telemetry
 
             print(f"moved {relocated.writes} discarded write(s) to the outbox root ({now_iso()})", flush=True)
-            telemetry.emit_outbox_discarded(relocated, reason=telemetry.DiscardReason.RELOCATED)
+            telemetry.emit_outbox_discarded(relocated, reason=telemetry.DiscardReason.RELOCATED,
+                                            surface=telemetry.get_worker_surface())
         if root.paused:
             # Nothing is rescued from a paused outbox; look again much later (its discards
             # are moved: nothing left to start a rescuer for).
@@ -403,6 +435,7 @@ def rescue(directory: str) -> int:
 
             telemetry.emit_outbox_rescued(
                 base_url=endpoints.pop() if len(endpoints) == 1 else None,
+                surface=telemetry.get_worker_surface(),
                 credentials=len(rescued),
                 writes=sum(rescued.values()),
                 delivered=delivered,
@@ -491,7 +524,7 @@ def _settle_restore(roots: list, counts) -> int:
     if counts.writes or counts.refused or (counts.kept and not unfinished):
         from .... import analytics as telemetry
 
-        telemetry.emit_outbox_restored(counts)
+        telemetry.emit_outbox_restored(counts, surface=telemetry.get_worker_surface())
     return 1 if unfinished else 0
 
 

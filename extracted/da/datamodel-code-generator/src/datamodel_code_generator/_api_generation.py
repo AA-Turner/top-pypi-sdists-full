@@ -38,6 +38,7 @@ from datamodel_code_generator._target_config import (
 from datamodel_code_generator._target_documents import ROOT_URN, DocumentTable, RootInput, document_identity, shown
 from datamodel_code_generator._target_naming import fold_key
 from datamodel_code_generator.base_config import implied_target_settings as implied_settings
+from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     import re
@@ -234,11 +235,13 @@ def prepare_target(
     if (requirement := model_requirement(effective.openapi_scopes, generator.selector)) is not None:
         raise Error(requirement)
     if (backend := effective.output_model_type) not in generator.backends:
-        allowed = english_list((repr(item.value) for item in DataModelType if item in generator.backends), "or", "each")
+        allowed = english_list(
+            (stable_repr(item.value) for item in DataModelType if item in generator.backends), "or", "each"
+        )
         raise config_error(
             code=generator.unsupported_backend,
             option_path="model_config.output_model_type",
-            message=f"The {generator.kind} target does not support {backend.value!r}; use {allowed}",
+            message=f"The {generator.kind} target does not support {stable_repr(backend.value)}; use {allowed}",
         )
     if (problem := python_problem(effective, generator.kind)) is not None:
         raise config_error(code="E_CONFIG_VALUE", option_path="model_config.target_python_version", message=problem)
@@ -248,8 +251,8 @@ def prepare_target(
             option_path="model_config.use_missing_sentinel",
             message=(
                 f"The {generator.kind} target needs model_config.use_missing_sentinel with --target-pydantic-version "
-                f"{PYDANTIC_TARGET_MINIMUM} for {backend.value!r} models, whose fields cannot tell an unset member "
-                "from None"
+                f"{PYDANTIC_TARGET_MINIMUM} for {stable_repr(backend.value)} models, whose fields cannot tell an unset "
+                "member from None"
             ),
         )
     _check_pydantic_target(generator, backend.value, target, sentinel=False)
@@ -258,8 +261,8 @@ def prepare_target(
             _diagnostic(
                 "E_CONFIG_VALUE",
                 f"model_config.{name}",
-                f"The {generator.kind} target needs model_config.{name} for {backend.value!r} models, so that "
-                f"their {decoded} can be decoded",
+                f"The {generator.kind} target needs model_config.{name} for {stable_repr(backend.value)} models, so "
+                f"that their {decoded} can be decoded",
             )
             for enabled, name, decoded in (
                 (model_config.use_msgspec_tagged_unions, "use_msgspec_tagged_unions", "discriminated unions"),
@@ -419,6 +422,7 @@ def _generate_models(
         _settings_path_from,  # pyright: ignore[reportPrivateUsage]
     )
     from datamodel_code_generator._openapi_generation import TargetGenerationSession  # noqa: PLC0415
+    from datamodel_code_generator._publication import staged_artifact_path  # noqa: PLC0415
     from datamodel_code_generator._target_binding import MetadataCycleError  # noqa: PLC0415
 
     source = _root_input(input_, cwd)
@@ -430,12 +434,14 @@ def _generate_models(
     formatter_cwd = _output_context_path(_absolute_generation_path(output, cwd), cwd)
     settings_path = _settings_path_from(formatter_cwd, prepared.settings_path)
     with ExitStack() as stack:
-        staged_output = _staging(stack, output, cwd, target.output) / (output.name or "output")
-        if (cwd / output).is_dir():
-            staged_output.mkdir()
+        staged_output = staged_artifact_path(
+            _staging(stack, output, cwd, target.output), output, "output", make_directory=(cwd / output).is_dir()
+        )
         updates: dict[str, Any] = {"output": staged_output}
         if (metadata := config.emit_model_metadata) is not None:
-            updates["emit_model_metadata"] = _staging(stack, metadata, cwd) / (metadata.name or "model-metadata.json")
+            updates["emit_model_metadata"] = staged_artifact_path(
+                _staging(stack, metadata, cwd), metadata, "model-metadata.json", make_directory=False
+            )
         staged = prepared.model_copy(update=updates)
         staged._logical_output = output  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
         staged._logical_model_metadata = prepared.emit_model_metadata  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
@@ -811,8 +817,8 @@ class _Planner:
         Imports used only for type checking move into `TYPE_CHECKING` blocks as they do in the models' modules: a target
         package is a multi-module output of the model backend, so the backend decides the default. The implementations
         are formatted the same way, without the generated header, returned second, and put where a text file holds
-        their `implementation_text`. Every text is checked against the encoding of its file before any is staged, as
-        model files are before any is written.
+        their `implementation_text`. Every final text, Ruff's output included (it stages UTF-8 whatever the encoding),
+        is checked against the encoding of its file before any is encoded, as model files are before any is written.
         """
         from datamodel_code_generator import (  # noqa: PLC0415
             _build_file_header_parts,  # pyright: ignore[reportPrivateUsage]
@@ -853,14 +859,14 @@ class _Planner:
                 else body
             )
         own = {file.path: formatter.format_code(file.text) for file in rendered.implementations}
-        for path, text in (*texts.items(), *own.items()):
-            _ensure_output_text_encodable(text, self.encoding(path))
         self.defer(formatter, texts, formatted, own)
         for key, value in list(texts.items()):
             if not _is_python(key):
                 for path, text in own.items():
                     value = value.replace(implementation_text(path), text.rstrip("\n"))  # noqa: PLW2901
                 texts[key] = value
+        for path, text in (*texts.items(), *own.items()):
+            _ensure_output_text_encodable(text, self.encoding(path))
         return self.encoded(texts), self.encoded(own)
 
     def encoding(self, path: PurePosixPath) -> str:
@@ -884,23 +890,24 @@ class _Planner:
         """Run the Ruff formatters once over the formatted files, staged beside the target like a model directory.
 
         The staged package keeps the target directory's name, which Ruff reads as the package name, and the user
-        modules, `own`, are staged beside it as they lie beside the package.
+        modules, `own`, are staged beside it as they lie beside the package. Ruff reads and writes UTF-8 only, so the
+        staged files are UTF-8 whatever encoding the files are written in.
         """
         from datamodel_code_generator._format_types import Formatter  # noqa: PLC0415
+        from datamodel_code_generator.format import _RUFF_ENCODING  # noqa: PLC0415
 
         if not paths or not {Formatter.RUFF_CHECK, Formatter.RUFF_FORMAT}.intersection(formatter.formatters):
             return
-        encoding = self.effective.encoding
         with ExitStack() as stack:
             staged = _staging(stack, self.config.output, self.cwd) / self.root.name
             files = [*((staged, path, texts) for path in paths), *((staged.parent, path, own) for path in own)]
             for base, path, held in files:
                 (location := base.joinpath(*path.parts)).parent.mkdir(parents=True, exist_ok=True)
-                location.write_text(held[path], encoding=encoding)
+                location.write_text(held[path], encoding=_RUFF_ENCODING)
             for directory in dict.fromkeys((staged, *(staged.parent / path.parts[0] for path in own))):
                 formatter.format_directory(directory)
             for base, path, held in files:
-                held[path] = base.joinpath(*path.parts).read_text(encoding=encoding)
+                held[path] = base.joinpath(*path.parts).read_text(encoding=_RUFF_ENCODING)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

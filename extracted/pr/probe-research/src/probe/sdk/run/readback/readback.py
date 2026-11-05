@@ -16,7 +16,7 @@ UPLOAD_REQUESTED = "requested"
 UPLOAD_FAILED = "failed"
 #: A member row's meta key: the index row it belongs to.
 MEMBER_OF_KEY = "checkpoint"
-#: How many of the checkpoint's files a `.probe.config` kept out (never their names).
+#: How many of the checkpoint's files the saving machine kept out (never their names; older CLIs only).
 EXCLUDED_KEY = "members_excluded"
 #: Server-owned: the save is from a range a rewind abandoned (``{to_step, epoch, at}``).
 REWOUND_KEY = "rewound"
@@ -249,8 +249,8 @@ def download(client: Any, checkpoint: dict, dest: str | os.PathLike, *, rows: li
     ``dest`` is left as it was found. ``rows`` are the checkpoint's files'
     rows when the caller has them (:func:`find`).
 
-    The result says what a byte-exact restore cannot: ``excluded`` (files a
-    ``.probe.config`` kept out, never uploaded) and ``redacted`` (text files
+    The result says what a byte-exact restore cannot: ``excluded`` (files an
+    older CLI kept out when saving, never uploaded) and ``redacted`` (text files
     whose stored copy had a credential masked)."""
     name = str(checkpoint.get("name") or "")
     listed = members(checkpoint)

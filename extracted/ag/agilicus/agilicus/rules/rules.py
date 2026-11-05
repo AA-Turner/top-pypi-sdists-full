@@ -19,6 +19,11 @@ from ..output.table import (
 )
 
 from agilicus import create_or_update, find_guid
+from ..tag_helpers import (  # noqa: F401
+    apply_tag_updates,
+    extract_tags_list,
+    to_tags_model,
+)
 
 ACTIONS = [
     "allow",
@@ -46,51 +51,6 @@ ConditionTypes = Enum(
         "has_resource_permission_condition",
     ],
 )
-
-
-def extract_tags_list(tags):
-    if tags is None:
-        return []
-    if hasattr(tags, "value"):
-        return list(tags.value or [])
-    if isinstance(tags, (list, tuple, set)):
-        return list(tags)
-    return [tags]
-
-
-def to_tags_model(tags_list):
-    if tags_list is None:
-        return None
-    if isinstance(tags_list, agilicus.Tags):
-        return tags_list
-    items = extract_tags_list(tags_list)
-    return agilicus.Tags(items)
-
-
-def apply_tag_updates(
-    existing_tags,
-    tags=None,
-    add_tags=None,
-    remove_tags=None,
-    clear_tags=False,
-):
-    if clear_tags:
-        current = []
-    elif tags is not None and len(tags) > 0:
-        current = [t for t in tags if t]
-    else:
-        current = extract_tags_list(existing_tags)
-
-    if remove_tags:
-        remove_set = set(remove_tags)
-        current = [t for t in current if t not in remove_set]
-
-    if add_tags:
-        for t in add_tags:
-            if t and t not in current:
-                current.append(t)
-
-    return current
 
 
 def make_http_condition(path_regex=None, methods=None, roles=None, scopes=None):

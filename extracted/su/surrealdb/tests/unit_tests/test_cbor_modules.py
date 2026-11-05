@@ -1,54 +1,241 @@
-import warnings
-from typing import Any
+import decimal
+import importlib
+import io
+import time
+import uuid
 
 import pytest
 
-from surrealdb.cbor import decoder, encoder, types
+from surrealdb import cbor as cbor_pkg
+from surrealdb.cbor import (
+    CBORDecoder,
+    CBOREncoder,
+    CBORTag,
+    dumps,
+    loads,
+)
+from surrealdb.data import cbor
+from surrealdb.data.types import constants
+from surrealdb.data.types.geometry import GeometryLine, GeometryPoint
+from surrealdb.data.types.null import Null
+from surrealdb.data.types.range import BoundExcluded, BoundIncluded, Range
+from surrealdb.errors import UnexpectedResponseError
 
 
-def test_cbor_decoder_module() -> None:
-    """Test that the decoder module works."""
-    # The warning is emitted at import time, so we need to import it fresh
-    import importlib
-
-    importlib.reload(decoder)
-
-    # Test that imports work
-    assert hasattr(decoder, "CBORDecoder")
-    assert hasattr(decoder, "load")
-    assert hasattr(decoder, "loads")
-
-
-def test_cbor_encoder_module() -> None:
-    """Test that the encoder module works."""
-    # The warning is emitted at import time, so we need to import it fresh
-    import importlib
-
-    importlib.reload(encoder)
-
-    # Test that imports work
-    assert hasattr(encoder, "CBOREncoder")
-    assert hasattr(encoder, "dump")
-    assert hasattr(encoder, "dumps")
-    assert hasattr(encoder, "shareable_encoder")
+def test_public_cbor_api_exports() -> None:
+    """The public ``surrealdb.cbor`` package re-exports the real cbor2 API."""
+    for name in (
+        "CBORDecoder",
+        "CBOREncoder",
+        "CBORTag",
+        "dumps",
+        "loads",
+        "dump",
+        "load",
+        "shareable_encoder",
+        "CBORError",
+        "CBORDecodeError",
+        "CBOREncodeError",
+        "CBORSimpleValue",
+        "FrozenDict",
+        "undefined",
+    ):
+        assert hasattr(cbor_pkg, name), f"missing export: {name}"
 
 
-def test_cbor_types_module() -> None:
-    """Test that the types module works."""
-    # The warning is emitted at import time, so we need to import it fresh
-    import importlib
+def test_public_cbor_dumps_loads_roundtrip() -> None:
+    """The re-exported ``dumps``/``loads`` round-trip plain data."""
+    payload = {"a": 1, "b": [1, 2, 3], "c": "hello"}
+    encoded = dumps(payload)
+    assert isinstance(encoded, bytes)
+    assert loads(encoded) == payload
 
-    importlib.reload(types)
 
-    # Test that imports work
-    assert hasattr(types, "CBORDecodeEOF")
-    assert hasattr(types, "CBORDecodeError")
-    assert hasattr(types, "CBORDecodeValueError")
-    assert hasattr(types, "CBOREncodeError")
-    assert hasattr(types, "CBOREncodeTypeError")
-    assert hasattr(types, "CBOREncodeValueError")
-    assert hasattr(types, "CBORError")
-    assert hasattr(types, "CBORSimpleValue")
-    assert hasattr(types, "CBORTag")
-    assert hasattr(types, "FrozenDict")
-    assert hasattr(types, "undefined")
+def test_public_cbor_tag_roundtrip() -> None:
+    """``CBORTag`` survives a dumps/loads round-trip via the public API."""
+    tag = CBORTag(88, [1.0, 2.0])
+    decoded = loads(dumps(tag))
+    assert isinstance(decoded, CBORTag)
+    assert decoded.tag == 88
+    assert decoded.value == [1.0, 2.0]
+
+
+def test_encoder_decoder_classes_are_exported() -> None:
+    """The encoder/decoder classes are importable from the public package."""
+    assert isinstance(CBOREncoder, type)
+    assert isinstance(CBORDecoder, type)
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "surrealdb.cbor.decoder",
+        "surrealdb.cbor.encoder",
+        "surrealdb.cbor.types",
+        "surrealdb.cbor.tool",
+    ],
+)
+def test_dead_cbor_shim_modules_are_removed(module_name: str) -> None:
+    """The old re-export shim / CLI modules no longer exist."""
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module(module_name)
+
+
+# ---------------------------------------------------------------------------
+# SurrealDB CBOR encode/decode round-trips (surrealdb.data.cbor)
+# ---------------------------------------------------------------------------
+
+
+def test_set_encodes_with_surreal_set_tag() -> None:
+    """Sets encode with SurrealDB's set tag (56), not native cbor tag 258."""
+    encoded = cbor.encode({1, 2, 3})
+    # Tag 56 -> major type 6 with a 1-byte argument: 0xd8 0x38.
+    assert encoded[:2] == b"\xd8\x38"
+    # It must NOT be native tag 258 (0xd9 0x01 0x02).
+    assert encoded[:3] != b"\xd9\x01\x02"
+
+
+def test_set_encodes_from_a_set_and_decodes_to_a_list() -> None:
+    """A Python set is sent as a set and comes back as a list.
+
+    Deliberately asymmetric. SurrealDB's set holds any value - `set<object>`
+    is an ordinary column - while a Python set takes only hashable members, so
+    decoding into one raised `unhashable type: 'dict'` and lost the whole
+    response. A list is also what SurrealDB 2.x and the server's JSON endpoint
+    return for a set.
+    """
+    decoded = cbor.decode(cbor.encode({1, 2, 3}))
+    assert isinstance(decoded, list)
+    assert sorted(decoded) == [1, 2, 3]
+
+
+def test_frozenset_encodes_via_the_set_tag() -> None:
+    """A frozenset encodes via the set tag and decodes to a list."""
+    encoded = cbor.encode(frozenset({4, 5, 6}))
+    assert encoded[:2] == b"\xd8\x38"
+    decoded = cbor.decode(encoded)
+    assert isinstance(decoded, list)
+    assert sorted(decoded) == [4, 5, 6]
+
+
+def test_nested_set_roundtrip() -> None:
+    """Sets nested inside containers also use the set tag."""
+    decoded = cbor.decode(cbor.encode({"nums": {7, 8, 9}}))
+    assert isinstance(decoded["nums"], list)
+    assert sorted(decoded["nums"]) == [7, 8, 9]
+
+
+def test_a_set_of_unhashable_values_decodes() -> None:
+    """The defect: a `set<object>` could not be read at all.
+
+    `set(...)` on the decoded members raised `unhashable type: 'dict'`, which
+    `decode_response` turned into an `UnexpectedResponseError` covering the
+    whole reply - so any `SELECT *` touching such a field failed, and the row
+    was unreadable in its native form.
+    """
+    raw = dumps(CBORTag(constants.TAG_SET, [{"k": "a"}, {"k": "b"}]))
+    assert cbor.decode(raw) == [{"k": "a"}, {"k": "b"}]
+
+    raw = dumps(CBORTag(constants.TAG_SET, [[1, 2], [3, 4]]))
+    assert cbor.decode(raw) == [[1, 2], [3, 4]]
+
+
+def test_none_encodes_as_the_none_tag() -> None:
+    """``None`` means SurrealDB's NONE: tag 6, 0xc6 0xf6."""
+    assert cbor.encode(None) == b"\xc6\xf6"
+    assert cbor.decode(cbor.encode(None)) is None
+
+
+def test_null_encodes_as_plain_cbor_null() -> None:
+    """``Null`` means SurrealDB's NULL: plain CBOR null, 0xf6."""
+    assert cbor.encode(Null) == b"\xf6"
+    assert cbor.decode(cbor.encode(Null)) is Null
+
+
+def test_null_and_none_stay_distinct_through_a_round_trip() -> None:
+    """The whole point: the two must not collapse into each other.
+
+    They did, and it cost data - a NULL field read as ``None`` went back as
+    NONE, which deletes the field rather than nulling it.
+    """
+    payload = {"a": Null, "b": None, "c": [Null, None], "d": {"e": Null}}
+    assert cbor.decode(cbor.encode(payload)) == payload
+
+
+def test_the_generic_cbor_package_still_decodes_null_as_none() -> None:
+    """``surrealdb.cbor`` is a general-purpose CBOR codec and stays standard.
+
+    Only the SurrealDB layer knows that a null on its wire means NULL; a
+    caller using the re-exported cbor2 API must still get plain ``None``.
+    """
+    assert loads(b"\xf6") is None
+    assert loads(dumps(None)) is None
+
+
+def test_decimal_still_encodes_as_tag_10() -> None:
+    """Finite Decimals are encoded natively as tag 10 (0xca prefix)."""
+    encoded = cbor.encode(decimal.Decimal("1.5"))
+    assert encoded[0] == 0xCA
+    decoded = cbor.decode(encoded)
+    assert isinstance(decoded, decimal.Decimal)
+    assert decoded == decimal.Decimal("1.5")
+
+
+def test_uuid_roundtrip_via_native_tag() -> None:
+    """UUIDs round-trip using the native cbor tag 37 (unchanged behaviour)."""
+    original = uuid.uuid4()
+    decoded = cbor.decode(cbor.encode(original))
+    assert decoded == original
+
+
+def test_uuid_tag_9_is_refused() -> None:
+    """SurrealDB 4 refuses a uuid as text (tag 9), so the decoder does too."""
+    raw = dumps(CBORTag(constants.TAG_UUID_STRING, str(uuid.uuid4())))
+    with pytest.raises(UnexpectedResponseError, match="tag 9"):
+        cbor.decode(raw)
+
+
+def test_a_set_loses_only_its_duplicates() -> None:
+    """Members equal in value but not in type are different members."""
+    members = [1, 1.0, True, "a", "a", 1, {"k": 1}, {"k": 1}, [2], [2], 2]
+    decoded = cbor.decode(dumps(CBORTag(constants.TAG_SET, members)))
+    assert decoded == [1, 1.0, True, "a", {"k": 1}, [2], 2]
+    assert [type(member) for member in decoded[:3]] == [int, float, bool]
+
+
+def test_a_large_set_decodes_in_linear_time() -> None:
+    """De-duplicating compared every member with every other: a set of 20,000
+    strings took ten seconds to decode, and a set of record ids twice that."""
+    raw = dumps(CBORTag(constants.TAG_SET, [f"member-{n}" for n in range(20_000)]))
+    started = time.perf_counter()
+    decoded = cbor.decode(raw)
+    assert time.perf_counter() - started < 1.0
+    assert len(decoded) == 20_000
+
+
+def test_tag_decoder_reads_tags_whose_insides_are_already_decoded() -> None:
+    """As a cbor2 `tag_hook`, the points of a line and the bounds of a range
+    reach the hook as the SDK's own types. Written back out with plain `dumps`,
+    which does not know them, they raised `CBOREncodeTypeError`."""
+    line = GeometryLine(GeometryPoint(1.0, 2.0), GeometryPoint(3.0, 4.0))
+    hooked = CBORDecoder(io.BytesIO(cbor.encode(line)), tag_hook=cbor.tag_decoder)
+    assert hooked.decode() == line
+
+    bounds = CBORTag(constants.TAG_RANGE, [BoundIncluded(1), BoundExcluded(5)])
+    assert cbor.tag_decoder(None, bounds) == Range(BoundIncluded(1), BoundExcluded(5))
+
+
+@pytest.mark.parametrize(
+    ("raw", "refusal"),
+    [
+        (b"\x65ab", "ends inside an item"),
+        (b"\x62\xff\xfe", "not UTF-8"),
+        (b"\x78\x05abc", "ends inside an item"),
+        (b"", "ends inside an item"),
+    ],
+)
+def test_short_and_long_text_are_refused_alike(raw: bytes, refusal: str) -> None:
+    """Short text is read on a path of its own, for speed; it refuses what the
+    general one does."""
+    with pytest.raises(UnexpectedResponseError, match=refusal):
+        cbor.decode(raw)

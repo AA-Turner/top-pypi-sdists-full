@@ -27,17 +27,17 @@ class DescribeBackupPolicyRequest(DaraModel):
         # * **4**: quicklz compression with database and table restoration enabled
         # * **8**: quicklz compression without database and table restoration supported
         self.compress_type = compress_type
-        # The instance ID. You can call the DescribeDBInstances operation to retrieve the ID.
+        # The instance ID. You can call the DescribeDBInstances operation to query the instance ID.
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The data retention policy for archived backups of deleted **MySQL** instances. Valid values:
+        # The data retention policy for archive backups of deleted **MySQL** instances. Valid values:
         # 
         # * **None**: no retention
-        # * **Lastest**: retains the last backup
-        # * **All**: retains all backups
+        # * **Lastest**: retains the last archive backup
+        # * **All**: retains all archive backups
         self.released_keep_policy = released_keep_policy
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id

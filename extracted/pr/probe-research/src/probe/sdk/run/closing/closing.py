@@ -43,8 +43,9 @@ class ClosingMixin:
 
     def finish(
         self,
-        status: str = "completed",
+        status: str | None = None,
         *,
+        exit_code: int | None = None,
         summary_metrics: dict | None = None,
         summary: dict | None = None,
         flush_timeout: float | None = None,
@@ -63,6 +64,13 @@ class ClosingMixin:
         masked (`Run.__exit__`). This path is a client on the default transport; one with an
         injected transport (hosted MCP, tests) cannot hand its writes to the worker and closes as
         described below.
+
+        ``status`` defaults to ``completed``. ``exit_code`` is for a wrapper closing the run of a
+        command it ran (``subprocess``'s returncode, -N for a signal): with no ``status`` it maps as
+        `probe exec` maps it (`_status_for_exit`; a SIGKILL is ``canceled`` only when this
+        machine's out-of-memory counter did not move since the run opened), and it is recorded as
+        the run's exit. An explicit ``status`` wins: pass ``status="failed"`` for a kill this
+        process sent itself (a timeout's ``Popen.kill()``), which no exit code can tell apart.
 
         Injected transport. Outside ``strict`` it NEVER raises over delivery.
 
@@ -122,13 +130,16 @@ class ClosingMixin:
         # IDEMPOTENT (#2011): a repeat returns the first close's answer; a close running in another thread
         # is waited for; the same thread re-entering gets ``{"finish_in_progress": True}`` (DESIGN.md).
         lock = self.__dict__.setdefault("_finish_lock", threading.Lock())
-        # A SIGTERM (`preempt`): whoever closes, the run ends `failed`, marked preempted, in its budget.
+        if status is None:
+            status = "completed" if exit_code is None else self._map_exit_code(exit_code)
+        # A SIGTERM (`preempt`): whoever closes, the run ends with its verdict (`canceled` when
+        # another local process of this user sent it, else `failed`/preempted), in its budget.
         preempted = _preempt.ending()
         with lock:
             previous = getattr(self, "_finish_result", _UNSET)
             if previous is _UNSET:
                 if preempted is not None:
-                    status = "failed"
+                    status = preempted.get_status()
                     flush_timeout = preempted.close_timeout(
                         self._resolve_finish_timeout(flush_timeout)
                     )
@@ -160,6 +171,14 @@ class ClosingMixin:
                 fluent._write_exit_span(
                     self, -preempted.signum, "signal", status, extra=preempted.facts()
                 )
+        elif exit_code:
+            from ... import fluent
+
+            stopped = status == "canceled" and exit_code < 0
+            fluent._write_exit_span(
+                self, exit_code, "exit_code", status,
+                extra={"reason": _preempt.STOPPED_REASON} if stopped else None,
+            )
         try:
             result = self._close(
                 status,
@@ -194,6 +213,13 @@ class ClosingMixin:
         # Last: it may close this run's client (a `create_new` run's).
         self._settled()
         return result
+
+    def _map_exit_code(self, exit_code: int) -> str:
+        """``finish(exit_code=)``'s verdict: the launcher's mapping, with the OOM counter this
+        handle took when it opened (`_wrap_run`)."""
+        oom = getattr(self, "_oom_counter", None)
+        unchanged = oom is not None and oom.is_unchanged()
+        return _status_for_exit(int(exit_code), is_oom_unchanged=unchanged)
 
     def _settled(self) -> None:
         """This handle's close is over: run the one `_after_finish` callback."""
@@ -264,17 +290,21 @@ class ClosingMixin:
         # the worker: the reaper would call it `crashed` (review of #2011).
         # SystemExit too: Lightning turns SIGTERM into a code-less SystemExit,
         # and a preempted job must still queue its verdict (re-review of #2011).
+        from ....foundation.service_api import handoff
+
         try:
-            return self._close_within(
-                status,
-                summary,
-                strict=strict,
-                timeout=timeout,
-                deadline=deadline,
-                verdict_sent=verdict_sent,
-                wait=wait,
-                wait_limit=wait_limit,
-            )
+            # The close asks the service whatever back-off a silent one earned (M-1).
+            with handoff.mark_closing():
+                return self._close_within(
+                    status,
+                    summary,
+                    strict=strict,
+                    timeout=timeout,
+                    deadline=deadline,
+                    verdict_sent=verdict_sent,
+                    wait=wait,
+                    wait_limit=wait_limit,
+                )
         except (KeyboardInterrupt, SystemExit):
             # Once the terminal write is on its way the server may already have
             # applied it, and the response is what the interrupt cut off. The
@@ -400,6 +430,7 @@ class ClosingMixin:
                 "`probe outbox status`."
             )
 from probe.sdk.run.closing.drain import _CLOSE_RESERVE_SECONDS, _close_reserve  # noqa: E402 -- pieces need each other; the front door loads this one first
+from probe.sdk.run.closing.status import _status_for_exit  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.closing.status import _status_for_system_exit  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.handle import _UNSET  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.summary import _one_summary, _with_finish_accounting  # noqa: E402 -- pieces need each other; the front door loads this one first

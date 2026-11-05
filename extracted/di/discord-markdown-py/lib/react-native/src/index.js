@@ -1,5 +1,5 @@
 import NativeDiscordMarkdown from "./NativeDiscordMarkdown";
-import { decodeAstJson, encodeAstJson } from "./ast-json.js";
+import { decodeAstJson } from "./ast-json.js";
 
 export { Syntax } from "@discord/markdown-types";
 
@@ -23,8 +23,4 @@ export function parseLossless(content, flags, fuel) {
 			fuel ?? undefined,
 		),
 	);
-}
-
-export function unparse(nodes) {
-	return NativeDiscordMarkdown.unparseFromAstString(encodeAstJson(nodes));
 }

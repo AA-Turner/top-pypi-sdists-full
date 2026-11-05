@@ -20,9 +20,11 @@ pub mod differ;
 pub mod extension_resolution;
 #[doc(hidden)]
 pub mod foreign_key;
+mod freshness;
 #[doc(hidden)]
 pub mod functions;
 mod gitignore_frame;
+mod glob_unescape;
 #[doc(hidden)]
 pub mod infer;
 #[doc(hidden)]
@@ -31,6 +33,7 @@ mod listing;
 #[doc(hidden)]
 pub mod matcher;
 mod on_file;
+mod params;
 #[doc(hidden)]
 #[doc(hidden)]
 pub mod parsed_vtab;
@@ -77,7 +80,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error as StdError;
 use std::path::{Path, PathBuf};
 use std::sync::{
-    Arc, Mutex,
+    Arc, Mutex, MutexGuard,
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
@@ -87,6 +90,7 @@ use thiserror::Error;
 pub use crate::config::ExtensionSpec as Extension;
 pub use crate::db::{ColumnInfo, DbError, QueryResult, TableInfo, Value};
 pub use crate::differ::RowEvent;
+pub use crate::params::Params;
 #[doc(hidden)]
 pub use crate::row_event_flat::{FlatRowEvent, flatten_row_event};
 #[doc(hidden)]
@@ -219,6 +223,13 @@ pub enum DirSqlError {
 
     #[error("table `{name}`: {message}")]
     TableCommand { name: String, message: String },
+
+    #[error("table `{table}`, file `{path}`: {message}")]
+    OnFile {
+        table: String,
+        path: String,
+        message: String,
+    },
 }
 
 impl DirSqlError {
@@ -453,6 +464,64 @@ struct DirSqlInner {
     poll_interval: Duration,
     /// Filesystem seam: [`RealFs`] in production; unit tests inject a double.
     fs: Arc<dyn FileSystem>,
+    /// Whether a query first brings the named tables in line with the files
+    /// on disk. Off where a query cannot run `on_file` on its own thread.
+    fresh_reads: AtomicBool,
+    /// When the build's walk began.
+    built_ns: i64,
+    /// Held across every change to the index, so a query's reconcile and a
+    /// watch batch never interleave and their events reach consumers in the
+    /// order they were applied.
+    fresh: Mutex<FreshState>,
+    /// The symlinked directories the index reaches files through. The watcher
+    /// reports a change only at the link's target, so each is restated here.
+    links: Mutex<Vec<Link>>,
+}
+
+/// A symlinked directory at `path`, under a watch anchor, resolving to
+/// `target`.
+#[derive(Debug, Clone, PartialEq)]
+struct Link {
+    path: PathBuf,
+    target: PathBuf,
+}
+
+impl Link {
+    fn at(path: PathBuf, fs: &dyn FileSystem) -> Self {
+        Self {
+            target: PathBuf::from(fs.canonical_root(&path)),
+            path,
+        }
+    }
+
+    /// The event at the link that `event`, at or around its target, amounts
+    /// to: a change below the target is the same change below the link, and
+    /// the target, or a directory above it, appearing or leaving is the link's
+    /// directory doing so.
+    fn restate(&self, event: &FileEvent) -> Option<FileEvent> {
+        let (path, kind): (&Path, fn(PathBuf) -> FileEvent) = match event {
+            FileEvent::Created(p) => (p, FileEvent::Created),
+            FileEvent::Modified(p) => (p, FileEvent::Modified),
+            FileEvent::Deleted(p) => (p, FileEvent::Deleted),
+            FileEvent::Rescan => return None,
+        };
+        match path.strip_prefix(&self.target) {
+            Ok(rest) => Some(kind(self.path.join(rest))),
+            Err(_) if !matches!(event, FileEvent::Modified(_)) && self.target.starts_with(path) => {
+                Some(kind(self.path.clone()))
+            }
+            Err(_) => None,
+        }
+    }
+}
+
+#[derive(Default)]
+struct FreshState {
+    /// What the index holds for each `(table, file)`.
+    known: HashMap<(String, String), freshness::Known>,
+    seeded: bool,
+    /// Row events a query's reconcile produced, for the next watch batch.
+    outbox: Vec<RowEvent>,
 }
 
 fn watch_scopes(groups: &[AnchorGroup]) -> Vec<WatchScope> {
@@ -514,6 +583,7 @@ type ScanFn<'a> = &'a dyn Fn(
     &TableMatcher,
     &mut dyn FnMut(u64),
     &mut dyn FnMut(&Path, &str),
+    &(dyn Fn(&Path) + Sync),
 ) -> Vec<Found>;
 
 impl DirSQL {
@@ -584,8 +654,173 @@ impl DirSQL {
     /// [`QueryResult::columns`]. A [`Row`] is a `HashMap`, so a caller that
     /// renders columns in the order the user asked for needs this instead.
     pub fn query_ordered(&self, sql: &str) -> Result<QueryResult> {
+        self.query_ordered_with(sql, &Params::default())
+    }
+
+    /// [`query`](Self::query), binding `params` to the statement's
+    /// placeholders. The values never enter the SQL text.
+    pub fn query_with(&self, sql: &str, params: &Params) -> Result<Vec<Row>> {
+        self.query_ordered_with(sql, params)
+            .map(|result| result.rows)
+    }
+
+    /// [`query_ordered`](Self::query_ordered), binding `params` as
+    /// [`query_with`](Self::query_with) does.
+    pub fn query_ordered_with(&self, sql: &str, params: &Params) -> Result<QueryResult> {
+        let _fresh = self.refresh()?;
         let db = self.inner.db.lock().map_err(DirSqlError::lock)?;
-        db.query_ordered(sql).map_err(map_db_error)
+        db.query_ordered_with(sql, params).map_err(map_db_error)
+    }
+
+    /// [`query_ordered`](Self::query_ordered), abandoned once `cancelled` is
+    /// set, releasing the index for the next query.
+    #[cfg(feature = "cli")]
+    pub(crate) fn query_ordered_until(
+        &self,
+        sql: &str,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<QueryResult> {
+        let _fresh = self.refresh()?;
+        let db = self.inner.db.lock().map_err(DirSqlError::lock)?;
+        db.query_ordered_until(sql, cancelled).map_err(map_db_error)
+    }
+
+    /// Turn off reading the named tables' files at query time, for a caller
+    /// that queries once, straight after the build, or that cannot run
+    /// `on_file` on the thread a query runs on.
+    #[doc(hidden)]
+    pub fn set_fresh_reads(&self, on: bool) {
+        self.inner.fresh_reads.store(on, Ordering::SeqCst);
+    }
+
+    /// Bring every named table in line with the files on disk now, whether
+    /// or not queries do so themselves: a binding whose queries run where
+    /// `on_file` cannot be called calls this first, on the thread that can.
+    #[doc(hidden)]
+    pub fn read_changes(&self) -> Result<()> {
+        let mut state = self.inner.fresh.lock().map_err(DirSqlError::lock)?;
+        self.reconcile(&mut state)
+    }
+
+    /// Hold the index still until the returned guard drops, first bringing
+    /// every named table in line with the files on disk when fresh reads are
+    /// on. A watch batch releases the database between statements inside its
+    /// transaction, so a query that took only the database could read it
+    /// half applied.
+    fn refresh(&self) -> Result<MutexGuard<'_, FreshState>> {
+        let mut state = self.inner.fresh.lock().map_err(DirSqlError::lock)?;
+        if !self.inner.groups.is_empty() && self.inner.fresh_reads.load(Ordering::SeqCst) {
+            self.reconcile(&mut state)?;
+        }
+        Ok(state)
+    }
+
+    /// Walk each anchor, read every file whose stat says it may differ from
+    /// what the index holds, and drop the rows of files that are gone, in one
+    /// transaction.
+    fn reconcile(&self, state: &mut FreshState) -> Result<()> {
+        let start_ns = now_ns();
+        if !state.seeded {
+            self.seed(state)?;
+        }
+        let mut found: Vec<(String, String, PathBuf)> = Vec::new();
+        for group in &self.inner.groups {
+            for (path, table) in
+                self.inner
+                    .fs
+                    .scan_subtree(&group.anchor, &group.anchor, &group.matcher, &|_| {})
+            {
+                let rel = scanner::to_slash(path.strip_prefix(&group.anchor).unwrap_or(&path));
+                found.push((table, rel, path));
+            }
+        }
+        self.with_db(|db| Ok(foreign_key::begin(db.conn())?))?;
+        let mut stats: HashMap<PathBuf, Option<freshness::Fingerprint>> = HashMap::new();
+        let mut updates: Vec<((String, String), freshness::Known)> = Vec::new();
+        let mut pending = PendingRefresh::default();
+        let mut events = Vec::new();
+        for (table, rel, path) in &found {
+            let now = *stats
+                .entry(path.clone())
+                .or_insert_with(|| self.inner.fs.fingerprint(path).ok());
+            let key = (table.clone(), rel.clone());
+            let known = state.known.get(&key);
+            if !freshness::must_read(known, now.as_ref(), self.inner.built_ns) {
+                if let Some(adopted) = freshness::adopted(known, now, self.inner.built_ns) {
+                    updates.push((key, adopted));
+                }
+                continue;
+            }
+            if self.is_per_table(table) {
+                self.track_batch_file(table, path, rel, false);
+                pending.mark(table, rel);
+            } else {
+                let read = self.handle_upsert(table, path, rel);
+                if let Some(message) = read.iter().find_map(|event| match event {
+                    RowEvent::Error { error, .. } => Some(error.clone()),
+                    _ => None,
+                }) {
+                    self.with_db(|db| Ok(db.conn().execute_batch("ROLLBACK")?))?;
+                    return Err(DirSqlError::OnFile {
+                        table: table.clone(),
+                        path: rel.clone(),
+                        message,
+                    });
+                }
+                events.extend(read);
+                updates.push((
+                    key,
+                    freshness::after_read(self.inner.fs.fingerprint(path).ok(), start_ns),
+                ));
+            }
+        }
+        let present: HashSet<(&str, &str)> = found
+            .iter()
+            .map(|(table, rel, _)| (table.as_str(), rel.as_str()))
+            .collect();
+        let gone: Vec<(String, String)> = state
+            .known
+            .keys()
+            .filter(|(table, rel)| !present.contains(&(table.as_str(), rel.as_str())))
+            .cloned()
+            .collect();
+        for (table, rel) in &gone {
+            if self.is_per_table(table) {
+                self.track_batch_file(table, Path::new(rel), rel, true);
+                pending.mark(table, rel);
+            } else {
+                events.extend(self.handle_delete(table, rel));
+            }
+        }
+        let rerun: HashSet<String> = pending.0.iter().map(|(table, _)| table.clone()).collect();
+        events.extend(self.refresh_pending(pending));
+        for (table, rel, path) in found.iter().filter(|(table, _, _)| rerun.contains(table)) {
+            updates.push((
+                (table.clone(), rel.clone()),
+                freshness::after_read(self.inner.fs.fingerprint(path).ok(), start_ns),
+            ));
+        }
+        self.with_db(|db| foreign_key::commit(db.conn()))?;
+        for key in gone {
+            state.known.remove(&key);
+        }
+        state.known.extend(updates);
+        state.outbox.extend(events);
+        Ok(())
+    }
+
+    /// Record every file the build indexed as [`freshness::Known::Built`].
+    fn seed(&self, state: &mut FreshState) -> Result<()> {
+        let owned = self.with_db(Db::owned_files)?;
+        let batch_files = self.inner.batch_files.lock().map_err(DirSqlError::lock)?;
+        let batched = batch_files
+            .iter()
+            .flat_map(|(table, files)| files.iter().map(|rel| (table.clone(), rel.clone())));
+        for key in owned.into_iter().chain(batched) {
+            state.known.insert(key, freshness::Known::Built);
+        }
+        state.seeded = true;
+        Ok(())
     }
 
     /// The directory the index is rooted at: where path-tables resolve.
@@ -609,8 +844,22 @@ impl DirSQL {
         start: impl FnOnce(&[String]) -> S,
         on_row: impl FnMut(&mut S, &[Value]),
     ) -> Result<S> {
+        self.query_each_with(sql, &Params::default(), start, on_row)
+    }
+
+    /// [`query_each`](Self::query_each), binding `params` as
+    /// [`query_with`](Self::query_with) does.
+    pub fn query_each_with<S>(
+        &self,
+        sql: &str,
+        params: &Params,
+        start: impl FnOnce(&[String]) -> S,
+        on_row: impl FnMut(&mut S, &[Value]),
+    ) -> Result<S> {
+        let _fresh = self.refresh()?;
         let db = self.inner.db.lock().map_err(DirSqlError::lock)?;
-        db.query_each(sql, start, on_row).map_err(map_db_error)
+        db.query_each_with(sql, params, start, on_row)
+            .map_err(map_db_error)
     }
 
     /// [`query_each`](Self::query_each) handing each row's cells as SQLite
@@ -622,8 +871,10 @@ impl DirSQL {
         start: impl FnOnce(&[String]) -> S,
         on_row: impl FnMut(&mut S, &[rusqlite::types::ValueRef<'_>]),
     ) -> Result<S> {
+        let _fresh = self.refresh()?;
         let db = self.inner.db.lock().map_err(DirSqlError::lock)?;
-        db.query_each_ref(sql, start, on_row).map_err(map_db_error)
+        db.query_each_ref(sql, &Params::default(), start, on_row)
+            .map_err(map_db_error)
     }
 
     /// Lazily create the filesystem watcher. Idempotent; subsequent calls are
@@ -720,6 +971,21 @@ impl DirSQL {
     fn apply_file_events_draining(
         &self,
         events: Vec<FileEvent>,
+        late: impl FnMut() -> Vec<FileEvent>,
+    ) -> Vec<RowEvent> {
+        let mut fresh = self
+            .inner
+            .fresh
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut out = std::mem::take(&mut fresh.outbox);
+        out.extend(self.apply_events(events, late));
+        out
+    }
+
+    fn apply_events(
+        &self,
+        events: Vec<FileEvent>,
         mut late: impl FnMut() -> Vec<FileEvent>,
     ) -> Vec<RowEvent> {
         if events.is_empty() {
@@ -782,7 +1048,9 @@ impl DirSQL {
                     rescan = true;
                     continue;
                 }
-                out.extend(self.route_file_event(fe, &mut pending));
+                for fe in self.through_links(fe) {
+                    out.extend(self.route_file_event(fe, &mut pending));
+                }
             }
             batch = late();
         }
@@ -978,6 +1246,48 @@ impl DirSQL {
             }
         }
         events
+    }
+
+    /// `event`, then the same change at each symlinked directory that
+    /// reaches it. A deletion forgets the links it took with it.
+    fn through_links(&self, event: FileEvent) -> Vec<FileEvent> {
+        let Ok(mut links) = self.inner.links.lock() else {
+            return vec![event];
+        };
+        let mut events = vec![event];
+        for link in links.iter() {
+            if let Some(restated) = link.restate(&events[0])
+                && !events.contains(&restated)
+            {
+                events.push(restated);
+            }
+        }
+        if let FileEvent::Deleted(gone) = &events[0] {
+            links.retain(|link| !link.path.starts_with(gone));
+        }
+        events
+    }
+
+    /// Whether `dir` is reached through a known symlinked directory above it.
+    fn below_a_link(&self, dir: &Path) -> bool {
+        self.inner.links.lock().is_ok_and(|links| {
+            links
+                .iter()
+                .any(|link| dir != link.path && dir.starts_with(&link.path))
+        })
+    }
+
+    /// Remember `path` as a symlinked directory, replacing what it resolved
+    /// to before. A path that resolves to itself is no link.
+    fn register_link(&self, path: PathBuf) {
+        let link = Link::at(path, self.inner.fs.as_ref());
+        if link.target == link.path {
+            return;
+        }
+        if let Ok(mut links) = self.inner.links.lock() {
+            links.retain(|known| known.path != link.path);
+            links.push(link);
+        }
     }
 
     /// The anchor groups an event path falls under, each with the path
@@ -1209,8 +1519,27 @@ impl DirSQL {
         } else {
             &group.anchor
         };
+        if dir.starts_with(&group.watch_anchor) && !self.below_a_link(dir) {
+            self.register_link(dir.to_path_buf());
+        }
+        let entered = Mutex::new(Vec::new());
+        let found = self
+            .inner
+            .fs
+            .scan_subtree(base, dir, &group.matcher, &|link| {
+                entered
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .push(link.to_path_buf());
+            });
+        for link in entered
+            .into_inner()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+        {
+            self.register_link(link);
+        }
         let mut events = Vec::new();
-        for (path, table) in self.inner.fs.scan_subtree(base, dir, &group.matcher) {
+        for (path, table) in found {
             let rel_path = scanner::to_slash(path.strip_prefix(base).unwrap_or(&path));
             if self.is_per_table(&table) {
                 self.track_batch_file(&table, &path, &rel_path, false);
@@ -1396,6 +1725,7 @@ impl DirSQL {
             path_table_parser,
             no_ignore,
         } = resolved;
+        let built_ns = now_ns();
 
         let (groups, anchors, table_names) = compile_groups(&tables, &ignore, &root)?;
         let groups = groups
@@ -1423,6 +1753,7 @@ impl DirSQL {
         // its entries -- so the walk is guaranteed to return nothing. That is
         // the configless case (path-tables run their own per-statement scan),
         // where the walk was the bulk of startup.
+        let links = Mutex::new(Vec::new());
         let (feeds, early) = if persist_ctx.is_none() {
             start_per_table_hooks(&tables)
         } else {
@@ -1468,12 +1799,22 @@ impl DirSQL {
                 // The walk reports a running count rather than a fraction: it does
                 // not know how many files there are until it has found them all.
                 let mut progress = Progress::scanning();
-                let (scanned, seen) =
-                    scan_groups(&groups, scan, &mut progress, &mut |path, table| {
+                let (scanned, seen) = scan_groups(
+                    &groups,
+                    scan,
+                    &mut progress,
+                    &mut |path, table| {
                         if let Some(feed) = feeds.get(table) {
                             let _ = feed.send(path.to_path_buf());
                         }
-                    });
+                    },
+                    &|link| {
+                        links
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner)
+                            .push(link.to_path_buf());
+                    },
+                );
                 drop(feeds);
                 progress.finish(seen);
                 for warning in empty_table_warnings(&tables, &anchors, &scanned) {
@@ -1519,17 +1860,15 @@ impl DirSQL {
             poll_interval,
             path_table_parser,
             no_ignore,
+            built_ns,
+            links: links
+                .into_inner()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
         })
     }
 
-    /// The files the initial scan could not index, in scan order — each with
-    /// the path relative to the root and the hook's own error.
-    ///
-    /// A hook that fails, or returns a row the table rejects, costs that file
-    /// and no other: the scan indexes everything else and records the failure
-    /// here. Empty for a clean scan, which is the signal a caller checks —
-    /// non-empty means the index is *incomplete*, not wrong, and the missing
-    /// files are retried on the next scan.
+    /// Always empty: a hook that fails, or returns a row the table rejects,
+    /// fails the build with [`DirSqlError::OnFile`] instead.
     pub fn scan_failures(&self) -> &[OnFileFailure] {
         &self.inner.scan_failures
     }
@@ -1571,6 +1910,8 @@ impl DirSQL {
             hint_legacy_files_table,
             path_table_parser,
             no_ignore,
+            built_ns,
+            links,
         } = prepared;
 
         let (mut db, fresh_ddl, ddl_warnings, persist_ready, needs_sweep) = match persist {
@@ -1666,7 +2007,6 @@ impl DirSQL {
         }
 
         let snapshot_ns = now_ns();
-        let mut on_file_failures: Vec<OnFileFailure> = Vec::new();
         let mut batch_files: HashMap<String, Vec<String>> = HashMap::new();
 
         // Grouping walks every scanned file, so it runs beside the early
@@ -1718,19 +2058,13 @@ impl DirSQL {
             done += 1;
             let strict = *strict_map.get(&table_name).unwrap_or(&false);
             let abs_path = anchors.of(&table_name).join(&rel_path);
-            // A hook failure is this file's problem, not the scan's: record it
-            // and keep going, so one unreadable file cannot hide the state of
-            // every file after it.
-            let raw_rows = match on_file(&abs_path.to_string_lossy()) {
-                Ok(rows) => rows,
-                Err(e) => {
-                    on_file_failures.push(OnFileFailure {
-                        path: rel_path.clone(),
-                        message: e.to_string(),
-                    });
-                    continue;
-                }
+            let failed = |message: String| DirSqlError::OnFile {
+                table: table_name.clone(),
+                path: rel_path.clone(),
+                message,
             };
+            let raw_rows =
+                on_file(&abs_path.to_string_lossy()).map_err(|e| failed(e.to_string()))?;
 
             // When updating an existing file in the persistent cache, drop
             // its old rows before inserting the new ones.
@@ -1738,19 +2072,10 @@ impl DirSQL {
                 db.delete_rows_by_file(&table_name, &rel_path)
                     .map_err(map_db_error)?;
             }
-            let normalized = match normalize_rows(&db, &table_name, raw_rows, strict) {
-                Ok(rows) => rows,
-                Err(message) => {
-                    on_file_failures.push(OnFileFailure {
-                        path: rel_path.clone(),
-                        message,
-                    });
-                    continue;
-                }
-            };
+            let normalized = normalize_rows(&db, &table_name, raw_rows, strict).map_err(failed)?;
             for (row_index, row) in normalized.iter().enumerate() {
                 db.insert_row(&table_name, row, &rel_path, row_index)
-                    .map_err(map_db_error)?;
+                    .map_err(|e| failed(e.to_string()))?;
             }
 
             // Update the persistent file index after a successful parse.
@@ -1829,13 +2154,6 @@ impl DirSQL {
             write_meta(db.conn(), meta).map_err(DirSqlError::sqlite)?;
         }
 
-        // A per-file failure no longer cancels the scan: what could be indexed
-        // is committed, and the failures ride on the built database for the
-        // caller to report (`scan_failures`). A file that failed never reached
-        // `upsert_file`, so it is absent from the cache index and is retried on
-        // the next scan -- the cache is incomplete, never wrong. SQLite, DDL
-        // and extension errors still propagate above, unchanged.
-
         let committed = foreign_key::commit(db.conn());
         drop(_tx);
         committed.map_err(map_db_error)?;
@@ -1844,6 +2162,20 @@ impl DirSQL {
         for group in &mut groups {
             group.watch_anchor = PathBuf::from(fs.canonical_root(&group.anchor));
         }
+        let links = links
+            .into_iter()
+            .map(|path| {
+                let path = groups
+                    .iter()
+                    .find_map(|group| {
+                        path.strip_prefix(&group.anchor)
+                            .ok()
+                            .map(|rel| group.watch_anchor.join(rel))
+                    })
+                    .unwrap_or(path);
+                Link::at(path, fs.as_ref())
+            })
+            .collect();
 
         Ok(Self {
             inner: Arc::new(DirSqlInner {
@@ -1855,12 +2187,16 @@ impl DirSQL {
                 declared,
                 batch_files: Mutex::new(batch_files),
                 held: Mutex::new(Vec::new()),
-                scan_failures: on_file_failures,
+                scan_failures: Vec::new(),
                 watcher: Mutex::new(None),
                 poll_used: AtomicBool::new(false),
                 watch_thread_started: AtomicBool::new(false),
                 poll_interval,
                 fs,
+                fresh_reads: AtomicBool::new(true),
+                built_ns,
+                fresh: Mutex::new(FreshState::default()),
+                links: Mutex::new(links),
             }),
         })
     }
@@ -2047,7 +2383,7 @@ impl DirSQLBuilder {
         // explicit `.root(...)` when given, else the process cwd. The config
         // file's own location plays no part in root derivation (#540).
         let root = match explicit_root {
-            Some(explicit) => explicit,
+            Some(explicit) => std::path::absolute(explicit).map_err(DirSqlError::config)?,
             None => std::env::current_dir().map_err(DirSqlError::config)?,
         };
 
@@ -2262,6 +2598,10 @@ pub struct PreparedBuild {
     hint_legacy_files_table: bool,
     path_table_parser: Option<String>,
     no_ignore: bool,
+    /// When the walk began.
+    built_ns: i64,
+    /// The symlinked directories the walk entered.
+    links: Vec<PathBuf>,
 }
 
 #[doc(hidden)]
@@ -2348,6 +2688,7 @@ fn scan_groups(
     scan: ScanFn<'_>,
     progress: &mut Progress,
     on_match: &mut dyn FnMut(&Path, &str),
+    on_link: &(dyn Fn(&Path) + Sync),
 ) -> (Vec<Found>, u64) {
     let mut seen = 0;
     let mut scanned = Vec::new();
@@ -2361,6 +2702,7 @@ fn scan_groups(
                 progress.update(seen, None);
             },
             on_match,
+            on_link,
         ));
     }
     (scanned, seen)
@@ -2509,17 +2851,20 @@ trait FileSystem: Send + Sync {
     fn is_file(&self, path: &Path) -> std::io::Result<bool>;
     /// Whether `path` is a directory. `Err(NotFound)` when it doesn't exist.
     fn is_dir(&self, path: &Path) -> std::io::Result<bool>;
-    /// The scanner's walk over the subtree at `dir`, matched relative to `root`.
+    /// The scanner's walk over the subtree at `dir`, matched relative to
+    /// `root`, telling `on_link` each symlinked directory it enters.
     fn scan_subtree(
         &self,
         root: &Path,
         dir: &Path,
         matcher: &TableMatcher,
+        on_link: &(dyn Fn(&Path) + Sync),
     ) -> Vec<(PathBuf, String)>;
     /// BLAKE3-hash a file's contents.
     fn hash(&self, path: &Path) -> std::io::Result<[u8; 32]>;
     /// Canonicalize the watch root, falling back to the literal path.
     fn canonical_root(&self, root: &Path) -> String;
+    fn fingerprint(&self, path: &Path) -> std::io::Result<freshness::Fingerprint>;
 }
 
 struct RealFs;
@@ -2542,12 +2887,17 @@ impl FileSystem for RealFs {
         root: &Path,
         dir: &Path,
         matcher: &TableMatcher,
+        on_link: &(dyn Fn(&Path) + Sync),
     ) -> Vec<(PathBuf, String)> {
-        scanner::scan_subtree(root, dir, matcher)
+        scanner::scan_subtree_reporting(root, dir, matcher, on_link)
     }
 
     fn hash(&self, path: &Path) -> std::io::Result<[u8; 32]> {
         hash_file(path)
+    }
+
+    fn fingerprint(&self, path: &Path) -> std::io::Result<freshness::Fingerprint> {
+        freshness::fingerprint(path)
     }
 
     fn canonical_root(&self, root: &Path) -> String {
@@ -3245,9 +3595,15 @@ impl AsyncDirSQL {
     }
 
     pub async fn query(&self, sql: &str) -> Result<Vec<Row>> {
+        self.query_with(sql, &Params::default()).await
+    }
+
+    /// [`DirSQL::query_with`] off the async runtime's worker threads.
+    pub async fn query_with(&self, sql: &str, params: &Params) -> Result<Vec<Row>> {
         let db = self.sync()?;
         let sql = sql.to_string();
-        tokio::task::spawn_blocking(move || db.query(&sql))
+        let params = params.clone();
+        tokio::task::spawn_blocking(move || db.query_with(&sql, &params))
             .await
             .map_err(|e| DirSqlError::Lock(format!("join error: {e}")))?
     }
@@ -3475,6 +3831,7 @@ mod internal_tests {
             _root: &Path,
             dir: &Path,
             _matcher: &TableMatcher,
+            _on_link: &(dyn Fn(&Path) + Sync),
         ) -> Vec<(PathBuf, String)> {
             self.subtree_walks.lock().unwrap().push(dir.to_path_buf());
             self.subtrees.get(dir).cloned().unwrap_or_default()
@@ -3483,6 +3840,16 @@ mod internal_tests {
         fn hash(&self, path: &Path) -> std::io::Result<[u8; 32]> {
             self.hashes.get(path).copied().ok_or_else(|| {
                 std::io::Error::new(std::io::ErrorKind::NotFound, "fake: no such file")
+            })
+        }
+
+        fn fingerprint(&self, path: &Path) -> std::io::Result<freshness::Fingerprint> {
+            self.stat(path).map(|stat| freshness::Fingerprint {
+                dev: stat.dev.unsigned_abs(),
+                ino: stat.inode.unsigned_abs(),
+                size: stat.size.unsigned_abs(),
+                mtime_ns: stat.mtime_ns,
+                ctime_ns: Some(stat.ctime_ns),
             })
         }
 
@@ -3559,15 +3926,18 @@ mod internal_tests {
         let dir = TempDir::new().unwrap();
         let (scan_started, wait_for_scan) = mpsc::channel();
         let (db_opened, wait_for_db) = mpsc::channel();
-        let scan =
-            |_: &Path, _: &TableMatcher, _: &mut dyn FnMut(u64), _: &mut dyn FnMut(&Path, &str)| {
-                scan_started.send(()).unwrap();
-                assert!(
-                    wait_for_db.recv_timeout(Duration::from_secs(5)).is_ok(),
-                    "database creation must finish before the scan completes"
-                );
-                Vec::new()
-            };
+        let scan = |_: &Path,
+                    _: &TableMatcher,
+                    _: &mut dyn FnMut(u64),
+                    _: &mut dyn FnMut(&Path, &str),
+                    _: &(dyn Fn(&Path) + Sync)| {
+            scan_started.send(()).unwrap();
+            assert!(
+                wait_for_db.recv_timeout(Duration::from_secs(5)).is_ok(),
+                "database creation must finish before the scan completes"
+            );
+            Vec::new()
+        };
         let new_db = move || {
             wait_for_scan.recv_timeout(Duration::from_secs(5)).unwrap();
             let db = Db::new()?;
@@ -3591,15 +3961,18 @@ mod internal_tests {
         let dir = TempDir::new().unwrap();
         let (scan_started, wait_for_scan) = mpsc::channel();
         let (ddl_done, wait_for_ddl) = mpsc::channel();
-        let scan =
-            |_: &Path, _: &TableMatcher, _: &mut dyn FnMut(u64), _: &mut dyn FnMut(&Path, &str)| {
-                scan_started.send(()).unwrap();
-                assert!(
-                    wait_for_ddl.recv_timeout(Duration::from_secs(5)).is_ok(),
-                    "table DDL must finish before the scan completes"
-                );
-                Vec::new()
-            };
+        let scan = |_: &Path,
+                    _: &TableMatcher,
+                    _: &mut dyn FnMut(u64),
+                    _: &mut dyn FnMut(&Path, &str),
+                    _: &(dyn Fn(&Path) + Sync)| {
+            scan_started.send(()).unwrap();
+            assert!(
+                wait_for_ddl.recv_timeout(Duration::from_secs(5)).is_ok(),
+                "table DDL must finish before the scan completes"
+            );
+            Vec::new()
+        };
         let ddl = move |db: &Db, tables: &[Table]| {
             wait_for_scan.recv_timeout(Duration::from_secs(5)).unwrap();
             let warnings = run_table_ddl(db, tables)?;
@@ -3632,7 +4005,7 @@ mod internal_tests {
         let called = Arc::clone(&ddl_called);
         let prepared = DirSQL::prepare_resolved_with_setup(
             resolved,
-            &|_, _, _, _| Vec::new(),
+            &|_, _, _, _, _| Vec::new(),
             Db::new,
             move |_, _| {
                 called.store(true, Ordering::SeqCst);
@@ -3705,7 +4078,7 @@ mod internal_tests {
         let called = Arc::clone(&ddl_called);
         let prepared = DirSQL::prepare_resolved_with_setup(
             resolved,
-            &|_, _, _, _| Vec::new(),
+            &|_, _, _, _, _| Vec::new(),
             Db::new,
             move |_, _| {
                 called.store(true, Ordering::SeqCst);
@@ -3732,7 +4105,7 @@ mod internal_tests {
 
         let prepared = DirSQL::prepare_resolved_with(
             resolved_over(dir.path(), Vec::new(), false),
-            &|root, matcher, on_file, on_match| scan.scan(root, matcher, on_file, on_match),
+            &|root, matcher, on_file, on_match, _| scan.scan(root, matcher, on_file, on_match),
         )
         .unwrap();
 
@@ -3757,7 +4130,7 @@ mod internal_tests {
 
         let prepared = DirSQL::prepare_resolved_with(
             resolved_over(dir.path(), vec![txt_table()], false),
-            &|root, matcher, on_file, on_match| scan.scan(root, matcher, on_file, on_match),
+            &|root, matcher, on_file, on_match, _| scan.scan(root, matcher, on_file, on_match),
         )
         .unwrap();
 
@@ -3791,7 +4164,7 @@ mod internal_tests {
         let resolved = resolved_over(dir.path(), vec![items], false);
         let hook_saw_it_mid_walk = Cell::new(false);
         let found = dir.path().join("a.txt");
-        DirSQL::prepare_resolved_with(resolved, &|_, _, _, on_match| {
+        DirSQL::prepare_resolved_with(resolved, &|_, _, _, on_match, _| {
             on_match(&found, "items");
             hook_saw_it_mid_walk.set(
                 got_rx
@@ -3816,7 +4189,7 @@ mod internal_tests {
             let honored = Cell::new(None);
             let mut resolved = resolved_over(dir.path(), vec![txt_table()], false);
             resolved.no_ignore = no_ignore;
-            DirSQL::prepare_resolved_with(resolved, &|_, matcher, _, _| {
+            DirSQL::prepare_resolved_with(resolved, &|_, matcher, _, _, _| {
                 honored.set(Some(matcher.respects_gitignore()));
                 Vec::new()
             })
@@ -3834,7 +4207,7 @@ mod internal_tests {
 
         let prepared = DirSQL::prepare_resolved_with(
             resolved_over(dir.path(), Vec::new(), true),
-            &|root, matcher, on_file, on_match| scan.scan(root, matcher, on_file, on_match),
+            &|root, matcher, on_file, on_match, _| scan.scan(root, matcher, on_file, on_match),
         )
         .unwrap();
 
@@ -3858,6 +4231,13 @@ mod internal_tests {
     fn builder_defaults_to_respecting_gitignore() {
         let resolved = DirSQL::builder().root("/idx").resolve().unwrap();
         assert!(!resolved.no_ignore);
+    }
+
+    #[test]
+    fn resolve_makes_a_relative_root_absolute() {
+        let resolved = DirSQL::builder().root("tree").resolve().unwrap();
+        assert!(resolved.root.is_absolute(), "got {:?}", resolved.root);
+        assert!(resolved.root.ends_with("tree"), "got {:?}", resolved.root);
     }
 
     #[test]
@@ -3897,6 +4277,8 @@ mod internal_tests {
             hint_legacy_files_table: false,
             path_table_parser: None,
             no_ignore: false,
+            built_ns: 0,
+            links: Vec::new(),
         };
         assert!(DirSQL::finish_build(prepared).is_err());
     }
@@ -4071,7 +4453,8 @@ mod internal_tests {
     }
 
     /// A one-table db whose fake fs stats every file in `files`, each already
-    /// upserted so the db holds a row per file.
+    /// upserted so the db holds a row per file. Queries read the index as
+    /// applied, since the fake walk lists no files.
     fn populated_db(root: &Path, glob: &str, files: &[&str]) -> DirSQL {
         let mut fake = FakeFs::default();
         for f in files {
@@ -4094,6 +4477,7 @@ mod internal_tests {
             Arc::new(fake),
         )
         .unwrap();
+        db.set_fresh_reads(false);
         for f in files {
             let events = db.handle_upsert("items", &root.join(f), f);
             assert!(
@@ -4230,13 +4614,19 @@ mod internal_tests {
         let scan = |anchor: &Path,
                     _: &TableMatcher,
                     report: &mut dyn FnMut(u64),
-                    _: &mut dyn FnMut(&Path, &str)| {
+                    _: &mut dyn FnMut(&Path, &str),
+                    _: &(dyn Fn(&Path) + Sync)| {
             report(3);
             vec![found_at(anchor, &anchor.join("f.txt"), "t")]
         };
 
-        let (scanned, seen) =
-            scan_groups(&groups, &scan, &mut Progress::scanning(), &mut |_, _| {});
+        let (scanned, seen) = scan_groups(
+            &groups,
+            &scan,
+            &mut Progress::scanning(),
+            &mut |_, _| {},
+            &|_| {},
+        );
 
         assert_eq!(seen, 6);
         assert_eq!(scanned.len(), 2);
@@ -4537,7 +4927,8 @@ mod internal_tests {
         );
         let matcher = TableMatcher::new(&[("**/*", "files")], &[]).unwrap();
         assert!(
-            fs.scan_subtree(dir.path(), dir.path(), &matcher).is_empty(),
+            fs.scan_subtree(dir.path(), dir.path(), &matcher, &|_| {})
+                .is_empty(),
             "an empty directory walks to nothing"
         );
         // A nonexistent path can't canonicalize, so the literal fallback runs.
@@ -4609,6 +5000,75 @@ mod internal_tests {
         let (_dir, db) = simple_db();
         poison(&db.inner.db);
         let err = db.query("SELECT 1").unwrap_err();
+        assert!(err.to_string().starts_with("failed to lock"), "got: {err}");
+    }
+
+    #[test]
+    fn query_with_binds_the_params() {
+        let (_dir, db) = simple_db();
+        let rows = db
+            .query_with(
+                "SELECT :n AS n",
+                &Params::Named(HashMap::from([("n".into(), Value::Integer(4))])),
+            )
+            .unwrap();
+        assert_eq!(rows, [HashMap::from([("n".into(), Value::Integer(4))])]);
+    }
+
+    #[test]
+    fn query_ordered_with_binds_the_params_in_projection_order() {
+        let (_dir, db) = simple_db();
+        let result = db
+            .query_ordered_with(
+                "SELECT ? AS b, ? AS a",
+                &Params::Positional(vec![Value::Integer(1), Value::Integer(2)]),
+            )
+            .unwrap();
+        assert_eq!(result.columns, ["b", "a"]);
+        assert_eq!(result.rows[0]["a"], Value::Integer(2));
+    }
+
+    #[test]
+    fn query_ordered_binds_no_params() {
+        let (_dir, db) = simple_db();
+        let err = db.query_ordered("SELECT ?").unwrap_err();
+        assert!(
+            matches!(err, DirSqlError::Core(DbError::Params(_))),
+            "got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn query_each_with_binds_the_params() {
+        let (_dir, db) = simple_db();
+        let rows = db
+            .query_each_with(
+                "SELECT ? AS n",
+                &Params::Positional(vec![Value::Text("x".into())]),
+                |_| Vec::new(),
+                |rows, cells| rows.push(cells.to_vec()),
+            )
+            .unwrap();
+        assert_eq!(rows, [[Value::Text("x".into())]]);
+    }
+
+    #[test]
+    fn query_each_binds_no_params() {
+        let (_dir, db) = simple_db();
+        let err = db.query_each("SELECT ?", |_| (), |_, _| {}).unwrap_err();
+        assert!(
+            matches!(err, DirSqlError::Core(DbError::Params(_))),
+            "got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn query_each_with_surfaces_lock_poison() {
+        let (_dir, db) = simple_db();
+        poison(&db.inner.db);
+        let err = db
+            .query_each_with("SELECT 1", &Params::default(), |_| (), |_, _| {})
+            .unwrap_err();
         assert!(err.to_string().starts_with("failed to lock"), "got: {err}");
     }
 
@@ -4913,11 +5373,13 @@ mod internal_tests {
 
     #[test]
     fn resolve_explicit_root_is_used_verbatim() {
-        let resolved = DirSQL::builder()
-            .root("/some/explicit/root")
-            .resolve()
-            .unwrap();
-        assert_eq!(resolved.root, PathBuf::from("/some/explicit/root"));
+        let explicit = if cfg!(windows) {
+            r"C:\some\explicit\root"
+        } else {
+            "/some/explicit/root"
+        };
+        let resolved = DirSQL::builder().root(explicit).resolve().unwrap();
+        assert_eq!(resolved.root, PathBuf::from(explicit));
     }
 
     #[test]
@@ -6036,6 +6498,15 @@ mod internal_tests {
         adb.ready().await.unwrap();
         let rows = adb.query("SELECT 1 AS n").await.unwrap();
         assert_eq!(rows[0]["n"], Value::Integer(1));
+        let bound = adb
+            .query_with(
+                "SELECT ? AS n",
+                &Params::Positional(vec![Value::Integer(9)]),
+            )
+            .await
+            .unwrap();
+        assert_eq!(bound[0]["n"], Value::Integer(9));
+        assert!(adb.query("SELECT ?").await.is_err());
         assert!(adb.sync().unwrap().query("SELECT 1").is_ok());
         adb.start_watching().unwrap();
         assert!(
@@ -6144,6 +6615,8 @@ mod internal_tests {
             hint_legacy_files_table: false,
             path_table_parser: None,
             no_ignore: false,
+            built_ns: 0,
+            links: Vec::new(),
         }
     }
 
@@ -6666,11 +7139,13 @@ mod internal_tests {
             DirSQL::with_ignore_and_fs(&root, vec![items], Vec::<String>::new(), Arc::new(RealFs))
                 .unwrap();
 
-        let calls = calls.lock().unwrap();
-        assert_eq!(calls.len(), 1, "{calls:?}");
-        let mut seen = calls[0].clone();
-        seen.sort();
-        assert_eq!(seen, vec![root.join("a.txt"), root.join("b.txt")]);
+        {
+            let calls = calls.lock().unwrap();
+            assert_eq!(calls.len(), 1, "{calls:?}");
+            let mut seen = calls[0].clone();
+            seen.sort();
+            assert_eq!(seen, vec![root.join("a.txt"), root.join("b.txt")]);
+        }
         let mut names = row_names(&db);
         names.sort();
         assert_eq!(names, vec!["a.txt", "b.txt"]);
@@ -7219,6 +7694,7 @@ mod internal_tests {
             fake.clone(),
         )
         .unwrap();
+        db.set_fresh_reads(false);
         let events = db.apply_file_events(
             files
                 .iter()
@@ -7345,6 +7821,416 @@ mod internal_tests {
             ]
         );
         assert_eq!(held(&db), Vec::new());
+    }
+
+    type Reads = Arc<Mutex<Vec<String>>>;
+
+    /// A per-file `items` table over `**/*.txt` whose hook records each file
+    /// it reads and answers one row holding the file's content, failing for
+    /// content `bad`.
+    fn content_table() -> (Table, Reads) {
+        let reads: Reads = Arc::default();
+        let seen = Arc::clone(&reads);
+        let table = Table::try_new(
+            "items",
+            "CREATE TABLE items (name TEXT)",
+            "**/*.txt",
+            move |path| {
+                seen.lock().unwrap().push(
+                    Path::new(path)
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .into_owned(),
+                );
+                let text = std::fs::read_to_string(path).unwrap_or_default();
+                if text == "bad" {
+                    return Err("bad content".into());
+                }
+                Ok(vec![Row::from_iter([(
+                    "name".to_string(),
+                    Value::Text(text),
+                )])])
+            },
+        );
+        (table, reads)
+    }
+
+    fn fresh_fixture(files: &[(&str, &str)]) -> (TempDir, PathBuf, DirSQL, Reads) {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        for (rel, text) in files {
+            std::fs::write(root.join(rel), text).unwrap();
+        }
+        let (table, reads) = content_table();
+        let db =
+            DirSQL::with_ignore_and_fs(&root, vec![table], Vec::<String>::new(), Arc::new(RealFs))
+                .unwrap();
+        (dir, root, db, reads)
+    }
+
+    #[test]
+    fn a_query_reads_a_file_written_after_the_build() {
+        let (_dir, root, db, _) = fresh_fixture(&[]);
+        std::fs::write(root.join("a.txt"), "one").unwrap();
+        assert_eq!(row_names(&db), vec!["one"]);
+    }
+
+    #[test]
+    fn a_query_reads_an_edit_to_a_file_the_build_indexed() {
+        let (_dir, root, db, _) = fresh_fixture(&[("a.txt", "one")]);
+        std::fs::write(root.join("a.txt"), "two").unwrap();
+        assert_eq!(row_names(&db), vec!["two"]);
+    }
+
+    #[test]
+    fn a_query_drops_the_rows_of_a_deleted_file() {
+        let (_dir, root, db, _) = fresh_fixture(&[("a.txt", "one"), ("b.txt", "two")]);
+        std::fs::remove_file(root.join("a.txt")).unwrap();
+        assert_eq!(row_names(&db), vec!["two"]);
+        assert_eq!(row_names(&db), vec!["two"]);
+    }
+
+    #[test]
+    fn a_query_with_fresh_reads_off_reads_the_index_as_built() {
+        let (_dir, root, db, _) = fresh_fixture(&[("a.txt", "one")]);
+        db.set_fresh_reads(false);
+        std::fs::write(root.join("b.txt"), "two").unwrap();
+        assert_eq!(row_names(&db), vec!["one"]);
+        db.set_fresh_reads(true);
+        assert_eq!(row_names(&db), vec!["one", "two"]);
+    }
+
+    #[test]
+    fn a_query_with_fresh_reads_off_still_holds_the_index_still() {
+        let (_dir, _root, db, _) = fresh_fixture(&[("a.txt", "one")]);
+        db.set_fresh_reads(false);
+        let held = db.refresh().unwrap();
+        assert!(db.inner.fresh.try_lock().is_err());
+        drop(held);
+        assert!(db.inner.fresh.try_lock().is_ok());
+    }
+
+    #[test]
+    fn read_changes_reads_the_disk_with_fresh_reads_off() {
+        let (_dir, root, db, _) = fresh_fixture(&[("a.txt", "one")]);
+        db.set_fresh_reads(false);
+        std::fs::write(root.join("b.txt"), "two").unwrap();
+        db.read_changes().unwrap();
+        assert_eq!(row_names(&db), vec!["one", "two"]);
+    }
+
+    #[test]
+    fn query_ordered_and_query_each_read_fresh_rows_too() {
+        let (_dir, root, db, _) = fresh_fixture(&[]);
+        std::fs::write(root.join("a.txt"), "one").unwrap();
+        assert_eq!(
+            db.query_ordered("SELECT name FROM items")
+                .unwrap()
+                .rows
+                .len(),
+            1
+        );
+        std::fs::write(root.join("b.txt"), "two").unwrap();
+        let count = db
+            .query_each("SELECT name FROM items", |_| 0, |n, _| *n += 1)
+            .unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn a_file_whose_hook_fails_at_query_time_fails_the_query_and_keeps_the_index() {
+        let (_dir, root, db, _) = fresh_fixture(&[("a.txt", "one"), ("b.txt", "two")]);
+        std::fs::write(root.join("a.txt"), "uno").unwrap();
+        std::fs::write(root.join("b.txt"), "bad").unwrap();
+        let err = db.query("SELECT name FROM items").unwrap_err();
+        assert!(
+            matches!(&err, DirSqlError::OnFile { table, path, message }
+                if table == "items" && path == "b.txt" && message == "bad content"),
+            "{err:?}"
+        );
+        db.set_fresh_reads(false);
+        assert_eq!(row_names(&db), vec!["one", "two"]);
+        db.set_fresh_reads(true);
+        std::fs::write(root.join("b.txt"), "dos").unwrap();
+        assert_eq!(row_names(&db), vec!["dos", "uno"]);
+    }
+
+    #[test]
+    fn a_query_hands_its_row_events_to_the_next_poll_once() {
+        let (_dir, root, db, _) = fresh_fixture(&[]);
+        std::fs::write(root.join("a.txt"), "one").unwrap();
+        row_names(&db);
+        assert_eq!(
+            rescan_summary(&db.apply_file_events(Vec::new())),
+            vec!["insert one"]
+        );
+        assert_eq!(db.apply_file_events(Vec::new()), vec![]);
+    }
+
+    #[test]
+    fn a_query_after_start_watching_hands_its_row_events_to_the_consumer() {
+        let (_dir, root, db, _) = fresh_fixture(&[]);
+        db.start_watching().unwrap();
+        std::fs::write(root.join("a.txt"), "one").unwrap();
+        row_names(&db);
+        assert_eq!(
+            rescan_summary(&db.apply_file_events(Vec::new())),
+            vec!["insert one"]
+        );
+    }
+
+    #[test]
+    fn a_query_before_any_watcher_hands_its_row_events_to_the_first_poll() {
+        let (_dir, root, db, _) = fresh_fixture(&[]);
+        std::fs::write(root.join("a.txt"), "one").unwrap();
+        row_names(&db);
+        db.start_watching().unwrap();
+        assert_eq!(
+            rescan_summary(&db.apply_file_events(Vec::new())),
+            vec!["insert one"]
+        );
+    }
+
+    #[test]
+    fn a_change_a_query_read_reaches_the_next_poll_once_when_the_watcher_reports_it_too() {
+        let (_dir, root, db, _) = fresh_fixture(&[]);
+        std::fs::write(root.join("a.txt"), "one").unwrap();
+        row_names(&db);
+        let events = db.apply_file_events(vec![FileEvent::Created(root.join("a.txt"))]);
+        assert_eq!(rescan_summary(&events), vec!["insert one"]);
+    }
+
+    /// A built instance whose filesystem double reports `found` under the
+    /// root, each file last changed long before any query.
+    fn settled_fixture(built: &[&str], found: &[&str]) -> (TempDir, DirSQL, Reads) {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        for rel in built {
+            std::fs::write(root.join(rel), "x").unwrap();
+        }
+        let fs = FakeFs::default().with_subtree(
+            &root,
+            found
+                .iter()
+                .map(|rel| (root.join(rel), "items".to_string()))
+                .collect(),
+        );
+        let (table, reads) = content_table();
+        let db = DirSQL::with_ignore_and_fs(&root, vec![table], Vec::<String>::new(), Arc::new(fs))
+            .unwrap();
+        reads.lock().unwrap().clear();
+        (dir, db, reads)
+    }
+
+    #[test]
+    fn a_built_file_unchanged_since_before_the_build_is_not_read_again() {
+        let (_dir, db, reads) = settled_fixture(&["a.txt"], &["a.txt"]);
+        row_names(&db);
+        row_names(&db);
+        assert_eq!(*reads.lock().unwrap(), Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_settled_file_is_read_once_then_not_again() {
+        let (_dir, db, reads) = settled_fixture(&[], &["a.txt"]);
+        row_names(&db);
+        row_names(&db);
+        assert_eq!(*reads.lock().unwrap(), vec!["a.txt"]);
+    }
+
+    #[test]
+    fn a_per_table_hook_reruns_when_one_of_its_files_changes_and_when_one_goes() {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        std::fs::write(root.join("a.txt"), "x").unwrap();
+        let (items, calls) = recording_per_table("items", "*.txt");
+        let db =
+            DirSQL::with_ignore_and_fs(&root, vec![items], Vec::<String>::new(), Arc::new(RealFs))
+                .unwrap();
+        std::fs::write(root.join("b.txt"), "x").unwrap();
+        assert_eq!(row_names(&db), vec!["a.txt", "b.txt"]);
+        assert_eq!(
+            calls.lock().unwrap().last().unwrap(),
+            &vec![root.join("a.txt"), root.join("b.txt")]
+        );
+        std::fs::remove_file(root.join("a.txt")).unwrap();
+        assert_eq!(row_names(&db), vec!["b.txt"]);
+        assert_eq!(
+            calls.lock().unwrap().last().unwrap(),
+            &vec![root.join("b.txt")]
+        );
+    }
+
+    fn link_at(path: &str, target: &str) -> Link {
+        Link {
+            path: PathBuf::from(path),
+            target: PathBuf::from(target),
+        }
+    }
+
+    #[test]
+    fn restate_moves_a_change_below_the_target_below_the_link() {
+        let link = link_at("/ws/link", "/ws/real");
+        for (event, restated) in [
+            (
+                FileEvent::Modified("/ws/real/x.txt".into()),
+                FileEvent::Modified("/ws/link/x.txt".into()),
+            ),
+            (
+                FileEvent::Created("/ws/real/a/x.txt".into()),
+                FileEvent::Created("/ws/link/a/x.txt".into()),
+            ),
+            (
+                FileEvent::Deleted("/ws/real/x.txt".into()),
+                FileEvent::Deleted("/ws/link/x.txt".into()),
+            ),
+        ] {
+            assert_eq!(link.restate(&event), Some(restated));
+        }
+    }
+
+    #[test]
+    fn restate_puts_the_target_itself_at_the_link() {
+        let link = link_at("/ws/link", "/ws/real");
+        assert_eq!(
+            link.restate(&FileEvent::Deleted("/ws/real".into())),
+            Some(FileEvent::Deleted("/ws/link".into()))
+        );
+    }
+
+    #[test]
+    fn restate_puts_a_directory_above_the_target_appearing_or_leaving_at_the_link() {
+        let link = link_at("/ws/link", "/ws/a/real");
+        assert_eq!(
+            link.restate(&FileEvent::Deleted("/ws/a".into())),
+            Some(FileEvent::Deleted("/ws/link".into()))
+        );
+        assert_eq!(
+            link.restate(&FileEvent::Created("/ws/a".into())),
+            Some(FileEvent::Created("/ws/link".into()))
+        );
+        assert_eq!(link.restate(&FileEvent::Modified("/ws/a".into())), None);
+    }
+
+    #[test]
+    fn restate_leaves_an_unrelated_change_and_a_rescan_alone() {
+        let link = link_at("/ws/link", "/ws/real");
+        assert_eq!(
+            link.restate(&FileEvent::Modified("/ws/other/x.txt".into())),
+            None
+        );
+        assert_eq!(
+            link.restate(&FileEvent::Modified("/ws/realm/x.txt".into())),
+            None
+        );
+        assert_eq!(link.restate(&FileEvent::Rescan), None);
+    }
+
+    /// A db over `/ws` that knows `/ws/link` resolves to `/ws/real`, holding
+    /// `real/x.txt` and `link/x.txt`.
+    fn linked_db() -> DirSQL {
+        let root = PathBuf::from("/ws");
+        let fake = FakeFs::default()
+            .with_canonical_root(&root, "/ws")
+            .with_canonical_root("/ws/link", "/ws/real")
+            .with_subtree("/ws/link", vec![("/ws/link/x.txt".into(), "items".into())])
+            .with_subtree("/ws/real", vec![("/ws/real/x.txt".into(), "items".into())]);
+        let db = subtree_db(fake, &root, Vec::new());
+        db.process_file_event(FileEvent::Created("/ws/real".into()));
+        db.process_file_event(FileEvent::Created("/ws/link".into()));
+        db
+    }
+
+    fn known_links(db: &DirSQL) -> Vec<Link> {
+        db.inner.links.lock().unwrap().clone()
+    }
+
+    #[test]
+    fn a_created_directory_that_resolves_elsewhere_is_known_as_a_link() {
+        let db = linked_db();
+        assert_eq!(known_links(&db), vec![link_at("/ws/link", "/ws/real")]);
+    }
+
+    #[test]
+    fn a_change_at_the_target_reaches_the_rows_under_the_link() {
+        let db = linked_db();
+
+        let events = db.process_file_event(FileEvent::Deleted("/ws/real/x.txt".into()));
+
+        assert_eq!(
+            deleted_paths(&events),
+            vec!["link/x.txt".to_string(), "real/x.txt".to_string()]
+        );
+    }
+
+    #[test]
+    fn deleting_the_link_forgets_it() {
+        let db = linked_db();
+        db.process_file_event(FileEvent::Deleted("/ws/link".into()));
+        assert!(known_links(&db).is_empty());
+    }
+
+    #[test]
+    fn a_deletion_reached_only_through_a_link_keeps_the_link_known() {
+        let db = linked_db();
+        db.process_file_event(FileEvent::Deleted("/ws/real".into()));
+        assert_eq!(known_links(&db), vec![link_at("/ws/link", "/ws/real")]);
+    }
+
+    #[test]
+    fn a_directory_below_a_known_link_is_not_a_link_of_its_own() {
+        let db = linked_db();
+        db.register_link("/ws/link".into());
+        assert!(db.below_a_link(Path::new("/ws/link/sub")));
+        assert!(!db.below_a_link(Path::new("/ws/link")));
+        assert!(!db.below_a_link(Path::new("/ws/linked")));
+        assert_eq!(known_links(&db).len(), 1, "re-registering replaces");
+    }
+
+    #[test]
+    fn a_created_directory_below_a_known_link_is_not_a_link_of_its_own() {
+        let root = PathBuf::from("/ws");
+        let fake = FakeFs::default()
+            .with_canonical_root(&root, "/ws")
+            .with_canonical_root("/ws/link", "/ws/real")
+            .with_canonical_root("/ws/link/sub", "/ws/real/sub")
+            .with_subtree("/ws/link", Vec::new())
+            .with_subtree("/ws/link/sub", Vec::new());
+        let db = subtree_db(fake, &root, Vec::new());
+        db.process_file_event(FileEvent::Created("/ws/link".into()));
+
+        db.process_file_event(FileEvent::Created("/ws/link/sub".into()));
+
+        assert_eq!(known_links(&db), vec![link_at("/ws/link", "/ws/real")]);
+    }
+
+    #[test]
+    fn a_directory_that_resolves_to_itself_is_no_link() {
+        let db = linked_db();
+        db.register_link("/ws/real".into());
+        assert_eq!(known_links(&db), vec![link_at("/ws/link", "/ws/real")]);
+    }
+
+    #[test]
+    fn the_startup_walk_reports_the_links_it_entered_under_the_watch_root() {
+        let dir = TempDir::new().unwrap();
+        let resolved = resolved_over(dir.path(), vec![txt_table()], false);
+        let link = dir.path().join("link");
+        let prepared = DirSQL::prepare_resolved_with(resolved, &|_, _, _, _, on_link| {
+            on_link(&link);
+            Vec::new()
+        })
+        .unwrap();
+        assert_eq!(prepared.links, vec![link.clone()]);
+
+        let fake = FakeFs::default()
+            .with_canonical_root(dir.path(), "/ws")
+            .with_canonical_root("/ws/link", "/ws/real");
+        let db =
+            DirSQL::finish_build_with_fs(prepared, Arc::new(fake), Progress::indexing()).unwrap();
+
+        assert_eq!(known_links(&db), vec![link_at("/ws/link", "/ws/real")]);
     }
 }
 

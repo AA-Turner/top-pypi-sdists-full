@@ -486,7 +486,7 @@ def connection(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(cloud, "write_github_outputs", lambda _outputs: None)
     monkeypatch.setattr(cloud, "should_use_secret_retriever", lambda: False)
     monkeypatch.setattr(cloud, "get_connection_residency", lambda _connection_id: "us")
-    monkeypatch.setattr(cloud, "is_running_on_eu_runner", lambda: False)
+    monkeypatch.setattr(cloud, "is_running_in_eu_region", lambda: False)
     monkeypatch.setattr(
         cloud, "fetch_connection_data", lambda _connection_id: _connection_data()
     )
@@ -1150,7 +1150,7 @@ def probe_connection(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     )
     monkeypatch.setattr(cloud, "should_use_secret_retriever", lambda: False)
     monkeypatch.setattr(cloud, "get_connection_residency", lambda _connection_id: "us")
-    monkeypatch.setattr(cloud, "is_running_on_eu_runner", lambda: False)
+    monkeypatch.setattr(cloud, "is_running_in_eu_region", lambda: False)
     monkeypatch.setattr(cloud, "fetch_connection_data", lambda _connection_id: data)
     monkeypatch.setattr(
         cloud,

@@ -58,6 +58,7 @@ milliseconds and never imports httpx beside a training loop.
 from __future__ import annotations
 
 import collections
+import contextlib
 import errno
 import json
 import os
@@ -478,6 +479,11 @@ class _Tee:
 
     def open(self) -> None:
         _flush_python_streams()
+        # A name is reused once its owner dropped the log, but not its stop marker: left
+        # there, that marker cut this log at the helper's first tick (#4240's DDP ranks).
+        for stale in (_stopped_path(self.log_path), _meta_path(self.log_path), _ready_path(self.log_path)):
+            with contextlib.suppress(OSError):
+                os.unlink(stale)
         reads: list[int] = []
         specs: list[str] = []
         try:
@@ -595,7 +601,10 @@ def run_teed(
         except Exception:  # noqa: BLE001
             pass
     try:
-        proc = subprocess.Popen(argv, cwd=cwd, env=env, stdout=tee.writers[1], stderr=tee.writers[2])
+        from ...run.launch.program import start_program
+
+        # Here, or by the `probe` shim when this runs in the service (T42).
+        proc = start_program(argv, cwd=cwd, env=env, stdout=tee.writers[1], stderr=tee.writers[2])
     except BaseException:
         tee.close_writers()
         tee.finish()

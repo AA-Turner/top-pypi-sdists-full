@@ -34,6 +34,7 @@ from .literals import (
     RateCardConstraintTypeType,
     ResourceContentTypeType,
     ResourceTypeType,
+    ReviewSourceIdType,
     SaasQuickLaunchStatusType,
     SearchFacetTypeType,
     SearchFilterTypeType,
@@ -423,7 +424,7 @@ class PromotionalEmbeddedVideoTypeDef(TypedDict):
 
 class ReviewSourceSummaryTypeDef(TypedDict):
     sourceName: str
-    sourceId: Literal["AWS_MARKETPLACE"]
+    sourceId: ReviewSourceIdType
     averageRating: str
     totalReviews: int
     sourceUrl: NotRequired[str]

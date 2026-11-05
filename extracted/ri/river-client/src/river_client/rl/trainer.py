@@ -34,7 +34,8 @@ from .advantages import (
     _training_rewards,
     accumulation_scale,
 )
-from .batch import TrainingBatch
+from .batch import TrainingBatch, _Build, _Item
+from .spill import Spill, resolve_spill, scratch_spill
 from .checkpoint import (
     Checkpointing,
     StateStore,
@@ -66,11 +67,13 @@ from .losses import (
     CustomLoss,
     ImportanceSampling,
     PolicyGradient,
+    _positive,
     resolve_loss,
 )
+from .metrics import MetricsReporter
 from .progress import Activities
 from .streaming_custom_loss import StreamingCustomLoss
-from .trajectory import decode_state
+from .trajectory import Trajectory, decode_state
 
 
 @dataclass
@@ -245,6 +248,7 @@ class AsyncTrainer:
         allow_unbounded_staleness: bool = False,
         truncation: Truncation = _DEFAULT_TRUNCATION,
         checkpoint: Checkpointing | None = None,
+        spill: Spill | bool | None = None,
         init_checkpoint=None,
         evaluator=None,
         run_config=None,
@@ -257,6 +261,8 @@ class AsyncTrainer:
         forward_backward_groups: int | None = None,
         forward_backward_batch: ForwardBackwardBatch | Literal["auto"] | None = "auto",
         max_pending_forward_backward: int = 16,
+        log_step_metrics: bool = False,
+        metrics_interval: float | None = None,
         **loss_config,
     ):
         """Configure reward processing, policy age, and optimizer updates.
@@ -322,6 +328,14 @@ class AsyncTrainer:
             allow_unbounded_staleness: Acknowledge ``stale_policy="keep"``.
             truncation: Reward or drop policy for truncated trajectories.
             checkpoint: Durable trainer-state checkpoint settings.
+            spill: Keep span arrays of completed trajectories on disk instead
+                of in memory, reading them back when needed. ``None`` spills
+                into the checkpoint's run directory when ``checkpoint`` is set
+                and keeps arrays in memory otherwise. ``False`` keeps them in
+                memory; ``True`` or ``rl.Spill()`` spills into the run
+                directory, which requires ``checkpoint``.
+                ``rl.Spill(directory)`` spills without checkpointing, into
+                scratch files under ``directory``.
             init_checkpoint: Optional starting weights checkpoint.
             evaluator: Optional checkpoint-based evaluation runner.
             run_config: Serializable recipe values checked on resume.
@@ -340,6 +354,11 @@ class AsyncTrainer:
                 submission when eligible; set a ``ForwardBackwardBatch`` or
                 ``None`` explicitly to override.
             max_pending_forward_backward: Limit concurrent submitted operations.
+            log_step_metrics: Publish completed Step metrics to River Console.
+                Defaults to False. RIVER_METRICS_DISABLED disables reporting.
+            metrics_interval: Seconds between River Console progress observations.
+                None (default) disables progress reporting independently of steps.
+                Use 60 for one-minute progress snapshots.
             loss_config: Legacy numeric options for string-based losses, such as
                 eps_max. Do not combine these with a configured loss object.
         """
@@ -357,6 +376,12 @@ class AsyncTrainer:
             )
         _integer(max_pending_forward_backward, "max_pending_forward_backward", 1)
         self.max_pending_forward_backward = max_pending_forward_backward
+        if not isinstance(log_step_metrics, bool):
+            raise TypeError("log_step_metrics must be a bool")
+        self.log_step_metrics = log_step_metrics
+        if metrics_interval is not None:
+            _positive(metrics_interval, "metrics_interval")
+        self.metrics_interval = metrics_interval
         _integer(groups_per_step, "groups_per_step", 1)
         _integer(group_size, "group_size", 1)
         self._uses_admission = admission is not None
@@ -591,6 +616,9 @@ class AsyncTrainer:
             init_checkpoint,
             evaluator,
         )
+        self.spill = spill
+        self._spill_arrays, self._spill_directory = resolve_spill(spill, checkpoint)
+        self._scratch = None
         self.dataset_scheduler = dataset_scheduler
         if dataset_scheduler is not None and (
             completion.mode != "wait" or stale_policy != "wait"
@@ -893,9 +921,9 @@ class AsyncTrainer:
                 if self._full_weight
                 else {}
             ),
-            # Each committed update is written once and referenced afterwards.
-            # Batches are built into datums only while the save writes them.
-            "journal": [capture.record(update) for update in self._journal],
+            # Each committed update is written once and referenced afterwards,
+            # by reference to the span records of the trajectories it trained.
+            "journal": [capture.update(update) for update in self._journal],
             "admitted_policy_steps": self._admitted_policy_steps.copy(),
             "active": sorted(self._active),
             "finished": sorted(self._finished),
@@ -1012,7 +1040,10 @@ class AsyncTrainer:
                     if span.policy_step == policy_step
                     else span._with_policy_step(policy_step)
                 )
-            trajectory._spans = spans
+            # Keep an unchanged span list: checkpoint saves and journaled
+            # batches find a trajectory's committed records by its list.
+            if any(new is not old for new, old in zip(spans, trajectory._spans)):
+                trajectory._spans = spans
 
     async def _save_weights(self, *, durable=False):
         checkpoint = await self._call(
@@ -1415,12 +1446,9 @@ class AsyncTrainer:
             # Journal data is restored even when its original trajectories were
             # fresh. Reuse captures where possible, with admission-time fallback.
             if chunks is None:
-                data = [dict(d, _rl_recovered_routing=True) for d in data]
+                data = _recovered(data)
             else:
-                chunks = [
-                    [dict(d, _rl_recovered_routing=True) for d in chunk]
-                    for chunk in chunks
-                ]
+                chunks = [_recovered(chunk) for chunk in chunks]
         if chunks is None:
             fb = await self._backward(data)
         else:
@@ -1441,6 +1469,59 @@ class AsyncTrainer:
             finally:
                 await self._drain_backwards()
         return fb, await self._optimize(optimizer_kwargs)
+
+    def _restore_update(self, update):
+        """Rebuild a journal update stored by reference as training batches.
+
+        Its recipes name each datum's trajectory, run, advantage and
+        corrections; the current loss binding, which the resume fingerprint
+        pins, supplies the rest. Updates journaled as datums pass through.
+        """
+        if "kind" not in update:
+            return update
+        sources = [
+            Trajectory.from_state_dict(state)._datum_source()
+            for state in update["trajectories"]
+        ]
+        binding = self._loss_binding
+        builds = [
+            _Build(
+                current_step=build["current_step"],
+                max_staleness=build["max_staleness"],
+                requirements=binding.requirements if build["loss"] else None,
+                include_loss_mask=build["include_loss_mask"],
+                loss=binding if build["loss"] else None,
+            )
+            for build in update["builds"]
+        ]
+        rows = update["proximal"]
+        chunks = []
+        for chunk in update["chunks"]:
+            batch = TrainingBatch(
+                _Item(
+                    source=sources[item["trajectory"]],
+                    run=item["run"],
+                    advantage=item["advantage"],
+                    denominator=item["denominator"],
+                    length=item["length"],
+                    advantaged=item["advantaged"],
+                    routing_handle=item["routing_handle"],
+                    recovered=item["recovered"],
+                    build=builds[item["build"]],
+                    proximal=None
+                    if item["proximal"] is None
+                    else (rows[item["proximal"]], item["max_importance_weight"]),
+                    drop_recovery=item["drop_recovery"],
+                    drop_routing=item["drop_routing"],
+                )
+                for item in chunk["items"]
+            )
+            if chunk["custom"]:
+                batch = custom_batch(batch, binding.loss, binding.input_adapter)
+            chunks.append(batch)
+        if update["kind"] == "data":
+            return {"data": chunks[0], "optimizer": update["optimizer"]}
+        return {"chunks": chunks, "optimizer": update["optimizer"]}
 
     async def _prepare_group(self, group, *, advantages=None):
         """Use the same masks, advantages and data conversion for filtering/backward."""
@@ -1951,6 +2032,14 @@ class AsyncTrainer:
                             )
                     if result.final:
                         self._dynamic_sampling_counts["kept"] += 1
+                    if self._spill_directory is not None:
+                        # Completed trajectories gain no spans; their arrays
+                        # wait on disk until training reads them.
+                        if self._scratch is None:
+                            self._scratch = await asyncio.to_thread(
+                                scratch_spill, self._spill_directory
+                            )
+                        await asyncio.to_thread(self._scratch.spill, unseen)
                     self._pending.append(result)
                 return True
         finally:
@@ -2084,6 +2173,8 @@ class AsyncTrainer:
         self._checkpoint_task = None
         self._pending_backwards = []
         self._backward_group_batches = []
+        self._streamed_chunks, self._streamed_results = [], []
+        self._committed_step = None
         self._backward_executor = None
         self._updating = False
         self._fingerprints = {
@@ -2099,7 +2190,9 @@ class AsyncTrainer:
             compatible_fingerprints = self._compatible_config_fingerprints(config)
         self._run_key = self._fingerprints["plan_fingerprint"][:12]
         store_context = (
-            StateStore(self.checkpoint) if self.checkpoint else nullcontext()
+            StateStore(self.checkpoint, spill_arrays=self._spill_arrays)
+            if self.checkpoint
+            else nullcontext()
         )
         handlers = {}
         healthy = True
@@ -2109,7 +2202,15 @@ class AsyncTrainer:
         self._running = True
         self._status = "running"
         previous_snapshot_sampling = self.engine._latest_snapshot_sampling
+        metrics_task = None
         try:
+            reporter = MetricsReporter(
+                self.engine.model,
+                steps=self.log_step_metrics,
+                interval=self.metrics_interval,
+            )
+            if reporter.enabled and self.metrics_interval is not None:
+                metrics_task = asyncio.create_task(reporter._report_progress(self))
             # Only the trainer publishes snapshots before each admission.
             # Standalone trajectory rollouts must still select current weights.
             self.engine._latest_snapshot_sampling = (
@@ -2170,8 +2271,11 @@ class AsyncTrainer:
                             "resume dataset, order, holdout, schedule, or training configuration changed"
                         )
                 if self._store and image_session is not None:
-                    restored = await image_session.restore_images(
-                        {"rows": rows, "saved": saved}, image_store=self._store.images
+                    restored = await self._call(
+                        "restore_images",
+                        image_session.restore_images,
+                        {"rows": rows, "saved": saved},
+                        image_store=self._store.images,
                     )
                     rows, saved = restored["rows"], restored["saved"]
                     del restored
@@ -2192,15 +2296,13 @@ class AsyncTrainer:
                     }
                 )
                 async with self.engine:
+                    reporter.include_rollouts = True
                     sampling_before = self.engine.sampling_metrics()
                     if self._full_weight and self.engine.server_capabilities:
                         self.engine.server_capabilities.require_model(
                             self.engine.model.base_model, "full_weight_rl_v1"
                         )
-                        if (
-                            self.evaluator is not None
-                            and getattr(self.evaluator, "deployment", None) is None
-                        ):
+                        if self.evaluator is not None:
                             self.engine.server_capabilities.require_model(
                                 self.engine.model.base_model,
                                 "full_weight_checkpoint_sampling_v1",
@@ -2229,7 +2331,9 @@ class AsyncTrainer:
                             # Records load one at a time, not as a whole journal.
                             update = await asyncio.to_thread(self._store.read, record)
                             if image_session is not None and update is not record:
-                                update = await image_session.restore_images(
+                                update = await self._call(
+                                    "restore_images",
+                                    image_session.restore_images,
                                     map_images(
                                         update,
                                         lambda image: session_images.get(
@@ -2242,6 +2346,7 @@ class AsyncTrainer:
                                     (image.sha256, image)
                                     for image in image_handles(update)
                                 )
+                            update = self._restore_update(update)
                             await self._update(
                                 update.get("data"),
                                 update["optimizer"],
@@ -2335,12 +2440,7 @@ class AsyncTrainer:
                             self._n,
                             **(
                                 {"on_checkpoint": self._save_state}
-                                if self._store
-                                and (
-                                    self._full_weight
-                                    or getattr(self.evaluator, "deployment", None)
-                                    is not None
-                                )
+                                if self._store and self._full_weight
                                 else {}
                             ),
                         )
@@ -2708,16 +2808,7 @@ class AsyncTrainer:
                                             ),
                                             **(
                                                 {"on_checkpoint": self._save_state}
-                                                if self._store
-                                                and (
-                                                    self._full_weight
-                                                    or getattr(
-                                                        self.evaluator,
-                                                        "deployment",
-                                                        None,
-                                                    )
-                                                    is not None
-                                                )
+                                                if self._store and self._full_weight
                                                 else {}
                                             ),
                                         )
@@ -2733,6 +2824,7 @@ class AsyncTrainer:
                                     metrics,
                                     trajectories,
                                 )
+                            reporter.log_step(step)
                             yield step
                         if (
                             self.dynamic_sampling
@@ -2761,16 +2853,7 @@ class AsyncTrainer:
                                             final=True,
                                             **(
                                                 {"on_checkpoint": self._save_state}
-                                                if self._store
-                                                and (
-                                                    self._full_weight
-                                                    or getattr(
-                                                        self.evaluator,
-                                                        "deployment",
-                                                        None,
-                                                    )
-                                                    is not None
-                                                )
+                                                if self._store and self._full_weight
                                                 else {}
                                             ),
                                         )
@@ -2846,9 +2929,11 @@ class AsyncTrainer:
             )
             raise
         finally:
+            if metrics_task is not None:
+                metrics_task.cancel()
             try:
                 # Recovery and checkpoint writes can fail before the training
-                # loop's cleanup. Always release background evaluation workers.
+                # loop's cleanup. Always cancel background evaluation tasks.
                 if self.evaluator:
                     await self.evaluator.close()
             except BaseException:
@@ -2871,7 +2956,12 @@ class AsyncTrainer:
                 for sig, handler in handlers.items():
                     asyncio.get_running_loop().remove_signal_handler(sig)
                     signal.signal(sig, handler)
-                self._running = False
+                try:
+                    if metrics_task is not None:
+                        await asyncio.gather(metrics_task, return_exceptions=True)
+                        reporter.log_progress(self)
+                finally:
+                    self._running = False
 
 
 def run(trainer: AsyncTrainer, dataset, *, steps: int, on_step=None):
@@ -2900,6 +2990,13 @@ def run(trainer: AsyncTrainer, dataset, *, steps: int, on_step=None):
     raise RuntimeError(
         "rl.run cannot nest an event loop; use 'async for step in trainer.run(...)'"
     )
+
+
+def _recovered(data):
+    """Mark journal data as restored, which allows routing fallback."""
+    if isinstance(data, TrainingBatch):
+        return data.with_items(recovered=True, drop_recovery=False)
+    return [dict(d, _rl_recovered_routing=True) for d in data]
 
 
 def _routing(data):

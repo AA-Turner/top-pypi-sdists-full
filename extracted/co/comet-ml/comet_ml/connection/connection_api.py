@@ -27,6 +27,7 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     Union,
@@ -4494,6 +4495,58 @@ class RestApiClient(BaseApiClient):
         """
         return self._post_view("write/chart-templates/upsert", project_id, view)
 
+    def get_code_panels(self, workspace: str) -> List[Dict[str, Any]]:
+        """
+        Return the metadata of all code panels in a workspace.
+        """
+        results = self.get_from_endpoint("code-panel/get-all", {"workspace": workspace})
+        if results and "codePanelTemplateRows" in results:
+            return results["codePanelTemplateRows"]
+        return []
+
+    def get_code_panel(self, template_id: str) -> Dict[str, Any]:
+        """
+        Return a code panel's metadata and code.
+        """
+        return self.get_from_endpoint(
+            "code-panel/download", {"templateId": template_id}
+        )
+
+    def download_code_panel_zip(self, template_id: str) -> bytes:
+        """
+        Return a panel as the bytes of a zip file.
+        """
+        return self.get_from_endpoint(
+            "template/%s/download" % template_id, {}, return_type="binary"
+        )
+
+    def upload_code_panel_zip(
+        self,
+        workspace: str,
+        zip_file: Union[bytes, IO[bytes]],
+        file_name: str,
+        template_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Upload a panel zip file to a workspace.
+
+        Args:
+            workspace: The workspace name.
+            zip_file: A file-like object or bytes holding the zip contents.
+            file_name: The file name sent with the upload.
+            template_id: If given, overwrite this panel instead of creating one.
+        """
+        params = {"teamName": workspace}
+        if template_id is not None:
+            params["templateId"] = template_id
+        response = self.post_from_endpoint(
+            "write/template/upload",
+            payload={},
+            params=params,
+            files={"file": (file_name, zip_file)},
+        )
+        return response.json()
+
     # General methods:
 
     def close(self) -> None:
@@ -4618,7 +4671,19 @@ class RestApiClientWithCache(RestApiClient):
         "write/project/delete-project-share-link",
         "project/get-project-share-links",
         "write/project/add-share-link",
+        # Code panels and views can be overwritten in place; their reads are
+        # keyed by params the writes don't carry, so they can't be cleared.
+        "code-panel/get-all",
+        "code-panel/download",
+        "views/get-all",
+        "views/chart-templates",
     }
+
+    # Nor on GET endpoints with an id in the path, such as template/{id}/download:
+    NOCACHE_ENDPOINT_PREFIXES = ("template/",)
+
+    # Endpoints under those prefixes that do_cache() has opted back in:
+    CACHE_PREFIX_OVERRIDES = set()  # type: Set[str]
 
     # Some read endpoints have additional payload key/values to clear:
     EXTRA_PAYLOAD = {
@@ -4637,6 +4702,10 @@ class RestApiClientWithCache(RestApiClient):
         super().__init__(*args, **kwargs)
         self.use_cache = True
         self.cache = {}
+        # Per-instance copies, so do_cache()/do_not_cache() on one client
+        # don't change what other clients cache:
+        self.NOCACHE_ENDPOINTS = set(self.NOCACHE_ENDPOINTS)
+        self.CACHE_PREFIX_OVERRIDES = set(self.CACHE_PREFIX_OVERRIDES)
         self.READ_ENDPOINTS = list(
             itertools.chain.from_iterable(
                 [[ep for (ep, items) in self.ENDPOINTS[key]] for key in self.ENDPOINTS]
@@ -4651,6 +4720,7 @@ class RestApiClientWithCache(RestApiClient):
         """
         for item in items:
             self.NOCACHE_ENDPOINTS.add(item)
+            self.CACHE_PREFIX_OVERRIDES.discard(item)
 
     def do_cache(self, *items):
         """
@@ -4659,9 +4729,16 @@ class RestApiClientWithCache(RestApiClient):
         for item in items:
             if item in self.NOCACHE_ENDPOINTS:
                 self.NOCACHE_ENDPOINTS.remove(item)
+            if item.startswith(self.NOCACHE_ENDPOINT_PREFIXES):
+                self.CACHE_PREFIX_OVERRIDES.add(item)
 
     def cacheable(self, read_endpoint):
-        return read_endpoint not in self.NOCACHE_ENDPOINTS
+        if read_endpoint in self.NOCACHE_ENDPOINTS:
+            return False
+        return (
+            not read_endpoint.startswith(self.NOCACHE_ENDPOINT_PREFIXES)
+            or read_endpoint in self.CACHE_PREFIX_OVERRIDES
+        )
 
     def get_hash(self, kwargs):
         key = hash(json.dumps(kwargs, sort_keys=True, default=str))

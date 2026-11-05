@@ -1,4 +1,9 @@
 //! ls builtin - list directory contents.
+//!
+//! Decisions:
+//! - `-R` lists directories through bounded `walk` batches (`WalkCache`),
+//!   one query per batch on bulk backends; without `-a` dot directories are
+//!   not descended, so the default walk reads exactly what `ls -R` prints.
 
 // Uses unwrap() for validated single-char strings.
 #![allow(clippy::unwrap_used)]
@@ -10,6 +15,7 @@ use std::path::Path;
 
 use crate::builtins::clap_env::apply_env_defaults;
 use crate::builtins::generated::ls_args::LS_ENV_DEFAULTS;
+use crate::builtins::walk_cache::WalkCache;
 use crate::builtins::{Builtin, Context, resolve_path};
 use crate::error::Result;
 use crate::fs::FileType;
@@ -55,6 +61,10 @@ pub(super) struct LsOptions {
     pub(super) columns: bool,
     pub(super) directory: bool,
     pub(super) quoting: QuotingStyle,
+    /// Stop generating once output passes this (`max_stdout_bytes` + 1):
+    /// the rest would be cut anyway, so `ls -R` over millions of files holds
+    /// at most this much (TM-DOS-140).
+    pub(super) output_limit: usize,
 }
 
 /// The ls builtin - list directory contents.
@@ -169,6 +179,11 @@ impl Builtin for Ls {
             columns: matches.get_flag("C"),
             directory: matches.get_flag("directory"),
             quoting,
+            output_limit: ctx
+                .execution_extension::<crate::limits::ExecutionLimits>()
+                .and_then(|limits| limits.try_with(|limits| limits.max_stdout_bytes).ok())
+                .unwrap_or_else(|| crate::limits::ExecutionLimits::default().max_stdout_bytes)
+                .saturating_add(1),
         };
 
         // PATHS holds OsString values; convert to owned strings for the
@@ -239,6 +254,9 @@ impl Builtin for Ls {
         // Output file arguments first (preserving path as given by user)
         if opts.long {
             for (path_str, path, metadata) in &file_args {
+                if output.len() > opts.output_limit {
+                    break;
+                }
                 let mut entry =
                     format_long_entry(&quote_name(path_str, opts.quoting), metadata, opts.human);
                 push_link_target(&ctx, path, metadata, &mut entry).await;
@@ -266,6 +284,9 @@ impl Builtin for Ls {
                 output.push_str(&format_columns(&names, 80));
             } else {
                 for name in &names {
+                    if output.len() > opts.output_limit {
+                        break;
+                    }
                     output.push_str(name);
                     output.push('\n');
                 }
@@ -273,9 +294,11 @@ impl Builtin for Ls {
         }
 
         // Then output directory listings
+        let mut listings = WalkCache::new(opts.recursive).skip_hidden(!opts.all);
         for (i, path_str, path) in &dir_args {
             if let Err(e) = list_directory(
                 &ctx,
+                &mut listings,
                 path,
                 path_str,
                 &mut output,
@@ -289,12 +312,21 @@ impl Builtin for Ls {
             }
         }
 
+        if output.len() > opts.output_limit {
+            let mut end = opts.output_limit;
+            while !output.is_char_boundary(end) {
+                end -= 1;
+            }
+            output.truncate(end);
+        }
         Ok(ExecResult::ok(output))
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn list_directory(
     ctx: &Context<'_>,
+    listings: &mut WalkCache,
     path: &Path,
     display_path: &str,
     output: &mut String,
@@ -302,6 +334,9 @@ async fn list_directory(
     show_header: bool,
     add_newline: bool,
 ) -> std::result::Result<(), String> {
+    if output.len() > opts.output_limit {
+        return Ok(());
+    }
     if add_newline {
         output.push('\n');
     }
@@ -316,9 +351,8 @@ async fn list_directory(
         output.push_str(&format!("{}:\n", header));
     }
 
-    let entries = ctx
-        .fs
-        .read_dir(path)
+    let entries = listings
+        .list(&*ctx.fs, path, None)
         .await
         .map_err(|e| format!("cannot open directory '{}': {}", display_path, e))?;
 
@@ -343,6 +377,11 @@ async fn list_directory(
 
     if opts.long {
         for entry in &filtered {
+            // Past the stdout limit nothing more is shown; stop before
+            // formatting (and link lookups) for the rest of a wide dir.
+            if output.len() > opts.output_limit {
+                break;
+            }
             let mut line = format_long_entry(
                 &quote_name(&entry.name, opts.quoting),
                 &entry.metadata,
@@ -391,6 +430,9 @@ async fn list_directory(
             output.push_str(&format_columns(&names, 80));
         } else {
             for name in &names {
+                if output.len() > opts.output_limit {
+                    break;
+                }
                 output.push_str(name);
                 output.push('\n');
             }
@@ -400,9 +442,12 @@ async fn list_directory(
     // Recursive listing
     if opts.recursive {
         for (subpath, display) in subdirs {
+            if output.len() > opts.output_limit {
+                break;
+            }
             // Box the future to avoid infinite recursion type size
             Box::pin(list_directory(
-                ctx, &subpath, &display, output, opts, true, true,
+                ctx, listings, &subpath, &display, output, opts, true, true,
             ))
             .await?;
         }

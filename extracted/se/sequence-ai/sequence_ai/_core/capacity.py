@@ -40,8 +40,8 @@ def count(value: Any) -> str:
 
 def held(in_use: Optional[Mapping[str, Any]]) -> str:
     """What the account's GPUs are doing: 'serving 6, evals 2, build checks 1' (a count it could not read says
-    'unknown'). A deploy's build check holds its card while it runs and the total counts it, so the parts name it too;
-    an in_use without one (an eval's) leaves it out.
+    'unknown'). A deploy's build check holds its card while it runs and the total counts it, so the parts name it too; an
+    in_use without one (an eval's) leaves it out.
  
 """
     u = in_use if isinstance(in_use, Mapping) else {}
@@ -55,7 +55,9 @@ def _when(retry_after_s: Optional[float]) -> str:
 
 
 
-IDLE_S = 600
+
+
+IDLE_S = 60
 
 
 

@@ -164,7 +164,7 @@ def remove(name: str, *, api_key: str | None = None, base_url: str | None = None
 
 
 def is_file_ref(value: str | None) -> bool:
-    """`--adapter ./my_adapter.py:MyAdapter` (a local file to register first), as opposed to a registered
+    """`--adapter ./my_adapter_user.py:MyAdapter_user` (a local file to register first), as opposed to a registered
     name[@vN]."""
     if not value:
         return False
@@ -174,9 +174,9 @@ def is_file_ref(value: str | None) -> bool:
 
 def resolve(adapter: Any, *, api_key: str | None = None, base_url: str | None = None,
             echo: Callable[[str], None] = print) -> str | None:
-    """What an eval sends as its adapter. A @seq.adapter class, or a local file (`./my_adapter.py[:MyAdapter]`), is
-    registered first — the same code is the version it already is — and sent as name@vN; a registered name[@vN] goes as
-    written."""
+    """What an eval sends as its adapter. A @seq.adapter class, or a local file
+    (`./my_adapter_user.py[:MyAdapter_user]`), is registered first — the same code is the version it already is — and
+    sent as name@vN; a registered name[@vN] goes as written."""
     from sequence_ai.errors import InvalidRequest
 
     if adapter is None or (isinstance(adapter, str) and not adapter.strip()):
@@ -194,7 +194,7 @@ def resolve(adapter: Any, *, api_key: str | None = None, base_url: str | None = 
         cls = adapter
     else:
         raise InvalidRequest("adapter= is a registered adapter (name or name@vN, see `seq adapter ls`), a @seq.adapter "
-                             "class, or a file: ./my_adapter.py:MyAdapter")
+                             "class, or a file: ./my_adapter_user.py:MyAdapter_user")
     out = register(cls, api_key=api_key, base_url=base_url)
     print_registered(out, echo=echo, hint=False)
     return f"{out['name']}@v{out['version']}"

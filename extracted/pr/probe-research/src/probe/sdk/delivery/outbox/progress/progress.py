@@ -32,6 +32,8 @@ class DeliveryErrorKind(StrEnum):
     HELD_ELSEWHERE = "held_elsewhere"
     #: The run stalled and its stuck write was set aside to held/ (R12).
     STALLED = "stalled"
+    #: A write of a newer journal version or op kind than this drain reads waits for a newer one (M4).
+    NEEDS_NEWER = "needs_newer"
 
 
 @dataclass

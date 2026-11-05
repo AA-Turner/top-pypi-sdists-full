@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 class AggregateBackfillTarget(str, Enum):
     ONLINE = "ONLINE"
     OFFLINE = "OFFLINE"
+    ONLINE_SUMMARIES = "ONLINE_SUMMARIES"
 
 
 class ScheduledAggregateBackfill:
@@ -24,8 +25,10 @@ class ScheduledAggregateBackfill:
         name: Unique name for this backfill job.
         features: The aggregated features to backfill.
         schedule: A cron expression or duration controlling how often the backfill runs.
-        target: Which store to backfill — ``AggregateBackfillTarget.ONLINE`` or
-            ``AggregateBackfillTarget.OFFLINE``. Mutually exclusive with ``targets``.
+        target: Which aggregate storage target to backfill: ``ONLINE`` for ordinary online
+            buckets, ``OFFLINE`` for offline tiles, or ``ONLINE_SUMMARIES`` for compact online
+            summaries. Summary generation requires complete input or existing tile coverage
+            for the summary window and horizon. Mutually exclusive with ``targets``.
         targets: Collection of stores to backfill. Mutually exclusive with ``target``.
         query_tags: Tags to attach to the backfill query for observability.
         resource_group: Resource group for the backfill job.
@@ -46,8 +49,8 @@ class ScheduledAggregateBackfill:
             specified environment.
         include_partial_bucket: If ``True``, each run also writes the current, still-open bucket,
             recomputed from the bucket's start, so windows include recent data before the bucket
-            closes. By default only closed buckets are written. Only supported with the
-            ``ONLINE`` target.
+            closes. By default only closed buckets are written. Unsupported with either
+            ``OFFLINE`` or ``ONLINE_SUMMARIES``, even when combined with ``ONLINE``.
     """
 
     def __init__(
@@ -101,13 +104,13 @@ class ScheduledAggregateBackfill:
             )
         elif targets is not None and len(targets) == 0:
             self.errors.append(
-                f"Scheduled aggregate backfill '{name}' was instantiated with an empty targets list, but at least one of AggregateBackfillTarget.ONLINE or AggregateBackfillTarget.OFFLINE is required"
+                f"Scheduled aggregate backfill '{name}' was instantiated with an empty targets list, but at least one of AggregateBackfillTarget.ONLINE, AggregateBackfillTarget.OFFLINE, or AggregateBackfillTarget.ONLINE_SUMMARIES is required"
             )
 
         for t in resolved_targets:  # type: ignore
             if not isinstance(t, AggregateBackfillTarget):  # type: ignore[arg-type]
                 self.errors.append(
-                    f"Scheduled aggregate backfill '{name}' was instantiated with invalid target '{target}'. Use AggregateBackfillTarget.ONLINE or AggregateBackfillTarget.OFFLINE."
+                    f"Scheduled aggregate backfill '{name}' was instantiated with invalid target '{target}'. Use AggregateBackfillTarget.ONLINE, AggregateBackfillTarget.OFFLINE, or AggregateBackfillTarget.ONLINE_SUMMARIES."
                 )
 
         if AggregateBackfillTarget.OFFLINE not in resolved_targets:
@@ -122,9 +125,12 @@ class ScheduledAggregateBackfill:
                 f"Scheduled aggregate backfill '{name}' was instantiated with num_shards={num_shards}, but num_shards must be > 1 when set; omit it to run each run as a single job"
             )
 
-        if include_partial_bucket and AggregateBackfillTarget.OFFLINE in resolved_targets:
+        if include_partial_bucket and (
+            AggregateBackfillTarget.OFFLINE in resolved_targets
+            or AggregateBackfillTarget.ONLINE_SUMMARIES in resolved_targets
+        ):
             self.errors.append(
-                f"Scheduled aggregate backfill '{name}' sets include_partial_bucket=True, which is only supported with AggregateBackfillTarget.ONLINE"
+                f"Scheduled aggregate backfill '{name}' sets include_partial_bucket=True, which is not supported with AggregateBackfillTarget.OFFLINE or AggregateBackfillTarget.ONLINE_SUMMARIES"
             )
 
         if lower_bound is not None:

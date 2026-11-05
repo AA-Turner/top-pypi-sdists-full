@@ -1,15 +1,16 @@
+import re
 import threading
 import time
 import unicodedata
 
-import paho.mqtt.client as client
 import pytest
+
+from paho.mqtt import client
 from paho.mqtt.enums import CallbackAPIVersion, MQTTErrorCode, MQTTProtocolVersion
 from paho.mqtt.packettypes import PacketTypes
 from paho.mqtt.properties import Properties
 from paho.mqtt.reasoncodes import ReasonCode
-
-import tests.paho_test as paho_test
+from tests import mqtt5_props, paho_test
 
 # Import test fixture
 from tests.testsupport.broker import FakeBroker, fake_broker  # noqa: F401
@@ -220,6 +221,51 @@ class Test_connect_v5:
     Tests on connect/disconnect behaviour of the client with MQTTv5
     """
 
+    @pytest.mark.parametrize("callback_version", list(CallbackAPIVersion))
+    @pytest.mark.parametrize("payload,reason,reason_string", [
+        (b"", None, None),
+        (b"\x00", 0, None),
+        (b"\x87", 135, None),
+        (b"\x87\x00", 135, None),
+        (b"\x87\x06\x1f\x00\x03bye", 135, "bye"),
+    ])
+    def test_broker_disconnect_reason(self, fake_broker, callback_version,
+                                     payload, reason, reason_string):
+        mqttc = client.Client(
+            callback_version, "broker-disconnect-reason",
+            protocol=MQTTProtocolVersion.MQTTv5,
+            transport=fake_broker.transport,
+        )
+        received = []
+        mqttc.on_disconnect = lambda *args: received.append(args)
+
+        try:
+            mqttc.connect("localhost", fake_broker.port)
+            fake_broker.start()
+            assert fake_broker.receive_packet(1000)
+            fake_broker.send_packet(paho_test.gen_connack(rc=0, proto_ver=5))
+            mqttc.loop(timeout=1)
+            assert mqttc.is_connected()
+
+            # Exercise omitted reason/properties and both short MQTT 5 encodings.
+            fake_broker.send_packet(b"\xe0" + bytes([len(payload)]) + payload)
+            mqttc.loop(timeout=1)
+
+            assert len(received) == 1
+            args = received[0]
+            if callback_version == CallbackAPIVersion.VERSION2:
+                assert args[2].is_disconnect_packet_from_server
+                assert isinstance(args[-1], Properties)
+                reason = 0 if reason is None else reason
+            elif len(payload) >= 2:
+                assert isinstance(args[-1], Properties)
+            else:
+                assert args[-1] is None
+            assert args[-2] == reason
+            assert getattr(args[-1], "ReasonString", None) == reason_string
+        finally:
+            mqttc.disconnect()
+
     def test_01_broker_no_support(self, fake_broker):
         mqttc = client.Client(
             CallbackAPIVersion.VERSION2, "01-broker-no-support",
@@ -255,6 +301,48 @@ class Test_connect_v5:
 
             packet_in = fake_broker.receive_packet(1)
             assert not packet_in  # Check connection is closed
+
+        finally:
+            mqttc.loop_stop()
+
+    def test_connack_server_keep_alive(self, fake_broker):
+        mqttc = client.Client(
+            CallbackAPIVersion.VERSION2, "connack-server-keep-alive",
+            protocol=MQTTProtocolVersion.MQTTv5, transport=fake_broker.transport)
+
+        # Client connects requesting the default keepalive of 60.
+        assert mqttc._keepalive == 60
+
+        is_connected = threading.Event()
+
+        def on_connect(mqttc, obj, flags, reason, properties):
+            assert reason == 0
+            is_connected.set()
+
+        mqttc.on_connect = on_connect
+
+        mqttc.connect_async("localhost", fake_broker.port)
+        mqttc.loop_start()
+
+        try:
+            fake_broker.start()
+
+            packet_in = fake_broker.receive_packet(1000)
+            assert packet_in  # Check connection was not closed
+
+            # Broker overrides the keepalive with a Server Keep Alive of 42
+            # (a value other than the default 60 so the override is unambiguous).
+            server_keep_alive = mqtt5_props.gen_uint16_prop(
+                mqtt5_props.PROP_SERVER_KEEP_ALIVE, 42)
+            connack_packet = paho_test.gen_connack(
+                rc=0, proto_ver=5, properties=server_keep_alive)
+            count = fake_broker.send_packet(connack_packet)
+            assert count == len(connack_packet)
+
+            is_connected.wait()
+
+            # Per MQTT 5.0 (3.2.2.3.14) the client must adopt the server value.
+            assert mqttc._keepalive == 42
 
         finally:
             mqttc.loop_stop()
@@ -473,6 +561,131 @@ class TestPublish:
             assert packet_in  # Check connection was not closed
             assert packet_in == disconnect_packet
 
+        finally:
+            mqttc.loop_stop()
+
+        packet_in = fake_broker.receive_packet(1)
+        assert not packet_in  # Check connection is closed
+
+
+class TestMalformedPacket:
+    def test_malformed_publish(self, fake_broker: FakeBroker) -> None:
+        mqttc = client.Client(
+            CallbackAPIVersion.VERSION2,
+            "client-id",
+            transport=fake_broker.transport,
+        )
+
+        got_msg = threading.Event()
+        got_subscribe = threading.Event()
+
+        def on_connect(cl, userdata, flags, reason, properties):
+            assert reason == 0
+            cl.subscribe("topic")
+
+        def on_message(cl, userdata, msg):
+            got_msg.set()
+
+        def on_subscribe(cl, userdata, mid, reason, properties):
+            got_subscribe.set()
+
+        mqttc.on_connect = on_connect
+        mqttc.on_message = on_message
+        mqttc.on_subscribe = on_subscribe
+
+        mqttc.connect("localhost", fake_broker.port)
+        mqttc.loop_start()
+        mqttc.enable_logger()
+
+        try:
+            fake_broker.start()
+
+            connect_packet = paho_test.gen_connect(
+                "client-id", keepalive=60)
+            fake_broker.expect_packet("connect", connect_packet)
+
+            connack_packet = paho_test.gen_connack(rc=0)
+            count = fake_broker.send_packet(connack_packet)
+            assert count == len(connack_packet)
+
+            subscribe_packet = paho_test.gen_subscribe(1, "topic", 0)
+            fake_broker.expect_packet("subscribe", subscribe_packet)
+
+            suback_packet = paho_test.gen_suback(1, 0)
+            count = fake_broker.send_packet(suback_packet)
+            assert count == len(suback_packet)
+
+            got_subscribe.wait(1)
+
+            publish_packet = bytearray(paho_test.gen_publish("topic", 0, "payload", mid=2))
+            # Alter topic length value (byte 3-4) to large size than real one.
+            # This could result in negative remaining size (len(packet) - topic_size)
+            # 65,535 bytes long topic.
+            publish_packet[2] = 0xFF
+            publish_packet[3] = 0xFF
+
+            count = fake_broker.send_packet(publish_packet)
+            assert count == len(publish_packet)
+
+            got_msg.wait(1)
+
+            # Shouldn't crash
+            assert mqttc._thread is not None and mqttc._thread.is_alive()
+
+            mqttc.disconnect()
+
+            # No disconnect packet, because we disconnected due to protocol error.
+        finally:
+            mqttc.loop_stop()
+
+        packet_in = fake_broker.receive_packet(1)
+        assert not packet_in  # Check connection is closed
+
+    def test_malformed_connack(self, fake_broker: FakeBroker) -> None:
+        mqttc = client.Client(
+            CallbackAPIVersion.VERSION2,
+            "client-id",
+            transport=fake_broker.transport,
+            protocol=client.MQTTv5,
+        )
+
+        got_disconnect = threading.Event()
+
+        def on_connect(cl, userdata, flags, reason, properties):
+            assert False, "this test shouldn't connect" #noqa
+
+        def on_disconnect(cl, userdata, flags, reason, properties):
+            assert reason == ReasonCode(PacketTypes.DISCONNECT, "Protocol error")
+            got_disconnect.set()
+
+        mqttc.on_connect = on_connect
+        mqttc.on_disconnect = on_disconnect
+
+        mqttc.connect("localhost", fake_broker.port)
+        mqttc.loop_start()
+        mqttc.enable_logger()
+
+        try:
+            fake_broker.start()
+
+            connect_packet = paho_test.gen_connect(
+                "client-id", keepalive=60, proto_ver=5, properties=b"")
+            fake_broker.expect_packet("connect", connect_packet, is_mqtt5=True)
+
+            # CONNACK, remaining_length=3, flag=0, reason_code=0,
+            # property_length=0x80, which is invalid
+            connack_packet = b"\x20\x03\x00\x00\x80"
+            count = fake_broker.send_packet(connack_packet)
+            assert count == len(connack_packet)
+
+            got_disconnect.wait(1)
+
+            # Shouldn't crash
+            assert mqttc._thread is not None and mqttc._thread.is_alive()
+
+            mqttc.disconnect()
+
+            # No disconnect packet, because we did NOT connected.
         finally:
             mqttc.loop_stop()
 
@@ -725,9 +938,9 @@ class TestCompatibility:
 
         # User might compare to 0 to check for success
         assert rc_ok == 0
-        assert not rc_err == 0
-        assert not rc_again == 0
-        assert not rc_ok != 0
+        assert rc_err != 0
+        assert rc_again != 0
+        assert rc_ok == 0
         assert rc_err != 0
         assert rc_again != 0
 
@@ -750,7 +963,7 @@ class TestCompatibility:
         assert rc_ok + 1 == 1
 
     def test_migration_callback_version(self):
-        with pytest.raises(ValueError, match="see docs/migrations.rst"):
+        with pytest.raises(TypeError, match=re.escape("see docs/migrations.rst")):
             _ = client.Client("client-id")
 
     def test_callback_v1_mqtt3(self, fake_broker):
@@ -864,18 +1077,18 @@ class TestCompatibility:
             disconnect_packet = paho_test.gen_disconnect()
             fake_broker.expect_packet("disconnect", disconnect_packet)
 
-            assert callback_called == [
-                "on_connect",
-                "on_subscribe",
-                "on_publish",
-                "on_message",
-                "on_unsubscribe",
-                "on_disconnect",
-            ]
-
         finally:
             mqttc.disconnect()
             mqttc.loop_stop()
+
+        assert callback_called == [
+            "on_connect",
+            "on_subscribe",
+            "on_publish",
+            "on_message",
+            "on_unsubscribe",
+            "on_disconnect",
+        ]
 
         packet_in = fake_broker.receive_packet(1)
         assert not packet_in  # Check connection is closed
@@ -1004,18 +1217,126 @@ class TestCompatibility:
             disconnect_packet = paho_test.gen_disconnect()
             fake_broker.expect_packet("disconnect", disconnect_packet)
 
-            assert callback_called == [
-                "on_connect",
-                "on_subscribe",
-                "on_publish",
-                "on_message",
-                "on_unsubscribe",
-                "on_disconnect",
-            ]
-
         finally:
             mqttc.disconnect()
             mqttc.loop_stop()
 
+        assert callback_called == [
+            "on_connect",
+            "on_subscribe",
+            "on_publish",
+            "on_message",
+            "on_unsubscribe",
+            "on_disconnect",
+        ]
+
         packet_in = fake_broker.receive_packet(1)
         assert not packet_in  # Check connection is closed
+
+
+class TestLargeDownload:
+    def test_no_disconnect_during_large_download(self, fake_broker: FakeBroker) -> None:
+        mqttc = client.Client(
+            CallbackAPIVersion.VERSION2,
+            "test_no_disconnect_during_large_download",
+            transport=fake_broker.transport,
+        )
+        mqttc.enable_logger()
+
+        payload_data = b"very Very Big big payload" * 5
+        is_connected = threading.Event()
+        is_subscribed = threading.Event()
+        publish_received = threading.Event()
+
+        def on_connect(mqttc, obj, flags, rc, properties):
+            assert rc == 0
+            is_connected.set()
+
+        def on_subscribe(cl, userdata, mid, reason_code_list, properties):
+            is_subscribed.set()
+
+        def on_message(cl, userdata, message):
+            assert isinstance(cl, client.Client)
+            assert isinstance(message, client.MQTTMessage)
+            assert message.payload == payload_data
+            publish_received.set()
+
+        mqttc.on_connect = on_connect
+        mqttc.on_subscribe = on_subscribe
+        mqttc.on_message = on_message
+
+        mqttc.enable_logger()
+        mqttc.connect("localhost", fake_broker.port, keepalive=1)
+        mqttc.loop_start()
+
+        try:
+            fake_broker.start()
+
+            connect_packet = paho_test.gen_connect(
+                "test_no_disconnect_during_large_download", keepalive=1)
+            fake_broker.expect_packet("connect", connect_packet)
+
+            connack_packet = paho_test.gen_connack(rc=0)
+            count = fake_broker.send_packet(connack_packet)
+            assert count == len(connack_packet)
+
+            is_connected.wait(timeout=5)
+            rc, mid = mqttc.subscribe("topic")
+            assert rc == MQTTErrorCode.MQTT_ERR_SUCCESS
+            assert mid is not None
+
+            subscribe_packet = paho_test.gen_subscribe(mid, "topic", 0)
+            fake_broker.expect_packet("subscribe", subscribe_packet)
+
+            suback_packet = paho_test.gen_suback(2, 0)
+            count = fake_broker.send_packet(suback_packet)
+            assert count == len(suback_packet)
+
+            is_subscribed.wait(timeout=5)
+
+            publish_packet = paho_test.gen_publish("topic", 0, payload_data, mid=3)
+            # This should be enough for ~6s of test which should take 3s
+            assert len(publish_packet) >= 64
+
+            # First send 5 bytes, at least enough for the packet type
+            idx = 5
+            count = fake_broker.send_packet(publish_packet[:5])
+            assert count == 5
+
+            t0 = time.time()
+            # Wait 1.5, enough to get our first pingreq
+            while time.time() < t0 + 1.5:
+                time.sleep(0.1)
+                count = fake_broker.send_packet(publish_packet[idx:idx+1])
+                assert count == 1
+                import logging
+                logging.debug("send 1 bytes")
+                idx += 1
+                assert idx < len(publish_packet)
+
+            # 1.5 seconds elapsed, client MUST have sent pingreq
+            ping_req_packet = paho_test.gen_pingreq()
+            fake_broker.expect_packet("pingreq", ping_req_packet)
+
+            t1 = time.time()
+
+            # Wait additional 1.5s, enough to get another first pingreq
+            while time.time() < t1 + 1.5:
+                time.sleep(0.1)
+                count = fake_broker.send_packet(publish_packet[idx:idx+1])
+                assert count == 1
+                idx += 1
+                assert idx < len(publish_packet)
+
+            # Another 1.5 seconds elapsed, client MUST have sent another pingreq
+            ping_req_packet = paho_test.gen_pingreq()
+            fake_broker.expect_packet("2nd pingreq", ping_req_packet)
+
+            # Send full packet
+            count = fake_broker.send_packet(publish_packet[idx:])
+            assert count == len(publish_packet[idx:])
+
+            publish_received.wait(timeout=5)
+        finally:
+            mqttc.loop_stop()
+            fake_broker.finish()

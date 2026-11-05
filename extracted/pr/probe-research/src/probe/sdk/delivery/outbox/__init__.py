@@ -1,4 +1,4 @@
-"""Draining the journal (worker, lease, linger, rescue, detached drainer); the old `probe.sdk.outbox_worker`.
+"""Draining the journal (worker, lease, linger, rescue, the service's drain); the old `probe.sdk.outbox_worker`.
 Names are served live, so a patch on the defining piece reaches callers here; code imports pieces."""
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ for _piece in (
     "probe.sdk.delivery.outbox.lease",
     "probe.sdk.delivery.outbox.linger",
     "probe.sdk.delivery.outbox.drainers.detached",
+    "probe.sdk.delivery.outbox.drainers.service",
     "probe.sdk.delivery.outbox.rescuer",
     "probe.sdk.delivery.outbox.outbox",
     # Loaded now, never first at exit (finish() at interpreter exit reaches them).
@@ -60,15 +61,15 @@ _HOMES = {
     "_HELD_RESPAWN_SECONDS": "probe.sdk.delivery.outbox.drainers.detached",
     "_held_is_fresh": "probe.sdk.delivery.outbox.drainers.detached",
     "maybe_spawn": "probe.sdk.delivery.outbox.drainers.detached",
-    "_spawn_detached": "probe.sdk.delivery.outbox.drainers.detached",
+    "request_drain": "probe.sdk.delivery.outbox.drainers.detached",
+    "hold_key": "probe.sdk.delivery.outbox.drainers.detached",
+    "key_handed": "probe.sdk.delivery.outbox.drainers.detached",
+    "_spawn_detached": "probe.sdk.delivery.outbox.rescuer",
     "_COPIED_LOGINS": "probe.sdk.delivery.outbox.drainers.detached",
     "note_copied_login": "probe.sdk.delivery.outbox.drainers.detached",
     "is_copied_login": "probe.sdk.delivery.outbox.drainers.detached",
     "_worker_env": "probe.sdk.delivery.outbox.drainers.detached",
-    "_hand_to_service": "probe.sdk.delivery.outbox.drainers.detached",
-    "_KILLED_LEASE_POLL_SECONDS": "probe.sdk.delivery.outbox.drainers.detached",
     "spawn_past_a_kill": "probe.sdk.delivery.outbox.drainers.detached",
-    "_spawn_took": "probe.sdk.delivery.outbox.drainers.detached",
     # probe.sdk.delivery.outbox.rescuer
     "RESCUE_ENV": "probe.sdk.delivery.outbox.rescuer",
     "RESCUE_EVERY_SECONDS": "probe.sdk.delivery.outbox.rescuer",
@@ -118,13 +119,13 @@ _HOMES = {
     "_run_leased": "probe.sdk.delivery.outbox.outbox",
     # imported by the old module: the same objects, read through a piece that imports them
     "os": "probe.sdk.delivery.outbox.lease",
-    "subprocess": "probe.sdk.delivery.outbox.drainers.detached",
-    "sys": "probe.sdk.delivery.outbox.drainers.detached",
+    "subprocess": "probe.sdk.delivery.outbox.rescuer",
+    "sys": "probe.sdk.delivery.outbox.rescuer",
     "time": "probe.sdk.delivery.outbox.linger",
     "StrEnum": "probe.sdk.delivery.outbox.linger",
     "oscompat": "probe.sdk.delivery.outbox.lease",
     "durable": "probe.sdk.delivery.outbox.lease",
-    "_diagnostics": "probe.sdk.delivery.outbox.drainers.detached",
+    "_diagnostics": "probe.sdk.delivery.outbox.rescuer",
 }
 #: `from <old path> import *` takes what the old module's did: every public name.
 __all__ = [name for name in _HOMES if not name.startswith("_")]

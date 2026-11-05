@@ -1,0 +1,4619 @@
+"""What this coding-agent session has put in Probe, answerable without a network call.
+
+The backend already knows: every write carries the session id (see
+:mod:`probe.sdk.agent_session`), and ``GET /v1/sessions/{id}/work`` reads it back.
+That answer is authoritative and costs 50-90ms. This module is the LOCAL CACHE of
+it, because the consumer is a terminal status line that re-renders constantly and
+must never touch the network, an auth token, or a `probe` process.
+
+    ~/.local/state/probe/sessions/<session_id>.json
+
+The division of labour is deliberate:
+
+  a plugin hook REFRESHES this file in the background, from the server
+  a status-line script READS it, in stdlib python, in about 30ms
+
+One writer is instrumented anyway: the daemon, after each of its writes lands,
+stores that write's project in ``<session_id>.scope`` (:mod:`probe.daemon.scope`),
+and :func:`read` shows it in place of the server's guess at the project. Run ids,
+liveness and capture still come from the refresh.
+
+Refreshing from the server rather than instrumenting the SDK's create paths is
+what makes the answer complete. A session's work can be created through the SDK,
+the CLI, the hosted MCP, or a training script three processes deep; only one of
+those runs code we could have hooked, and a status line that says "untracked"
+because it missed a path is worse than no status line.
+
+STALENESS IS THE ACCEPTED COST, and it is bounded by how often the refresher
+runs, not by anything here. `updated_at` is carried so a reader can tell a fresh
+answer from an abandoned one.
+
+STDLIB ONLY, AND PYTHON 3.9. This file is vendored into the plugin's hooks
+directory, where it executes under the SYSTEM python3 with no `probe` package
+importable — macOS still ships 3.9, so nothing newer than that may appear here.
+This file is kept as pieces in src/probe/sdk/marker/ (edit there). `tools/vendor.py`
+joins them into src/probe/sdk/session_marker.py and the hooks' `_session_marker.py`,
+which must stay byte-identical: `make sync-session-marker sync-daemon-plugin` refreshes
+them, and tests/test_session_marker_parity.py fails CI whenever they differ.
+
+FAIL-SOFT THROUGHOUT. Nothing here may raise into a caller: the writer runs beside
+a research write that must survive a full disk, and the reader runs on a render
+path where an exception is a broken prompt.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+import re
+import stat
+import time
+import unicodedata
+from pathlib import Path
+
+#: Mirrors probe.version_policy.STATE_DIRNAME. Duplicated rather than imported
+#: because the vendored copy has no `probe` package to import from;
+#: tests/test_session_marker.py asserts the two resolve to the same directory.
+STATE_DIRNAME = "probe"
+SESSIONS_DIRNAME = "sessions"
+
+#: A marker older than this is not shown at all. A status line asserting a
+#: project from a conversation someone abandoned last month is a lie with a
+#: confident glyph on it; saying nothing is the honest answer.
+MAX_AGE_SECONDS = 30 * 86400
+
+#: `<session>.scope` beside the marker: the project the daemon's latest write
+#: landed in (`write_scope`). Its own file because the refresh hook replaces the
+#: marker whole. `prune` sweeps it with the rest of the directory.
+SCOPE_SUFFIX = ".scope"
+#: `<session>.home` beside it: where this session's runs go (`write_run_home`), set by
+#: the daemon. Not a key in `.scope`, which every landed write rewrites. `prune` sweeps it.
+HOME_SUFFIX = ".home"
+#: A bound on a project name this file stores or shows. Server slugs are
+#: free-form TEXT; the segment elides a long one anyway, so this only keeps a
+#: pathological value off the render path.
+MAX_LABEL_CHARS = 1024
+#: Unicode categories a label may not hold: controls (an escape sequence),
+#: format characters (bidi overrides, zero-width), line and paragraph
+#: separators, surrogates and private use. Not `Cn` (unassigned): the hook's
+#: python can be older than the daemon's, and a newer emoji is unassigned there.
+_UNPRINTABLE = frozenset({"Cc", "Cf", "Zl", "Zp", "Cs", "Co"})
+
+#: The ONE way any message sends a person to set up, sign in, update or repair
+#: this device: setup is wizard-only (Richard 2026-09-29), so no user-facing text
+#: names a `probe <setup command>`. Lives here because this file is the one every
+#: surface can reach (the SDK imports it, the plugin hooks vendor it); the tap and
+#: the pi extension carry copies that tests/test_wizard_hint_sync.py pins to it.
+WIZARD_HINT = "run the Probe wizard: probe wizard or npx probe-research"
+
+_ELLIPSIS = "…"  # …
+#: ONE glyph for both states, and it is FILLED in both. A hollow ring is faint
+#: at terminal font sizes and reads as a rendering artefact rather than a mark.
+#: Nothing is lost by using the same glyph twice: the state is carried by the
+#: WORD ("untracked" / "tracked →"), which is why the dot could be spared the
+#: job in the first place. Colour distinguishes them for a quick glance; the
+#: word distinguishes them when colour is off, absent, or unseeable.
+_DOT = "●"  # ●
+_ARROW = "→"  # →
+_SEPARATOR = "·"  # ·
+
+_INDENT = "  "
+_GLYPH_WIDTH = 2  # the dot plus its trailing space
+
+#: The state is spelled OUT, not encoded in the glyph. `● folding` requires the
+#: reader to already know that a filled dot means tracked; `tracked → folding`
+#: does not, and a status line is read by people who did not install it.
+_LABEL_TRACKED = "tracking " + _ARROW + " "
+_LABEL_TRACKING_BARE = "tracking"
+#: The `daemon` state's words: `on (daemon)`, the switch's `on` with who records
+#: in parentheses (Richard 2026-09-29; `DAEMON_STATE_DISPLAY`).
+_LABEL_DAEMON = "on (daemon) " + _ARROW + " "
+_LABEL_DAEMON_BARE = "on (daemon)"
+#: Still `on (daemon)`, but the daemon holds no live lease (no key, out of
+#: budget, gateway down, not started yet). The mode stays on screen; `degraded`
+#: says the daemon is not the one doing it.
+_LABEL_DAEMON_DEGRADED = "on (daemon degraded) " + _ARROW + " "
+_LABEL_DAEMON_DEGRADED_BARE = "on (daemon degraded)"
+#: The researcher set Probe inline (`/probe inline`, `is_inline`, Richard 2026-10-06).
+_LABEL_INLINE = "on (inline) " + _ARROW + " "
+_LABEL_INLINE_BARE = "on (inline)"
+#: Kept for readers that still resolve the switch to a BOOLEAN. `render` only
+#: reaches it when no three-valued state was passed in, which is the shape a
+#: pre-three-state caller has. New callers pass `session_state` and get one of
+#: the two labels below instead.
+_LABEL_NOT_TRACKING = "not tracking"
+
+#: The two non-recording states are spelled by `_STATE_SEGMENT`, down in the
+#: Rendering section beside the colour each one is painted. Both words are
+#: SHORTER than `not tracking` (9 and 3 against 12), so MAX_SEGMENT_CHARS is
+#: untouched.
+
+#: A middle dot, NOT a second arrow. `tracked → folding ▸ running` puts two
+#: arrow-shaped glyphs in one short segment, and the eye reads them as a
+#: sequence of three things rather than as a name with a state hung off it.
+_ACCENT_TEXT = " " + _SEPARATOR + " running"
+
+#: The third state: tracking is ON and the work IS landing, but no
+#: transcript-capture daemon is live for this conversation.
+#:
+#: A HALF-FILLED dot, not a hollow one. Hollow is faint at terminal font sizes
+#: (see `_DOT`), and the reader must be able to tell this from `not tracking` at
+#: a glance; the WORD carries the meaning for anyone whose terminal renders both
+#: dots the same. The dot stays GREEN when painted, because green means
+#: "landing" and the work still is — yellow already belongs to `not tracking`,
+#: and reusing it would make a degraded session look like a switched-off one.
+_DOT_DEGRADED = "◐"  # ◐
+#: SPELLED OUT. An earlier `no capture:` named the mechanism, and read beside
+#: `tracking` it was taken for its opposite -- "nothing is being recorded" --
+#: when the work IS landing and only the conversation is not. Naming the
+#: transcript says exactly which half is missing. The columns this costs are
+#: paid by `MAX_SEGMENT_CHARS` below, never by the project name.
+_LABEL_NO_CAPTURE = " " + _SEPARATOR + " not capturing session transcript: "
+
+#: The capture reason for transcripts turned off on purpose (`capture_state.TURNED_OFF_REASON`):
+#: a choice, so it renders as a plain note with the full dot, never as a fault.
+_CHOSEN_OFF_REASON = "turned off"
+_LABEL_TRANSCRIPTS_OFF = " " + _SEPARATOR + " transcripts off"
+
+#: The longest word in `probe.cli.capture_state.REASONS` (`interpreter too old`).
+#: A literal, because nothing of ours may be imported on the render path;
+#: `test_every_reason_in_the_closed_vocabulary_renders_whole_on_the_bare_line`
+#: pins it against the vocabulary, so a longer reason added there fails a test
+#: here rather than rendering as `interp…` on somebody's status line.
+_LONGEST_REASON_CHARS = 19
+
+#: Below this many columns an elided project name identifies nothing — `a-rea…`
+#: is not a name, it is noise wearing one. When the reason is long enough to
+#: push the name under this floor, the name is dropped ENTIRELY and the segment
+#: falls back to `_LABEL_TRACKING_BARE`, which this file already renders for
+#: "tracking is on, nothing filed yet".
+_MIN_SLUG_CHARS_DEGRADED = 8
+
+#: Hard ceiling on the rendered segment, leading indent included, counted in
+#: VISIBLE characters. The cap exists because the status line must not WRAP: a
+#: wrapped line reflows every other segment sharing it, which is the one failure
+#: that makes neighbouring output less readable rather than merely longer.
+#:
+#: DERIVED FROM THE WIDEST LINE THAT MUST RENDER WHOLE: the degraded bare form
+#: carrying the longest reason in the closed vocabulary,
+#: `  ◐ tracking · not capturing session transcript: interpreter too old` (68).
+#: The reason is the one actionable thing on that line and is on screen nowhere
+#: else, so it is the last thing cut (`_no_capture_clause`); a ceiling it cannot
+#: fit under would elide the diagnosis on every degraded render.
+#:
+#: The previous ceiling, 51, was measured against the HEALTHY line instead: the
+#: smallest number at which a 26-character name budget survived, 26 being what
+#: this lab's project names need (median 18, longest 29). The capture suffix was
+#: 15 columns then and fit beneath it; spelling the suffix out made the degraded
+#: line the binding one. The name budget grows with the ceiling (see
+#: `MAX_SLUG_CHARS`), so nothing that fit whole before fits worse now.
+#:
+#: THE LABEL IS PAID FOR BY THE CEILING, NEVER BY THE NAME. Spelling out
+#: "tracking → " costs eleven columns; taking them from the name would elide the
+#: project the segment exists to identify. When a label changes length, this
+#: number moves with it by construction.
+#: `test_this_labs_project_names_mostly_fit_whole` pins the name budget.
+#:
+#: The bare label is the WIDER of the two that can carry the capture suffix:
+#: `on (daemon)` does too (see `_recording_labels`), and it is three columns
+#: longer than `tracking`.
+MAX_SEGMENT_CHARS = (
+    len(_INDENT)
+    + _GLYPH_WIDTH
+    + max(len(_LABEL_TRACKING_BARE), len(_LABEL_DAEMON_BARE))
+    + len(_LABEL_NO_CAPTURE)
+    + _LONGEST_REASON_CHARS
+)
+
+#: What the name may occupy. DERIVED, and derived against the LIVE width even
+#: when idle, so the name keeps one budget in both states: a name that shrank the
+#: moment a run started -- and grew back when it ended -- would read as the status
+#: line glitching rather than as the run changing.
+#:
+#: Wider than any name this lab has (43 against a longest of 29), so a healthy
+#: line reaches the ceiling only in theory; the columns the ceiling grew by are
+#: spent on the reason, and only when there is one.
+MAX_SLUG_CHARS = (
+    MAX_SEGMENT_CHARS - len(_INDENT) - _GLYPH_WIDTH - len(_LABEL_TRACKED) - len(_ACCENT_TEXT)
+)
+
+# Basic SGR codes, never 256-colour or truecolour: the status line is rendered
+# inside the user's terminal theme, and a hardcoded hex that looks right on one
+# background is unreadable on the other. These resolve against whatever palette
+# they already chose. Claude Code additionally dims the whole line, so treat
+# these as a hint of hue rather than as emphasis.
+#
+# Three, and each is a state someone can name: landing (green), not landing but
+# still reading (yellow), and switched off entirely (red). A fourth colour would
+# be a state nobody defined.
+#
+# RED IS THE ONE THAT STOPS A READER, and `off` is the one state that earns it:
+# it is the only position of the switch under which an agent cannot find prior
+# work AND cannot know what it missed. `read-only` still answers questions, so
+# it keeps the yellow that means "look, but nothing is on fire".
+_DIM = "\033[2m"
+_GREEN = "\033[32m"
+_YELLOW = "\033[33m"
+_RED = "\033[31m"
+_RESET = "\033[0m"
+
+# Session ids are uuids today; the bound and charset are the real guard, since
+# this value becomes a filename. Matches agent_session._SESSION_RE deliberately:
+# a value that could never have been sent as a header must never mint a file.
+_SESSION_RE = re.compile(r"\A[A-Za-z0-9._:-]{8,200}\Z")
+
+
+def valid_session_id(raw: object) -> bool:
+    """Whether a value is safe to use as a marker filename."""
+    return isinstance(raw, str) and bool(_SESSION_RE.match(raw))
+
+
+def _home() -> Path:
+    """`~`, or the SDK's private stand-in when this process has none (HOME
+    unset and no passwd entry: `probe.foundation.durable.homedir`). The vendored hook copy has
+    no `probe` package to import; there a missing home raises, as it always did."""
+    try:
+        from probe.sdk import homedir  # restructure-guard-ok: released hooks run this copy against older CLIs
+    except ImportError:
+        return Path.home()
+    return homedir.home()
+
+
+def state_dir() -> Path:
+    xdg = os.environ.get("XDG_STATE_HOME")
+    base = Path(xdg) if xdg else _home() / ".local" / "state"
+    return base / STATE_DIRNAME
+
+
+def sessions_dir() -> Path:
+    return state_dir() / SESSIONS_DIRNAME
+
+
+def marker_path(session_id: str) -> Path:
+    return sessions_dir() / (session_id + ".json")
+
+
+#: How long `probe paper find` keeps the papers hook from holding a web search,
+#: and how long one hold keeps it from holding another (`papers_hook.py`).
+PAPER_FIND_WINDOW_S = 15 * 60
+
+
+def paper_find_stamp_path(session_id: str) -> Path:
+    """Touched by `probe paper find` when it starts: the session tried Probe's
+    paper search, so the papers hook lets web searches through."""
+    return sessions_dir() / (session_id + ".papers")
+
+
+def paper_hold_stamp_path(session_id: str) -> Path:
+    """Touched by the papers hook when it holds a web search."""
+    return sessions_dir() / (session_id + ".papers-held")
+
+
+def paper_cli_cache_path(session_id: str) -> Path:
+    """The papers hook's per-session answer to "does the local CLI have
+    `probe paper find`?" (asking, `probe paper find --help`, costs ~0.9 s)."""
+    return sessions_dir() / (session_id + ".papers-cli")
+
+
+# ---------------------------------------------------------------------------
+# Read / write
+# ---------------------------------------------------------------------------
+
+
+def _read_marker(session_id: str) -> dict | None:
+    """This session's cached work as the refresh hook stored it, or None.
+
+    None for absent, unreadable, malformed, and EXPIRED alike — every one of
+    them means "we cannot say what this session tracked", and a reader that
+    had to tell them apart would only be able to render the same nothing.
+    """
+    if not valid_session_id(session_id):
+        return None
+    try:
+        with open(marker_path(session_id), encoding="utf-8") as handle:
+            state = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(state, dict):
+        return None
+    if not _fresh(state.get("updated_at")):
+        return None
+    return state
+
+
+def _fresh(updated_at: object) -> bool:
+    """Inside the age window. A future timestamp (clock skew, a restored backup)
+    must not pin a file as fresh forever, so anything outside the window, either
+    side, is expired -- and so is a value no clock wrote (NaN, an int too large
+    for a float), which must not raise on a render path."""
+    if isinstance(updated_at, bool) or not isinstance(updated_at, (int, float)):
+        return False
+    try:
+        return math.isfinite(updated_at) and abs(time.time() - float(updated_at)) <= MAX_AGE_SECONDS
+    except OverflowError:
+        return False
+
+
+def read(session_id: str) -> dict | None:
+    """This session's cached work, or None — with the project the daemon last
+    wrote to (`read_scope`) in place of the server's, when there is one.
+
+    The server's `project` is a GUESS at what the session works on now: the last
+    of the projects it touched, in an order that ties for every project of one
+    session (each link row carries the SESSION's first sighting), so it falls to
+    uuid order and never moves. The daemon's scope is where its writes actually
+    landed. The scope only refines a marker: without one, nothing is installed
+    to refresh it, and the answer is None as before. Every reader of the marker
+    — the segment, the notice, `probe statusline show` — goes through here, so
+    they cannot come to name different projects, and a name neither file may
+    print (`_printable`) is dropped here for all of them.
+    """
+    state = _read_marker(session_id)
+    if state is None:
+        return None
+    scope = read_scope(session_id)
+    if scope is not None:
+        return {**state, "project": scope}
+    if state.get("project") is not None and not _printable(state.get("project")):
+        return {**state, "project": None}
+    return state
+
+
+def scope_path(session_id: str) -> Path:
+    return sessions_dir() / (session_id + SCOPE_SUFFIX)
+
+
+def _printable(value: object) -> bool:
+    """A project name the segment can print: one bounded line, nothing a terminal
+    or a bidi renderer would act on. It comes from the server, where slugs are
+    free-form, so it is checked, not trusted."""
+    return (isinstance(value, str) and 0 < len(value) <= MAX_LABEL_CHARS
+            and all(unicodedata.category(ch) not in _UNPRINTABLE for ch in value))
+
+
+def write_scope(session_id: str, project: str, project_id: str | None = None) -> bool:
+    """Record the project the daemon's latest write landed in (its slug, and its
+    id so a delete by id can clear it). True when it landed.
+
+    A file of its own, not a key in the marker: the refresh hook REPLACES the
+    marker every few seconds from the server's answer, and a second writer's key
+    would be gone at the next refresh.
+    """
+    if not valid_session_id(session_id) or not _printable(project):
+        return False
+    record = {"project": project, "project_id": project_id, "updated_at": time.time()}
+    return _publish_atomically(scope_path(session_id), json.dumps(record) + "\n")
+
+
+def _read_scope_record(session_id: str) -> dict | None:
+    if not valid_session_id(session_id):
+        return None
+    try:
+        with open(scope_path(session_id), encoding="utf-8") as handle:
+            record = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict) or not _fresh(record.get("updated_at")):
+        return None
+    return record if _printable(record.get("project")) else None
+
+
+def read_scope(session_id: str) -> str | None:
+    """The project the daemon last wrote to for this session, or None: absent,
+    unreadable, malformed and expired alike, as in `_read_marker`."""
+    record = _read_scope_record(session_id)
+    return record["project"] if record is not None else None
+
+
+def clear_scope(session_id: str, ref: str) -> bool:
+    """Forget the stored project when `ref` (a slug or an id) names it: the daemon
+    deleted it, and a label naming a project in the trash is the lie this file
+    exists to stop. True when it was cleared."""
+    record = _read_scope_record(session_id)
+    project_id = record.get("project_id") if record is not None else None
+    if record is None or not (ref == record.get("project")
+                              or isinstance(project_id, str) and ref.lower() == project_id.lower()):
+        return False
+    try:
+        os.unlink(scope_path(session_id))
+        return True
+    except OSError:
+        return False
+
+
+def home_path(session_id: str) -> Path:
+    return sessions_dir() / (session_id + HOME_SUFFIX)
+
+
+def write_run_home(session_id: str, *, project: str, project_id: str, experiment: "str | None" = None,
+                   experiment_id: "str | None" = None, base_url: str, customer_id: "str | None") -> bool:
+    """Record where this session's runs go (`probe session home set`): the project, and the
+    experiment when one is named, by slug and id, with the server and team they were
+    resolved on. True when it landed. No expiry: the daemon replaces it when the work moves."""
+    names_ok = _printable(project) and (experiment is None or _printable(experiment))
+    ids_ok = (isinstance(project_id, str) and bool(project_id) and (experiment is None) == (experiment_id is None)
+              and (experiment_id is None or isinstance(experiment_id, str) and bool(experiment_id)))
+    if not valid_session_id(session_id) or not names_ok or not ids_ok or not isinstance(base_url, str):
+        return False
+    record = {"project": project, "project_id": project_id, "experiment": experiment,
+              "experiment_id": experiment_id, "base_url": base_url, "customer_id": customer_id,
+              "decided_at": time.time()}
+    return _publish_atomically(home_path(session_id), json.dumps(record) + "\n")
+
+
+def read_run_home(session_id: str) -> "dict | None":
+    """This session's run home as `write_run_home` stored it, or None: absent,
+    unreadable and malformed alike."""
+    if not valid_session_id(session_id):
+        return None
+    try:
+        with open(home_path(session_id), encoding="utf-8") as handle:
+            record = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict) or not _printable(record.get("project")):
+        return None
+    experiment, experiment_id = record.get("experiment"), record.get("experiment_id")
+    if not record.get("project_id") or not isinstance(record.get("project_id"), str):
+        return None
+    if not isinstance(record.get("base_url"), str):
+        return None
+    if (experiment, experiment_id) != (None, None) and not (_printable(experiment) and experiment_id
+                                                            and isinstance(experiment_id, str)):
+        return None
+    return record
+
+
+def clear_run_home(session_id: str) -> bool:
+    """Forget this session's run home. True when there was one to forget."""
+    if not valid_session_id(session_id):
+        return False
+    try:
+        os.unlink(home_path(session_id))
+        return True
+    except OSError:
+        return False
+
+
+def write(session_id: str, state: dict) -> bool:
+    """Replace this session's marker. True when it landed.
+
+    Atomic, and stamped here rather than by the caller so `updated_at` always
+    means "when this file was written" and cannot be back-dated by a stale
+    refresher losing a race with a newer one.
+    """
+    if not valid_session_id(session_id):
+        return False
+    record = dict(state)
+    record["updated_at"] = time.time()
+    path = marker_path(session_id)
+    tmp = path.parent / (path.name + "." + str(os.getpid()) + ".tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(record, handle)
+        os.replace(tmp, path)
+        return True
+    except (OSError, ValueError, TypeError):
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        return False
+
+
+def from_session_work(payload: dict) -> dict:
+    """The marker shape, built from a ``GET /v1/sessions/{id}/work`` body.
+
+    Keeps only what the segment can render: the project this session touched
+    and whether a run of its is live. The response is another service's schema
+    and is treated as untrusted — every field is checked, and a shape we do not
+    recognise degrades to "tracked nothing" rather than raising on a render path.
+
+    WHICH PROJECT, when a session touched several: the LAST one. That is only a
+    GUESS: the list is ordered by each link's first sighting, which is the
+    SESSION's for every project it touched, so it ties and falls to uuid order.
+    `read` puts the daemon's own answer (`<session>.scope`) in its place when
+    there is one.
+    """
+    project = None
+    projects = payload.get("projects")
+    if isinstance(projects, list):
+        for row in projects:
+            if not isinstance(row, dict):
+                continue
+            slug = row.get("slug") or row.get("name")
+            if isinstance(slug, str) and slug:
+                project = slug
+
+    # The work read carries no run STATUS, only identity. The ids are kept so the
+    # renderer can intersect them with the run locks this box holds — the local
+    # fast path in `is_live`, which is what makes "running" mean THIS session's
+    # run rather than any run on the machine.
+    run_ids = []
+    runs = payload.get("runs")
+    if isinstance(runs, list):
+        for row in runs:
+            if not isinstance(row, dict):
+                continue
+            entity_id = row.get("entity_id")
+            if isinstance(entity_id, str) and entity_id:
+                run_ids.append(entity_id)
+
+    return {"project": project, "run_ids": run_ids}
+
+
+def from_active_runs(payload: object) -> list[str]:
+    """Active run ids, from a ``GET /v1/runs?...&active=true`` body.
+
+    The server's own liveness verdict: stored status is `running` AND the newest
+    substantive update or heartbeat is inside the liveness window. Machine-
+    independent, which is the whole reason it is worth a second request — a run
+    executing on a cluster holds its lock on THAT box and is invisible to the
+    local scan.
+    """
+    if not isinstance(payload, list):
+        return []
+    ids = []
+    for row in payload:
+        if not isinstance(row, dict):
+            continue
+        run_id = row.get("id")
+        if isinstance(run_id, str) and run_id:
+            ids.append(run_id)
+    return ids
+
+
+# ---------------------------------------------------------------------------
+# Liveness: which of this session's runs are executing right now
+# ---------------------------------------------------------------------------
+
+
+def _fcntl():
+    """The flock provider: `probe.foundation.os_backend.os_backend` (fcntl on POSIX, msvcrt on
+    Windows). The vendored hook copy has no `probe` package to import; there it
+    is fcntl itself, or None on a platform without it."""
+    try:
+        from probe.foundation.os_backend import os_backend  # noqa: PLC0415
+
+        return os_backend
+    except ImportError:
+        pass
+    try:  # an older CLI keeps it at its old path
+        import importlib  # noqa: PLC0415
+
+        return importlib.import_module("probe._shared.oscompat")  # restructure-guard-ok: older CLIs
+    except ImportError:
+        pass
+    try:
+        import fcntl  # noqa: PLC0415
+
+        return fcntl
+    except ImportError:
+        return None
+
+
+def _lease_run_id(path: Path, now: float) -> str | None:
+    """The run a `.lease` entry names, if the lease has not expired.
+
+    Malformed or unreadable reads as NOT live, which INVERTS
+    `probe.cli.run_lock`. That module fails closed because applying an
+    auto-update into a live run costs somebody's afternoon. Here the cost is
+    reversed: the only thing downstream is a word on a status line, and
+    printing "running" when nothing is running is a confident lie. Uncertainty
+    should say less, not more.
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    try:
+        if float(data.get("expires_at", 0)) <= now:
+            return None
+    except (TypeError, ValueError):
+        return None
+    run = data.get("run")
+    return run if isinstance(run, str) and run else None
+
+
+def _flock_run_id(path: Path) -> str | None:
+    """The run a `.flock` entry names, if somebody still holds the lock.
+
+    READ-ONLY, unlike `run_lock._flock_is_held`, which deletes the entry when it
+    finds it unheld. That cleanup is right on a command path that runs
+    occasionally and wrong here: this executes on every status-line render, so
+    it would race a starting run's own acquire and delete state it does not own.
+    Probing takes the lock non-blocking and releases immediately; a second
+    `open()` is a new open file description, so this reads correctly even when
+    the holder is this process.
+    """
+    module = _fcntl()
+    if module is None:
+        return None  # cannot prove liveness on this platform: say nothing
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    run = data.get("run")
+    if not (isinstance(run, str) and run):
+        return None
+    try:
+        handle = open(path, "a+")  # noqa: SIM115 -- closed below
+    except OSError:
+        return None
+    try:
+        module.flock(handle.fileno(), module.LOCK_EX | module.LOCK_NB)
+    except BlockingIOError:
+        return run  # somebody holds it: a live run
+    except (OSError, ValueError):
+        return None
+    else:
+        try:
+            module.flock(handle.fileno(), module.LOCK_UN)
+        except (OSError, ValueError):
+            pass
+        return None  # nobody held it; leave the leftover for run_lock to reap
+    finally:
+        handle.close()
+
+
+def live_run_ids() -> set[str]:
+    """Run ids currently executing on THIS machine, from the run-lock directory.
+
+    Bounded and non-mutating. `probe.cli.run_lock` owns the format and the
+    cleanup; this only looks.
+    """
+    live = set()
+    try:
+        directory = state_dir() / "runs"
+        entries = sorted(directory.iterdir())
+    except OSError:
+        return live
+    now = time.time()
+    for entry in entries[:512]:  # sanity bound, mirroring run_lock.MAX_SCAN_ENTRIES
+        try:
+            if entry.suffix == ".lease":
+                found = _lease_run_id(entry, now)
+            elif entry.suffix == ".flock":
+                found = _flock_run_id(entry)
+            else:
+                continue
+        except OSError:
+            continue
+        if found:
+            live.add(found)
+    return live
+
+
+def is_live(state: dict | None) -> bool:
+    """Whether a run this session opened is executing. TWO SOURCES, OR'd.
+
+    **The server is the source of truth.** `active_run_ids` is what
+    `GET /v1/runs?foreign_key=<agent>_session_id:<id>&active=true` said, and it is
+    the only one of the two that can see a run executing on a CLUSTER: that run
+    holds its lock on the machine running it, not on this laptop. Reading only
+    local locks made a remote training job — much of what this team actually runs
+    — indistinguishable from no run at all.
+
+    **The local locks are a fast path, not a fallback.** They are ground truth for
+    a local process (the kernel releases an flock on SIGKILL and OOM, which no
+    heartbeat can promise) and they are current between refreshes, so a run
+    started seconds ago shows before the next fetch lands. The intersection with
+    `run_ids` is what keeps that honest: "a run is live on this box" is
+    `run_lock`'s question and would light up for a colleague's sweep in another
+    terminal.
+
+    OR rather than AND because the two see different things and neither is
+    complete. Both false is the only "not running".
+    """
+    if not isinstance(state, dict):
+        return False
+
+    active = state.get("active_run_ids")
+    if isinstance(active, list) and any(isinstance(run_id, str) and run_id for run_id in active):
+        return True
+
+    run_ids = state.get("run_ids")
+    if not isinstance(run_ids, list) or not run_ids:
+        return False
+    return bool(set(run_ids) & live_run_ids())
+
+
+#: A session's gap file (`probe.service.capture_gate`): the stretches of its
+#: transcript written while Probe was off, which are never to be uploaded.
+GAPS_SUFFIX = ".gaps"
+#: What a kept session keeps: its gap file and its switch (what says it was off).
+KEPT_SUFFIXES = (GAPS_SUFFIX, ".state")
+#: A gap file that names no transcript (or does not read) goes after this long.
+UNKNOWN_TRANSCRIPT_KEEP_SECONDS = 90 * 86400
+#: Per-session suffixes of two parts, read whole (`_get_session_id`): the gap
+#: file's lock (`capture_gate.LOCK_SUFFIX`).
+MULTIPART_SUFFIXES = (GAPS_SUFFIX + ".lock",)
+
+
+def _keeps_gaps(path: str, mtime: float, now: float) -> bool:
+    """Does this gap file still hold a gap of a transcript that still exists?
+    One whose transcript is gone is done with. One that names no transcript,
+    or does not read, is kept for UNKNOWN_TRANSCRIPT_KEEP_SECONDS from its
+    last write."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        data = None
+    if isinstance(data, dict) and isinstance(data.get("gaps"), list) and not data["gaps"]:
+        return False
+    transcript = data.get("transcript") if isinstance(data, dict) else None
+    if isinstance(transcript, str) and transcript:
+        return os.path.exists(transcript)
+    return now - mtime < UNKNOWN_TRANSCRIPT_KEEP_SECONDS
+
+
+def prune(max_age_seconds: float = MAX_AGE_SECONDS) -> None:
+    """Drop markers for sessions long finished. Never raises.
+
+    os.scandir rather than a `find` shell-out, for the reason the telemetry
+    hook's prune already documents: `find /tmp` on macOS matches the symlink
+    and silently descends into nothing.
+
+    A session whose gap file still holds a gap (`_keeps_gaps`) keeps that file
+    and its `.state` (what says it was off) whatever their age; its other
+    files go as any session's do. A gap file that is done with goes now. A
+    session that still lives (`_is_session_live`) keeps every file, whatever
+    its age: a live session's `.state` is its switch, and its daemon stops
+    60 s after the switch goes (Anthrogen 11-04: a 30-day-old session lost it).
+    """
+    try:
+        now = time.time()
+        cutoff = now - max_age_seconds
+        with os.scandir(sessions_dir()) as listing:
+            entries = list(listing)
+        kept: set[str] = set()
+        live: dict[str, bool] = {}
+        for entry in entries:
+            if not entry.name.endswith(GAPS_SUFFIX):
+                continue
+            try:
+                if not entry.is_file():
+                    continue
+                if _keeps_gaps(entry.path, entry.stat().st_mtime, now):
+                    kept.add(entry.name[: -len(GAPS_SUFFIX)])
+                else:
+                    os.unlink(entry.path)
+            except OSError:
+                continue
+        for entry in entries:
+            try:
+                suffix = next((s for s in KEPT_SUFFIXES if entry.name.endswith(s)), None)
+                if suffix is not None and entry.name[: -len(suffix)] in kept:
+                    continue
+                if not entry.is_file() or entry.stat().st_mtime >= cutoff:
+                    continue
+                session_id = _get_session_id(entry.name)
+                if session_id not in live:
+                    live[session_id] = _is_session_live(session_id, cutoff)
+                if not live[session_id]:
+                    os.unlink(entry.path)
+            except OSError:
+                continue
+    except OSError:
+        pass
+
+
+def _get_session_id(file_name: str) -> str:
+    """The session a file in the sessions folder is of: its name less its
+    suffix, one dot and a word (`.state`, `.writer-notified`) but for
+    MULTIPART_SUFFIXES. Cut at the last dot, so a session id may hold dots."""
+    for suffix in MULTIPART_SUFFIXES:
+        if file_name.endswith(suffix):
+            return file_name[: -len(suffix)]
+    return file_name.rsplit(".", 1)[0]
+
+
+def _is_session_live(session_id: str, cutoff: float) -> bool:
+    """Does this session still live: its marker, daemon lease or scope written
+    since `cutoff`? A live daemon renews its lease every few minutes; a file
+    that does not read is no sign of life."""
+    for path in (marker_path(session_id), lease_path(session_id), scope_path(session_id)):
+        try:
+            if path.stat().st_mtime >= cutoff:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Is Probe configured on this machine at all
+# ---------------------------------------------------------------------------
+
+
+def config_path() -> Path:
+    """Mirrors `probe.sdk.settings.settings` and `_telemetry_core._config_path`."""
+    override = os.environ.get("PROBE_CONFIG_PATH")
+    if override:
+        return Path(override)
+    base = os.environ.get("XDG_CONFIG_HOME") or (_home() / ".config")
+    return Path(base) / "probe" / "config.json"
+
+
+def tracking_signal_path(session_id: str) -> Path:
+    """Where THE DECISION lives: is this conversation being tracked.
+
+    One file, three readable values -- `on`, `off`, and absent. Absent is not a
+    third STATE, it is the absence of a decision, and `is_tracking` resolves it
+    from what the session has actually recorded. Two states reach the reader;
+    the undecided case just has to pick one of them honestly.
+
+    Per session, beside the marker, because the answer is about THIS
+    conversation. A machine-wide switch would decide the next one too.
+    """
+    return sessions_dir() / (session_id + ".tracking")
+
+
+def _legacy_off_path(session_id: str) -> Path:
+    """The 0.27-0.29 spelling: presence of `<sid>.off` meant "not tracking".
+
+    Read, never written. A researcher who turned tracking off before upgrading
+    must not silently come back ON because the file was renamed underneath them
+    -- that is precisely the decision the file exists to remember.
+    """
+    return sessions_dir() / (session_id + ".off")
+
+
+def tracking_signal(session_id: str) -> str | None:
+    """`"on"`, `"off"`, or None when nobody has decided yet.
+
+    THE CANONICAL FILE ANSWERS FIRST, and that is what stops the two files from
+    ever disagreeing inside this codebase. `set_session_state` publishes twice --
+    `.state`, then the compat `.tracking` -- and two writers interleaving those
+    four writes can leave `.state=off` beside `.tracking=on`. Reading `.tracking`
+    directly, half the surfaces here (the status-line refresh, the capture check,
+    the wizard) would keep recording while the guard refused every write: one
+    setting, two answers, and nothing saying which is winning.
+
+    So `.tracking` is a file we WRITE for old clients and do not READ while the
+    canonical one exists. A torn pair is then eventually consistent rather than
+    contradictory -- the next write repairs it, and until then everything here
+    agrees.
+    """
+    if not valid_session_id(session_id):
+        return None
+    try:
+        raw = state_path(session_id).read_text(encoding="utf-8").strip().lower()
+        if raw in STATES:
+            return "on" if raw in RECORDING_STATES else "off"
+    except OSError:
+        pass
+    try:
+        value = tracking_signal_path(session_id).read_text(encoding="utf-8").strip().lower()
+        if value in ("on", "off"):
+            return value
+    except OSError:
+        pass
+    return "off" if _legacy_off_path(session_id).is_file() else None
+
+
+def set_tracking(session_id: str, on: bool) -> bool:
+    """Record a BOOLEAN decision. True when it landed.
+
+    THE FALSE BRANCH IS `read-only`, NOT `off`. Every caller of this function
+    predates the third state, and what they have always meant by False is what
+    `probe session untrack` has always documented: "records nothing further".
+    That is `read-only` precisely -- the switch has never gated reads. Routing
+    them to the new `off` would take reads away from people who asked only to
+    stop recording, which is the same mistake `session_state` refuses to make
+    when it migrates a stored marker.
+
+    The hard `off` is reachable only by naming it: `set_session_state(sid,
+    STATE_OFF)`, which is what the new switch calls.
+    """
+    return set_session_state(
+        session_id, STATE_FULL if on else STATE_READ_ONLY
+    )
+
+
+def set_tracking_if_absent(session_id: str, on: bool) -> bool:
+    """Record the session's STARTING value, ONLY when nobody has decided yet.
+    True when THIS call decided.
+
+    The seed half of the toggle. A session starts at the effective default for
+    its INITIAL cwd (`resolve_tracking_default(initial_cwd)`) and the file exists
+    from SessionStart onward, so "undecided" is not a state any reader has to
+    resolve for itself: one setting, one file, always present.
+
+    THE VALUE IS A PARAMETER, never a literal `on`. Seeding `on` on a machine
+    whose initial-cwd default is `off` would let automation author a declaration the
+    researcher did not make -- the default IS the researcher saying which value
+    a new session starts at, and it is the same setting the toggle flips, not a
+    weaker kind of preference. A DECISION is never touched either: an existing
+    file in either direction, and the legacy `<sid>.off` spelling, all block
+    the seed.
+
+    Exclusive by construction, not by check-then-write. The content is written
+    to a UNIQUE temp file and PUBLISHED with os.link, which fails with EEXIST
+    rather than replacing. A researcher typing the toggle to `off` while the
+    first write is in flight keeps their `off`, and a crash between create and
+    publish cannot strand a half-written signal: the target either does not
+    exist or carries complete content.
+
+    The temp name carries pid AND a nanosecond stamp, and is created O_EXCL.
+    Naming it by pid alone lets two THREADS of one process share it, and the
+    loser then truncates a file the winner has already published — a reader
+    sees an empty marker. `tempfile.mkstemp` would say this in one call and
+    costs ~17ms of import (it pulls in shutil/lzma); this module is imported on
+    every status-line render, where that is the whole budget. Hence os.open.
+
+    THE LEGACY SPELLING IS RE-CHECKED AFTER PUBLISHING. `os.link` arbitrates
+    `<sid>.tracking` only, so an old client writing `<sid>.off` between the read
+    and the publish would leave both files on disk with `on` winning the read —
+    automation silently overriding an explicit opt-out, which is the one thing
+    this must never do. Losing that race is repaired by removing what we just
+    published, not by keeping it.
+    """
+    return set_session_state_if_absent(
+        session_id, STATE_FULL if on else STATE_READ_ONLY
+    )
+
+
+def is_tracking(signal: str | None, *, default: bool | None = None) -> bool:
+    """The one boolean the whole surface renders. TWO STATES, never three.
+
+    An explicit per-session decision wins in BOTH directions -- that is what
+    makes the toggle a toggle, and it is why a researcher who turns tracking off
+    stays off no matter what any default says.
+
+    With no decision, this machine's default answers. Since SessionStart seeds
+    the signal from that default, a missing file now means only that the seed
+    never ran -- a session started before this shipped, or a hook that could
+    not write -- so resolving it against the same default is what keeps those
+    sessions reading the value the researcher chose rather than a third
+    behaviour nobody selected.
+
+    `default=None` reads the machine's setting. Callers that already parsed the
+    config pass it in so the render path parses the file once.
+    """
+    if signal == "off":
+        return False
+    if signal == "on":
+        return True
+    return default_tracking() if default is None else default
+
+
+# ---------------------------------------------------------------------------
+# THE THREE-VALUED SWITCH.
+#
+#   full        reads and writes. What "tracking on" has always meant.
+#   read-only   reads allowed, records nothing new. What "tracking off" has
+#               always meant -- the switch never gated reads.
+#   off         no Probe calls at all, and no session-start injections; and
+#               nothing captures the transcript (`probe.service.capture_gate`,
+#               and from tap 0.10.19 every `tap watch`: `tap/capture_gate.py`;
+#               a `tap watch` still running an older tap uploads it until it
+#               ends).
+#
+#                 /probe
+#          full <----------> read-only        off ----------> read-only
+#                 /probe                            /probe
+#
+#   THE BARE SWITCH NEVER LANDS ON `off`. It is thrown without reading
+#   anything, and `off` is the one state that costs something invisible: no
+#   Probe calls at all, so an agent under it cannot find prior work and cannot
+#   know what it missed. Nobody should get there by one press too many. `off`
+#   is reached by TYPING it, and one press leaves it for `read-only` -- the
+#   smallest change that gives back what it took away. See `_NEXT_STATE`.
+#
+# TWO FILES, ONE DECISION. `<sid>.state` is canonical and three-valued.
+# `<sid>.tracking` keeps being WRITTEN with the two-valued projection and is
+# never read by new code. That is not bookkeeping: `tracking_signal` above
+# returns its value only when it is exactly "on" or "off", and ANY other answer
+# -- an unknown word, or a missing file -- falls through to `default_tracking()`
+# -> DEFAULT_TRACKING -> True. So an older client that met a three-valued file,
+# or met no file at all after a clean cutover, would resolve an opt-out to
+# TRACKING ON and silently record work the researcher declined. The compat write
+# is what makes that unsayable, and it is the same trick `<sid>.off` already
+# plays in the other direction.
+# ---------------------------------------------------------------------------
+
+STATE_FULL = "full"
+STATE_READ_ONLY = "read-only"
+STATE_OFF = "off"
+#: THE STORED FORM OF `on (daemon)`: the session is recorded by the Probe daemon
+#: beside it rather than by the agent. The agent still launches runs; the `probe`
+#: CLI refuses the rest while the daemon holds the write lease (see
+#: `daemon_status`).
+#:
+#: NOT A SWITCH POSITION (Richard 2026-09-29: "the daemon should only be swappable
+#: through the wizard"). Whether the daemon records is the wizard's "Who records"
+#: setting (`recorder`); the switch is on / read / off, and `on` in a session the
+#: daemon records for is WRITTEN as this value (`on_state`). No typed word reaches
+#: it -- `/probe daemon`, `probe session state daemon` and `probe session default
+#: daemon` are refused with `DAEMON_SWITCH_REFUSAL`. A stored `daemon` from before
+#: (a session, a folder or machine default) still reads, never an error.
+#:
+#: OLDER CLIENTS READ IT AS `full`. They do not know this word, so they fall
+#: through to the compat `<sid>.tracking` file, which projects `daemon` to `on`
+#: (`_write_compat_tracking`). That is the safe direction: a half-upgraded
+#: machine's agent records as it always has, and the worst case is a duplicate
+#: the daemon's read-before-write drops -- never silence.
+STATE_DAEMON = "daemon"
+
+#: Every state, in the order any surface that has to OFFER all four lists them.
+#: This is NOT the order the bare switch advances through -- see `_NEXT_STATE`,
+#: which deliberately leaves `off` off the cycle.
+STATES = (STATE_FULL, STATE_DAEMON, STATE_READ_ONLY, STATE_OFF)
+
+#: The states in which this session's work IS recorded -- by the agent (`full`)
+#: or by the daemon (`daemon`). Everything that asks "is this session being
+#: tracked?" asks this, not "is it `full`?".
+RECORDING_STATES = (STATE_FULL, STATE_DAEMON)
+
+#: What a machine that has said nothing gets. `full`, for the same reason
+#: DEFAULT_TRACKING is True: tracking must not depend on anyone remembering to
+#: ask for it. Shipping `read-only` here would quietly stop recording for
+#: everyone on upgrade -- a product change wearing a plumbing change's clothes.
+DEFAULT_STATE = STATE_FULL
+
+#: WHAT EACH STATE IS CALLED, which is deliberately not what it is STORED as.
+#:
+#: `<sid>.state` and `defaults.session_state` are a wire format shared with every
+#: OTHER copy of this module on the machine -- a vendored hook, an older plugin,
+#: the pi extension's own parser -- and `normalize_state` in those copies cannot
+#: know a word this version invented. An unrecognised value there reads as
+#: DEFAULT_STATE (see the block above this one), so renaming the stored value
+#: would turn somebody's opt-out into recording on exactly the machines that are
+#: half-upgraded. The WORDS are ours to change; the bytes are not.
+#:
+#: Both spellings are accepted on input, forever -- see `normalize_state`.
+STATE_LABELS = {
+    STATE_FULL: "on",
+    STATE_DAEMON: "daemon",
+    STATE_READ_ONLY: "read",
+    STATE_OFF: "off",
+}
+
+#: THE SWITCH: the three positions a person can type or press. `daemon` is not one
+#: of them -- see STATE_DAEMON.
+SWITCH_STATES = (STATE_FULL, STATE_READ_ONLY, STATE_OFF)
+
+#: The switch's words, for anything that has to offer them.
+STATE_WORDS = tuple(STATE_LABELS[state] for state in SWITCH_STATES)
+
+#: What a TYPED `daemon` gets back instead of a state change.
+DAEMON_SWITCH_REFUSAL = (
+    "Whether the Probe daemon records is set in `probe wizard` (Defaults › Who records), "
+    "not by this switch, which is on / read / off. Nothing changed."
+)
+
+#: WHAT A PERSON READS for each state when the daemon is the one recording and
+#: reading (Richard 2026-09-29). Display only: JSON keeps `state_label`'s words
+#: (`daemon` included), because pi's `parseState` and older hooks read them.
+DAEMON_STATE_DISPLAY = {
+    STATE_DAEMON: "on (daemon)",
+    STATE_READ_ONLY: "read only (daemon)",
+    STATE_OFF: "off",
+}
+
+
+def state_display(state: "str | None", daemon: bool = False, inline: bool = False) -> str:
+    """The state as a person reads it: `on` / `read` / `off`, and in a session the
+    daemon records for (`daemon`, see `daemon_session`) `on (daemon)` /
+    `read only (daemon)` / `off`. A stored `daemon` always reads `on (daemon)`;
+    an inline session (`is_inline`) reads `on (inline)`."""
+    if inline and state == STATE_FULL:
+        return INLINE_DISPLAY
+    if inline and state == STATE_READ_ONLY:
+        return "read only (inline)"
+    if state == STATE_DAEMON or (daemon and state in DAEMON_STATE_DISPLAY):
+        return DAEMON_STATE_DISPLAY[state]
+    return state_label(state)
+
+
+def state_label(state: "str | None") -> str:
+    """The word for a state -- what a person types, and what we print back.
+
+    Unknown in, unknown out: a value this module does not recognise is shown as
+    it is rather than dressed as a state, because the one thing worse than an
+    odd-looking word on screen is a familiar one standing in for it.
+    """
+    return STATE_LABELS.get(state, str(state))
+
+
+def state_for_label(word: object) -> "str | None":
+    """A word back to the state it names, or None. `normalize_state`, narrowed
+    to the vocabulary this version prints -- kept beside it so the two halves of
+    the rename cannot drift apart."""
+    if not isinstance(word, str):
+        return None
+    wanted = word.strip().lower()
+    return next((state for state, label in STATE_LABELS.items() if label == wanted), None)
+
+
+def state_path(session_id: str) -> Path:
+    """Where the three-valued decision lives. Canonical; see the block above."""
+    return sessions_dir() / (session_id + ".state")
+
+
+def normalize_state(raw: object) -> "str | None":
+    """A recognized state name, or None.
+
+    Accepts the spellings a person actually types. `read-only` carries a hyphen,
+    and a hyphen is the one character someone reliably gets wrong, so the three
+    obvious near-misses resolve rather than reading as unrecognized -- which, per
+    `default_session_state`, would mean falling back to `full` and recording work
+    somebody tried to decline.
+    """
+    if not isinstance(raw, str):
+        return None
+    value = raw.strip().lower()
+    # THE CANONICAL NAMES FIRST. They are not all in the legacy synonym tuples
+    # -- `full` is in none of them -- and leaning on those alone meant the one
+    # spelling this file documents everywhere was the one it rejected.
+    if value in STATES:
+        return value
+    if value in TRACKING_READ_ONLY_VALUES:
+        return STATE_READ_ONLY
+    if value in TRACKING_OFF_VALUES:
+        return STATE_OFF
+    if value in TRACKING_ON_VALUES:
+        return STATE_FULL
+    return None
+
+
+#: WHERE ONE BARE PRESS LANDS. Not a rotation through `STATES`: `off` is not on
+#: the cycle at all, and that asymmetry is the point.
+#:
+#: The bare switch is the FAST path -- it is pressed without reading anything,
+#: often to quiet a session mid-thought. `off` is the expensive state: under it
+#: an agent makes no Probe calls, so it cannot find prior work AND cannot know
+#: what it missed, and every later answer is silently poorer with no signal that
+#: it is. Reaching that by one press too many is a cost the presser never
+#: consented to and has no way to notice. A state that damaging has to be
+#: TYPED: `/probe off`, and nothing else, puts the switch there.
+#:
+#: So the cycle oscillates between the two states that both keep reads alive:
+#:
+#:     on  <-->  read-only          off  -->  read-only  (one way out)
+#:
+#: `off` still ANSWERS a press, rather than sticking. Someone pressing a switch
+#: they have set to off is asking for something to change, and `read-only` is
+#: the smallest change that gives them back what off took away. From there the
+#: oscillation is ordinary, and returning to `off` means typing it again.
+_NEXT_STATE = {
+    STATE_FULL: STATE_READ_ONLY,
+    STATE_READ_ONLY: STATE_FULL,
+    STATE_OFF: STATE_READ_ONLY,
+    # `daemon` is off the cycle like `off`: it is reached by typing it, and one
+    # press leaves it for `read-only`, the same smallest-change rule.
+    STATE_DAEMON: STATE_READ_ONLY,
+}
+
+
+def next_state(state: str) -> str:
+    """The state one press of the bare switch lands on.
+
+    An UNRECOGNISED state lands on `full`, which is what every other ambiguity
+    in this file resolves to: a corrupted marker must not be a quiet way to stop
+    recording somebody's research.
+    """
+    return _NEXT_STATE.get(state, STATE_FULL)
+
+
+def state_allows_writes(state: "str | None") -> bool:
+    """Is this session's work recorded at all? `full` and `daemon`.
+
+    WHO may write is a second question, answered by the `probe` CLI's write gate
+    (`probe.cli.write_gate`): under `daemon` with a live lease the agent's own
+    ambient writes are refused and the daemon makes them. Every caller of this
+    function asks the first question -- whether to show "tracking", whether to
+    inject the read-only notice, whether capture's work counts -- so `daemon`
+    answers True here.
+    """
+    return state in RECORDING_STATES
+
+
+def state_allows_reads(state: "str | None") -> bool:
+    """`full` and `read-only` may look things up. Only `off` may not.
+
+    An UNKNOWN state reads as allowed, deliberately. Everywhere else in this
+    file ambiguity resolves toward the shipped posture, and a corrupted marker
+    that silently stopped an agent finding prior work would be invisible: it
+    looks exactly like the work not existing.
+    """
+    return state != STATE_OFF
+
+
+# ---------------------------------------------------------------------------
+# WHICH `probe` COMMANDS WRITE. One list, read by the plugin's guard hook and by
+# the CLI's own write gate (`probe.cli.write_gate`), so the two can never
+# disagree about what a command IS. Moved here from `tracking_guard.py`, which
+# re-exports the names.
+# ---------------------------------------------------------------------------
+
+#: Top-level probe commands that record research content whatever follows them.
+#: `flush` is deliberately absent: draining an outbox delivers writes recorded
+#: BEFORE the researcher flipped the switch, and honouring the pre-off record is
+#: what "off deletes nothing" means.
+TOP_LEVEL_WRITES = frozenset(
+    {"log", "link", "snapshot", "exec", "backfill", "import"}
+)
+
+#: Command groups whose verbs write research content unless the verb is a read.
+#: `session` is deliberately absent (it is the switch itself -- refusing
+#: `probe session track` would wall the researcher out of the un-mute), and so
+#: are the read groups and the machine-plumbing groups (context, token, mcp,
+#: workspace, shared, outbox, companion).
+WRITE_GROUPS = frozenset(
+    {
+        "project",
+        "experiment",
+        "run",
+        "artifact",
+        "notes",
+        "span",
+        "group",
+        "edge",
+        "trial",
+        "views",
+        "paper",
+        "wandb",
+        # `probe version create` mints an experiment version (a recorder's
+        # write, track-work reference; `version list` reads). Missing here, the
+        # write gate and the daemon profile's guard both let it through (live
+        # T13 on the released 0.111.2 plugin, 2026-09-29).
+        "version",
+        # The data catalog (data-catalog C5): `source add`, `dataset add|use`
+        # and `checkpoint use` record; `list`, `show` and `download` read.
+        "source",
+        "dataset",
+        "checkpoint",
+        # A project's or experiment's summary and its Metrics-center visuals,
+        # kept by the recorder (writer-owns-summary): `summary push` and
+        # `visuals set` record; `summary checkout` and `visuals options` read.
+        "summary",
+        "visuals",
+    }
+)
+
+#: Every subgroup inside a write group, and `session home`. Its OWN verb decides,
+#: so `project code list` reads while `project code attach` writes; read two words
+#: deep, every `project code` command looked like one write. Keys in the tables
+#: below name the three words (`wandb key set`); a bare subgroup key never matches.
+SUBGROUPS = frozenset({"project code", "project reference", "run input", "wandb key", "session home"})
+
+#: Commands that only read unless given one of these flags: bare
+#: `project contributors` lists who is credited, `--add`/`--remove` change it.
+#: An argument the shell has not expanded yet (the guard hook reads the command
+#: TEXT) could be one of them, so it counts as a write too.
+READ_UNLESS_FLAGS = {"project contributors": frozenset({"--add", "--remove"})}
+
+#: Characters that mark a word the shell still expands (`$F`, `$(...)`, `--{add,x}`).
+#: Glob characters count only in an option's NAME (`--a[d]d`): a literal `[::1]`
+#: in a `--base-url` value is common.
+_SHELL_EXPANSION_CHARS = frozenset("$`{")
+_GLOB_CHARS = frozenset("*?[")
+
+#: Verbs inside a write group that only read. Unknown verbs count as writes --
+#: the group already said "research content".
+READ_VERBS = frozenset(
+    {
+        "show",
+        "list",
+        "get",
+        "status",
+        "versions",
+        "cat",
+        "diff",
+        "search",
+        "events",
+        "coordinates",
+        "download",
+        "help",
+        # `probe notes team` PRINTS the team note.
+        "team",
+        "check",
+        "reproduce",
+        # `probe notes checkout` pulls a note into a local file; the edit lands
+        # later through `push`. `audit-advisory` prints the note-size nudge the
+        # `note_audit` hook shows.
+        "checkout",
+        "audit-advisory",
+        # Print what is already recorded: `artifact tree|pin-impact`,
+        # `experiment|paper edges`, `run metrics|series`, `views data|preview`
+        # (a preview evaluates a spec without saving it).
+        "tree",
+        "pin-impact",
+        "edges",
+        "metrics",
+        "series",
+        "data",
+        "preview",
+        # `run inputs|upstream`: what a run read and built on (lineage plan L5).
+        "inputs",
+        "upstream",
+        # `experiment|project lineage`: the entity's own links in and out.
+        "lineage",
+        # `experiment inherited`: what a fork reads live from its source.
+        "inherited",
+        # `project branches`, `experiment branch`: the lines of work.
+        "branches",
+        "branch",
+        # `paper citations|graph`: the citation links the server read from
+        # bibliographies (citation graph, Track C).
+        "citations",
+        "graph",
+        # `paper find`: the research literature (the MCP's `find_papers`), an
+        # outside index; it adds nothing to the team's records.
+        "find",
+        # `visuals options`: what a summary's tables and charts may name.
+        "options",
+    }
+)
+
+#: Verbs inside a write group that REMOVE research rather than record it. Never
+#: refused: cleanup must stay possible in every state.
+REMOVAL_VERBS = frozenset({"delete", "remove", "rm", "prune", "purge"})
+
+#: "group verb" pairs (three words under a `SUBGROUPS` entry) inside a write
+#: group that are machine plumbing, not a
+#: record of the work, so no state refuses them. `notes sync` is the team note's
+#: own sync, which hooks run in the background and which the switch has never
+#: governed (see `version_check._spawn_session_maintenance`); `project use` only sets the
+#: local default project. `wandb discover` scans a local folder and `wandb key
+#: set|status` store or check a local credential: none of them talks to Probe.
+UNGATED_COMMANDS = frozenset(
+    {"notes sync", "project use", "wandb discover", "wandb key set", "wandb key status"}
+)
+
+#: `probe companion feedback` steers the daemon (its note reaches the model as
+#: the researcher's correction), so from an agent session it is only admitted
+#: with `--directed`, in every state.
+DIRECTED_ONLY = frozenset({"companion feedback"})
+
+#: Root `probe` options that take a VALUE (the root callback in `cli/main.py`).
+#: Their value is not a command word: `probe --base-url URL notes push` runs
+#: `notes push`, and reading the URL as the command waved that write through.
+ROOT_VALUE_OPTIONS = frozenset({"--base-url", "--spool-dir"})
+
+#: The only help flag the CLI has (`-h` is not registered: click refuses it).
+HELP_FLAG = "--help"
+
+#: Groups whose whole job is READING research content. Refused only under `off`.
+#: `docs` reads Probe's own docs, not the team's record: a read so that `off`
+#: refuses it as it refuses `paper find`.
+READ_GROUPS = frozenset(
+    {"metrics", "series", "get", "bundle", "events", "coordinates", "shared", "provenance", "docs"}
+)
+
+#: Commands inside a `READ_GROUPS` group that record rather than print:
+#: `metrics backfill` stores a derived curve, `shared add` uploads into the
+#: team's Shared folder, `shared share|unshare` move a file into or out of it.
+#: Read as reads, `read` let them through.
+READ_GROUP_WRITES = frozenset({"metrics backfill", "shared add", "shared share", "shared unshare"})
+
+#: ...and the ones that remove: cleanup, never refused, as `REMOVAL_VERBS` is in
+#: a write group. Read as reads, `off` refused them.
+READ_GROUP_REMOVALS = frozenset({"metrics delete", "shared delete"})
+
+#: Commands of a plumbing group (not in WRITE_GROUPS) that record research
+#: content: `workspace set` picks the workspace's best experiment, `session home
+#: set|clear` where the session's runs go (the daemon's: not in DAEMON_AGENT_WRITES).
+PLUMBING_GROUP_WRITES = frozenset({"workspace set", "session home set", "session home clear"})
+
+#: WHAT THE AGENT STILL WRITES IN THE `daemon` STATE, without `--directed`: the
+#: launch of a run, the run's own data -- the `instrument-code` surface the
+#: daemon never authors -- and the project a run needs when none fits (daemon v2,
+#: D2 / S11; every run has a project since floating runs retired). The
+#: experiment and sweep group a run belongs in, and renaming or moving projects
+#: and runs, stay the DAEMON's. Keys are "group verb" (three
+#: words under a `SUBGROUPS` entry), or the bare top-level command.
+#: `probe session status` prints this list as `daemon.agent_writes`, and
+#: `DAEMON_CONTEXT` below says the same thing in words.
+#: `run token` mints, extends or revokes the one-run token a remote job records
+#: with: part of the launch (`probe exec --detached-launcher` mints one), and
+#: the run's expiry alert tells the agent to `--extend` it.
+DAEMON_AGENT_WRITES = frozenset(
+    {
+        "exec",
+        "log",
+        "snapshot",
+        "project create",
+        "run start",
+        "run child",
+        "run fork",
+        "run end",
+        "run token",
+        "span add",
+        "trial add",
+        "trial stage",
+        "trial export",
+        "trial drain",
+        "trial watch",
+        "trial reconcile",
+        "trial expand",
+    }
+)
+
+#: Writes that are the run's OWN data only when a run makes them: inside a
+#: `probe exec` job or an SDK script (`PROBE_RUN_ID` set), a `probe artifact add`
+#: attaches the run's file, the same write the SDK's `log_artifact` makes there
+#: ungated. From the agent's own shell it is the daemon's (an artifact the
+#: session made), so it stays out of `DAEMON_AGENT_WRITES`. The CLI's write gate
+#: admits it only anchored to the run (no `--project`, `--experiment`,
+#: `--workspace`, `--shared` or `--from-manifest`).
+DAEMON_RUN_WRITES = frozenset({"artifact add"})
+
+#: The flag that marks a write the researcher asked for. The CLI strips it
+#: before parsing (it may appear anywhere after `probe`), and the gate lets a
+#: marked write through the `daemon` state; the daemon sees it in the transcript
+#: and does not repeat it.
+DIRECTED_FLAG = "--directed"
+
+#: What a refusal tells the agent about `DIRECTED_FLAG`: the `daemon` state's
+#: (`DENY_REASON_DAEMON`) and the daemon profile's, for a write
+#: (`DAEMON_PROFILE_DENY_WRITE`).
+DIRECTED_RETRY = "If the researcher asked for exactly this, run it again with `--directed`."
+#: ...and the daemon-profile agent's other way to a write (Richard's approved
+#: text, 2026-10-13): a request to the daemon's writer (`probe ask --writer`).
+WRITER_RETRY = 'Otherwise ask the daemon\'s writer: `probe ask --writer "<request>"`.'
+
+
+def carries_directed(args: "list[str]") -> bool:
+    """Do these args (after `probe`) carry `DIRECTED_FLAG` where the CLI reads it?
+
+    Before a standalone `--` only, as `write_gate.split_directed` strips it:
+    after that it belongs to the command `probe exec` launches.
+    """
+    own = args[: args.index("--")] if "--" in args else args
+    return DIRECTED_FLAG in own
+
+
+def command_words(args: "list[str]") -> "list[str]":
+    """The (at most three) words click dispatches on, from the args after `probe`.
+
+    The classifier treats the third as a command word only under a `SUBGROUPS`
+    entry; anywhere else it is the command's first argument, and is ignored.
+    Mirrors click's own resolution closely enough for a gate: options are
+    skipped, and so is the VALUE of a root option that takes one; a `--` before
+    the command words is skipped too (click still dispatches the command after
+    it), while after `exec` everything past `--` is the launched command.
+    """
+    words: "list[str]" = []
+    skip_value = False
+    for token in args:
+        if skip_value:
+            skip_value = False
+            continue
+        if token == "--":
+            if words[:1] == ["exec"]:
+                break
+            continue
+        if token.startswith("-"):
+            if not words and token in ROOT_VALUE_OPTIONS:
+                skip_value = True
+            continue
+        words.append(token)
+        if len(words) == 3:
+            break
+    return words
+
+
+def classify_probe_args(args: "list[str]") -> "tuple[str | None, str]":
+    """`(kind, matched)` for the args after `probe`; kind is write/read/None.
+
+    `matched` is `probe <head>` or `probe <head> <verb>`, the words a refusal
+    names; under a `SUBGROUPS` entry `<head>` is the subgroup's two words. The
+    ONE classifier: the CLI's write gate and the plugin's guard hook both call it.
+    """
+    words = command_words(args)
+    if not words:
+        return (None, "")
+    group = head = words[0]
+    verb = words[1] if len(words) > 1 else ""
+    if head + " " + verb in SUBGROUPS:
+        head, verb = head + " " + verb, words[2] if len(words) > 2 else ""
+    command = head + " " + verb
+    if command in UNGATED_COMMANDS:
+        return (None, "probe " + command)
+    if head in TOP_LEVEL_WRITES:
+        return ("write", "probe " + head)
+    if command in READ_GROUP_WRITES or command in PLUMBING_GROUP_WRITES:
+        return ("write", "probe " + command)
+    if command in READ_GROUP_REMOVALS:
+        return (None, "probe " + head)
+    if head in READ_GROUPS:
+        return ("read", "probe " + head)
+    if command in DIRECTED_ONLY:
+        return ("write", "probe " + command)
+    if command in READ_UNLESS_FLAGS:
+        writes = _flag_writes(args, READ_UNLESS_FLAGS[command])
+        return ("write" if writes else "read", "probe " + command)
+    if group in WRITE_GROUPS:
+        if verb in READ_VERBS:
+            return ("read", "probe " + command)
+        if verb and verb not in REMOVAL_VERBS:
+            return ("write", "probe " + command)
+    return (None, "probe " + head)
+
+
+def daemon_allows_agent(matched: str) -> bool:
+    """Does the `daemon` state leave this write to the agent? (`matched` from
+    `classify_probe_args`.)"""
+    key = matched[len("probe "):] if matched.startswith("probe ") else matched
+    return key in DAEMON_AGENT_WRITES
+
+
+#: THE DAEMON PROFILE (daemon reads): the machine installed the lean
+#: `probe-research-daemon` plugin, so the daemon records AND reads, and the main
+#: agent's `probe` is `ask`, `exec`, its runs' own data (`DAEMON_AGENT_WRITES`),
+#: reads of one run (`DAEMON_PROFILE_RUN_READS`), `session status` and Probe's
+#: own upkeep (`DAEMON_PROFILE_ALLOWED`). The guard in that
+#: plugin refuses every other `probe` command, reads included, with
+#: `DAEMON_PROFILE_DENY` (the approved text, pinned by `test_daemon_profile.py`:
+#: `agent/tests/fixtures/daemon_prompts/reads/agent-facing/guard-refusal.NEW.md`), except a write
+#: the researcher asked for (`--directed`), which runs as in the `daemon` state.
+#: `probe --version` needs no entry (no command words); `probe version` is the
+#: experiment-versions group, a write. While the researcher has Probe inline
+#: (`is_inline`) the guard refuses only `RESEARCHER_SWITCH`.
+#: `paper find` reads the research literature, an outside index, not the team's
+#: records, so the agent runs it itself (Richard 2026-10-12: "just the tools
+#: where it makes sense for the agent to call it directly"). `docs` searches
+#: Probe's own docs, an outside source too and not the team's records: the same
+#: rule, and the only way this profile reaches them (it has no MCP). `feedback send`
+#: holds feedback for the Probe team as a question for the researcher
+#: (`probe.feedback`); nothing leaves without their yes. `approvals` lists the
+#: questions the daemon holds for the researcher: in an agent's shell the CLI
+#: only lists them and answers nothing (`daemon_cli.approvals_cmd`). Never
+#: `deny`: a no is the researcher's.
+#: The rest, none a listing of the team's work: what Probe's own messages send
+#: the agent to -- `outbox status` (the banner on every command, a `run end`
+#: that could not close), `run check` (the SDK's capture warning), `sync` (an
+#: offline run's "deliver it with `probe sync`"), `artifact download`
+#: (`instrument-code`: a checkpoint back, bytes `probe ask` cannot hand over) --
+#: and this machine's diagnostics: `daemon status` (is the daemon `probe ask`
+#: waits on alive), `whoami` and `context list` (which team the runs land in),
+#: `wandb discover` and `wandb key status` (local scans ahead of a `--directed`
+#: W&B import).
+#: And Probe's own upkeep: keeping this machine's Probe updated, running and
+#: delivering (`update`, `status`, `service`, `outbox drain|retry|watch`,
+#: `flush`, `token list`), local files (`draft edit`, `file preview`), and
+#: team-note and managed-block upkeep. A daemon-profile agent could not run `probe update
+#: --check` (2026-10-21) while nothing it ran touched the team's records.
+#: A list, not "whatever the classifier calls neither read nor write": a word
+#: the guard cannot read (`probe $G delete r1`) or a command added later stays
+#: refused, and `test_daemon_profile.py` sorts every such command into this list
+#: or the daemon's, so a new one fails a test instead of going stale here.
+#: The daemon's, though the classifier says neither: what moves the key, account,
+#: server or folder the daemon records with (`login` -- `PROBE_BASE_URL` in the
+#: environment moves the server, out of the guard's sight -- `logout`, `context
+#: use|delete`, `workspace use`, `project use`, `token revoke`, `session
+#: initialize`), what drops, holds or releases queued writes (`outbox
+#: discard|pause|resume`), the team's permissions and workspaces, printed
+#: secrets (`mcp headers|env`, `token create`), the researcher's agent settings
+#: (`statusline install|uninstall`), and the daemon's own ledger and install.
+#: `session send` messages one of the researcher's own sessions (an orchestrator
+#: steering its workers, G7): the server takes it only for a session of the same
+#: person and labels it as from an agent session, never as the researcher.
+#: `session owed` reads the session's own owed ledger (notes parity N3); the
+#: plugin's end-of-turn hook runs it, and the agent may too. `session home show`
+#: prints where this session's runs go, as `session status` does. `cli search`
+#: searches this CLI's own commands, on this computer.
+DAEMON_PROFILE_ALLOWED = frozenset(
+    {"ask", "session status", "session send", "run expect", "doctor", "paper find",
+     "docs", "cli search", "feedback send", "approvals", "outbox status", "run check", "sync", "artifact download",
+     "daemon status", "whoami", "context list", "wandb discover", "wandb key status",
+     "update", "status", "flush", "service status", "service start", "service stop", "service check-now",
+     "token list", "context show", "outbox drain", "outbox retry", "outbox watch", "statusline status",
+     "statusline show", "mcp status", "workspace list", "workspace get", "workspace writers show",
+     "access-group list", "notes sync", "agent-rules refresh", "wandb key set", "draft edit",
+     "file preview", "feedback flush", "capy sync", "capy disconnect", "session owed", "session home show"}
+)
+
+#: Reads of ONE run, named by its id: the agent looks at the runs it launched
+#: (is the loss falling, did the checkpoint land) without waiting on `probe ask`
+#: (Richard 2026-10-21: the agent should see its own runs). Any run id passes --
+#: the hook cannot tell this session's runs from a teammate's, and the ids an
+#: agent holds are the ones `probe exec` printed or the daemon handed it.
+#: Listings and searches across the team's work (`run list`, `series latest`,
+#: `artifact list`, `provenance`, `commits`) stay the daemon's, through `probe ask`.
+DAEMON_PROFILE_RUN_READS = frozenset(
+    {"run get", "run series", "run metrics", "run inputs", "run upstream", "run reproduce", "get",
+     "bundle", "events", "metrics wide", "metrics plot", "metrics export", "metrics grouped",
+     "span list", "span get", "trial list", "trial get", "artifact tree", "artifact versions",
+     "snapshot-show"}
+)
+
+#: ...but not where a flag writes what it read: `run reproduce --materialize`
+#: restores the run's captured tree, as the kept `snapshot-restore` does, and
+#: `--export` writes a file. A word the shell still expands may be either.
+DAEMON_PROFILE_RUN_READ_WRITES = {"run reproduce": frozenset({"--materialize", "--export"})}
+
+#: `probe wizard` (and its old name `setup`) also holds the researcher's own
+#: settings -- who records, capture, the new-session default, imports,
+#: uninstall, and signing in and out, which set the account, server and key the
+#: daemon records with -- so the daemon profile runs it plainly only: for one of
+#: these actions, with no flag but `DAEMON_PROFILE_PLAIN_FLAGS`, nothing
+#: positional and no root option. `probe install` (the guided install) is kept
+#: outright.
+DAEMON_PROFILE_WIZARD_ACTIONS = frozenset({"update", "diagnose"})
+DAEMON_PROFILE_PLAIN_FLAGS = {
+    "wizard": frozenset({"--action", "--yes", "-y", "--json", "--no-browser"}),
+    "setup": frozenset({"--action", "--yes", "-y", "--json", "--no-browser"}),
+}
+
+#: The researcher's switch and defaults, typed into a shell. In the daemon
+#: profile the agent never moves them (`probe session state inline` included):
+#: not under `off`, and not while Probe is inline. The researcher moves them
+#: with `/probe`, which reaches the hooks, not a shell.
+RESEARCHER_SWITCH = frozenset(
+    {"session state", "session toggle", "session track", "session untrack", "session default"}
+)
+
+#: What the guard answers an agent that types one of `RESEARCHER_SWITCH`.
+INLINE_SWITCH_DENY = (
+    "`{matched}` moves the researcher's Probe switch, so it was refused before it ran: only "
+    "the researcher moves it (`/probe on`, `/probe read`, `/probe off`, `/probe inline`)."
+)
+
+#: What the guard answers an agent the daemon records for that types one of
+#: `RESEARCHER_SWITCH`. Kimi runs a typed `/probe on` through a hook whose output
+#: never reaches the model, so the agent reads the skill, goes looking for the
+#: command itself, and lands here: the answer is that the move already happened,
+#: never `DAEMON_PROFILE_DENY`'s pointer to `/probe inline`.
+RESEARCHER_SWITCH_DENY = (
+    "`{matched}` moves the researcher's Probe switch, so it was refused before it ran: only "
+    "the researcher moves it (`/probe on`, `/probe read`, `/probe off`, `/probe inline`), and "
+    "a `/probe` they typed has already moved it. `probe session status` prints where it landed."
+)
+
+DAEMON_PROFILE_DENY = (
+    'The Probe daemon records this session and reads the team\'s work for you, so `{matched}` was refused before it ran. You instrument your runs with the SDK and can read one by its id (`probe run get <id>`). To ask about the team\'s prior work: `probe ask "<question>"`. If you need to do it yourself, ask the researcher to type `/probe inline`.'
+)
+
+#: `DAEMON_PROFILE_DENY` for a WRITE: `--directed` admits one the researcher
+#: asked for, and the daemon's writer takes any other (`probe ask --writer`). A
+#: read keeps the plain text: no flag admits it, `probe ask` reads.
+DAEMON_PROFILE_DENY_WRITE = DAEMON_PROFILE_DENY + "\n\n" + DIRECTED_RETRY + " " + WRITER_RETRY
+
+#: What the papers hook answers a paper-type web search it holds (`papers_hook.py`):
+#: at most once per `PAPER_FIND_WINDOW_S`, and never after `probe paper find` ran
+#: inside it. Richard approved the wording 2026-10-12.
+PAPER_SEARCH_HOLD = (
+    "Probe searches research papers, so this web search was held. Run "
+    '`probe paper find "<the question as a sentence>"` first. After that, web searches run '
+    f"normally for {PAPER_FIND_WINDOW_S // 60} minutes."
+)
+
+
+def moves_switch(args: "list[str]") -> "str | None":
+    """`probe <words>` when these args (after `probe`) move the researcher's
+    switch (`RESEARCHER_SWITCH`), else None."""
+    two = " ".join(command_words(args)[:2])
+    return "probe " + two if two in RESEARCHER_SWITCH else None
+
+
+def daemon_profile_allows(args: "list[str]") -> "tuple[bool, str]":
+    """`(allowed, matched)` for the args after `probe` in the daemon profile.
+
+    A write carrying `--directed` is allowed, as the CLI's gate allows it in the
+    `daemon` state (`write_gate.refusal`). A read is not (reads go through
+    `probe ask`) but one run's (`DAEMON_PROFILE_RUN_READS`), and neither is the
+    researcher's switch (`RESEARCHER_SWITCH`). Probe's own upkeep runs
+    (`DAEMON_PROFILE_ALLOWED`); the wizard runs only plainly
+    (`DAEMON_PROFILE_PLAIN_FLAGS`). Anything else -- a word the guard cannot
+    read included -- is refused.
+    """
+    words = command_words(args)
+    if not words:
+        return (True, "probe")
+    head = words[0]
+    two = " ".join(words[:2])
+    if head in DAEMON_PROFILE_PLAIN_FLAGS:
+        return (_runs_plainly(args, head), "probe " + head)
+    for key in (" ".join(words[:3]), two, head):
+        if key in DAEMON_PROFILE_ALLOWED:
+            return (True, "probe " + key)
+        if key in DAEMON_PROFILE_RUN_READS:
+            return (not _flag_writes(args, DAEMON_PROFILE_RUN_READ_WRITES.get(key, frozenset())), "probe " + key)
+    kind, matched = classify_probe_args(args)
+    if kind == "write" and carries_directed(args) and two not in RESEARCHER_SWITCH:
+        return (True, matched)
+    return (daemon_allows_agent(matched), matched)
+
+
+def _runs_plainly(args: "list[str]", head: str) -> bool:
+    """Is this `head` (the wizard) run with nothing but
+    `DAEMON_PROFILE_PLAIN_FLAGS`, and with every `--action` one of
+    `DAEMON_PROFILE_WIZARD_ACTIONS`? Every `--action`, because click runs the
+    LAST of a repeated one (`--action update --action recorder` runs
+    `recorder`); a word the shell still expands matches nothing."""
+    rest = list(args)
+    rest.remove(head)
+    flags = DAEMON_PROFILE_PLAIN_FLAGS[head]
+    actions = 0
+    i = 0
+    while i < len(rest):
+        name, eq, value = rest[i].partition("=")
+        if name == "--action":
+            if not eq:
+                value = rest[i + 1] if i + 1 < len(rest) else ""
+                i += 1
+            if value not in DAEMON_PROFILE_WIZARD_ACTIONS:
+                return False
+            actions += 1
+        elif eq or rest[i] not in flags:
+            return False
+        i += 1
+    return actions > 0
+
+
+def _flag_writes(args: "list[str]", flags: "frozenset[str]") -> bool:
+    """Does one of these args name one of `flags` (`--flag=value` too), or may it
+    once the shell expands it (`$F`, `--{add,x}`, `--a[d]d`)?"""
+    return bool(flags) and any(
+        name in flags
+        or not _SHELL_EXPANSION_CHARS.isdisjoint(arg)
+        or (name.startswith("-") and not _GLOB_CHARS.isdisjoint(name))
+        for arg in args
+        for name in [arg.split("=", 1)[0]]
+    )
+
+
+def daemon_profile_deny(args: "list[str]", matched: str) -> str:
+    """The refusal for args `daemon_profile_allows` refused: a write is told
+    that `--directed` runs it (`DAEMON_PROFILE_DENY_WRITE`)."""
+    kind, _matched = classify_probe_args(args)
+    deny = DAEMON_PROFILE_DENY_WRITE if kind == "write" else DAEMON_PROFILE_DENY
+    return deny.format(matched=matched)
+
+
+#: The refusals, shared by the guard hook and the CLI gate. Placeholders:
+#: `{matched}` is the command the refusal names.
+DENY_REASON = (
+    "Probe is READ-ONLY for this conversation, so `{matched}` was refused before it ran. Reads "
+    "are still fine. If the researcher wants this recorded they set `/probe on`; say so once, "
+    "do not ask them to approve the call, and do not route around it."
+)
+
+DENY_REASON_OFF = (
+    "Probe is OFF for this conversation, so `{matched}` was refused before it ran. Make no "
+    "Probe calls at all, reads included: you cannot see prior work and cannot know what you "
+    "missed, so say you could not look rather than reporting nothing was found; turning it "
+    "back on does not backfill the gap. Only the researcher changes the state (`/probe read` "
+    "restores searching); a repeat request is not permission: do not ask them to approve this "
+    "call, and do not route around it."
+)
+
+DENY_REASON_DAEMON = (
+    "The Probe daemon is recording this conversation (the `daemon` state), so `{matched}` was "
+    "refused before it ran: that write is the daemon's (it files runs in an experiment and "
+    "group, and renames or moves projects and runs). Yours are starting runs in a project "
+    "(`probe project create <slug>` if none fits), the run's own data and `probe run end`; "
+    "`probe session status` lists them.\n\n" + DIRECTED_RETRY
+)
+
+#: THE ONE STATEMENT OF WHO WRITES WHAT IN THE `daemon` STATE. Every surface that
+#: tells the agent about the split carries this meaning; the hooks read this
+#: constant (session start in `version_check`, the flip and the recovery in
+#: `tracking_guard`), pi's `daemonNotice.ts` keeps a copy, and
+#: `tests/test_daemon_split_texts.py` holds the rest (the skills, the refusal,
+#: the after-the-fact notice) to the same nouns. The agent's list is
+#: `DAEMON_AGENT_WRITES`. The daemon ending a run the agent left open is a
+#: BACKSTOP, not the plan, so `run end` stays the agent's.
+DAEMON_CONTEXT = (
+    "The Probe daemon is recording this session: you launch and instrument runs, and the daemon "
+    "records. Yours: start runs (a run on this machine naming no project goes to this session's "
+    "project, which the daemon sets: `probe session home show` prints it; pass `project=` or "
+    "`--project` for another, and before it is set pass one, or `probe project create <slug>` if "
+    "none fits), "
+    "the run's own data (metrics, spans, trials, files the run "
+    "itself attaches) and `probe run end` when a run finishes. The daemon's: everything else, "
+    "including the experiment and sweep group a run is filed in, renaming or moving projects "
+    "and runs, and its notes, artifacts, papers, tags, names, descriptions and lineage, read "
+    "from the transcript; it also ends any run you leave open. If the researcher asks for one "
+    "of the daemon's writes, add `--directed`."
+)
+
+
+# ---------------------------------------------------------------------------
+# THE DAEMON'S QUESTIONS ARE NOT THE AGENT'S TO ANSWER.
+# ---------------------------------------------------------------------------
+
+#: Where the Probe daemon keeps the questions it holds for the researcher and
+#: their answers (`probe.daemon.approvals`): `<state>/probe/approvals`.
+APPROVALS_DIRNAME = "approvals"
+
+#: The guard hook's refusal of a coding-agent tool call aimed at that folder.
+DENY_REASON_APPROVALS = (
+    "`{tool}` would touch {path}, where the Probe daemon keeps the questions it holds for the "
+    "researcher and their answers, so it was refused before it ran. Only the researcher answers "
+    "them: through your question tool, word for word, or `probe approvals` in their own "
+    "terminal. Do not write there, and do not route around this."
+)
+
+#: Tools that write a file named by one input field.
+#: The argument naming the file, per write tool. Claude Code's Write/Edit take
+#: `file_path`; Kimi Code's take `path` (relative to the session's folder). Both
+#: are checked whichever harness sent the call: a forged answer is refused by
+#: any name it uses.
+_FILE_WRITE_TOOLS = {"Write": ("file_path", "path"), "Edit": ("file_path", "path"),
+                     "MultiEdit": ("file_path",), "NotebookEdit": ("notebook_path",)}
+#: The folder as a command's text names it (`~/.local/state/probe/approvals/answers/x.json`,
+#: `$XDG_STATE_HOME/probe/approvals`, `cd probe && ... approvals/...`).
+_APPROVALS_TEXT = re.compile(r"probe/+approvals\b|\bapprovals/+(answers|requests|keys|asked)\b")
+
+
+def approvals_dir() -> Path:
+    return state_dir() / APPROVALS_DIRNAME
+
+
+def touches_approvals(tool_name: object, tool_input: object, cwd: "str | None" = None) -> "str | None":
+    """The approvals path a coding agent's tool call aims at, or None.
+
+    A TRIPWIRE, NOT A BOUNDARY: the agent runs as the same user as the daemon,
+    so a script that builds the path at run time still reaches the folder. What
+    this refuses is the plain way -- a Write/Edit whose file is in there, a Bash
+    command that names it -- and that is what a model talked into "answering"
+    a question for the researcher would try first. The daemon's own checks
+    (`approvals.verify_held`, the lease) are what a yes must still pass.
+    """
+    if not isinstance(tool_input, dict):
+        return None
+    fields = _FILE_WRITE_TOOLS.get(tool_name) if isinstance(tool_name, str) else None
+    if fields is not None:
+        root = os.path.realpath(str(approvals_dir()))
+        for field in fields:
+            target = tool_input.get(field)
+            if not isinstance(target, str) or not target:
+                continue
+            path = os.path.expanduser(target)
+            if not os.path.isabs(path) and isinstance(cwd, str) and cwd:
+                # A relative path is the SESSION's (Kimi resolves it against the
+                # session folder; a hook runs from the plugin folder).
+                path = os.path.join(cwd, path)
+            real = os.path.realpath(path)
+            if real == root or real.startswith(root.rstrip(os.sep) + os.sep):
+                return target
+        return None
+    if tool_name == "Bash":
+        command = tool_input.get("command")
+        if isinstance(command, str) and (
+            _APPROVALS_TEXT.search(command) or str(approvals_dir()) in command
+        ):
+            return str(approvals_dir())
+    return None
+
+
+#: The guard hook's refusal of a coding-agent tool call aimed at the per-session
+#: state folder. Those files (`<sid>.state`, `<sid>.inline`, `<sid>.profile`, the
+#: lease) are what the guard itself reads to decide a verdict, so writing one --
+#: forging `on (inline)`, say -- would turn the guard off. Only the researcher's
+#: `/probe` switch moves that state.
+DENY_REASON_SESSIONS = (
+    "`{tool}` would write {path}, where Probe records which conversation this is and whether the "
+    "researcher has it recording -- the files this guard reads to decide. Changing them yourself "
+    "would turn the guard off, so it was refused before it ran. Only the researcher's `/probe` "
+    "switch moves that state; do not write there, and do not route around this."
+)
+
+#: The sessions folder as a command's text names it.
+_SESSIONS_TEXT = re.compile(r"probe/+sessions\b")
+
+
+def touches_sessions_dir(tool_name: object, tool_input: object, cwd: "str | None" = None) -> "str | None":
+    """The per-session-state path a coding agent's tool call aims at, or None.
+
+    The same tripwire as `touches_approvals`, for the folder whose files decide
+    the guard's own verdict (state, inline marker, profile, lease). A TRIPWIRE,
+    NOT A BOUNDARY: the agent runs as the same user, so a path built at run time
+    still reaches the folder. What this refuses is the plain way -- the forge a
+    model talked into bypassing the guard would write first.
+    """
+    if not isinstance(tool_input, dict):
+        return None
+    fields = _FILE_WRITE_TOOLS.get(tool_name) if isinstance(tool_name, str) else None
+    if fields is not None:
+        root = os.path.realpath(str(sessions_dir()))
+        for field in fields:
+            target = tool_input.get(field)
+            if not isinstance(target, str) or not target:
+                continue
+            path = os.path.expanduser(target)
+            if not os.path.isabs(path) and isinstance(cwd, str) and cwd:
+                path = os.path.join(cwd, path)
+            real = os.path.realpath(path)
+            if real == root or real.startswith(root.rstrip(os.sep) + os.sep):
+                return target
+        return None
+    if tool_name == "Bash":
+        command = tool_input.get("command")
+        if isinstance(command, str) and (
+            _SESSIONS_TEXT.search(command) or str(sessions_dir()) in command
+        ):
+            return str(sessions_dir())
+    return None
+
+
+#: The guard hook's refusal of a coding-agent shell command that calls the
+#: Probe service's mailbox (or has it run a hook event) itself (#3355;
+#: `tracking_guard.calls_mailbox`). Placeholder: `{matched}`, the method.
+DENY_REASON_MAILBOX = (
+    "`Bash` would call the Probe service's `{matched}` itself, so it was refused before it ran. The service's "
+    "mailbox is where the Probe daemon's questions for the researcher are answered and its messages to you are "
+    "delivered, and only Probe's own hooks and daemon call it. Only the researcher answers the daemon's "
+    "questions: through your question tool, word for word, or `probe approvals` in their own terminal. Do not "
+    "call it, and do not route around this."
+)
+
+#: The guard hook's refusal of a coding-agent shell command that registers or
+#: ends a session with the Probe service itself (#3360;
+#: `tracking_guard.calls_mailbox`). Placeholder: `{matched}`, the method.
+DENY_REASON_SESSION_CALL = (
+    "`Bash` would call the Probe service's `{matched}` itself, so it was refused before it ran. The service's "
+    "session registry is how Probe knows which conversations its daemon records, and only Probe's own recorder "
+    "registers or ends a session. Do not call it, and do not route around this."
+)
+
+#: The guard hook's refusal of a coding-agent shell command that runs one of
+#: Probe's own hook programs by hand (#3355; `tracking_guard.runs_probe_hook`).
+#: Placeholder: `{matched}`, the program.
+DENY_REASON_HOOK_BY_HAND = (
+    "`Bash` would run Probe's hook program `{matched}` itself, so it was refused before it ran. Probe's hooks act "
+    "on the events your harness sends them (the researcher's prompt, their answer to a question); run by hand they "
+    "would act on an event you wrote. Only the harness runs them. Do not run them, and do not route around this."
+)
+
+#: The guard hook's refusal of a coding-agent tool call aimed at the folder of
+#: Probe's warm hook hosts, `/tmp/probe-<uid>`: each host's socket and the key a
+#: client must send it before it runs an event (#3355), and the service's own
+#: fallback socket. Placeholders: `{tool}`, `{path}`.
+DENY_REASON_HOOK_HOST = (
+    "`{tool}` would touch {path}, where Probe's hook hosts keep their sockets and the keys that let a hook "
+    "event in, so it was refused before it ran. Only your harness sends Probe's hooks their events. Do not "
+    "touch it, and do not route around this."
+)
+
+def hook_host_dir() -> "str | None":
+    """`/tmp/probe-<uid>` (`hooks/dispatch.py` `host_socket`), or None off POSIX."""
+    getuid = getattr(os, "getuid", None)
+    return os.path.join("/tmp", "probe-%d" % getuid()) if getuid is not None else None
+
+
+def _hook_host_text() -> "re.Pattern | None":
+    """That folder as a command's text names it: THIS user's number (another
+    number, `/tmp/probe-42`, is a researcher's own folder), or the number as
+    the shell spells it (`$(id -u)` and every `id` form with `-u`, the same in
+    backticks, `$UID`, `$EUID`, `${UID}`, `${EUID}`); or one host's socket or
+    key by its own name or a glob of it (`hooks-*.key`, never `hooks-tls.key`
+    or `git-hooks-server.key`). A glob over `/tmp/probe-*` is
+    `_globs_hook_hosts`'."""
+    getuid = getattr(os, "getuid", None)
+    if getuid is None:
+        return None
+    return re.compile(
+        r"/tmp/+probe-(?:%d(?![0-9A-Za-z_.-])"
+        r"|\$\(\s*id\b[^)]*-[A-Za-z]*u[^)]*\)"
+        r"|`\s*id\b[^`]*-[A-Za-z]*u[^`]*`"
+        r"|\$(?:E?UID\b|\{E?UID\}))" % getuid()
+        + r"|(?<![\w.-])hooks-[0-9a-f*?\[\]]{1,16}\.(?:sock|key)\b"
+    )
+
+
+_HOOK_HOST_TEXT = _hook_host_text()
+#: A glob in the folder's place: `/tmp/probe-*`, `/tmp/probe-[0-9]*/`.
+_TMP_PROBE_GLOB = re.compile(r"/tmp/+(probe-[^/\s'\"`;|&()<>]*[*?\[][^/\s'\"`;|&()<>]*)")
+
+
+def _globs_hook_hosts(command: str) -> bool:
+    """Does a glob after `/tmp/` match this user's `probe-<uid>` (`du -sh
+    /tmp/probe-*`)? A glob that cannot (`/tmp/probe-*.pt`) is a researcher's."""
+    getuid = getattr(os, "getuid", None)
+    if getuid is None:
+        return False
+    import fnmatch
+
+    mine = "probe-%d" % getuid()
+    return any(fnmatch.fnmatchcase(mine, found.group(1)) for found in _TMP_PROBE_GLOB.finditer(command))
+
+
+def touches_hook_host(tool_name: object, tool_input: object, cwd: "str | None" = None) -> "str | None":
+    """The hook hosts' folder a coding agent's tool call aims at, or None: a
+    Write/Edit whose file is in it, a Bash command that names it (or one host's
+    socket or key). The same TRIPWIRE as `touches_approvals`, NOT A BOUNDARY: a
+    path built at run time still reaches it. A host runs an event only for a
+    client that sends its key (`hooks/zygote.py`), and the key is in there."""
+    folder = hook_host_dir()
+    if folder is None or not isinstance(tool_input, dict):
+        return None
+    fields = _FILE_WRITE_TOOLS.get(tool_name) if isinstance(tool_name, str) else None
+    if fields is not None:
+        root = os.path.realpath(folder)
+        for field in fields:
+            target = tool_input.get(field)
+            if not isinstance(target, str) or not target:
+                continue
+            path = os.path.expanduser(target)
+            if not os.path.isabs(path) and isinstance(cwd, str) and cwd:
+                path = os.path.join(cwd, path)
+            real = os.path.realpath(path)
+            if real == root or real.startswith(root.rstrip(os.sep) + os.sep):
+                return target
+        return None
+    if tool_name == "Bash":
+        command = tool_input.get("command")
+        if isinstance(command, str) and (
+            (_HOOK_HOST_TEXT is not None and _HOOK_HOST_TEXT.search(command)) or _globs_hook_hosts(command)
+        ):
+            return folder
+    return None
+
+
+# ---------------------------------------------------------------------------
+# THE DAEMON'S WRITE LEASE.
+#
+#   <sessions_dir>/<sid>.writer   JSON, written ONLY by the tap plugin's
+#                                 companion worker (tap/companion_lease.py),
+#                                 read here by the CLI write gate, the hooks
+#                                 and the status line.
+#
+#   {"v": 1, "writer": "daemon", "pid": 123, "expires_at": 1790000000.0,
+#    "renewed_at": 1789999940.0, "reason": null}
+#
+# The STATE says what the researcher wants; the LEASE says whether the daemon is
+# actually doing it. `daemon` + a live lease: the daemon records and the CLI
+# refuses the agent's ambient writes. `daemon` + no live lease (never started,
+# crashed, hung past a cycle, out of budget, unauthorized): DEGRADED, and the
+# agent records exactly as under `full` -- fall back to the agent, never to
+# silence. The worker renews only when a cycle FINISHES in time, so a hung model
+# call lets the lease lapse rather than holding writing hostage.
+#
+# UNREADABLE, MALFORMED, UNKNOWN-VERSION or EXPIRED all read as "no live lease".
+# That is the fail-open direction on purpose: a broken file must hand writing
+# back to the agent, never lock everybody out.
+#
+# The format is a CONTRACT between two packages that cannot import each other;
+# tests/test_companion_lease_contract.py writes it with the worker's writer and
+# reads it with this reader.
+# ---------------------------------------------------------------------------
+
+#: THE DAEMON HANDED WRITING BACK. Injected on the next prompt after the lease
+#: lapses (tracking_guard) -- a dead worker cannot announce its own death, and an
+#: agent told "the daemon records" has no other reason to look -- and at session
+#: start when the daemon cannot run at all (version_check). `{reason}` is a
+#: phrase from `DAEMON_REASON_WORDS`.
+DAEMON_DEGRADED_NOTICE = (
+    "Probe is in the `daemon` state, but the daemon is {reason}, so recording is back with "
+    "you. Record the work as it happens, per `track-work`."
+)
+DAEMON_NOT_STARTED = "not-started"
+DAEMON_REASON_WORDS = {
+    DAEMON_NOT_STARTED: "not running",
+    "expired": "not responding",
+    "stopped": "stopped",
+    "gateway": "unable to reach its model",
+    "budget": "out of budget",
+    "unauthorized": "not authorized",
+    "error": "hitting an error",
+    "disk_full": "out of disk space",
+}
+
+
+#: The worker let go of its lease to hand over (`probe.daemon.lease.REASON_HANDOVER`)
+#: to a new daemon process: an update, the Probe service restarting or
+#: stopping, a resumed session's worker, a session moved to the service. A
+#: successor takes the lease within seconds, so nothing is back with the agent
+#: and it says so: the degraded notice ("the daemon is not running, so
+#: recording is back with you") was false here, and an agent that took it
+#: recorded beside the daemon. One released over DAEMON_HANDOVER_STALE_S ago
+#: (its `renewed_at` is the release time) had no successor: it reads as a
+#: lease that lapsed (`expired`, "not responding"), and the agent records again.
+#: An update holds new workers back while it runs (minutes, for a new CLI):
+#: while that hold or its barrier is up the hand-over is live, and the count
+#: runs from the later of the release and the hold's end (`_update_hold`).
+DAEMON_HANDOVER = "handover"
+DAEMON_HANDOVER_STALE_S = 120.0
+DAEMON_HANDOVER_NOTICE = (
+    "Probe's daemon is handing over to a new daemon process and keeps recording this session. "
+    "Nothing for you to do."
+)
+#: In each of the Probe service's machine folders (`service_root()/<key>`):
+#: the update's hold on new daemon workers (`probe.service.barrier.HOLD_NAME`),
+#: stamped when it ends (`barrier.HOLD_RELEASED_NAME`), and its barrier
+#: (`probe.service.paths.BARRIER_NAME`, also in the root from a service before
+#: the machine key). Older than these they are stale (`barrier.HOLD_MAX_AGE_S`,
+#: `barrier.MAX_AGE_S`). tests/test_daemon_hooks.py holds them equal.
+UPDATE_HOLD_NAME = "workers.hold"
+UPDATE_HOLD_RELEASED_NAME = "workers.released"
+UPDATE_BARRIER_NAME = "update.barrier"
+UPDATE_HOLD_MAX_AGE_S = 45 * 60
+UPDATE_BARRIER_MAX_AGE_S = 15 * 60
+
+
+def service_root() -> Path:
+    """The Probe service's folders (`probe.service.paths.root_dir`):
+    `~/.local/state/probe/service`, never moved by XDG_STATE_HOME; on Windows
+    `%LOCALAPPDATA%\\probe\\service`."""
+    if os.name == "nt":
+        local = os.environ.get("LOCALAPPDATA")
+        base = Path(local) if local else _home() / "AppData" / "Local"
+        return base / "probe" / "service"
+    return _home() / ".local" / "state" / "probe" / "service"
+
+
+def _mtime(path: Path) -> "float | None":
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return None
+
+
+def _update_hold(now: float) -> "tuple[bool, float]":
+    """`(up, ended_at)`: is an update holding new daemon workers back (its hold
+    or its barrier, fresh, in any machine folder of this user's service), and
+    when did the last hold end (0 when never)? Never raises."""
+    try:
+        root = service_root()
+        folders = [root, *(p for p in root.iterdir() if p.is_dir())]
+    except (OSError, RuntimeError):
+        return False, 0.0
+    up, ended = False, 0.0
+    for folder in folders:
+        for name, max_age in ((UPDATE_HOLD_NAME, UPDATE_HOLD_MAX_AGE_S), (UPDATE_BARRIER_NAME, UPDATE_BARRIER_MAX_AGE_S)):
+            at = _mtime(folder / name)
+            if at is not None and now - at < max_age:
+                up = True
+        ended = max(ended, _mtime(folder / UPDATE_HOLD_RELEASED_NAME) or 0.0)
+    return up, ended
+
+
+def daemon_degraded_notice(reason: "str | None") -> str:
+    if reason == DAEMON_HANDOVER:
+        return DAEMON_HANDOVER_NOTICE
+    return DAEMON_DEGRADED_NOTICE.format(reason=DAEMON_REASON_WORDS.get(reason or "", "not running"))
+
+
+def companion_key_held(config: "dict | None" = None) -> bool:
+    """Does the active context hold the daemon's own key (`companion_token`)?
+
+    Without it the worker can never take the lease, so nothing should tell the
+    agent the daemon records. Reads the same file the CLI and the tap do.
+    """
+    data = _read_config() if config is None else config
+    contexts = data.get("contexts")
+    if isinstance(contexts, dict):
+        active = contexts.get(data.get("current_context") or "default")
+        data = active if isinstance(active, dict) else {}
+    value = data.get("companion_token")
+    return isinstance(value, str) and bool(value.strip())
+
+
+LEASE_SUFFIX = ".writer"
+#: The once-per-change record of which handback notice was last shown; the guard
+#: hook and pi's extension share it, so one change is never announced twice.
+NOTIFIED_SUFFIX = ".writer-notified"
+LEASE_VERSION = 1
+DAEMON_LIVE = "live"
+DAEMON_DEGRADED = "degraded"
+
+
+def lease_path(session_id: str) -> Path:
+    return sessions_dir() / (session_id + LEASE_SUFFIX)
+
+
+def read_lease(session_id: str) -> "dict | None":
+    """The lease file's content when it is well-formed, else None. No liveness check."""
+    if not valid_session_id(session_id):
+        return None
+    try:
+        data = json.loads(lease_path(session_id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or data.get("v") != LEASE_VERSION:
+        return None
+    if data.get("writer") != "daemon":
+        return None
+    try:
+        float(data.get("expires_at"))
+    except (TypeError, ValueError):
+        return None
+    return data
+
+
+def lease_live(session_id: str, now: "float | None" = None) -> bool:
+    lease = read_lease(session_id)
+    if lease is None or lease.get("reason"):
+        return False
+    return float(lease["expires_at"]) > (time.time() if now is None else now)
+
+
+def daemon_status(
+    session_id: str, state: "str | None" = None, now: "float | None" = None
+) -> "tuple[str, str | None] | None":
+    """`(live|degraded, reason)` for a session in the `daemon` state, else None.
+
+    `reason` is what the worker recorded when it released the lease
+    (`unauthorized`, `budget`, `gateway`, `stopped`, `handover`), `expired`
+    when the lease simply lapsed (or a hand-over no successor took up within
+    DAEMON_HANDOVER_STALE_S of its release or of the end of the update hold it
+    waited for), or `not-started` when there is no lease at all.
+    """
+    if state is None:
+        state = session_state(session_id)
+    if state != STATE_DAEMON:
+        return None
+    lease = read_lease(session_id)
+    if lease is None:
+        return (DAEMON_DEGRADED, DAEMON_NOT_STARTED)
+    if lease.get("reason") == DAEMON_HANDOVER:
+        try:
+            released = float(lease.get("renewed_at") or lease["expires_at"])
+        except (TypeError, ValueError):
+            released = 0.0
+        at = time.time() if now is None else now
+        if at - released > DAEMON_HANDOVER_STALE_S:
+            up, ended = _update_hold(at)
+            if not up and at - max(released, ended) > DAEMON_HANDOVER_STALE_S:
+                return (DAEMON_DEGRADED, "expired")  # no successor took it up
+    if lease.get("reason"):
+        return (DAEMON_DEGRADED, str(lease["reason"]))
+    if float(lease["expires_at"]) <= (time.time() if now is None else now):
+        return (DAEMON_DEGRADED, "expired")
+    return (DAEMON_LIVE, None)
+
+
+def agent_writes_freely(session_id: str, state: "str | None" = None) -> bool:
+    """May the AGENT make ambient writes in this session right now?
+
+    `full`, and `daemon` whose lease is not live (degraded). Not `read-only`,
+    not `off`, not `daemon` with a live lease -- there the daemon records and the
+    agent writes only what the researcher asks for (`--directed`) and what a run
+    launch needs.
+    """
+    if state is None:
+        state = session_state(session_id)
+    if state == STATE_FULL:
+        return True
+    status = daemon_status(session_id, state)
+    return status is not None and status[0] == DAEMON_DEGRADED
+
+
+def session_state(session_id: str) -> "str | None":
+    """This conversation's state, or None when nobody has decided yet.
+
+    MIGRATION LIVES HERE, and it is the most consequential rule in the switch.
+    A legacy `off` marker was written by somebody who meant "stop recording,
+    keep searching" -- the switch has never gated reads. That is the new
+    `read-only` exactly. Mapping it to the new `off` would retroactively take
+    away reads they never gave up, so it maps to `read-only` and the hard `off`
+    is reachable only from an explicit new-format write.
+
+        .state = full | daemon | read-only | off  ->  that
+        .tracking = "on"                  ->  full
+        .tracking = "off"                 ->  read-only
+        <sid>.off present                 ->  read-only
+        nothing                           ->  None (undecided)
+    """
+    if not valid_session_id(session_id):
+        return None
+    try:
+        raw = state_path(session_id).read_text(encoding="utf-8").strip().lower()
+        if raw in STATES:
+            return raw
+    except OSError:
+        pass
+    # No canonical file: fall back to the legacy spellings and MIGRATE them.
+    # Read those directly rather than through `tracking_signal`, which now
+    # consults `.state` first and would re-walk a file we just missed.
+    legacy = _legacy_tracking_value(session_id)
+    if legacy == "on":
+        return STATE_FULL
+    if legacy == "off":
+        return STATE_READ_ONLY
+    return STATE_READ_ONLY if _legacy_off_path(session_id).is_file() else None
+
+
+def _publish_atomically(path: Path, content: str) -> bool:
+    """Write `content` to `path` so no reader can ever see it half-written.
+
+    A plain `write_text` truncates first, so a concurrent reader -- and there is
+    always one, the status line renders on every turn -- can observe an EMPTY
+    marker and resolve it as "no decision". Write to a unique temp and
+    `os.replace`, which is atomic on POSIX and on Windows.
+
+    `os.replace`, not `os.link`: this is a LAST-WRITER-WINS file, unlike the
+    exclusive publish in `set_session_state_if_absent`, which must fail rather
+    than overwrite.
+    """
+    tmp = "%s.tmp-%d-%d" % (str(path), os.getpid(), time.time_ns())
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = os.open(tmp, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0), 0o600)
+    except OSError:
+        return False
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as fh:
+            fh.write(content)
+        os.replace(tmp, path)
+        return True
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        return False
+
+
+def _write_compat_tracking(session_id: str, state: str) -> None:
+    """Leave older clients a value they cannot misread. Best effort.
+
+    `full` -> on; `read-only` and `off` -> off. Both non-recording states project
+    to `off` because that is the strongest thing a two-valued reader can be told,
+    and it is TRUE of both: neither records. Failure here is not fatal -- the
+    canonical file already landed -- but it is the difference between an old CLI
+    reading an opt-out and an old CLI inventing consent.
+    """
+    if _publish_atomically(
+        tracking_signal_path(session_id), "on\n" if state in RECORDING_STATES else "off\n"
+    ):
+        try:
+            _legacy_off_path(session_id).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _legacy_tracking_value(session_id: str) -> "str | None":
+    """The two-valued file's raw decision, or None. Never consults `.state`."""
+    try:
+        value = tracking_signal_path(session_id).read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return None
+    return value if value in ("on", "off") else None
+
+
+def set_session_state(
+    session_id: str, state: str, now: "float | None" = None, *, explicit: bool = True
+) -> bool:
+    """Record the decision. True when the canonical file now reads `state`.
+
+    Every switch move goes through here, so this is also where an inline stretch
+    (`switch_to_inline`) ends, at `now` (default: the clock): its interval is
+    logged BEFORE the state reopens recording, and a failed log keeps the
+    marker, closed, rather than handing the stretch back to the daemon. When
+    neither can be written the move does not happen (False).
+
+    `explicit` (every caller but automation): the researcher chose it, so the
+    source becomes `explicit`. Automation that only follows a default
+    (`explicit=False`, an `on` session following its profile) keeps a
+    `default` source a default."""
+    if not valid_session_id(session_id) or state not in STATES:
+        return False
+    with _StateLock(session_id):
+        return _set_session_state_locked(session_id, state, now, explicit=explicit)
+
+
+def _set_session_state_locked(session_id: str, state: str, now: "float | None", *, explicit: bool) -> bool:
+    """`set_session_state`'s move, with the session's `_StateLock` already held."""
+    keep = _close_inline(session_id, inline_marker(session_id), now)
+    if keep is None:
+        return False
+    was_default = not explicit and state_source(session_id) == SOURCE_DEFAULT
+    if not _set_state_unlocked(session_id, state):
+        return False
+    if not keep:
+        _remove_inline_marker(session_id)
+    if explicit:
+        _publish_atomically(state_source_path(session_id), SOURCE_EXPLICIT + "\n")
+    elif was_default:
+        # Rewritten AFTER the state, so the source is not older than it.
+        _publish_atomically(state_source_path(session_id), SOURCE_DEFAULT + "\n")
+    return True
+
+
+def lower_session_state(session_id: str, state: str) -> "bool | None":
+    """Move `session_id` to `state` only when its switch is louder than that, read
+    and written under the session's own lock, so a switch the person moves at the
+    same moment is compared against, never overwritten by a louder value (an
+    explicit choice, as `set_session_state`). True: it moved; None: it was not
+    louder (nothing to do); False: the write failed."""
+    if not valid_session_id(session_id) or state not in STATES:
+        return False
+    with _StateLock(session_id):
+        if not louder(session_state(session_id), state):
+            return None
+        return _set_session_state_locked(session_id, state, None, explicit=True) and session_state(session_id) == state
+
+
+def _set_state_unlocked(session_id: str, state: str) -> bool:
+    if not _publish_atomically(state_path(session_id), state + "\n"):
+        return False
+    _write_compat_tracking(session_id, state)
+    return True
+
+
+def daemon_session(session_id: str, source: "str | None" = None) -> bool:
+    """Does the Probe daemon record and read for this session (the wizard's "Who
+    records")? The lean plugin's `<sid>.profile` mark decides when present; without
+    one, the machine's setting for the coding agent (`recorder`) does."""
+    marked = session_profile(session_id)
+    if marked is not None:
+        return marked == RECORDER_DAEMON
+    return recorder(source) == RECORDER_DAEMON if source else False
+
+
+def on_state(session_id: str, source: "str | None" = None) -> str:
+    """What `on` is STORED as in this session: `daemon` where the daemon records
+    (`daemon_session`), else `full`. The one place the switch's `on` meets the
+    wizard's "Who records"."""
+    return STATE_DAEMON if daemon_session(session_id, source) else STATE_FULL
+
+
+def switch_target(session_id: str, state: str, source: "str | None" = None) -> "str | None":
+    """The state a switch move to `state` STORES, or None for a move the switch
+    does not make. `full` is `on` and resolves by `on_state`; `read-only` and
+    `off` are themselves. `daemon` asked for BY NAME is the one refusal (None):
+    the caller answers `DAEMON_SWITCH_REFUSAL`."""
+    if state == STATE_FULL:
+        return on_state(session_id, source)
+    return state if state in SWITCH_STATES else None
+
+
+def seed_state(session_id: str, default: str, source: "str | None" = None) -> str:
+    """The state a NEW session starts at from `default`: `on` (and a `daemon`
+    default stored before the switch lost that position) is stored by who records
+    (`on_state`); `read-only` and `off` are themselves. Every seeding path uses it
+    -- the session-start hook, and `probe session initialize` for pi."""
+    if default in (STATE_FULL, STATE_DAEMON):
+        return on_state(session_id, source)
+    return default
+
+
+def profile_path(session_id: str) -> Path:
+    """`<sid>.profile`: `daemon` when the lean daemon-profile plugin started this
+    session (daemon reads), so a command run OUTSIDE the agent -- `probe session
+    track --session <sid>` from a terminal -- still knows its `on` is `daemon`."""
+    return state_path(session_id).with_suffix(".profile")
+
+
+def session_profile(session_id: str) -> "str | None":
+    if not valid_session_id(session_id):
+        return None
+    try:
+        return profile_path(session_id).read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
+
+
+def mark_session_profile(session_id: str, profile: str) -> None:
+    """Best effort: the lean plugin marks its sessions at SessionStart."""
+    if not valid_session_id(session_id):
+        return
+    path = profile_path(session_id)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name("%s.tmp-%d" % (path.name, os.getpid()))
+        tmp.write_text(profile, encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# WHO SET THE STATE
+# ---------------------------------------------------------------------------
+#
+# Whether the session's state came from a DEFAULT or the researcher chose it
+# (`state_source`; `probe session status` says which). One file beside
+# `<sid>.state`, whose bytes never change:
+#
+#     <sid>.state-source   `explicit` | `default`
+#
+# EXPLICIT is a typed `/probe ...`, `probe session state ...` and the environment
+# override. DEFAULT is the machine's (the
+# wizard's) setting and the shipped one. A MISSING or unreadable source reads
+# explicit: an older client wrote that state, and what we cannot prove was a
+# default is never called one. A `default` older than the state it describes
+# reads explicit too: a writer that does not know this file (an older plugin's
+# guard) moved the state after the seed.
+#
+# An older CLI may have left a `<sid>.auto-pause` beside it (its ML gate's
+# pause): nothing reads it, and `prune` takes it with the session's other files.
+
+STATE_SOURCE_SUFFIX = ".state-source"
+SOURCE_EXPLICIT = "explicit"
+SOURCE_DEFAULT = "default"
+#: How much newer `.state` may be than a `default` source and still be the seed's
+#: own write (the seed claims the source a moment BEFORE it publishes the state).
+_SOURCE_SLACK_S = 2.0
+
+
+def state_source_path(session_id: str) -> Path:
+    return sessions_dir() / (session_id + STATE_SOURCE_SUFFIX)
+
+
+def default_is_explicit(source: str) -> bool:
+    """Is a default `resolve_state_default` resolved (its diagnostic `source`)
+    the researcher's own explicit setting? The environment override is; the
+    machine file and the shipped value are not."""
+    return source == "environment"
+
+
+def seed_source(source: str) -> str:
+    """The source a seed records for a default `resolve_state_default` resolved
+    from `source` (its diagnostic second value)."""
+    return SOURCE_EXPLICIT if default_is_explicit(source) else SOURCE_DEFAULT
+
+
+#: `probe session status`'s word for a session with no source file (an older
+#: client seeded it). It reads explicit everywhere else.
+SOURCE_UNRECORDED = "unrecorded"
+
+
+def state_source_label(session_id: str) -> str:
+    """`state_source`, or `unrecorded` when no source file exists: what
+    `probe session status` prints. Behaviour is unchanged (it counts as explicit)."""
+    if not valid_session_id(session_id) or not state_source_path(session_id).exists():
+        return SOURCE_UNRECORDED
+    return state_source(session_id)
+
+
+def state_source(session_id: str) -> str:
+    """`default` when the session's state is provably a seeded default, else
+    `explicit` (see the block above)."""
+    if not valid_session_id(session_id):
+        return SOURCE_EXPLICIT
+    path = state_source_path(session_id)
+    try:
+        raw = path.read_text(encoding="utf-8").strip()
+        claimed = path.stat().st_mtime
+    except OSError:
+        return SOURCE_EXPLICIT
+    if raw != SOURCE_DEFAULT:
+        return SOURCE_EXPLICIT
+    try:
+        moved = state_path(session_id).stat().st_mtime
+    except OSError:
+        return SOURCE_DEFAULT  # the seed claimed the source and is about to publish
+    return SOURCE_EXPLICIT if moved > claimed + _SOURCE_SLACK_S else SOURCE_DEFAULT
+
+
+def _claim_default_source(session_id: str) -> bool:
+    """The seed claims `default` BEFORE it publishes the state, and only when no
+    source exists yet: an explicit writer that got there first keeps its claim."""
+    path = state_source_path(session_id)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0), 0o600)
+    except OSError:
+        return False
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as fh:
+            fh.write(SOURCE_DEFAULT + "\n")
+        return True
+    except OSError:
+        return False
+
+
+def _drop_source(session_id: str) -> None:
+    try:
+        state_source_path(session_id).unlink()
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# INLINE: the researcher hands Probe to the agent (Richard 2026-10-06)
+# ---------------------------------------------------------------------------
+#
+# `/probe inline`, typed by the researcher in a daemon-profile session, turns
+# the daemon off and lets the agent read and write Probe itself, recording by
+# track-work as written. Reachable from any state; any other switch move ends
+# it. The researcher moves it: a typed prompt, pi's `/probe` command or
+# `probe session state inline` from a terminal -- never a tool call the agent
+# can make (the guard ignores `inline` in a Skill call and refuses every switch
+# command the agent types). The one automatic exception is a trusted daemon
+# model response with HTTP 429/code budget_exhausted (`inline_on_budget`): full
+# daemon becomes full inline, while read-only daemon stays read-only inline.
+# Replaces the agent-initiated takeover of 10-05.
+# In the agent profile `inline` is `on`: the agent already records there.
+#
+# STORED AS `full` PLUS A MARKER. Every gate already reads `full` as "the agent
+# records", and an older copy of this module meeting an unknown state byte would
+# read it as recording anyway, so no new byte. The marker `<sid>.inline` is what
+# makes a `full` inline: a `full` without one (an older CLI's `track`) is NOT
+# inline and opens nothing.
+# The researcher's `/probe inline` (`switch_to_inline`) always stores `full`,
+# from any state: typed in a read-only session it hands the agent writes too, by
+# design (the researcher chose it). Only the budget handoff (`inline_on_budget`)
+# keeps a read-only session read-only: it stores `read-only` with `mode` in the
+# marker, so every write gate keeps refusing writes there.
+#
+#     <sid>.inline      {"from": "daemon" | "read-only" | "off", "since": <epoch s>}
+#                       (+ "mode": "full" | "read-only", "reason": "budget_exhausted"
+#                          for a confirmed quota handoff)
+#                       (+ "until" once closed but not yet logged: see below)
+#     <sid>.inline-log  one {"since", "until", "from"} line per interval that ended
+#
+# The daemon skips the events stamped inside those intervals (`inline_intervals`):
+# the switch's own times, not the moment a worker noticed.
+#
+# ORDER, so a reader that takes no lock never sees an inline state that is not
+# one: entry writes the marker, then the state; leaving logs the interval, then
+# writes the state, then removes the marker. A leave whose log cannot be written
+# keeps the marker, closed (`until`), so the stretch is never handed back to the
+# daemon. Writers take `_StateLock`.
+
+INLINE_WORD = "inline"
+INLINE_SUFFIX = ".inline"
+INLINE_LOG_SUFFIX = ".inline-log"
+INLINE_SHOWN_SUFFIX = ".inline-shown"
+#: The states `/probe inline` is typed from (any; `off` also for no state yet).
+INLINE_FROM = (STATE_DAEMON, STATE_READ_ONLY, STATE_OFF)
+INLINE_DISPLAY = "on (inline)"
+#: The skills an inline agent records by (the main agent's versions), shipped as
+#: plain files in the lean plugin's `inline/` folder (`make sync-daemon-plugin`;
+#: never under `skills/`, which would list them); pi names its own package's.
+INLINE_SKILL_FILES = ("track-work/SKILL.md", "write-summary/SKILL.md", "edit-notes/SKILL.md")
+#: What the agent is told when the researcher switches to inline, and again after
+#: a compaction or resume (Richard's approved text, 2026-10-06). Short on purpose:
+#: Claude Code saves hook context over ~2 KB to a file, so the skills go by path.
+#: `{reads}` is its last sentence, by what this machine's `probe` CLI can do
+#: (`inline_notice`).
+INLINE_NOTICE = (
+    "Probe is `on (inline)` for this conversation: the Probe daemon is off, and you read and "
+    "write Probe yourself with the `probe` CLI, recording the work as it happens. Before "
+    "recording, read the three skills you record by: {track_work}, {write_summary} and {edit_notes}. "
+    "{reads}"
+)
+#: How an inline agent reads where the CLI has the read bridge (`probe mcp tools|call`,
+#: CLI 0.220.0: the hooks' `version_check.INLINE_BRIDGE_MIN_CLI`).
+INLINE_READS = (
+    "This session has no Probe MCP tools: where a skill names one, run `probe mcp tools` to see "
+    "them and `probe mcp call <tool> '<json args>'` to use one."
+)
+#: ...and where the CLI is older, or its version unknown: the plugin and the CLI
+#: update on their own schedules, and naming commands the CLI lacks sends the
+#: agent to `No such command`.
+INLINE_READS_OLD_CLI = (
+    "This session has no Probe MCP tools, and this machine's `probe` CLI is too old to read Probe "
+    "here: ask the researcher to update it (`probe wizard --action update`)."
+)
+
+
+def inline_path(session_id: str) -> Path:
+    return state_path(session_id).with_suffix(INLINE_SUFFIX)
+
+
+def inline_log_path(session_id: str) -> Path:
+    return state_path(session_id).with_suffix(INLINE_LOG_SUFFIX)
+
+
+def _state_lock_path(session_id: str) -> Path:
+    return state_path(session_id).with_suffix(".lock")
+
+
+class _StateLock:
+    """One per-session lock around every state move: a switch re-reads the
+    state inside it, so two moves landing the same instant apply one after the
+    other. It waits: a move made unlocked after a timeout could be overwritten
+    by the very move it waited for. Any process of the same user can still
+    write the files directly; this orders Probe's own writers. No flock
+    provider (`_fcntl`) or no lock file: unlocked, as every move was before."""
+
+    def __init__(self, session_id: str, path: "Path | None" = None) -> None:
+        self.session_id = session_id
+        #: Another file to lock instead (one small record of the session's own).
+        self.path = path
+        self.fd: "int | None" = None
+
+    def __enter__(self) -> "_StateLock":
+        module = _fcntl()
+        if module is None:
+            return self
+        try:
+            path = self.path or _state_lock_path(self.session_id)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.fd = os.open(str(path), os.O_CREAT | os.O_RDWR, 0o600)
+            module.flock(self.fd, module.LOCK_EX)
+        except OSError:
+            self._close()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._close()
+
+    def _close(self) -> None:
+        if self.fd is not None:
+            try:
+                os.close(self.fd)
+            except OSError:
+                pass
+            self.fd = None
+
+
+def _finite(value: object) -> "float | None":
+    """A finite number, or None: a marker or log line is read as data, and an
+    `Infinity` there would hand every event of the session to nobody."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if math.isfinite(value) else None
+
+
+def inline_marker(session_id: str) -> "dict | None":
+    """The marker (`{"from", "since"}`, plus `"until"` when closed but not yet
+    logged), or None. A malformed one is None."""
+    if not valid_session_id(session_id):
+        return None
+    try:
+        data = json.loads(inline_path(session_id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or data.get("from") not in INLINE_FROM:
+        return None
+    since = _finite(data.get("since"))
+    if since is None:
+        return None
+    marker: dict = {"from": data["from"], "since": since}
+    if "mode" in data:
+        if data["mode"] not in (STATE_FULL, STATE_READ_ONLY):
+            return None
+        marker["mode"] = data["mode"]
+    if data.get("reason") == "budget_exhausted":
+        marker["reason"] = "budget_exhausted"
+    if "until" in data:
+        until = _finite(data.get("until"))
+        if until is None or until < since:
+            return None
+        marker["until"] = until
+    return marker
+
+
+def _open_marker(session_id: str, state: "str | None" = None) -> "dict | None":
+    """The marker of the stretch the session is in now, or None: the state is
+    the marker's mode (`full` by default), the session is the daemon's, and the marker is
+    open (no `until`). One read of each file; the guard asks before every call."""
+    if state is None:
+        state = session_state(session_id)
+    if state not in (STATE_FULL, STATE_READ_ONLY) or session_profile(session_id) != RECORDER_DAEMON:
+        return None
+    marker = inline_marker(session_id)
+    return marker if marker is not None and "until" not in marker and marker.get("mode", STATE_FULL) == state else None
+
+
+def is_inline(session_id: str, state: "str | None" = None) -> bool:
+    """Is manual or trusted confirmed-quota inline active? See `_open_marker`."""
+    return _open_marker(session_id, state) is not None
+
+
+def switch_to_inline(session_id: str, now: "float | None" = None) -> bool:
+    """The researcher's `/probe inline` (never the agent's: callers only reach
+    this from a typed prompt, pi's command or a terminal). True when the session
+    is inline (in the agent profile: `on`) afterwards. In a daemon-profile
+    session: the marker (`from` the state before, `off` when there was none),
+    then `full`; a session already inline stays. A stretch closed earlier whose
+    log could not be written is logged first, or nothing moves: overwriting its
+    marker would hand that stretch back to the daemon."""
+    if not valid_session_id(session_id):
+        return False
+    if session_profile(session_id) != RECORDER_DAEMON:
+        return set_session_state(session_id, STATE_FULL, now)
+    with _StateLock(session_id):
+        state = session_state(session_id)
+        if is_inline(session_id, state) and state == STATE_FULL:
+            return True
+        stale = inline_marker(session_id)
+        if stale is not None and "until" not in stale and is_inline(session_id, state):
+            if _close_inline(session_id, stale, now) is not False:
+                return False
+        if stale is not None and "until" in stale and not _log_inline_interval(session_id, stale, stale["until"]):
+            return False
+        at = time.time() if now is None else now
+        prior = state if state in INLINE_FROM else STATE_OFF
+        if not _publish_atomically(inline_path(session_id), json.dumps({"from": prior, "since": at}) + "\n"):
+            return False
+        if not _set_state_unlocked(session_id, STATE_FULL):
+            _remove_inline_marker(session_id)
+            return False
+    return True
+
+
+def inline_on_budget(session_id: str, expected_state: str, now: "float | None" = None) -> bool:
+    """Trusted daemon handoff after a structured monthly-quota refusal.
+
+    Never a CLI/agent switch door. The worker classifies the refusal first;
+    this atomic compare-and-set preserves a concurrent explicit read/off move,
+    the configured recorder and machine defaults. Read-only stays read-only.
+    """
+    if not valid_session_id(session_id) or expected_state not in (STATE_DAEMON, STATE_READ_ONLY):
+        return False
+    with _StateLock(session_id):
+        if session_profile(session_id) != RECORDER_DAEMON or session_state(session_id) != expected_state:
+            return False
+        if is_inline(session_id, expected_state):
+            return True
+        stale = inline_marker(session_id)
+        if stale is not None and "until" in stale and not _log_inline_interval(session_id, stale, stale["until"]):
+            return False
+        target = STATE_FULL if expected_state == STATE_DAEMON else STATE_READ_ONLY
+        at = time.time() if now is None else now
+        marker = {"from": expected_state, "since": at, "mode": target, "reason": "budget_exhausted"}
+        if not _publish_atomically(inline_path(session_id), json.dumps(marker) + "\n"):
+            return False
+        if not _set_state_unlocked(session_id, target):
+            _remove_inline_marker(session_id)
+            return False
+        return True
+
+
+def _close_inline(session_id: str, marker: "dict | None", now: "float | None") -> "bool | None":
+    """Before a switch moves away: log the stretch the session is in, or retry
+    one closed earlier. True when the marker must STAY (its interval could not be
+    logged: an open one is rewritten closed, so the daemon still skips the
+    stretch), False when it can go, None when neither the log nor the closed
+    marker could be written (the move must not happen).
+
+    Open means open whatever the profile says now: pi rewrites `<sid>.profile` on
+    every start, and a stretch must not lose its log to that."""
+    if marker is None:
+        return False
+    if "until" in marker:
+        return not _log_inline_interval(session_id, marker, marker["until"])
+    if session_state(session_id) != marker.get("mode", STATE_FULL):
+        return False  # a crashed entry: the marker beside another state claims nothing
+    if _log_inline_interval(session_id, marker, now):
+        return False
+    closed = {**marker, "until": time.time() if now is None else now}
+    return True if _publish_atomically(inline_path(session_id), json.dumps(closed) + "\n") else None
+
+
+def _log_inline_interval(session_id: str, marker: dict, now: "float | None") -> bool:
+    """Append `{"since", "until", "from"}` to the interval log. True when the
+    whole line landed."""
+    until = time.time() if now is None else now
+    # A leading newline too: a row torn by an earlier short write stays on a line
+    # of its own (unreadable, skipped) instead of swallowing this one.
+    data = ("\n" + json.dumps({"since": marker["since"], "until": until, "from": marker["from"]}) + "\n").encode("utf-8")
+    try:
+        fd = os.open(str(inline_log_path(session_id)), os.O_CREAT | os.O_WRONLY | os.O_APPEND, 0o600)
+        try:
+            return os.write(fd, data) == len(data)
+        finally:
+            os.close(fd)
+    except OSError:
+        return False
+
+
+def _remove_inline_marker(session_id: str) -> None:
+    try:
+        inline_path(session_id).unlink()
+    except OSError:
+        pass
+
+
+def inline_intervals(session_id: str) -> "list[tuple[float, float | None]]":
+    """Every manual or trusted confirmed-quota inline stretch in this session,
+    `(since, until)` in epoch seconds, the open one first with `until` None. The
+    daemon leaves the events stamped inside them to the agent.
+
+    The OPEN one is read FIRST: leaving logs the interval before it moves the
+    state, so whichever side of a move this read lands on, the stretch is in one
+    of the two answers. A marker kept closed (its log failed) counts too."""
+    out: "list[tuple[float, float | None]]" = []
+    if not valid_session_id(session_id):
+        return out
+    marker = inline_marker(session_id)
+    if marker is not None and "until" not in marker:
+        if is_inline(session_id):
+            out.append((marker["since"], None))
+        else:
+            # Not inline (any more): a leave whose log failed closes the marker
+            # before it moves the state, so read it again; a logged leave is in
+            # the log, read below.
+            marker = inline_marker(session_id)
+            if marker is not None and "until" in marker:
+                out.append((marker["since"], marker["until"]))
+    elif marker is not None:
+        out.append((marker["since"], marker["until"]))
+    try:
+        lines = inline_log_path(session_id).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        lines = []
+    for line in lines:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        since = _finite(row.get("since")) if isinstance(row, dict) else None
+        until = _finite(row.get("until")) if isinstance(row, dict) else None
+        if since is not None and until is not None and since <= until:
+            out.append((since, until))
+    return out
+
+
+def inline_notice(
+    track_work: "str | Path", write_summary: "str | Path", edit_notes: "str | Path", *, bridge: bool,
+    read_only: bool = False, budget: bool = False,
+) -> str:
+    """`INLINE_NOTICE` naming the skill files the agent records by, in
+    `INLINE_SKILL_FILES` order; `bridge`:
+    this machine's CLI has `probe mcp tools|call` (`INLINE_READS`), else it is
+    too old to read Probe inline (`INLINE_READS_OLD_CLI`)."""
+    reads = INLINE_READS if bridge else INLINE_READS_OLD_CLI
+    prefix = "The team's free daemon allowance is exhausted. Probe switched to inline automatically. " if budget else ""
+    if read_only:
+        return prefix + ("Probe is `read only (inline)` for this conversation: the daemon is off, and you read "
+                         "Probe yourself. Record nothing new; the researcher's read-only choice stays in effect. " + reads)
+    return prefix + INLINE_NOTICE.format(
+        track_work=track_work, write_summary=write_summary, edit_notes=edit_notes, reads=reads
+    )
+
+
+def _inline_shown_path(session_id: str) -> Path:
+    return state_path(session_id).with_suffix(INLINE_SHOWN_SUFFIX)
+
+
+def inline_notice_due(session_id: str) -> "float | None":
+    """The stretch's `since` when the session is inline and the agent has not
+    been told about THIS stretch, else None. Once per stretch, so a researcher's
+    switch from a terminal or pi reaches the agent at its next chance."""
+    marker = _open_marker(session_id)
+    if marker is None:
+        return None
+    try:
+        shown = float(_inline_shown_path(session_id).read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        shown = None
+    # Compared as numbers: pi's extension writes this file too, in its own spelling.
+    return None if shown == marker["since"] else marker["since"]
+
+
+def mark_inline_shown(session_id: str, since: float) -> None:
+    """Best effort: the agent was told about the stretch that began at `since`."""
+    _publish_atomically(_inline_shown_path(session_id), repr(since) + "\n")
+
+
+def forget_inline_shown(session_id: str) -> None:
+    """A compaction or resume took the notice, and the skills sent after it,
+    out of the agent's context: the next chance tells it again."""
+    for path in (_inline_shown_path(session_id), _inline_skills_path(session_id)):
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# THE SKILLS, WHOLE (notes parity N1, 2026-10-28)
+# ---------------------------------------------------------------------------
+#
+# The daemon's writer reads the three skills it records by whole in every run
+# (`daemon/bite.py` SHARED_SKILLS); an inline agent was only told where they
+# are, and one read track-work and never edit-notes. So an inline agent gets
+# the same text the daemon's loader renders for a main agent
+# (`bite.skills_text(SHARED_SKILLS, reader="main-agent")`), from the plugin's
+# `inline/` copies. Claude Code saves hook context over 10,000 characters to a
+# file and shows 2,000 of it, and Codex any over ~2,500 tokens, so it goes in
+# parts of at most INLINE_SKILLS_PART_CHARS, one per hook event that reaches the
+# model, from the inline notice on. `<sid>.inline-skills` holds
+# `{"since": <the stretch's since>, "next": <part>, "of": <parts>}`; a new stretch, a
+# compaction or a resume starts again at part 1 (`forget_inline_shown`).
+# Never in `read only (inline)`: the skills are how to record.
+
+INLINE_SKILLS_SUFFIX = ".inline-skills"
+INLINE_SKILLS_PART_CHARS = 7_000
+INLINE_SKILLS_PART = "Probe skills you record by (part {n} of {of}{more}):\n\n{text}"
+
+
+def _inline_skills_path(session_id: str) -> Path:
+    return state_path(session_id).with_suffix(INLINE_SKILLS_SUFFIX)
+
+
+def _skill_body(text: str) -> str:
+    """A SKILL.md without its front matter (`skill_versions.split_front_matter`)."""
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end >= 0:
+            cut = text.find("\n", end + 1)
+            text = text[cut + 1:] if cut >= 0 else ""
+    return text.strip()
+
+
+def inline_skills_text(root: "str | Path") -> str:
+    """The skills in INLINE_SKILL_FILES under `root`, as the daemon's loader
+    joins them (`bite.skills_text`); "" when none can be read."""
+    out = []
+    for name in INLINE_SKILL_FILES:
+        try:
+            text = (Path(root) / name).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        out.append(f"# Skill: {name.split('/', 1)[0]}\n\n{_skill_body(text)}")
+    return "\n\n".join(out)
+
+
+def split_parts(text: str, limit: int = INLINE_SKILLS_PART_CHARS) -> "list[str]":
+    """`text` in pieces of at most `limit` characters that join back into it,
+    cut before a heading where one fits, else at a blank line, else at a line."""
+    parts: "list[str]" = []
+    while len(text) > limit:
+        window = text[: limit + 1]
+        cut = max(window.rfind("\n#"), 0) or max(window.rfind("\n\n"), 0) or max(window.rfind("\n"), 0)
+        if cut <= limit // 4:
+            cut = max(window.rfind("\n\n"), window.rfind("\n"))
+        cut = cut + 1 if cut > 0 else limit
+        parts.append(text[:cut])
+        text = text[cut:]
+    if text:
+        parts.append(text)
+    return parts
+
+
+def next_inline_skills_part(session_id: str, root: "str | Path") -> "str | None":
+    """The next part of the skills for a full inline session (`is_inline`, not
+    read-only), wrapped in INLINE_SKILLS_PART, and marked sent; None when every
+    part went or there is none."""
+    marker = _open_marker(session_id)
+    if marker is None or marker.get("mode", STATE_FULL) != STATE_FULL:
+        return None
+    path = _inline_skills_path(session_id)
+    # Locked: parallel tool calls each run this hook, and both reading part 2
+    # as next would send it twice.
+    with _StateLock(session_id, path.with_suffix(INLINE_SKILLS_SUFFIX + "-lock")):
+        try:
+            sent = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            sent = {}
+        if not (isinstance(sent, dict) and sent.get("since") == marker["since"]):
+            sent = {}
+        index, total = sent.get("next"), sent.get("of")
+        index = index if isinstance(index, int) and not isinstance(index, bool) and index >= 0 else 0
+        if isinstance(total, int) and index >= total:
+            return None  # all sent: the skill files are not read again
+        parts = split_parts(inline_skills_text(root))
+        if index >= len(parts):
+            return None
+        if not _publish_atomically(path, json.dumps({"since": marker["since"], "next": index + 1,
+                                                     "of": len(parts)}) + "\n"):
+            return None
+    more = ", the rest comes with your next steps" if index + 1 < len(parts) else ""
+    return INLINE_SKILLS_PART.format(n=index + 1, of=len(parts), more=more, text=parts[index].strip("\n"))
+
+
+# ---------------------------------------------------------------------------
+# WHAT THE SESSION OWES (notes parity N3)
+# ---------------------------------------------------------------------------
+#
+# The CLI keeps it (`probe.cli.owed`); the end-of-turn hooks read only whether
+# the agent's own items are there before asking the CLI (`probe session owed
+# --send-back`). Only a CLI that has that command writes the file.
+
+OWED_DIRNAME = "owed"
+#: How many times an inline agent is sent back for one item, per session (`owed.MAX_ASKS`).
+OWED_MAX_ASKS = 2
+#: Where a summary checkout or push leaves the team's summaries mode
+#: (`summary_cli.MODE_FILE`, `{"mode", "at", "server"}`), and how long it stands.
+SUMMARIES_MODE_FILE = ("summaries", "mode.json")
+SUMMARIES_MODE_TTL_S = 24 * 3600
+
+
+def owed_path(session_id: str) -> Path:
+    return state_dir() / OWED_DIRNAME / f"{session_id}.json"
+
+
+def seen_recorder_mode() -> bool:
+    """Did this machine last see the team's summaries in recorder mode, within
+    the TTL? (Any server: `summary_cli.seen_mode` also matches the server.)"""
+    try:
+        seen = json.loads(state_dir().joinpath(*SUMMARIES_MODE_FILE).read_text(encoding="utf-8"))
+        return (isinstance(seen, dict) and seen.get("mode") == "recorder"
+                and time.time() - float(seen.get("at") or 0) < SUMMARIES_MODE_TTL_S)
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def agent_owes(session_id: str) -> bool:
+    """Could `probe session owed --send-back` say anything now? An item of the
+    agent's own (not the daemon's) asked about fewer than OWED_MAX_ASKS times,
+    a summary only while recorder mode was seen: an exhausted ledger starts no
+    CLI at the end of every turn."""
+    if not valid_session_id(session_id):
+        return False
+    try:
+        data = json.loads(owed_path(session_id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    items = data.get("items") if isinstance(data, dict) else None
+    asks = data.get("asks") if isinstance(data, dict) and isinstance(data.get("asks"), dict) else {}
+    if not isinstance(items, list):
+        return False
+    recorder = None
+    for item in items:
+        if not (isinstance(item, dict) and item.get("by") == "agent"):
+            continue
+        count = asks.get(f"{item.get('why')} {item.get('kind')} {item.get('ref')}", 0)
+        if isinstance(count, int) and count >= OWED_MAX_ASKS:
+            continue
+        if item.get("why") == "summary":
+            recorder = seen_recorder_mode() if recorder is None else recorder
+            if not recorder:
+                continue
+        return True
+    return False
+
+
+def set_session_state_if_absent(
+    session_id: str, state: str, *, source: "str | None" = None
+) -> bool:
+    """Seed the STARTING state, only when nobody has decided. True when we did.
+
+    `source`: who decided the default (`SOURCE_DEFAULT` for the machine's or the
+    shipped one, `SOURCE_EXPLICIT` for the environment's or a folder's,
+    `default_is_explicit`). None writes no source file, which reads explicit:
+    a caller that does not know never labels the session's state a default. A
+    `default` is claimed BEFORE the state is published and dropped again when
+    the seed loses, so an explicit write never ends up labelled a default.
+
+    Exclusive by construction, exactly as `set_tracking_if_absent` is and for the
+    same reasons -- see that docstring for why `os.link` rather than a
+    check-then-write, and why the temp name carries pid AND a nanosecond stamp.
+    The legacy spellings are re-checked after publishing for the same reason too:
+    an old client writing `<sid>.off` between the read and the publish must not
+    be overridden by automation.
+    """
+    if not valid_session_id(session_id) or state not in STATES:
+        return False
+    if session_state(session_id) is not None:
+        return False
+    claimed = source == SOURCE_DEFAULT and _claim_default_source(session_id)
+    seeded = _seed_state_unlocked(session_id, state)
+    if seeded and source == SOURCE_EXPLICIT:
+        _publish_atomically(state_source_path(session_id), SOURCE_EXPLICIT + "\n")
+    elif claimed and not seeded:
+        _drop_source(session_id)
+    return seeded
+
+
+def _seed_state_unlocked(session_id: str, state: str) -> bool:
+    """`set_session_state_if_absent`'s exclusive publish (its docstring)."""
+    path = state_path(session_id)
+    tmp_path = "%s.tmp-%d-%d" % (str(path), os.getpid(), time.time_ns())
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = os.open(tmp_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0), 0o600)
+    except OSError:
+        return False
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as fh:
+            fh.write(state + "\n")
+        try:
+            os.link(tmp_path, path)
+        except OSError:
+            return False  # EEXIST: someone decided between the read and the publish
+        # BOTH LEGACY SPELLINGS ARE RE-CHECKED AFTER PUBLISHING, and the second
+        # one is new with this file. `os.link` arbitrates `<sid>.state` only, so
+        # a decision that landed in either older spelling between our read and
+        # our publish would otherwise be overwritten by the compat write below --
+        # automation silently overriding an explicit opt-out, which is the one
+        # thing this must never do. Losing that race is repaired by removing what
+        # we just published, not by keeping it.
+        try:
+            published = path.read_text(encoding="utf-8").strip().lower()
+        except OSError:
+            published = ""
+        if published != state:
+            # A NEWER WRITER took the canonical file. `os.link` refuses to
+            # replace, but `set_session_state` publishes with `os.replace`,
+            # which does, so what is on disk is now somebody's explicit
+            # decision. Leave it and report that we did not decide. Deleting
+            # here is how a seed erased an explicit `off` that had landed a
+            # microsecond earlier, leaving only its compat file to migrate back
+            # to read-only and silently reopen reads the researcher had closed.
+            return False
+        legacy = _legacy_tracking_value(session_id)
+        expected = "on" if state in RECORDING_STATES else "off"
+        if _legacy_off_path(session_id).is_file() or (
+            legacy is not None and legacy != expected
+        ):
+            # An OLDER CLIENT wrote a legacy opt-out while we were publishing.
+            # Only a value that DISAGREES counts: the one we are about to write
+            # ourselves agrees by construction.
+            path.unlink(missing_ok=True)
+            return False
+        _write_compat_tracking(session_id, state)
+        return True
+    except OSError:
+        return False
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
+def notify_flag_path() -> Path:
+    """Opt-in marker for the change NOTICE, the Codex-shaped half of this feature.
+
+    Codex has no surface a computed segment can render into — its status line is a
+    picker over built-in items — so the same information is delivered as a message
+    when it CHANGES instead of as a line that is always there. Enabling that is
+    still opt-in, and this file is the opt-in, exactly as the install directory is
+    for the status line.
+
+    In the probe state dir rather than under either agent's config: one flag, read
+    by a hook that both agents load, and it outlives a reinstall of either.
+    """
+    return state_dir() / "statusline-notify"
+
+
+def notify_enabled() -> bool:
+    return notify_flag_path().is_file()
+
+
+def state_key(state: dict | None, *, live: bool) -> str:
+    """What "changed" MEANS, as one comparable string.
+
+    Only the two things the notice actually reports. `updated_at` moves on every
+    refresh and `run_ids` churns as runs come and go, so comparing whole markers
+    would fire a notice several times a minute while nothing a reader cares about
+    had changed.
+    """
+    project = state.get("project") if isinstance(state, dict) else None
+    if not (isinstance(project, str) and project):
+        return "untracked"
+    return f"{project}|{'running' if live else 'idle'}"
+
+
+def _capture_reason(state: dict | None) -> str:
+    """Why no transcript daemon is watching this session, or `""` for silence.
+
+    The marker's `capture` object is written by the background refresh hook, and
+    the reason is one of the closed vocabulary in `probe.cli.capture_state`.
+    SILENCE IS THE DEFAULT, and deliberately so: a marker written by an older
+    refresh hook carries no `capture` key at all, and every shape this function
+    does not recognise — a missing key, a null, a non-string reason, a `running`
+    that is not exactly `False` — means nobody measured anything. Rendering a
+    guess there would put a fabricated diagnosis on somebody's status line.
+
+    A multi-line reason is refused rather than flattened: the one thing the
+    segment may never do is emit a newline, and a reason that needs two lines is
+    not a reason this vocabulary produced.
+
+    Shared by `render` and `message` so the two surfaces cannot come to disagree
+    about when capture is missing.
+    """
+    capture = state.get("capture") if isinstance(state, dict) else None
+    if not isinstance(capture, dict) or capture.get("running") is not False:
+        return ""
+    reason = capture.get("reason")
+    if not (isinstance(reason, str) and reason) or "\n" in reason or "\r" in reason:
+        return ""
+    return reason
+
+
+def message(state: dict | None, *, live: bool = False, tracking: bool = True) -> str:
+    """One line for an agent with no status line to hang a segment on.
+
+    Built from the same labels the segment uses, so the two surfaces cannot drift
+    into describing the same state differently. No colour and no glyph: this is a
+    sentence in a transcript, not a mark on a line.
+
+    `tracking` defaults to True because that is the only state this notice has
+    ever been emitted in — `statusline_notify.py` reaches here having already
+    resolved the switch. It is a parameter rather than an assumption so a caller
+    that has NOT resolved it cannot accidentally claim a capture failure matters
+    to a session that is recording nothing.
+
+    NO WIDTH CAP HERE, unlike `render`. This is a sentence in a transcript, which
+    wraps harmlessly; the segment shares one line with strangers, which does not.
+    """
+    project = state.get("project") if isinstance(state, dict) else None
+    if not (isinstance(project, str) and project):
+        return "Probe: this session is not tracked yet."
+    text = "Probe: " + _LABEL_TRACKED + project
+    if live:
+        text += _ACCENT_TEXT
+    reason = _capture_reason(state) if tracking else ""
+    if reason == _CHOSEN_OFF_REASON:
+        text += "; session transcripts are turned off"
+    elif reason:
+        text += ", but not capturing session transcript: " + reason
+    return text
+
+
+def read_notified(session_id: str) -> str | None:
+    """The state key this session was last told about, or None."""
+    if not valid_session_id(session_id):
+        return None
+    try:
+        return (sessions_dir() / (session_id + ".notified")).read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+
+
+def write_notified(session_id: str, key: str) -> None:
+    """Record what we just said. Never raises.
+
+    Written AFTER the message is emitted rather than before: a crash between the
+    two costs a repeated notice, which is a great deal better than a silent one
+    the reader never sees.
+    """
+    if not valid_session_id(session_id):
+        return
+    path = sessions_dir() / (session_id + ".notified")
+    tmp = path.parent / (path.name + "." + str(os.getpid()) + ".tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(key, encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
+#: Ships ON. Tracking is the default posture: a session is tracked unless
+#: somebody said otherwise, which is what stops tracking from depending on
+#: anyone remembering to ask for it.
+DEFAULT_TRACKING = True
+
+#: Where a researcher's own default lives in the config file. TOP LEVEL, never
+#: inside a context: `sdk.config.clear_context` replaces a context wholesale
+#: (`contexts[name] = {}`, a deliberate fail-closed wipe), so a preference
+#: stored there would be erased by signing out and tracking would silently
+#: come back on. It would also make the default follow whichever TENANT is
+#: selected, which is not what "all my sessions" means.
+DEFAULTS_KEY = "defaults"
+TRACKING_DEFAULT_KEY = "session_tracking"
+
+#: The THREE-VALUED default, in its own key beside the two-valued one.
+#:
+#: A separate key, not a widened vocabulary in the old one, and the reason is
+#: the same collision the flip claim hit: `session_tracking: "off"` was written
+#: when `off` meant "stop recording, keep searching". That is `read-only` now.
+#: Reading the new hard `off` out of that key would silently take reads away
+#: from every folder and machine already configured -- the exact migration
+#: mistake `session_state` refuses to make for a session marker.
+#:
+#: So writers write BOTH: this key three-valued, the old one as the safe
+#: two-valued projection for clients that only know it. Readers prefer this one
+#: and fall back to the old one THROUGH the legacy mapping.
+STATE_DEFAULT_KEY = "session_state"
+
+#: The spellings `default_tracking` recognizes, exported so the ONE other
+#: surface that reasons about the env override (the wizard's settings screen)
+#: cannot drift from the parser: a value outside both sets is IGNORED, and a
+#: screen that calls it an override anyway misdiagnoses a typo.
+TRACKING_OFF_VALUES = ("off", "0", "false", "no", "disabled")
+TRACKING_ON_VALUES = ("on", "1", "true", "yes", "enabled")
+
+#: The third set, exported beside the other two so the wizard and the CLI cannot
+#: drift from this parser. Five spellings for one state looks generous until you
+#: remember the failure mode: an unrecognized value resolves to `full`, so a
+#: researcher who typed `readonly` and got recorded anyway would have no way to
+#: tell a typo from a bug. `read` leads because it is the word this version
+#: PRINTS (STATE_LABELS); the hyphenated spellings are what it is stored as and
+#: what earlier versions taught people to type, and both keep working.
+TRACKING_READ_ONLY_VALUES = ("read", "read-only", "readonly", "read_only", "ro")
+
+# Folder configs are repository-controlled settings, never data blobs. Their bound
+# protects startup/status paths from devices and giant files before JSON parsing can
+# fail soft. Machine configs remain size-unbounded for backwards compatibility.
+
+
+def _parse_tracking_value(value: object) -> bool | None:
+    """A recognized stored/env tracking value, or None when it is unknown."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in TRACKING_OFF_VALUES:
+            return False
+        if normalized in TRACKING_ON_VALUES:
+            return True
+    return None
+
+
+def _read_config_text(
+    path: Path,
+    *,
+    require_regular: bool = False,
+    max_bytes: int | None = None,
+) -> str:
+    """Read a machine config normally or a folder config through a validated fd."""
+    if not require_regular:
+        return path.read_text(encoding="utf-8")
+
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_BINARY", 0)
+    fd = os.open(path, flags)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError(f"{path} is not a regular file")
+        if max_bytes is not None and info.st_size > max_bytes:
+            raise ValueError(f"{path} exceeds the {max_bytes}-byte size limit")
+        chunks: list[bytes] = []
+        remaining = None if max_bytes is None else max_bytes + 1
+        while remaining is None or remaining:
+            chunk = os.read(fd, 16 * 1024 if remaining is None else min(16 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            if remaining is not None:
+                remaining -= len(chunk)
+        raw = b"".join(chunks)
+        if max_bytes is not None and len(raw) > max_bytes:
+            raise ValueError(f"{path} exceeds the {max_bytes}-byte size limit")
+        return raw.decode("utf-8")
+    finally:
+        os.close(fd)
+
+
+def _read_config() -> dict:
+    """The config file as a dict, or `{}`. ONE parse, two answers.
+
+    `configured()` and `default_tracking()` both need this file, and it is read
+    on every status-line render, so parsing it twice would double the only I/O
+    on that path. Small enough that the cost is the interpreter, not the file:
+    measured at ~0.018ms to open and parse a realistic config.
+    """
+    try:
+        data = json.loads(_read_config_text(config_path()))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def tracking_env_override() -> bool | None:
+    """The RECOGNIZED `PROBE_SESSION_TRACKING` value, or None.
+
+    None covers both "unset" and "unrecognized" -- a typo is ignored, never
+    read as `off` (see `default_tracking`). Split out so a writer can ask
+    "is the env holding this setting down?" without re-implementing the
+    parse: while a recognized override is active, toggling the STORED default
+    from the effective value writes `not env` into the file invisibly, and
+    the stored value can never be set equal to the env's -- the wizard hides
+    its toggle row on this answer instead.
+    """
+    # BOTH VARIABLES, PROJECTED. The three-valued reader has its own
+    # `state_env_override`, but half this codebase still asks the boolean
+    # question -- the status-line refresh, the capture check, the wizard's
+    # settings screen. If `PROBE_SESSION_STATE=off` were invisible here, those
+    # surfaces would keep behaving as though the session were recording while
+    # the guard refused every write: one setting, two answers, nothing saying
+    # which is winning. That is the exact failure this pair of functions exists
+    # to prevent, so the projection happens once, here.
+    explicit = normalize_state(os.environ.get("PROBE_SESSION_STATE"))
+    if explicit is not None:
+        return explicit in RECORDING_STATES
+    return _parse_tracking_value(os.environ.get("PROBE_SESSION_TRACKING"))
+
+
+def _tracking_value(data: dict) -> bool | None:
+    """The stored default as a BOOLEAN, from whichever key carries it.
+
+    Writers put both keys down, so the old one is normally enough. This reads
+    the new one as a fallback for the config somebody edited BY HAND -- setting
+    `session_state` alone is the obvious thing to do once it is documented, and
+    without this fallback that edit would move the guard and leave the status
+    line, the capture check and the wizard reading the shipped default.
+    """
+    defaults = data.get(DEFAULTS_KEY)
+    if not isinstance(defaults, dict):
+        return None
+    value = _parse_tracking_value(defaults.get(TRACKING_DEFAULT_KEY))
+    if value is not None:
+        return value
+    state = normalize_state(defaults.get(STATE_DEFAULT_KEY))
+    return None if state is None else state in RECORDING_STATES
+
+
+def default_tracking(config: dict | None = None) -> bool:
+    """This machine's default for sessions nobody has decided about.
+
+    `PROBE_SESSION_TRACKING` wins, matching the env-beats-file rule the rest of
+    the client follows -- but it is an OVERRIDE and never the home for this
+    setting. A dock-launched Claude Code sources no shell profile, so a default
+    exported from a shell rc applies in a terminal session and not in a
+    dock-launched one: the same setting, two answers, which is worse than having
+    no setting at all.
+
+    Anything unrecognised reads as the shipped default rather than as `off`. A
+    typo in a config file must not silently stop recording someone's research.
+    """
+    override = tracking_env_override()
+    if override is not None:
+        return override
+    data = _read_config() if config is None else config
+    value = _tracking_value(data)
+    return DEFAULT_TRACKING if value is None else value
+
+
+def state_env_override(environ: "dict[str, str] | None" = None) -> "str | None":
+    """The RECOGNIZED `PROBE_SESSION_TRACKING` value as a state, or None.
+
+    Same variable as the boolean override, widened. Keeping one variable matters
+    more than the tidiness of a second: a machine that exported the old name and
+    a machine that exported a new one would disagree about the same setting, and
+    nothing would say which was winning.
+
+    `environ`: another environment to read (`harness_launch_environ`), else this
+    process's own.
+    """
+    env = os.environ if environ is None else environ
+    explicit = normalize_state(env.get("PROBE_SESSION_STATE"))
+    if explicit is not None:
+        return explicit
+    # The old variable, read as what it meant when it was the only one.
+    return _legacy_state_from_tracking(env.get("PROBE_SESSION_TRACKING"))
+
+
+def _legacy_state_from_tracking(value: object) -> "str | None":
+    """A two-valued stored default, read as what it MEANT: on -> full, off -> read-only."""
+    parsed = _parse_tracking_value(value)
+    if parsed is None:
+        return None
+    return STATE_FULL if parsed else STATE_READ_ONLY
+
+
+def _stored_state(defaults: object) -> "str | None":
+    """The state a `defaults` block carries, new key first, else the legacy one."""
+    if not isinstance(defaults, dict):
+        return None
+    value = normalize_state(defaults.get(STATE_DEFAULT_KEY))
+    if value is not None:
+        return value
+    return _legacy_state_from_tracking(defaults.get(TRACKING_DEFAULT_KEY))
+
+
+def default_session_state(config: dict | None = None) -> str:
+    """This machine's default state for sessions nobody has decided about.
+
+    Env beats file, matching the rest of the client. Anything UNRECOGNIZED reads
+    as DEFAULT_STATE rather than as a quieter state -- the rule `default_tracking`
+    already states for recording ("a typo in a config file must not silently stop
+    recording someone's research") applied to reads as well, which is where it
+    now also bites.
+    """
+    override = state_env_override()
+    if override is not None:
+        return override
+    data = _read_config() if config is None else config
+    value = _stored_state(data.get(DEFAULTS_KEY))
+    return DEFAULT_STATE if value is None else value
+
+
+def _append_config_error(errors: list[str] | None, message: str) -> None:
+    if errors is not None and message not in errors:
+        errors.append(message)
+
+
+def resolve_tracking_default(
+    cwd: str | os.PathLike[str] | None,
+    config: dict | None = None,
+    *,
+    errors: list[str] | None = None,
+) -> tuple[bool, str]:
+    """The effective new-session default and its diagnostic source: the
+    environment, then the machine file, then shipped. `cwd` is unused since
+    folder defaults retired; it stays for the callers that pass it."""
+    override = tracking_env_override()
+    if override is not None:
+        return override, "environment"
+    data = _read_config() if config is None else config
+    value = default_tracking(data)
+    if _tracking_value(data) is None:
+        return value, "shipped"
+    machine_path = Path(os.path.abspath(os.fspath(config_path())))
+    return value, str(machine_path)
+
+
+def resolve_state_default(
+    cwd: str | os.PathLike[str] | None,
+    config: dict | None = None,
+    *,
+    errors: list[str] | None = None,
+    environ: "dict[str, str] | None" = None,
+) -> tuple[str, str]:
+    """The effective new-session STATE and its diagnostic source: the
+    environment, then the machine file, then shipped -- the same ladder as
+    `resolve_tracking_default`. `cwd` is unused since folder defaults retired.
+    `environ`: the environment to read instead of this process's
+    (`state_env_override`)."""
+    override = state_env_override(environ)
+    if override is not None:
+        return override, "environment"
+    data = _read_config() if config is None else config
+    stored = _stored_state(data.get(DEFAULTS_KEY))
+    if stored is None:
+        return DEFAULT_STATE, "shipped"
+    return stored, str(Path(os.path.abspath(os.fspath(config_path()))))
+
+
+def write_default_tracking(on: bool) -> Path:
+    """Persist this machine's session-tracking default; returns the config path.
+
+    TOP LEVEL, never inside a context -- see DEFAULTS_KEY. Written through the
+    config module's own primitives, and each one guards a real loss:
+
+    * `_config_lock` -- `save_file` alone is atomic but not isolated, so this
+      write racing a sign-in would restore its stale snapshot over the
+      fresh token and report success doing it.
+    * `load_file(strict=True)` -- the raw file may be a v1 flat blob. A raw
+      read-modify-write leaves `defaults` beside the v1 keys, and the NEXT
+      canonical write migrates every one of those keys into the context --
+      burying the preference where `default_tracking` never looks, so capture
+      silently comes back on. The migrating loader lands the file in v2 shape
+      with `defaults` at the top level, where it stays. Strict also means an
+      unparseable or non-object file RAISES (`ConfigUnreadable`) instead of
+      being replaced by just this preference.
+    * The empty-file seed matches `save_context`'s, so a fresh config is born
+      v2 rather than being mistaken for v1 on its next read.
+
+    Imported lazily: this module renders on the status-line hot path, and
+    vendored copies may not ship the writer at all -- reading the default must
+    keep working there even though setting it cannot.
+    """
+    from probe.sdk.config import (  # restructure-guard-ok: released hooks run this copy against older CLIs
+        CONFIG_VERSION,
+        DEFAULT_CONTEXT,
+        _config_lock,
+        _load_json_file,
+        _save_json_file,
+        _write_target,
+    )
+
+    path = config_path()
+    target = _write_target(path)
+    with _config_lock(target, _resolved=True):
+        data = _load_json_file(target, strict=True, migrate=True) or {
+            "version": CONFIG_VERSION,
+            "current_context": DEFAULT_CONTEXT,
+            "contexts": {},
+        }
+        defaults = data.get(DEFAULTS_KEY)
+        data[DEFAULTS_KEY] = defaults if isinstance(defaults, dict) else {}
+        data[DEFAULTS_KEY][TRACKING_DEFAULT_KEY] = "on" if on else "off"
+        # BOTH KEYS, OR THIS WRITE IS A NO-OP. Readers prefer `session_state`,
+        # so leaving a stale `full` there while this sets `session_tracking: off`
+        # means the wizard reports tracking off and every new session keeps
+        # recording. False maps to read-only -- what this boolean has always
+        # meant: stop recording, keep searching.
+        data[DEFAULTS_KEY][STATE_DEFAULT_KEY] = STATE_FULL if on else STATE_READ_ONLY
+        # A change made here is the person's own: it no longer reads as staff's.
+        data[DEFAULTS_KEY].pop(DEFAULT_SET_BY_KEY, None)
+        _save_json_file(target, data, private=True, _resolved=True)
+    return path
+
+
+def write_default_state(state: str) -> Path:
+    """Persist this machine's default STATE; returns the config path.
+
+    The same key, the same file, the same locking as `write_default_tracking` --
+    only the vocabulary is wider. One key, because it is one setting: a second
+    key would let a machine hold two answers to "what does a new session start
+    at" with nothing to say which won.
+
+    An older client reading `read-only` here sees an unrecognized value and falls
+    back to the SHIPPED default rather than to off, which is the documented rule
+    (`default_tracking`) and the safe direction: a machine whose default is
+    read-only records nothing under a new client, and records under an old one.
+    That is visible on the dashboard. The reverse -- an old client reading it as
+    a hard stop -- would silently lose work.
+    """
+    if state not in STATES:
+        raise ValueError(f"expected one of {STATES}, got {state!r}")
+    from probe.sdk.config import (  # restructure-guard-ok: released hooks run this copy against older CLIs
+        CONFIG_VERSION,
+        DEFAULT_CONTEXT,
+        _config_lock,
+        _load_json_file,
+        _save_json_file,
+        _write_target,
+    )
+
+    path = config_path()
+    target = _write_target(path)
+    with _config_lock(target, _resolved=True):
+        data = _load_json_file(target, strict=True, migrate=True) or {
+            "version": CONFIG_VERSION,
+            "current_context": DEFAULT_CONTEXT,
+            "contexts": {},
+        }
+        defaults = data.get(DEFAULTS_KEY)
+        data[DEFAULTS_KEY] = defaults if isinstance(defaults, dict) else {}
+        data[DEFAULTS_KEY][STATE_DEFAULT_KEY] = state
+        # The compat projection, for clients that only know the old key.
+        data[DEFAULTS_KEY][TRACKING_DEFAULT_KEY] = "on" if state in RECORDING_STATES else "off"
+        # A change made here is the person's own: it no longer reads as staff's.
+        data[DEFAULTS_KEY].pop(DEFAULT_SET_BY_KEY, None)
+        _save_json_file(target, data, private=True, _resolved=True)
+    return path
+
+
+# ---------------------------------------------------------------------------
+# A DEFAULT PROBE STAFF SET (research-os control/074, `probe.cli.remote_settings`)
+# ---------------------------------------------------------------------------
+#
+# Staff may move this machine's default, once, and only toward quieter. The same
+# locked write records who did it, beside the default:
+#
+#     defaults.session_state_set_by = {"by": "probe-staff", "at": "<iso>"}
+#
+# so `probe session default`, `probe doctor` and the wizard can say so even when
+# the command that applied it ran in the background with nobody watching. Any
+# local default change (`write_default_state`, `write_default_tracking`) drops it.
+
+DEFAULT_SET_BY_KEY = "session_state_set_by"
+SET_BY_STAFF = "probe-staff"
+
+#: Quietness, quietest first: `off` stops capture and Probe calls, `read` stops
+#: recording, `on` (stored `full` or `daemon`) records.
+_LOUDNESS = {STATE_OFF: 0, STATE_READ_ONLY: 1, STATE_FULL: 2, STATE_DAEMON: 2}
+
+
+def louder(state: "str | None", than: str) -> bool:
+    """Is `state` louder than `than`? An unknown or missing state is not."""
+    return state in _LOUDNESS and _LOUDNESS[state] > _LOUDNESS[than]
+
+
+def lower_default_state(state: str, *, by: str, at: str) -> "tuple[str, bool]":
+    """Move this machine's STORED default to `state` only where that is quieter
+    than what is stored (nothing stored reads as DEFAULT_STATE), recording `by`
+    and `at` beside it; one locked read-then-write, so a change the person makes
+    meanwhile is compared against, never overwritten by a louder one. Returns the
+    stored state before, and whether it moved. Raises like `write_default_state`
+    (an unreadable config file is reported, never replaced)."""
+    if state not in (STATE_OFF, STATE_READ_ONLY):
+        raise ValueError(f"only off or read-only can be set this way, got {state!r}")
+    from probe.sdk.config import (  # restructure-guard-ok: released hooks run this copy against older CLIs
+        CONFIG_VERSION,
+        DEFAULT_CONTEXT,
+        _config_lock,
+        _load_json_file,
+        _save_json_file,
+        _write_target,
+    )
+
+    target = _write_target(config_path())
+    with _config_lock(target, _resolved=True):
+        data = _load_json_file(target, strict=True, migrate=True) or {
+            "version": CONFIG_VERSION,
+            "current_context": DEFAULT_CONTEXT,
+            "contexts": {},
+        }
+        defaults = data.get(DEFAULTS_KEY)
+        before = _stored_state(defaults) or DEFAULT_STATE
+        if not louder(before, state):
+            return before, False
+        data[DEFAULTS_KEY] = defaults if isinstance(defaults, dict) else {}
+        data[DEFAULTS_KEY][STATE_DEFAULT_KEY] = state
+        data[DEFAULTS_KEY][TRACKING_DEFAULT_KEY] = "off"
+        data[DEFAULTS_KEY][DEFAULT_SET_BY_KEY] = {"by": by, "at": at, "value": state}
+        _save_json_file(target, data, private=True, _resolved=True)
+    return before, True
+
+
+def default_set_by(config: "dict | None" = None) -> "dict | None":
+    """`{"by", "at", "value"}` while the stored default is still the value Probe
+    staff set, else None (a writer that does not know this key, an older CLI,
+    may have changed the default and left it). Never raises."""
+    data = _read_config() if config is None else config
+    defaults = data.get(DEFAULTS_KEY) if isinstance(data, dict) else None
+    marked = defaults.get(DEFAULT_SET_BY_KEY) if isinstance(defaults, dict) else None
+    if not isinstance(marked, dict) or marked.get("by") != SET_BY_STAFF or not isinstance(marked.get("at"), str):
+        return None
+    if marked.get("value") != _stored_state(defaults):
+        return None
+    return {"by": marked["by"], "at": marked["at"], "value": marked["value"]}
+
+
+def set_by_note(config: "dict | None" = None) -> "str | None":
+    """`set by Probe staff on <date>` for a default staff set that is the one in
+    effect, else None: an environment variable overriding the file is not
+    staff's value, so it is never credited to them."""
+    if state_env_override() is not None:
+        return None
+    marked = default_set_by(config)
+    return None if marked is None else f"set by Probe staff on {marked['at'][:10]}"
+
+
+#: The files a session's switch is read from (`session_state`): the canonical one
+#: and the two legacy spellings it still migrates.
+_STATE_SUFFIXES = (".state", ".tracking", ".off")
+
+
+def decided_sessions() -> "list[str]":
+    """Every session on this machine with a switch decision on disk, newest
+    file first. Never raises (an unreadable folder is no sessions)."""
+    found: dict[str, float] = {}
+    try:
+        with os.scandir(sessions_dir()) as listing:
+            for entry in listing:
+                suffix = next((s for s in _STATE_SUFFIXES if entry.name.endswith(s)), None)
+                if suffix is None:
+                    continue
+                sid = entry.name[: -len(suffix)]
+                if not valid_session_id(sid):
+                    continue
+                try:
+                    found[sid] = max(found.get(sid, 0.0), entry.stat().st_mtime)
+                except OSError:
+                    continue
+    except OSError:
+        return []
+    return sorted(found, key=lambda sid: found[sid], reverse=True)
+
+
+RECORDERS_KEY = "recorders"
+RECORDER_AGENT = "agent"
+RECORDER_DAEMON = "daemon"
+RECORDERS = (RECORDER_AGENT, RECORDER_DAEMON)
+
+
+def recorder(source: "str | None", config: "dict | None" = None) -> str:
+    """Who records for coding agent `source` (`claude_code`, `codex`, `pi`) on this
+    machine: `daemon` only when the config says so, else `agent`. Fail-soft: an
+    unreadable or odd config reads as `agent`, today's behaviour."""
+    data = _read_config() if config is None else config
+    defaults = data.get(DEFAULTS_KEY) if isinstance(data, dict) else None
+    table = defaults.get(RECORDERS_KEY) if isinstance(defaults, dict) else None
+    value = table.get(source) if isinstance(table, dict) and isinstance(source, str) else None
+    return RECORDER_DAEMON if value == RECORDER_DAEMON else RECORDER_AGENT
+
+
+def write_recorder(source: str, value: str) -> Path:
+    """Persist who records for `source`; returns the config path. Same file, lock
+    and loader as `write_default_state`. `agent` removes the entry (absent is
+    `agent`), so a machine that never chose `daemon` keeps no trace of the key."""
+    if value not in RECORDERS:
+        raise ValueError(f"expected one of {RECORDERS}, got {value!r}")
+    if not isinstance(source, str) or not source:
+        raise ValueError("expected a coding agent name")
+    from probe.sdk.config import (  # restructure-guard-ok: released hooks run this copy against older CLIs
+        CONFIG_VERSION,
+        DEFAULT_CONTEXT,
+        _config_lock,
+        _load_json_file,
+        _save_json_file,
+        _write_target,
+    )
+
+    path = config_path()
+    target = _write_target(path)
+    with _config_lock(target, _resolved=True):
+        data = _load_json_file(target, strict=True, migrate=True) or {
+            "version": CONFIG_VERSION,
+            "current_context": DEFAULT_CONTEXT,
+            "contexts": {},
+        }
+        defaults = data.get(DEFAULTS_KEY)
+        data[DEFAULTS_KEY] = defaults if isinstance(defaults, dict) else {}
+        table = data[DEFAULTS_KEY].get(RECORDERS_KEY)
+        table = dict(table) if isinstance(table, dict) else {}
+        if value == RECORDER_DAEMON:
+            table[source] = value
+        else:
+            table.pop(source, None)
+        if table:
+            data[DEFAULTS_KEY][RECORDERS_KEY] = table
+        else:
+            data[DEFAULTS_KEY].pop(RECORDERS_KEY, None)
+        _save_json_file(target, data, private=True, _resolved=True)
+    return path
+
+
+#: Images pasted into a prompt upload with the captured session (2026-10-12):
+#: on unless this machine turned it off. The capture tap reads the same key
+#: (`tap/config.py` `pasted_images_on`) before it uploads one.
+PASTED_IMAGES_KEY = "pasted_images"
+
+
+def pasted_images_on(config: "dict | None" = None) -> bool:
+    """True unless this machine turned pasted-image upload off."""
+    data = _read_config() if config is None else config
+    defaults = data.get(DEFAULTS_KEY) if isinstance(data, dict) else None
+    return not (isinstance(defaults, dict) and defaults.get(PASTED_IMAGES_KEY) is False)
+
+
+def write_pasted_images(on: bool) -> Path:
+    """Persist the pasted-image setting; returns the config path. Same file,
+    lock and loader as `write_recorder`; on removes the key (absent is on)."""
+    from probe.sdk.config import (  # restructure-guard-ok: released hooks run this copy against older CLIs
+        CONFIG_VERSION,
+        DEFAULT_CONTEXT,
+        _config_lock,
+        _load_json_file,
+        _save_json_file,
+        _write_target,
+    )
+
+    path = config_path()
+    target = _write_target(path)
+    with _config_lock(target, _resolved=True):
+        data = _load_json_file(target, strict=True, migrate=True) or {
+            "version": CONFIG_VERSION,
+            "current_context": DEFAULT_CONTEXT,
+            "contexts": {},
+        }
+        defaults = data.get(DEFAULTS_KEY)
+        data[DEFAULTS_KEY] = defaults if isinstance(defaults, dict) else {}
+        if on:
+            data[DEFAULTS_KEY].pop(PASTED_IMAGES_KEY, None)
+        else:
+            data[DEFAULTS_KEY][PASTED_IMAGES_KEY] = False
+        _save_json_file(target, data, private=True, _resolved=True)
+    return path
+
+
+def configured(config: dict | None = None, environ=None) -> bool:
+    """Whether this machine has a credential for Probe. Cheap, and fail-soft.
+
+    `_telemetry_core` answers the same question and is vendored alongside this
+    file, so loading it would have been the obvious reuse -- and it was, until it
+    was measured. It imports `urllib.request` for its own sending, which costs
+    ~23ms of interpreter startup, on a path whose entire budget is one status-line
+    render. So the question is re-answered here with `json` and `os` and nothing
+    else. Reuse is the rule; a hot path is the exception that earns a duplicate,
+    and this one is thirteen lines that mirror an interface, not logic.
+
+    Both config shapes, for the reason the core documents: reading only the flat
+    v1 shape silently missed every install the wizard had produced.
+
+    `environ`: whose environment holds a token (this process's when None; the Probe service passes
+    its caller's, which travels with the request, never its own).
+    """
+    environ = os.environ if environ is None else environ
+    if environ.get("PROBE_TOKEN") or environ.get("PROBE_MCP_TOKEN"):
+        return True
+    data = _read_config() if config is None else config
+    if not data:
+        return False
+    contexts = data.get("contexts")
+    if isinstance(contexts, dict):
+        active = contexts.get(data.get("current_context") or "default")
+        data = active if isinstance(active, dict) else {}
+    return bool(data.get("token") or data.get("mcp_token"))
+
+
+# ---------------------------------------------------------------------------
+# Rendering
+# ---------------------------------------------------------------------------
+
+
+def _paint(text: str, code: str, color: bool) -> str:
+    """`text` in `code`, closed immediately. The ONLY place an SGR is emitted.
+
+    One function, so "every code opened is closed" is a property of this file
+    rather than a habit at four call sites: an unterminated run bleeds into
+    whatever the neighbouring status-line segment prints next.
+    """
+    return code + text + _RESET if color else text
+
+
+def _elide(slug: str, limit: int = MAX_SLUG_CHARS) -> str:
+    if len(slug) <= limit:
+        return slug
+    return slug[: limit - 1] + _ELLIPSIS
+
+
+def _name_room(label: str) -> int:
+    """Columns left for the project name after `label` and the running accent.
+
+    `MAX_SLUG_CHARS` for the tracking label; a longer label (the daemon's) takes
+    its extra columns from the name, never from the ceiling.
+    """
+    return MAX_SEGMENT_CHARS - len(_INDENT) - _GLYPH_WIDTH - len(label) - len(_ACCENT_TEXT)
+
+
+def _recording_labels(
+    session_state: "str | None", daemon_live: bool, capture_reason: str, inline: bool = False
+) -> tuple[str, str]:
+    """`(label before a project name, bare label)` for a session that records.
+
+    In the `daemon` state the capture suffix already explains a daemon that is
+    not running (the worker is a child of capture), so that line keeps the
+    shorter `on (daemon)` and its columns go to the reason. An inline session
+    (the researcher's `/probe inline`) reads `on (inline)`.
+    """
+    if inline and session_state == STATE_FULL:
+        return _LABEL_INLINE, _LABEL_INLINE_BARE
+    if session_state != STATE_DAEMON:
+        return _LABEL_TRACKED, _LABEL_TRACKING_BARE
+    if daemon_live or capture_reason:
+        return _LABEL_DAEMON, _LABEL_DAEMON_BARE
+    return _LABEL_DAEMON_DEGRADED, _LABEL_DAEMON_DEGRADED_BARE
+
+
+def _no_capture_clause(reason: str, label_bare: str = _LABEL_TRACKING_BARE) -> str:
+    """The `· not capturing session transcript: …` suffix, as it hangs off
+    `label_bare`.
+
+    THE LAST STOP FOR THE WIDTH CAP. With no project name left to give up, the
+    reason itself is elided. The vocabulary in `probe.cli.capture_state` is short
+    enough that this never fires today, but this renderer reads whatever a
+    refresh hook of ANY vintage wrote into the marker, and an unbounded field on
+    a status line wraps the whole line — which reflows every other segment on it.
+    """
+    if not reason:
+        return ""
+    room = (
+        MAX_SEGMENT_CHARS
+        - len(_INDENT)
+        - _GLYPH_WIDTH
+        - len(label_bare)
+        - len(_LABEL_NO_CAPTURE)
+    )
+    return _LABEL_NO_CAPTURE + _elide(reason, room)
+
+
+#: WHAT EACH NON-RECORDING STATE IS CALLED HERE, and the colour it is painted.
+#:
+#: `read-only` is spelled OUT rather than taken from `state_label`. The switch's
+#: own word is `read`, which names what the session may still do and not what it
+#: may no longer do -- alone on a status line, with no neighbouring word to lean
+#: on, `read` is taken for an activity in progress rather than for a restriction.
+#: This is not a second vocabulary: `read-only` is the state's canonical STORED
+#: name and an accepted spelling everywhere a state is typed, so `/probe read`
+#: and this label still name one thing, and `normalize_state` takes either back.
+#:
+#: The colour is here rather than at the call site so that a state cannot be
+#: given a word without also being given a hue -- the two are one decision, and
+#: splitting them is how a fourth state ends up yellow by default.
+_STATE_SEGMENT = {
+    STATE_READ_ONLY: ("read-only", _YELLOW),
+    STATE_OFF: ("off", _RED),
+}
+
+
+def render(
+    state: dict | None,
+    *,
+    configured: bool,
+    tracking: bool,
+    live: bool = False,
+    color: bool = True,
+    session_state: "str | None" = None,
+    daemon_live: bool = False,
+    daemon: bool = False,
+    inline: bool = False,
+) -> str:
+    """The status-line segment. One line, bounded, self-delimiting, or empty.
+
+    In the `daemon` state the label is `on (daemon)` while the daemon holds a
+    live lease (`daemon_live`), and `on (daemon degraded)` when it does not.
+    `daemon` says the daemon records and reads for this session (`daemon_session`),
+    so its `read-only` reads `read only (daemon)`.
+
+    TWO STATES OF THE SWITCH: tracking, or not. The caller resolves which via
+    `is_tracking`; this only renders it. An earlier version carried a third —
+    "tracking off" as something distinct from "untracked" — and that was a
+    mistake. A reader does not care WHY nothing is being recorded, only whether
+    anything is, and the third state made them decode a distinction that changed
+    nothing they would do.
+
+    `tracked, not capturing session transcript` is a third state of a DIFFERENT
+    question, and it earns its place by the same test the rejected one failed: it
+    changes what the reader does. The work is landing — projects, runs, metrics,
+    artifacts, all of it — and the CONVERSATION is not being recorded. Only the
+    researcher can decide whether that matters for this session, and they cannot
+    decide it without being told. It renders as a SUFFIX on the tracking segment,
+    never as a replacement for it, because a line reading only "not capturing
+    session transcript" says the opposite of what is true.
+
+    THE SEGMENT MUST SURVIVE ANY NEIGHBOUR. It shares one line with whatever else
+    is chained into `statusLine`, so four properties are load-bearing:
+
+    * **No newline, ever.** Claude Code splits this command's stdout on newlines
+      and renders each as its own status row.
+    * **A two-space indent and a glyph in front.** Output is concatenated with the
+      neighbour's; without the gap `…main● tracking` fuses into one token.
+    * **Bounded width.** Overflow wraps the line, reflowing every segment on it —
+      the one way this makes other output worse rather than merely longer.
+    * **One coloured character, always closed, never counted.** Only the dot is
+      painted (`_paint` is the single place an SGR is emitted), and layout is
+      computed on PLAIN text — measuring a coloured string counts invisible bytes.
+
+    Empty when Probe is not configured on this machine: someone who does not use
+    it should not spend a column being told so.
+    """
+    if not configured:
+        return ""
+
+    if not tracking:
+        # THE SWITCH NOW HAS THREE POSITIONS AND TWO OF THEM ARE NOT RECORDING,
+        # and the difference is the one thing a reader can act on: under
+        # `read-only` an agent will still find prior work, under `off` it will
+        # not and will not know what it missed. That passes the same test the
+        # rejected third state failed and `not capturing session transcript`
+        # passed -- it changes what the reader does.
+        #
+        # `session_state=None` is a caller from before the third state. It gets
+        # the two-state word -- and the two-state colour -- it has always got
+        # rather than a guess: yellow, because the one state red is reserved for
+        # is the one such a caller cannot tell us it is in.
+        label, hue = _STATE_SEGMENT.get(session_state, (_LABEL_NOT_TRACKING, _YELLOW))
+        if daemon and session_state == STATE_READ_ONLY:
+            # The daemon still reads for this session; it records nothing.
+            label = DAEMON_STATE_DISPLAY[STATE_READ_ONLY]
+        if inline and session_state == STATE_READ_ONLY:
+            label = "read only (inline)"
+        return _INDENT + _paint(_DOT, hue, color) + " " + label
+
+    # Read PAST the `not tracking` return above on purpose: capture is a fact
+    # about a session that is recording, and naming it for one that is not would
+    # be an answer to a question nobody asked.
+    reason = _capture_reason(state)
+    # Turned off on purpose: nothing is wrong, so the full dot and a plain note.
+    chosen_off = reason == _CHOSEN_OFF_REASON
+    if chosen_off:
+        reason = ""
+    head = _INDENT + _paint(_DOT_DEGRADED if reason else _DOT, _GREEN, color) + " "
+    label_tracked, label_bare = _recording_labels(session_state, daemon_live, reason, inline)
+
+    project = state.get("project") if isinstance(state, dict) else None
+    if not (isinstance(project, str) and project):
+        # Tracking is on, nothing filed yet. State it without inventing a name.
+        if chosen_off:
+            return head + label_bare + _LABEL_TRANSCRIPTS_OFF
+        return head + label_bare + _no_capture_clause(reason, label_bare)
+
+    if chosen_off:
+        room = _name_room(label_tracked) + len(_ACCENT_TEXT) - len(_LABEL_TRANSCRIPTS_OFF)
+        if room >= _MIN_SLUG_CHARS_DEGRADED:
+            return head + label_tracked + _elide(project, room) + _LABEL_TRANSCRIPTS_OFF
+        return head + label_bare + _LABEL_TRANSCRIPTS_OFF
+
+    if not reason:
+        # THE NAME YIELDS, THE LABEL AND ACCENT DO NOT: `MAX_SLUG_CHARS` reserves
+        # both widths whether or not the accent shows, so truncation only ever
+        # costs characters of the project name.
+        accent = _ACCENT_TEXT if live else ""
+        return head + label_tracked + _elide(project, _name_room(label_tracked)) + accent
+
+    # DEGRADED — WHAT YIELDS FIRST, AND WHY.
+    #
+    # The name, and it yields all the way to nothing. The reason is the only
+    # actionable thing on the line — it names what to fix — and it is on screen
+    # nowhere else; the project name is on the dashboard, in `probe session
+    # status`, and usually in the previous turn's own output. `not capturing
+    # session transcript: interp…` names nothing to fix, so the reason is the
+    # LAST thing cut, and only after the name has been given up entirely
+    # (`_no_capture_clause`).
+    #
+    # The live-run accent goes with the name, and hands the reason back its ten
+    # columns. One qualifier per segment stays legible; `· running · not
+    # capturing session transcript: halted` reads as a list of unrelated facts,
+    # and the accent returns the moment capture is healthy — which is also the
+    # moment it is worth reading.
+    room = (
+        MAX_SEGMENT_CHARS
+        - len(_INDENT)
+        - _GLYPH_WIDTH
+        - len(label_tracked)
+        - len(_LABEL_NO_CAPTURE)
+        - len(reason)
+    )
+    if room >= _MIN_SLUG_CHARS_DEGRADED:
+        return head + label_tracked + _elide(project, room) + _LABEL_NO_CAPTURE + reason
+    return head + label_bare + _no_capture_clause(reason, label_bare)
+
+
+# ---------------------------------------------------------------------------
+# WHICH SESSION RUNS THIS PROCESS, for a harness that does not say.
+#
+#   <state_dir>/harness-processes/<pid>-<start>.json
+#       {"harness": "<registry id>", "session_id": "<uuid>", "updated_at": 1790000000.0}
+#
+# Claude Code, Codex and pi put the session id in every shell they start; Kimi
+# Code puts none there. Its hooks (children of the harness process) write this
+# record for the harness process itself, found by the title the harness gives
+# its own process (the registry's `process_title`). A `probe` command or a
+# training script the harness starts walks up its parents to the same process
+# and reads the record. `<start>` is the process's start time, so a recycled pid
+# never reads a dead session's record. Linux reads /proc; macOS asks `ps` once.
+# ---------------------------------------------------------------------------
+
+HARNESS_PROCESSES_DIRNAME = "harness-processes"
+#: How far up a lookup walks: harness -> shell -> (wrappers) -> probe.
+_ANCESTOR_LIMIT = 16
+
+
+def harness_processes_dir() -> Path:
+    return state_dir() / HARNESS_PROCESSES_DIRNAME
+
+
+#: Script runtimes: a process started as `node /usr/local/bin/pi` is pi. Where
+#: the script never retitles itself, or the platform does not show the new
+#: title (macOS `ps`), the runtime is all the first word says.
+_SCRIPT_RUNTIMES = ("node", "nodejs", "bun")
+
+
+def _title_of(argv: "list[str]") -> str:
+    """A process's title from its argv: the script a runtime runs, else argv[0]."""
+    if not argv:
+        return ""
+    if os.path.basename(argv[0]) in _SCRIPT_RUNTIMES and len(argv) > 1 and not argv[1].startswith("-"):
+        return argv[1]
+    return argv[0]
+
+
+def _proc_linux(pid: int) -> "tuple[int, str, str] | None":
+    """(parent pid, start time, title) from /proc, or None."""
+    try:
+        with open(f"/proc/{pid}/stat", "rb") as fh:
+            stat_line = fh.read().decode("utf-8", "replace")
+        with open(f"/proc/{pid}/cmdline", "rb") as fh:
+            argv = [part.decode("utf-8", "replace") for part in fh.read().split(b"\0") if part]
+    except OSError:
+        return None
+    argv0 = _title_of(argv)
+    # comm may hold spaces and parentheses: the fields start after the LAST ')'.
+    fields = stat_line.rsplit(")", 1)[-1].split()
+    try:
+        return int(fields[1]), fields[19], argv0
+    except (IndexError, ValueError):
+        return None
+
+
+def _ps_table() -> "dict[int, tuple[int, str, str]]":
+    """Every process as {pid: (parent pid, start time, title)}, from one `ps`."""
+    import subprocess  # noqa: PLC0415 -- only off Linux
+
+    try:
+        # LC_ALL=C and TZ=UTC: `lstart` is the record key, so it must read the
+        # same in the hook and in the command, whatever their locale or zone.
+        out = subprocess.run(
+            ["ps", "-A", "-ww", "-o", "pid=,ppid=,lstart=,command="],
+            capture_output=True, text=True, timeout=3, check=False,
+            env={**os.environ, "LC_ALL": "C", "TZ": "UTC"},
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    table = {}
+    for line in out.splitlines():
+        parts = line.split(None, 7)  # pid, ppid, 5 words of lstart, command
+        if len(parts) < 8:
+            continue
+        try:
+            table[int(parts[0])] = (int(parts[1]), "-".join(parts[2:7]), _title_of(parts[7].split()))
+        except ValueError:
+            continue
+    return table
+
+
+def _ancestors(pid: "int | None" = None) -> "list[tuple[int, str, str]]":
+    """(pid, start time, title) for `pid` (default: this process's parent) and
+    each process above it, nearest first. Empty where processes can't be read.
+
+    A hook event run by the warm hook host (`hooks/zygote.py`, plan A0) has the
+    host for a parent, not the harness: the host names the harness's process
+    in PROBE_HOOK_PARENT_PID, and the walk starts there. A `probe` command the
+    Probe service runs (`cli.run`) has the service's CLI host for a parent: the
+    service names the shim it serves in PROBE_CALLER_PID (`probe.foundation.caller`),
+    and the walk is that shim's parents."""
+    if pid is None:
+        caller = os.environ.get("PROBE_CALLER_PID", "")
+        if caller.isdigit() and int(caller) > 1:
+            return _ancestors(int(caller))[1:]
+        hosted = os.environ.get("PROBE_HOOK_PARENT_PID", "")
+        pid = int(hosted) if hosted.isdigit() and int(hosted) > 1 else os.getppid()
+    current = pid
+    table = None if os.path.isdir("/proc/self") else _ps_table()
+    chain = []
+    for _ in range(_ANCESTOR_LIMIT):
+        if current <= 1:
+            break
+        info = _proc_linux(current) if table is None else table.get(current)
+        if info is None:
+            break
+        parent, start, title = info
+        chain.append((current, start, title))
+        current = parent
+    return chain
+
+
+def _titled(title: str, wanted: str) -> bool:
+    return os.path.basename(title) == wanted or title == wanted
+
+
+def _process_record_path(pid: int, start: str) -> Path:
+    return harness_processes_dir() / (f"{pid}-" + re.sub(r"[^A-Za-z0-9]", "", start) + ".json")
+
+
+def record_harness_process(
+    harness: str, session_id: str, process_title: "str | tuple[str, ...] | list[str]",
+    loaded: "dict | None" = None,
+) -> "Path | None":
+    """From a hook: note that the nearest ancestor titled `process_title` (or any
+    of several titles) runs `session_id` (replacing what it ran before: a TUI's
+    /new and /resume). Also sweeps records of processes that are gone. None when
+    no such ancestor exists or the record cannot be written. Never raises.
+
+    Several titles because one harness process reads differently by platform:
+    a harness that retitles itself shows the new title in Linux's /proc, while
+    macOS's `ps` keeps the name it was started as (the registry's `binary`).
+
+    `loaded`: what the process loaded (Kimi's plugin folders and manifests,
+    `probe._shared.kimi_live.loaded_info`). Kimi reads its plugins once, at its
+    start, and again only on `/reload`, which reopens the SAME session
+    (SessionStart, source `resume`) from the folder it now loads: only that
+    (the same session resumed from ANOTHER plugin folder while the one it ran
+    from is still there), or a process's first record, writes it. A `/new`
+    (source `startup`), a resume of another session, the same session closed
+    and reopened (an editor's or server's `kimi acp`/`server`/`web`: no
+    reload, the same folder) or any later event keeps it, and so does another
+    folder whose old one is gone (the hook entry falls back to the newest one
+    then). A first record proves nothing (`late`) when it comes
+    LOADED_FIRST_SEEN_S or more after its process started (a `/new` in a
+    process older than these hooks), or when anything Kimi read at its start
+    (`loaded["read_at_start"]`: its plugin list and folders) changed after it."""
+    titles = (process_title,) if isinstance(process_title, str) else tuple(t for t in process_title if t)
+    if not (valid_session_id(session_id) and harness and titles):
+        return None
+    try:
+        target = next(
+            (
+                (pid, start)
+                for pid, start, title in _ancestors()
+                if any(_titled(title, wanted) for wanted in titles)
+            ),
+            None,
+        )
+        if target is None:
+            return None
+        path = _process_record_path(*target)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        record = {"harness": harness, "session_id": session_id, "updated_at": time.time()}
+        if loaded is not None:
+            try:
+                previous = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                previous = None
+            previous = previous if isinstance(previous, dict) else {}
+            before = previous.get("loaded")
+            if isinstance(before, dict):
+                old_root = before.get("plugin_root")
+                reloaded = (loaded.get("source") == "resume" and not loaded.get("late")
+                            and previous.get("session_id") == session_id
+                            and isinstance(old_root, str) and old_root != loaded.get("plugin_root")
+                            and os.path.isdir(old_root))
+                if not reloaded:
+                    loaded = before
+            else:
+                age = _process_age(target[1])
+                if age is None or age >= LOADED_FIRST_SEEN_S or _changed_since(loaded, time.time() - age):
+                    loaded = {**loaded, "late": True}
+            record["loaded"] = loaded
+        body = json.dumps(record)
+        if not _publish_atomically(path, body):
+            return None
+        _sweep_process_records(keep=path)
+        return path
+    except Exception:  # noqa: BLE001 -- fail-soft: a hook must never break
+        return None
+
+
+#: A process's first `loaded` record proves what it loaded only this soon after
+#: its start (Kimi runs SessionStart within seconds of starting).
+LOADED_FIRST_SEEN_S = 120
+
+
+def _changed_since(loaded: dict, started: float) -> bool:
+    """Did anything the process read at its start (`read_at_start`) change
+    after `started` (epoch seconds)? A path that cannot be read counts."""
+    paths = loaded.get("read_at_start") or []
+    for path in paths if isinstance(paths, list) else [paths]:
+        try:
+            if not isinstance(path, str) or os.stat(path).st_mtime >= started - 1:
+                return True
+        except OSError:
+            return True
+    return False
+
+
+def _process_age(start: str) -> "float | None":
+    """Seconds since a process started, from its `_ancestors` start time (Linux:
+    clock ticks after boot; else `ps`'s UTC `lstart`), or None."""
+    try:
+        if start.isdigit():
+            with open("/proc/uptime", encoding="ascii") as fh:
+                uptime = float(fh.read().split()[0])
+            return uptime - int(start) / os.sysconf("SC_CLK_TCK")
+        import calendar  # noqa: PLC0415
+
+        return time.time() - calendar.timegm(time.strptime(start, "%a-%b-%d-%H:%M:%S-%Y"))
+    except (OSError, ValueError, IndexError, OverflowError):
+        return None
+
+
+#: Off Linux a record cannot be checked against its process: it is kept this long.
+_RECORD_MAX_AGE_SECONDS = 14 * 86400
+
+
+def _sweep_process_records(keep: Path) -> None:
+    """Delete records whose process has exited (a pid gone, or reused by a
+    process that started later). Off Linux, records older than
+    `_RECORD_MAX_AGE_SECONDS` go instead."""
+    if not os.path.isdir("/proc/self"):
+        try:
+            cutoff = time.time() - _RECORD_MAX_AGE_SECONDS
+            for entry in harness_processes_dir().glob("*.json"):
+                if entry != keep and entry.stat().st_mtime < cutoff:
+                    entry.unlink()
+        except OSError:
+            pass
+        return
+    try:
+        for entry in harness_processes_dir().glob("*.json"):
+            if entry == keep:
+                continue
+            pid_text, _, start_text = entry.stem.partition("-")
+            info = _proc_linux(int(pid_text)) if pid_text.isdigit() else None
+            if info is None or re.sub(r"[^A-Za-z0-9]", "", info[1]) != start_text:
+                entry.unlink()
+    except (OSError, ValueError):
+        return
+
+
+def process_environ(pid: int) -> "dict[str, str] | None":
+    """A process's own environment (Linux /proc only; None elsewhere or when
+    unreadable): what it inherited, as opposed to what was set below it."""
+    try:
+        with open(f"/proc/{pid}/environ", "rb") as fh:
+            raw = fh.read()
+    except OSError:
+        return None
+    out = {}
+    for item in raw.split(b"\0"):
+        key, sep, value = item.partition(b"=")
+        if sep:
+            out[key.decode("utf-8", "replace")] = value.decode("utf-8", "replace")
+    return out
+
+
+def harness_launch_environ(
+    title: str, pid: "int | None" = None, stop_titles: "tuple[str, ...] | list[str]" = ()
+) -> "dict[str, str] | None":
+    """The environment the nearest ancestor titled `title` (a harness's binary)
+    was started with, or None. A harness may filter what its hooks inherit
+    (Codex's `shell_environment_policy` drops `PROBE_SESSION_STATE`, issue
+    3620); its own process still has what the researcher launched it with.
+    The walk stops at an ancestor titled one of `stop_titles` (another coding
+    agent, nearer than one titled `title`: whatever is above it launched that
+    agent, not this session), and passes a match it cannot read (the wrapper
+    above it was started with the same). Linux /proc only: elsewhere the walk
+    would cost a `ps` and read nothing. Never raises."""
+    if not title or not os.path.isdir("/proc/self"):
+        return None
+    try:
+        for ancestor, _start, name in _ancestors(pid):
+            if _titled(name, title):
+                environ = process_environ(ancestor)
+                if environ is not None:
+                    return environ
+            elif any(_titled(name, other) for other in stop_titles):
+                return None
+    except Exception:  # noqa: BLE001 -- a hook must never break
+        return None
+    return None
+
+
+def harness_process(
+    pid: "int | None" = None, stop_titles: "tuple[str, ...] | list[str]" = ()
+) -> "tuple[str, str, int] | None":
+    """(harness id, session id, harness pid) for the nearest recorded harness
+    ancestor; see `harness_process_session`. Never raises. No record at all
+    (no Kimi Code session on this machine) is None without walking the
+    ancestors, which runs `ps` where there is no /proc: every `probe` command
+    asks this (`agent_session.adopt_harness_process_session`)."""
+    try:
+        if not _any_harness_process_record():
+            return None
+        for ancestor, start, title in _ancestors(pid):
+            if any(_titled(title, wanted) for wanted in stop_titles):
+                return None
+            path = _process_record_path(ancestor, start)
+            if not path.is_file():
+                continue
+            data = json.loads(path.read_text(encoding="utf-8"))
+            harness, session_id = data.get("harness"), data.get("session_id")
+            if isinstance(harness, str) and harness and valid_session_id(session_id):
+                return harness, session_id, ancestor
+            return None
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+def _any_harness_process_record() -> bool:
+    """Whether any harness process is recorded here (`record_harness_process`)."""
+    try:
+        with os.scandir(harness_processes_dir()) as entries:
+            return any(entry.name.endswith(".json") for entry in entries)
+    except OSError:
+        return False
+
+
+def harness_process_session(
+    pid: "int | None" = None, stop_titles: "tuple[str, ...] | list[str]" = ()
+) -> "tuple[str, str] | None":
+    """(harness id, session id) a harness's hook recorded for the nearest
+    ancestor of this process, or None. The walk stops at an ancestor titled one
+    of `stop_titles` (another coding agent, nearer than any recorded one: a
+    Claude Code started inside Kimi is Claude Code's). Never raises."""
+    try:
+        for ancestor, start, title in _ancestors(pid):
+            if any(_titled(title, wanted) for wanted in stop_titles):
+                return None
+            path = _process_record_path(ancestor, start)
+            if not path.is_file():
+                continue
+            data = json.loads(path.read_text(encoding="utf-8"))
+            harness, session_id = data.get("harness"), data.get("session_id")
+            if isinstance(harness, str) and harness and valid_session_id(session_id):
+                return harness, session_id
+            return None
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+# ---------------------------------------------------------------------------
+# `.probe.config`, removed 2026-11-04: one notice when an old file is found
+# ---------------------------------------------------------------------------
+#
+# Probe no longer reads the file. A researcher who wrote one still believes those
+# folders are kept out, so a session that starts under one says once that they are
+# recorded (T3, 2026-11-04). Looked for by name only, never parsed.
+
+#: The researcher's line (T3, Richard 2026-11-04).
+RETIRED_CONFIG_NOTICE = (
+    "Probe no longer reads .probe.config (removed 2026-11-04): folders it marked off are recorded."
+)
+RETIRED_CONFIG_NAME = ".probe.config"
+#: Folders walked up from the launch folder, at most.
+RETIRED_CONFIG_MAX_DEPTH = 64
+
+
+def find_retired_config(cwd: "str | None") -> "str | None":
+    """The first `.probe.config` in `cwd` or a folder above it, else `~/.probe.config`; None when
+    there is none. One lstat per folder. Never raises."""
+    candidates = []
+    try:
+        folder = os.path.abspath(cwd) if cwd else ""
+        for _ in range(RETIRED_CONFIG_MAX_DEPTH if folder else 0):
+            candidates.append(os.path.join(folder, RETIRED_CONFIG_NAME))
+            parent = os.path.dirname(folder)
+            if parent == folder:
+                break
+            folder = parent
+        candidates.append(os.path.join(os.path.expanduser("~"), RETIRED_CONFIG_NAME))
+    except Exception:  # noqa: BLE001
+        return None
+    for path in candidates:
+        try:
+            os.lstat(path)
+        except OSError:
+            continue
+        return path
+    return None
+
+
+def take_retired_config_notice(session_id: str, cwd: "str | None") -> "str | None":
+    """`RETIRED_CONFIG_NOTICE` the first time a session starts under a `.probe.config`, else
+    None; a resume or a compaction asks again and gets None. The caller must deliver it.
+    Never raises."""
+    if not valid_session_id(session_id) or find_retired_config(cwd) is None:
+        return None
+    try:
+        sessions = sessions_dir()
+        sessions.mkdir(parents=True, exist_ok=True)
+        os.close(os.open(str(sessions / (session_id + ".config-notice")), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except OSError:
+        return None
+    return RETIRED_CONFIG_NOTICE

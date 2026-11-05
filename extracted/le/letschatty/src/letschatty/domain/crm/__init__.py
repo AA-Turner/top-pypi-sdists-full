@@ -1,3 +1,4 @@
+from .chat_funnels import ChatFunnelRepository
 from .funnels import FunnelRepository
 from .form_fields import FormFieldRepository
 from .products import ProductRepository
@@ -6,4 +7,4 @@ from .tags import TagRepository
 from .sales import SaleRepository
 from .reminders import ReminderRepository
 
-__all__ = ["ReminderRepository", "FunnelRepository", "FormFieldRepository", "ProductRepository", "ReminderCategoryRepository", "SaleRepository", "TagRepository"]
+__all__ = ["ChatFunnelRepository", "ReminderRepository", "FunnelRepository", "FormFieldRepository", "ProductRepository", "ReminderCategoryRepository", "SaleRepository", "TagRepository"]

@@ -13,7 +13,7 @@ from probe.foundation.compat.compat import UTC
 from pathlib import Path
 from typing import Any
 from .....foundation.durable import homedir
-from ....recording_rules import ignore as _ignore
+from ....recording_rules import recording_rules as _ignore
 #: The most one of those looks may take; the next continues where it stopped.
 WRITE_CHECK_SWEEP_S = 1.0
 #: Where a recording process keeps what it last saw of each file it wrote:

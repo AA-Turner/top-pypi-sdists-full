@@ -6795,3 +6795,139 @@ class TestPrMergeCiRerunBudget:
         assert pr_merge_ci_rerun_already_attempted(
             "acme/api", PR_MERGE_CI_RERUN_LIMIT, f"sha{PR_MERGE_CI_RERUN_LIMIT}"
         )
+
+
+class TestMergeReservation:
+    """#3859: the per-repo merge-gate reservation board-doctor's
+    checks-stale-race disposition uses to order sibling rows instead of
+    letting them leapfrog each other."""
+
+    def test_absent_reservation_reads_as_none(self, coord_db) -> None:
+        from coord.state import get_merge_reservation
+
+        assert get_merge_reservation("acme/api") is None
+
+    def test_reserve_then_read_back(self, coord_db) -> None:
+        from coord.state import get_merge_reservation, reserve_merge_slot
+
+        assert reserve_merge_slot("acme/api", "acme/api#7", ttl_seconds=60) is True
+
+        reservation = get_merge_reservation("acme/api")
+        assert reservation is not None
+        assert reservation["holder"] == "acme/api#7"
+
+    def test_a_different_holder_is_refused_while_live(self, coord_db) -> None:
+        from coord.state import reserve_merge_slot
+
+        assert reserve_merge_slot("acme/api", "acme/api#7", ttl_seconds=60) is True
+        # A different row cannot steal the reservation while it is live.
+        assert reserve_merge_slot("acme/api", "acme/api#8", ttl_seconds=60) is False
+
+    def test_the_same_holder_may_renew(self, coord_db) -> None:
+        from coord.state import reserve_merge_slot
+
+        assert reserve_merge_slot("acme/api", "acme/api#7", ttl_seconds=60) is True
+        # Renewing its own reservation is not a conflict with itself.
+        assert reserve_merge_slot("acme/api", "acme/api#7", ttl_seconds=120) is True
+
+    def test_an_expired_reservation_reads_as_absent_and_may_be_reclaimed(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        import coord.state as state_mod
+        from coord.state import get_merge_reservation, reserve_merge_slot
+
+        now = [1_000_000.0]
+        monkeypatch.setattr(state_mod.time, "time", lambda: now[0])
+
+        assert reserve_merge_slot("acme/api", "acme/api#7", ttl_seconds=60) is True
+        now[0] += 61  # past the TTL
+
+        assert get_merge_reservation("acme/api") is None
+        # A fresh holder may now claim the slot — the expired one does not
+        # block it.
+        assert reserve_merge_slot("acme/api", "acme/api#8", ttl_seconds=60) is True
+
+    def test_release_only_releases_the_matching_holder(self, coord_db) -> None:
+        from coord.state import (
+            get_merge_reservation,
+            release_merge_reservation,
+            reserve_merge_slot,
+        )
+
+        reserve_merge_slot("acme/api", "acme/api#7", ttl_seconds=60)
+
+        # A stale caller (lost the race to a later reservation it does not
+        # know about) cannot release a row it no longer owns.
+        assert release_merge_reservation("acme/api", "acme/api#8") is False
+        assert get_merge_reservation("acme/api") is not None
+
+        assert release_merge_reservation("acme/api", "acme/api#7") is True
+        assert get_merge_reservation("acme/api") is None
+
+    def test_release_with_no_holder_is_unconditional(self, coord_db) -> None:
+        from coord.state import (
+            get_merge_reservation,
+            release_merge_reservation,
+            reserve_merge_slot,
+        )
+
+        reserve_merge_slot("acme/api", "acme/api#7", ttl_seconds=60)
+        assert release_merge_reservation("acme/api") is True
+        assert get_merge_reservation("acme/api") is None
+
+    def test_reservations_are_scoped_per_repo(self, coord_db) -> None:
+        from coord.state import get_merge_reservation, reserve_merge_slot
+
+        reserve_merge_slot("acme/api", "acme/api#7", ttl_seconds=60)
+        assert get_merge_reservation("acme/web") is None
+
+    def test_list_merge_reservations_omits_expired_entries(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        import coord.state as state_mod
+        from coord.state import list_merge_reservations, reserve_merge_slot
+
+        now = [2_000_000.0]
+        monkeypatch.setattr(state_mod.time, "time", lambda: now[0])
+
+        reserve_merge_slot("acme/api", "acme/api#7", ttl_seconds=60)
+        reserve_merge_slot("acme/web", "acme/web#1", ttl_seconds=600)
+        now[0] += 61
+
+        live = list_merge_reservations()
+        assert "acme/api" not in live
+        assert live["acme/web"]["holder"] == "acme/web#1"
+
+    def test_the_map_is_pruned_by_oldest_expiry_not_insertion_order(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        """#3859 review: a renewed reservation (re-assigning an existing
+        key) must not be evicted ahead of entries that were never touched
+        again, even though plain dict insertion order would put it first."""
+        import coord.state as state_mod
+        from coord.state import (
+            MERGE_RESERVATION_LIMIT,
+            get_merge_reservation,
+            reserve_merge_slot,
+        )
+
+        now = [3_000_000.0]
+        monkeypatch.setattr(state_mod.time, "time", lambda: now[0])
+
+        # Fill to the limit, "acme/repo-0" first.
+        for i in range(MERGE_RESERVATION_LIMIT):
+            reserve_merge_slot(f"acme/repo-{i}", f"acme/repo-{i}#1", ttl_seconds=60)
+
+        # Renew the FIRST entry — insertion-order eviction would now treat
+        # every other entry as "more recent" than it, even though it is the
+        # most-recently-written one and should be the LAST evicted.
+        reserve_merge_slot("acme/repo-0", "acme/repo-0#1", ttl_seconds=600)
+
+        # One brand-new repo pushes the map over the limit.
+        reserve_merge_slot("acme/repo-new", "acme/repo-new#1", ttl_seconds=60)
+
+        # The renewed entry survives (far-future expiry); the never-renewed
+        # oldest-by-expiry entry is the one evicted instead.
+        assert get_merge_reservation("acme/repo-0") is not None
+        assert get_merge_reservation("acme/repo-1") is None
+        assert get_merge_reservation("acme/repo-new") is not None

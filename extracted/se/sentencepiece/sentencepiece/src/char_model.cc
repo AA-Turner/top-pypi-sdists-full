@@ -14,8 +14,7 @@
 
 #include "char_model.h"
 
-#include "third_party/absl/strings/string_view.h"
-#include "util.h"
+#include "absl/strings/string_view.h"
 
 namespace sentencepiece {
 namespace character {
@@ -25,7 +24,7 @@ Model::Model(const ModelProto& model_proto) {
   InitializePieces(/* use_reserved_id_map= */ true);
 }
 
-Model::~Model() {}
+Model::~Model() = default;
 
 EncodeResult Model::Encode(absl::string_view normalized) const {
   if (!status().ok() || normalized.empty()) {
@@ -37,7 +36,9 @@ EncodeResult Model::Encode(absl::string_view normalized) const {
   while (!normalized.empty()) {
     const int mblen = matcher_->PrefixMatch(normalized);
     absl::string_view w(normalized.data(), mblen);
-    output.emplace_back(w, PieceToId(w));
+    const int id = PieceToIdNoReserved(w);
+    output.emplace_back(w,
+                        (id != unk_id_ && IsUnusedInlined(id)) ? unk_id_ : id);
     normalized.remove_prefix(mblen);
   }
 

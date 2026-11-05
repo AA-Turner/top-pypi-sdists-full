@@ -13,6 +13,7 @@ from datamodel_code_generator._openapi_wire_plan import declared_media
 from datamodel_code_generator._runtime.model_codecs.media import bodyless
 from datamodel_code_generator._target_contract import (
     LiteralSequence,
+    exact_status,
     fact,
     label,
     literal_text,
@@ -21,6 +22,7 @@ from datamodel_code_generator._target_contract import (
 )
 from datamodel_code_generator._target_naming import NameScope, explicit_name, operation_basis, path_placeholders
 from datamodel_code_generator._target_types import takes_null
+from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container, Iterable, Iterator, Mapping, Sequence
@@ -55,18 +57,16 @@ class TargetPolicy:
     """The rules the client and the server apply differently today, one row each.
 
     `stage` is the stage a planning diagnostic's code reports at; `duplicate_setting` the code and message, by the
-    option and the operation key, of two settings of one option that select one operation; `path_code` the code of
-    a path placeholder without a path parameter and of a path parameter without a placeholder, and
-    `placeholder_label` whether the first names its operation; `informational_bodyless` whether a declared 1XX status
-    carries no content (the client's row until #5603); `media_code` the code of a media key that no Content-Type
-    header carries.
+    option and the quoted operation key, of two settings of one option that select one operation; `path_code` the
+    code of a path placeholder without a path parameter and of a path parameter without a placeholder, and
+    `placeholder_label` whether the first names its operation; `media_code` the code of a media key that no
+    Content-Type header carries.
     """
 
     stage: Callable[[str], DiagnosticStage]
     duplicate_setting: tuple[str, str]
     path_code: str
     placeholder_label: bool
-    informational_bodyless: bool
     media_code: str
 
     def problem(
@@ -85,18 +85,16 @@ class TargetPolicy:
 
 CLIENT: Final = TargetPolicy(
     stage=lambda code: "config" if code in _CLIENT_CONFIG_CODES else "target",
-    duplicate_setting=("E_CONFIG_CONFLICT", "Two settings name {key!r}"),
+    duplicate_setting=("E_CONFIG_CONFLICT", "Two settings name {key}"),
     path_code="E_METADATA_REQUIRED",
     placeholder_label=True,
-    informational_bodyless=False,
     media_code="E_METADATA_REQUIRED",
 )
 SERVER: Final = TargetPolicy(
     stage=lambda code: "config" if code.startswith("E_") else "binding" if code.startswith("MC_") else "target",
-    duplicate_setting=("E_CONFIG_VALUE", "The {option} setting names {key!r} twice"),
+    duplicate_setting=("E_CONFIG_VALUE", "The {option} setting names {key} twice"),
     path_code="F_ROUTE_INVALID",
     placeholder_label=False,
-    informational_bodyless=True,
     media_code="F_MEDIA_UNSUPPORTED",
 )
 
@@ -161,23 +159,16 @@ def described(operation: OperationContract) -> str:
     return "\n\n".join(text.strip() for text in texts if isinstance(text, str) and text.strip())
 
 
-def exact_status(key: str) -> int | None:
-    """Return the status a declared response key names itself, or None for a range key, `default` or another key."""
-    return int(key) if key.isdigit() else None
+def response_bodyless(operation: OperationContract, key: str) -> bool:
+    """Return whether a response of an operation never carries content: by its method, then by its response key.
 
-
-def range_start(key: str) -> int:
-    """Return the first status of a declared range key such as 2XX, read from its first character."""
-    return int(key[0]) * 100
-
-
-def response_bodyless(policy: TargetPolicy, operation: OperationContract, status: int | None) -> bool:
-    """Return whether a response of an operation never carries content: by its method, then by its status.
-
-    `status` is the one status a response declares, or None for a range or `default`, which only HEAD leaves bodyless.
+    A response key (`response_key`) is bodyless when it names a 1XX, 204, 205 or 304 status or is the range 1XX. Any
+    other range, and `default`, hold statuses with content, which only HEAD leaves bodyless.
     """
     head = operation.method == "head"
-    return head if status is None else bodyless(status, head=head, informational=policy.informational_bodyless)
+    if (status := exact_status(key)) is not None:
+        return bodyless(status, head=head)
+    return head or key == "1XX"
 
 
 def first_use(uses: Mapping[TypeUseId, TypeUseBinding], ids: Iterable[TypeUseId]) -> TypeUseBinding | None:
@@ -209,7 +200,7 @@ def declared_media_type(
     """Return a media declaration's normalized type, reporting a key that no Content-Type header carries."""
     media_type, problem = declared_media(declaration.name or "")
     if problem is not None:
-        message = f"The media type {declaration.name!r} of {label(operation)} {problem}"
+        message = f"The media type {stable_repr(declaration.name)} of {label(operation)} {problem}"
         problems.append(policy.problem(policy.media_code, message, declaration.use_site))
     return media_type
 
@@ -288,8 +279,8 @@ def alias(  # noqa: PLR0913
     """Return the `--aliases` entry naming a parameter's argument, reporting one that is no identifier."""
     if (found := names.alias(wire_name)) is not None and not explicit_name(found, names.python_version):
         message = (
-            f"The --aliases entry {found!r} of the {location} parameter {wire_name!r} of {label(operation)} "
-            "is not an identifier"
+            f"The --aliases entry {stable_repr(found)} of the {location} parameter {stable_repr(wire_name)} of "
+            f"{label(operation)} is not an identifier"
         )
         problems.append(policy.problem("E_CONFIG_VALUE", message, source))
     return found
@@ -313,10 +304,12 @@ def resolve_settings(
             from datamodel_code_generator._target_documents import named_document  # noqa: PLC0415
 
             named = named_document(reference.document, reference.document)
-            message = f"The {subject} {reference.pointer!r}{named} {request.unresolved}"
+            message = f"The {subject} {stable_repr(reference.pointer)}{named} {request.unresolved}"
             problems.append(policy.problem("E_OPERATION_REF", message, option_path=option))
         elif (key := operation.id.use_site.pointer) in resolved:
-            problems.append(policy.problem(code, duplicate.format(option=option, key=key), option_path=option))
+            problems.append(
+                policy.problem(code, duplicate.format(option=option, key=stable_repr(key)), option_path=option)
+            )
         else:
             resolved[key] = value
     return resolved
@@ -329,10 +322,12 @@ def placeholder_problems(
     named = f" of {label(operation)}" if policy.placeholder_label else ""
     for placeholder in dict.fromkeys(placeholders):
         if placeholder not in declared:
-            message = f"The path placeholder {placeholder!r}{named} has no path parameter"
+            message = f"The path placeholder {stable_repr(placeholder)}{named} has no path parameter"
             yield policy.problem(policy.path_code, message, operation.id.use_site)
     template = path_placeholders(operation.path)
     for declaration in operation.parameters:
         if parameter_location(declaration) == "path" and declaration.name not in template:
-            message = f"The path parameter {declaration.name!r} of {label(operation)} names no path placeholder"
+            message = (
+                f"The path parameter {stable_repr(declaration.name)} of {label(operation)} names no path placeholder"
+            )
             yield policy.problem(policy.path_code, message, declaration.use_site)

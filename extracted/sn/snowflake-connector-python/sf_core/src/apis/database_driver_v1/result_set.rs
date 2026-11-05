@@ -462,7 +462,7 @@ pub(super) async fn fetch_query_response_data(
     let (query_parameters, http_client, retry_policy, xp_backend) = {
         let conn = conn_ptr.lock().await;
         (
-            conn.query_transport_parameters()?,
+            conn.query_transport_parameters().await?,
             conn.http_client
                 .clone()
                 .context(ConnectionNotInitializedSnafu)?,
@@ -495,7 +495,7 @@ pub(super) async fn fetch_query_response_data(
     };
 
     if response.success {
-        let conn = conn_ptr.lock().await;
+        let mut conn = conn_ptr.lock().await;
         conn.update_session_params_cache(
             "",
             response.data.parameters.as_ref(),
@@ -507,6 +507,7 @@ pub(super) async fn fetch_query_response_data(
             },
         )
         .await;
+        conn.start_heartbeat_if_session_keeps_alive().await;
     }
 
     Ok(response.data)
@@ -521,7 +522,7 @@ struct ReaderInputs {
     xp_backend: Option<Arc<dyn crate::xp_backend::SnowflakeBackend>>,
 }
 
-fn geo_type_name(column: &ColumnMetadata) -> Option<&'static str> {
+fn external_type_name(column: &ColumnMetadata) -> Option<&'static str> {
     let type_name = if column.ext_col_type_name.is_empty() {
         column.r#type.as_str()
     } else {
@@ -531,17 +532,19 @@ fn geo_type_name(column: &ColumnMetadata) -> Option<&'static str> {
         Some("GEOGRAPHY")
     } else if type_name.eq_ignore_ascii_case("GEOMETRY") {
         Some("GEOMETRY")
+    } else if type_name.eq_ignore_ascii_case("FILE") {
+        Some("FILE")
     } else {
         None
     }
 }
 
-fn inject_geo_type_names(schema: SchemaRef, columns: &[ColumnMetadata]) -> SchemaRef {
+fn inject_external_type_names(schema: SchemaRef, columns: &[ColumnMetadata]) -> SchemaRef {
     if columns.len() != schema.fields().len() {
         return schema;
     }
     let needs_injection = schema.fields().iter().zip(columns).any(|(field, column)| {
-        geo_type_name(column).is_some_and(|type_name| {
+        external_type_name(column).is_some_and(|type_name| {
             field.metadata().get("extTypeName").map(String::as_str) != Some(type_name)
         })
     });
@@ -553,7 +556,7 @@ fn inject_geo_type_names(schema: SchemaRef, columns: &[ColumnMetadata]) -> Schem
         .iter()
         .zip(columns)
         .map(|(field, column)| {
-            let Some(type_name) = geo_type_name(column) else {
+            let Some(type_name) = external_type_name(column) else {
                 return field.as_ref().clone();
             };
             let mut metadata = field.metadata().clone();
@@ -618,7 +621,7 @@ impl DatabaseDriverV1 {
         .await
         .context(QueryResponseProcessSnafu)?;
         let original_schema = reader.schema();
-        let schema = inject_geo_type_names(original_schema.clone(), &inputs.columns);
+        let schema = inject_external_type_names(original_schema.clone(), &inputs.columns);
         if Arc::ptr_eq(&schema, &original_schema) {
             return Ok(reader);
         }
@@ -641,7 +644,7 @@ impl DatabaseDriverV1 {
             inputs.xp_backend,
         )
         .await?;
-        let schema = inject_geo_type_names(fetcher.schema(), &inputs.columns);
+        let schema = inject_external_type_names(fetcher.schema(), &inputs.columns);
         fetcher.override_schema(schema);
         Ok(fetcher)
     }
@@ -1034,6 +1037,80 @@ mod tests {
                 .get("extTypeName")
                 .map(String::as_str),
             Some("GEOMETRY")
+        );
+    }
+
+    const FILE_ARROW_DATA: &str = r#"{
+        "queryResultFormat": "arrow",
+        "rowtype": [
+            {"name": "FILE_COL", "type": "FILE", "nullable": true}
+        ]
+    }"#;
+
+    fn arrow_ipc_file_base64() -> String {
+        use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
+
+        let metadata: std::collections::HashMap<String, String> =
+            [("logicalType".to_string(), "VARIANT".to_string())].into();
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("FILE_COL", DataType::Utf8, true).with_metadata(metadata),
+        ]));
+        let columns: Vec<Arc<dyn Array>> = vec![Arc::new(StringArray::from(vec![
+            "{\"RELATIVE_PATH\":\"a.jpeg\"}",
+        ]))];
+        let batch = RecordBatch::try_new(Arc::clone(&schema), columns)
+            .expect("failed to build Arrow record batch fixture");
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = arrow_ipc::writer::StreamWriter::try_new(&mut buf, schema.as_ref())
+                .expect("failed to create Arrow IPC stream writer");
+            writer.write(&batch).expect("failed to write Arrow batch");
+            writer.finish().expect("failed to finish Arrow IPC stream");
+        }
+        BASE64.encode(&buf)
+    }
+
+    #[test]
+    fn result_set_streams_stamp_file_type_name() {
+        let driver = DatabaseDriverV1::new();
+        let data: Data = serde_json::from_str(FILE_ARROW_DATA)
+            .expect("fixture must deserialize into query_response::Data");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        let reader_ctx = ReaderContext {
+            http_client: reqwest::Client::new(),
+            prefetch_config: PrefetchConfig::default(),
+            xp_backend: None,
+        };
+        let rowset_data = RowsetData::ArrowSingleChunk {
+            chunk_base64: arrow_ipc_file_base64(),
+        };
+        let handle = driver.create_result_set(descriptor, rowset_data, reader_ctx);
+
+        let runtime = tokio::runtime::Runtime::new().expect("failed to build tokio runtime");
+        let reader = runtime
+            .block_on(driver.result_set_get_stream(handle))
+            .expect("result_set_get_stream should stamp FILE metadata");
+        let field = reader.schema().field(0).clone();
+        assert_eq!(
+            field.metadata().get("logicalType").map(String::as_str),
+            Some("VARIANT")
+        );
+        assert_eq!(
+            field.metadata().get("extTypeName").map(String::as_str),
+            Some("FILE")
+        );
+        let fetcher = runtime
+            .block_on(driver.result_set_get_async_stream(handle))
+            .expect("result_set_get_async_stream should stamp FILE metadata");
+        assert_eq!(
+            fetcher
+                .schema()
+                .field(0)
+                .metadata()
+                .get("extTypeName")
+                .map(String::as_str),
+            Some("FILE")
         );
     }
 

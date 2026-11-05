@@ -13,9 +13,10 @@ from .codec import (
   compress, decompress, decompress_range, labels, 
   header, raw_labels, decode_flat_labels,
   decode_condensed_pins, decode_condensed_pins_components,
-  num_labels, crack_codes, components,
+  num_labels, num_labels_raw, crack_codes, components,
   reencode, background_color, crack_crcs, labels_crc,
-  condense_unique,
+  condense_unique, z_range_for_label, point_cloud,
+  contains,
 )
 from .headers import CrackleHeader, CrackFormat, LabelFormat, FormatError
 from .lib import width2dtype, compute_byte_width, compute_dtype, crc32c
@@ -50,13 +51,13 @@ def max(binary:bytes) -> int:
   loff = head.header_bytes + head.grid_index_bytes
 
   if head.label_format == LabelFormat.FLAT:
-    N = num_labels(binary)
+    N = num_labels_raw(binary)
     offset = loff + 8 + (N-1) * head.stored_data_width
     return int.from_bytes(binary[offset:offset+head.stored_data_width], byteorder='little')
   else:
     bgcolor = background_color(binary)
     sdw = head.stored_data_width
-    N = num_labels(binary) - 1
+    N = num_labels_raw(binary) - 1
     offset = loff + sdw + 8 + (N-1) * sdw
     arrmin = int.from_bytes(binary[offset:offset+sdw], byteorder='little')
     if bgcolor > arrmin:
@@ -113,6 +114,7 @@ def remap(
     head.data_width = data_width
   head.stored_data_width = data_width
   head.is_sorted = np.all(uniq[:-1] <= uniq[1:])
+  head.is_remapped = True
 
   labels_binary = b''.join([
     len(uniq).to_bytes(8, 'little'),
@@ -558,7 +560,7 @@ def _zsplit_helper(binary:bytes):
   uniq = labels(binary)
   raw = raw_labels(binary)
 
-  N = num_labels(binary)
+  N = num_labels_raw(binary)
   idx_bytes = head.component_width() * head.sz
   offset = 8 + N * head.stored_data_width
   label_idx = np.frombuffer(raw[offset:offset + idx_bytes], dtype=f"u{head.component_width()}")
@@ -721,6 +723,7 @@ def full(shape, fill_value, dtype=None, order='C') -> bytes:
     signed=(fill_value < 0),
     markov_model_order=0,
     is_sorted=True,
+    is_remapped=False,
   )
 
   labels_binary = b''.join([
@@ -763,12 +766,14 @@ def ones(shape, dtype=None, order="C"):
   """
   return full(shape, 1, dtype, order)
 
-def operator(binary:bytes, fn) -> bytes:
+def operator(binary:bytes, is_remapped:bool, fn) -> bytes:
   head = header(binary)
   parts = decode_flat_labels(head, binary)
   parts["unique"] = fn(parts["unique"])
 
-  head.stored_data_width = compute_byte_width(parts["unique"][-1])
+  head.is_sorted = fastremap.is_sorted(parts["unique"])
+  head.is_remapped = is_remapped
+  head.stored_data_width = compute_byte_width(parts["unique"].max())
 
   labels_binary = b''.join([
     len(parts["unique"]).to_bytes(8, 'little'),
@@ -796,79 +801,79 @@ def operator(binary:bytes, fn) -> bytes:
   ])
 
 def eq_scalar(binary:bytes, scalar:int) -> bytes:
-  return operator(binary, lambda uniq: uniq == scalar)
+  return operator(binary, True, lambda uniq: uniq == scalar)
 
 def neq_scalar(binary:bytes, scalar:int) -> bytes:
-  return operator(binary, lambda uniq: uniq != scalar)
+  return operator(binary, True, lambda uniq: uniq != scalar)
 
 def gt_scalar(binary:bytes, scalar:int) -> bytes:
-  return operator(binary, lambda uniq: uniq > scalar)
+  return operator(binary, True, lambda uniq: uniq > scalar)
 
 def gte_scalar(binary:bytes, scalar:int) -> bytes:
-  return operator(binary, lambda uniq: uniq >= scalar)
+  return operator(binary, True, lambda uniq: uniq >= scalar)
 
 def lt_scalar(binary:bytes, scalar:int) -> bytes:
-  return operator(binary, lambda uniq: uniq < scalar)
+  return operator(binary, True, lambda uniq: uniq < scalar)
 
 def lte_scalar(binary:bytes, scalar:int) -> bytes:
-  return operator(binary, lambda uniq: uniq <= scalar)
+  return operator(binary, True, lambda uniq: uniq <= scalar)
 
 def add_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == 0:
     return binary
-  return operator(binary, lambda uniq: uniq + scalar)
+  return operator(binary, False, lambda uniq: uniq + scalar)
 
 def subtract_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == 0:
     return binary
-  return operator(binary, lambda uniq: uniq - scalar)
+  return operator(binary, False, lambda uniq: uniq - scalar)
 
 def multiply_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == 1:
     return binary
-  return operator(binary, lambda uniq: uniq * scalar)
+  return operator(binary, scalar != 0, lambda uniq: uniq * scalar)
 
 def floordiv_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == 0:
     raise ZeroDivisionError("Cannot divide by zero.")
   elif scalar == 1:
     return binary
-  return operator(binary, lambda uniq: uniq // scalar)
+  return operator(binary, True, lambda uniq: uniq // scalar)
 
 def mod_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == 0:
     raise ZeroDivisionError("Cannot divide by zero.")
   elif scalar > max(binary):
     return binary
-  return operator(binary, lambda uniq: uniq % scalar)
+  return operator(binary, True, lambda uniq: uniq % scalar)
 
 def truediv_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == 1:
     return binary
-  return operator(binary, lambda uniq: uniq / scalar)
+  return operator(binary, True, lambda uniq: uniq / scalar)
 
 def xor_scalar(binary:bytes, scalar:int) -> bytes:
-  return operator(binary, lambda uniq: uniq ^ scalar)
+  return operator(binary, True, lambda uniq: uniq ^ scalar)
 
 def bitwise_and_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == np.iinfo(header(binary).dtype).max:
     return binary
-  return operator(binary, lambda uniq: uniq & scalar)
+  return operator(binary, True, lambda uniq: uniq & scalar)
 
 def bitwise_or_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == 0:
     return binary
-  return operator(binary, lambda uniq: uniq | scalar)
+  return operator(binary, True, lambda uniq: uniq | scalar)
 
 def lshift_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == 0:
     return binary
-  return operator(binary, lambda uniq: uniq << scalar)
+  return operator(binary, True, lambda uniq: uniq << scalar)
 
 def rshift_scalar(binary:bytes, scalar:int) -> bytes:
   if scalar == 0:
     return binary
-  return operator(binary, lambda uniq: uniq >> scalar)
+  return operator(binary, True, lambda uniq: uniq >> scalar)
 
 def recompress(
   binary:bytes,
@@ -889,26 +894,10 @@ def recompress(
   full decompression/recompression cycle would have required
   120 GB.
   """
-  head = header(binary)
-  # approximate RAM needed to encode/decode a full z-section
-  # section + CCL + VCG
-  section_bytes = head.sx * head.sy * (head.data_width + 4 + 1)
-
-  min_memory_request = 2 * len(binary) + section_bytes
-
-  if min_memory_request >= memory_target:
-    warnings.warn(
-      f"Memory required is potentially more than the memory target specified. "
-      f"Sometimes recompression will result in substantial additional savings "
-      f"so this isn't a hard error. Recompression will require storing approximately"
-      f"thirce the same binary size in RAM plus additional memory per a parallel section.\n"
-      f"memory target: {memory_target} bytes\n"
-      f"requested: {min_memory_request} bytes"
-    )
 
   binaries = fastcrackle.recompress(
     binary,
-    z_start, z_end, parallel, 
+    0, -1, parallel, 
   )
   return zstack(binaries)
 
@@ -1011,12 +1000,13 @@ def voxel_connectivity_graph(
 def contacts(
   binary:bytes,
   anisotropy:tuple[float,float,float] = (1.0, 1.0, 1.0),
+  parallel:int = 0,
 ) -> dict[tuple[int,int], float]:
   """
   Extract the 6-connected contact area between regions.
   """
   wx, wy, wz = anisotropy
-  return fastcrackle.contacts(binary, 0, -1, wx, wy ,wz)
+  return fastcrackle.contacts(binary, 0, -1, wx, wy ,wz, parallel)
 
 def array_equal(
   binary1:bytes, 
@@ -1142,4 +1132,156 @@ def binary_operator(lvalue:bytes, rvalue:bytes, operator:str, parallel:int = 0) 
   oper = OPERATOR_MAP[operator]
   binaries = fastcrackle.binary_operator(lvalue, rvalue, oper, parallel)
   return zstack(binaries)
+
+def select_enclosed_points(
+  binary:bytes, 
+  label:int,
+  points:np.ndarray,
+  parallel:int = 0,
+) -> npt.NDArray[bool]:
+  """
+  Given a crackle array, a label, and a set of points,
+  return a 1D array of booleans marking whether those points
+  are inside (True) or outside the corresponding mask for that
+  label.
+  """
+  points = np.asarray(points)
+
+  assert points.ndim == 2
+  assert points.shape[1] == 3
+
+  head = header(binary)
+
+  mask = np.ones(points.shape[0], dtype=bool)
+
+  mask &= points[:,0] >= 0
+  mask &= points[:,1] >= 0
+  mask &= points[:,2] >= 0
+
+  mask &= points[:,0] < head.sx
+  mask &= points[:,1] < head.sy
+  mask &= points[:,2] < head.sz
+
+  if not mask.any():
+    return mask
+
+  (z_start, z_end) = z_range_for_label(binary, label)
+  
+  mask &= points[:,2] >= z_start
+  mask &= points[:,2] < z_end
+
+  if not mask.any():
+    return mask
+
+  idx = np.flatnonzero(mask)
+  considered_points = points[idx].astype(np.uint16, copy=False)
+
+  values = fastcrackle.scattered_points(
+    binary, considered_points, parallel
+  )
+
+  mask[idx] = values == label
+
+  return mask
+
+def scattered_points(
+  binary:bytes, 
+  points:np.ndarray,
+  parallel:int = 0,
+) -> np.ndarray:
+  """
+  Efficiently fetch the values of a sparse
+  set of points.
+  """
+  points = np.asarray(points)
+
+  assert points.ndim == 2
+  assert points.shape[1] == 3
+
+  head = header(binary)
+
+  mask = np.ones(points.shape[0], dtype=bool)
+
+  mask &= points[:,0] >= 0
+  mask &= points[:,1] >= 0
+  mask &= points[:,2] >= 0
+
+  mask &= points[:,0] < head.sx
+  mask &= points[:,1] < head.sy
+  mask &= points[:,2] < head.sz
+
+  if not mask.any():
+    num_bad = np.sum(~mask)
+    examples = points[~mask][:10]
+    raise ValueError(f"{num_bad} points were out of range. Up to 10 examples: {examples}")
+
+  return fastcrackle.scattered_points(
+    binary, points, parallel
+  )
+
+def signed_distance_to_boundary(
+  binary:bytes, 
+  label:int,
+  points:np.ndarray,
+  anisotropy:np.ndarray = np.ones(3, dtype=np.float32),
+  parallel:int = 0,
+  z_chunk:int = 100,
+  progress:bool = False,
+) -> npt.NDArray[float]:
+  """
+  Compute the signed distance field for a sparse set of points.
+  """
+  from pykdtree.kdtree import KDTree
+  from tqdm import tqdm
+
+  points = np.asarray(points)
+  radii = np.full(points.shape[0], np.inf, dtype=np.float32)
+
+  if not contains(binary, label):
+    return radii
+  
+  inside_mask = select_enclosed_points(binary, label, points, parallel)
+
+  head = header(binary)
+  z_chunk = np.min([ z_chunk, head.sz ])
+  anisotropy = np.asarray(anisotropy, dtype=np.float32)
+
+  correction_factor = np.min(anisotropy)
+
+  scaled_points = points * anisotropy
+  scaled_points = scaled_points.astype(np.float32)
+
+  iter = tqdm(
+    range(0, head.sz, z_chunk),
+    disable=(not progress),
+    desc="Signed Distance to Boundary",
+  )
+
+  for z in iter:
+    ptc = point_cloud(
+      binary, 
+      z_start=np.max([ z-1, 0 ]),
+      z_end=np.min([ z+z_chunk, head.sz ]),
+      label=label, 
+      parallel=parallel
+    )
+    if ptc.size == 0:
+      continue
+
+    ptc = ptc.astype(np.float32)
+    ptc[:] *= anisotropy
+    tree = KDTree(ptc)
+    chunk_radii, _ = tree.query(scaled_points, k=1)
+
+    # regular edt is distance to bg, kdtree returns
+    # distance to contour, which is a difference of 1 
+    # can maybe improve this by taking the mean of the
+    # axial, square diagonal, and cubic directions
+    # distances inside need to be expanded, points outside contracted
+    np.add(chunk_radii, correction_factor, out=chunk_radii, where=inside_mask)
+    np.minimum(radii, chunk_radii, out=radii)
+
+  np.negative(radii, out=radii, where=inside_mask)
+
+  return radii
 

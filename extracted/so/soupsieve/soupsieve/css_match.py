@@ -615,6 +615,7 @@ class CSSMatch(_DocumentNav):
         self.nth_cache: dict[Hashable, list[int]] = {}
         self.sib_cache: dict[Hashable, int] = {}
         self.anc_cache: dict[tuple[int, int], bool] = {}
+        self.desc_cache: dict[tuple[int, int], bool] = {}
         self.dir_cache: dict[int, int] = {}
         self.index_cache: dict[int, dict[int, int]] = {}
 
@@ -650,6 +651,7 @@ class CSSMatch(_DocumentNav):
         self.nth_cache.clear()
         self.sib_cache.clear()
         self.anc_cache.clear()
+        self.desc_cache.clear()
         self.dir_cache.clear()
         self.index_cache.clear()
 
@@ -1033,7 +1035,19 @@ class CSSMatch(_DocumentNav):
                     found = parent is not None and (yield parent, relation)
         elif relation[0].rel_type == REL_CLOSE_PARENT:
             parent = self.get_parent(el)
-            found = parent is not None and (yield parent, relation)
+            if parent is None:
+                pass
+            elif self.enable_cache:
+                # Siblings share the parent, so cache whether it matches to avoid evaluating it again for every child.
+                # This is inlined, instead of going through `match_ancestor`, as an extra generator is costly on
+                # documents where most parents have a single child and the cache rarely gets a hit.
+                key = (id(parent), id(relation))
+                cached = self.anc_cache.get(key)
+                if cached is None:
+                    cached = self.anc_cache[key] = yield parent, relation
+                found = cached
+            else:
+                found = yield parent, relation
         elif relation[0].rel_type == REL_SIBLING:
             if self.enable_cache:
                 found = yield from self.match_general_sibling(el, relation)
@@ -1065,6 +1079,47 @@ class CSSMatch(_DocumentNav):
                 break
         return match
 
+    def match_descendant(self, el: bs4.Tag, relation: ct.SelectorList) -> MatchGenerator:
+        """
+        Match descendant relation of `:has()`.
+
+        Every element matched by `:has()` searches all of its descendants, which is quadratic in the depth
+        of the document. Every element visited on the search shares the result, so cache whether each one
+        is or has a matching descendant: an element searched without a match is cached along with all of
+        its descendants, and when there is a match, the element and all of those it is nested in are cached.
+        """
+
+        found = False
+        # Elements whose contents are being searched, outermost first, and elements searched without a match
+        searching: list[tuple[int, int]] = []
+        searched: list[tuple[int, int]] = []
+        stack = [self.get_tag_children(el)]
+        while stack and not found:
+            for child in stack[-1]:
+                key = (id(child), id(relation))
+                if key in self.desc_cache:
+                    if self.desc_cache[key]:
+                        found = True
+                        break
+                    continue
+                searching.append(key)
+                if (yield child, relation):
+                    found = True
+                else:
+                    stack.append(self.get_tag_children(child))
+                break
+            else:
+                stack.pop()
+                if searching:
+                    searched.append(searching.pop())
+
+        for key in searching:
+            self.desc_cache[key] = True
+        for key in searched:
+            self.desc_cache[key] = False
+
+        return found
+
     def match_future_relations(self, el: bs4.Tag, relation: ct.SelectorList) -> MatchGenerator:
         """Match future relationship."""
 
@@ -1074,7 +1129,10 @@ class CSSMatch(_DocumentNav):
             return found
 
         if relation[0].rel_type == REL_HAS_PARENT:
-            found = yield from self.match_future_child(el, relation, True)
+            if self.enable_cache:
+                found = yield from self.match_descendant(el, relation)
+            else:
+                found = yield from self.match_future_child(el, relation, True)
         elif relation[0].rel_type == REL_HAS_CLOSE_PARENT:
             found = yield from self.match_future_child(el, relation)
         elif relation[0].rel_type == REL_HAS_SIBLING:

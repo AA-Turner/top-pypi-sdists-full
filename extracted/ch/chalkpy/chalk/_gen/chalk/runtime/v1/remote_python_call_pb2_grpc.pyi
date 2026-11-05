@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.runtime.v1.remote_python_call_pb2 import (
     CallFunctionRequest,
     CallFunctionResponse,
+    CancelRemoteCallRequest,
+    CancelRemoteCallResponse,
     EnqueueRemoteCallRequest,
     EnqueueRemoteCallResponse,
     GetCallCountRequest,
@@ -68,6 +70,16 @@ class AsyncRemoteCallServiceStub:
     last position; the server returns any new result chunks plus an
     updated cursor.
     """
+    CancelRemoteCall: UnaryUnaryMultiCallable[
+        CancelRemoteCallRequest,
+        CancelRemoteCallResponse,
+    ]
+    """Cancel a call without interrupting running code unless container termination
+    is requested. List queues return UNIMPLEMENTED. Late results cannot replace
+    cancellation, and cancellation never schedules another execution attempt.
+    Success commits cancellation and durably schedules any required termination;
+    it does not wait for the container to stop or collateral recovery to finish.
+    """
     StreamRemoteCallBatch: StreamStreamMultiCallable[
         StreamRemoteCallBatchRequest,
         StreamRemoteCallBatchResponse,
@@ -98,6 +110,18 @@ class AsyncRemoteCallServiceServicer(metaclass=ABCMeta):
         """Poll for results. The caller passes a cursor to resume from the
         last position; the server returns any new result chunks plus an
         updated cursor.
+        """
+    @abstractmethod
+    def CancelRemoteCall(
+        self,
+        request: CancelRemoteCallRequest,
+        context: ServicerContext,
+    ) -> CancelRemoteCallResponse:
+        """Cancel a call without interrupting running code unless container termination
+        is requested. List queues return UNIMPLEMENTED. Late results cannot replace
+        cancellation, and cancellation never schedules another execution attempt.
+        Success commits cancellation and durably schedules any required termination;
+        it does not wait for the container to stop or collateral recovery to finish.
         """
     @abstractmethod
     def StreamRemoteCallBatch(

@@ -329,6 +329,7 @@ def ask_actions() -> list[AskAction]:
             ),
             _create_summary,
             _create,
+            outward=True,
         ),
         AskAction(
             "update_event",
@@ -344,6 +345,7 @@ def ask_actions() -> list[AskAction]:
             ),
             _update_summary,
             _update,
+            outward=True,
         ),
         AskAction(
             "delete_event",

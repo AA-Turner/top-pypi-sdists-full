@@ -23,8 +23,8 @@ class DescribeVersionConfigResponseBody(DaraModel):
         cspm_instance_capacity: int = None,
         highest_version: int = None,
         honeypot_capacity: int = None,
-        hybrid_paid_gray_status: str = None,
-        hybrid_paid_module_switch_map: int = None,
+        hybrid_paid_gray_status: main_models.DescribeVersionConfigResponseBodyHybridPaidGrayStatus = None,
+        hybrid_paid_module_switch_map: str = None,
         hybrid_paid_status: int = None,
         hybrid_switch: int = None,
         image_scan_capacity: int = None,
@@ -77,8 +77,8 @@ class DescribeVersionConfigResponseBody(DaraModel):
         web_lock: int = None,
         web_lock_auth_count: int = None,
     ):
-        # The agentless detection quota.
-        # > Agentless detection is not yet available for sale. You can ignore this field.
+        # The number of agentless detection licenses.
+        # > Agentless detection is not currently available for purchase. You can ignore this field.
         self.agentless_capacity = agentless_capacity
         # Indicates whether pay-as-you-go purchase is allowed. Valid values:
         # - **0**: Not allowed.
@@ -86,18 +86,18 @@ class DescribeVersionConfigResponseBody(DaraModel):
         self.allow_partial_buy = allow_partial_buy
         # The anti-ransomware backup capacity. Unit: GB.
         self.anti_ransomware_capacity = anti_ransomware_capacity
-        # Indicates whether the anti-ransomware managed service is enabled. Valid values:
-        # - **0**: Not enabled.
+        # The status of the anti-ransomware managed service. Valid values:
+        # - **0**: Disabled.
         # - **1**: Enabled.
         self.anti_ransomware_service = anti_ransomware_service
-        # Indicates whether the application whitelist feature is enabled. Valid values:
-        # - **0**: Not enabled.
+        # Indicates whether the application whitelist is enabled. Valid values:
+        # - **0**: Disabled.
         # - **2**: Enabled.
         self.app_white_list = app_white_list
-        # The number of application whitelist authorizations.
-        # > One authorization allows you to apply a whitelist policy to one server. After you enable the application whitelist feature, your account is granted 20 authorizations by default.
+        # The number of application whitelist licenses.
+        # > One license allows you to apply a whitelist policy to one server. After you enable the application whitelist feature, your account is granted 20 licenses by default.
         self.app_white_list_auth_count = app_white_list_auth_count
-        # The number of purchased server authorizations.
+        # The number of purchased server licenses.
         self.asset_level = asset_level
         # Indicates whether Endpoint Detection and Response (EDR) is purchased.
         self.buy_sas_edr = buy_sas_edr
@@ -105,30 +105,30 @@ class DescribeVersionConfigResponseBody(DaraModel):
         # - **0**: Not supported.
         # - **1**: Supported.
         self.can_try_post_paid_package = can_try_post_paid_package
-        # The number of purchased cloud platform configuration check scans. Unit: scans per month.
+        # The number of purchased Cloud Security Posture Management (CSPM) scans. Unit: scans per month.
         self.cspm_capacity = cspm_capacity
         # The AI digital human analysis traffic.
         self.cspm_instance_capacity = cspm_instance_capacity
         # The highest purchased edition of Security Center. Valid values:
-        # - **1**: Free Edition
-        # - **3**: Enterprise Edition
-        # - **5**: Advanced Edition
-        # - **6**: Anti-virus Edition
-        # - **7**: Ultimate Edition
-        # - **10**: Value-added services only
-        # > If a single edition is purchased, this value indicates the corresponding edition. If multiple editions are purchased, this value indicates the highest edition among the purchased editions of Security Center.
+        # - **1**: Free Edition.
+        # - **3**: Enterprise Edition.
+        # - **5**: Advanced Edition.
+        # - **6**: Anti-virus Edition.
+        # - **7**: Ultimate Edition.
+        # - **10**: Value-added service only.
+        # > If a single edition is purchased, this value indicates the corresponding edition. If multiple editions are purchased, this value indicates the highest edition among the purchased Security Center editions.
         self.highest_version = highest_version
-        # The number of purchased honeypot authorizations.
+        # The number of purchased honeypot licenses.
         self.honeypot_capacity = honeypot_capacity
         # The canary release module for elastic billing.
         self.hybrid_paid_gray_status = hybrid_paid_gray_status
         # The AI digital human analysis traffic.
         self.hybrid_paid_module_switch_map = hybrid_paid_module_switch_map
-        # The elastic billing switch status.
+        # The status of the elastic billing switch.
         self.hybrid_paid_status = hybrid_paid_status
         # The AI digital human analysis traffic.
         self.hybrid_switch = hybrid_switch
-        # The number of purchased image scan authorizations.
+        # The number of purchased image scan licenses.
         self.image_scan_capacity = image_scan_capacity
         # The instance purchase type. Valid values:
         # - **0**: Self-purchased.
@@ -139,44 +139,44 @@ class DescribeVersionConfigResponseBody(DaraModel):
         # The AI digital human analysis traffic.
         self.intelligent_analysis_flow = intelligent_analysis_flow
         # Indicates whether the instance is the latest Ultimate Edition. Valid values:
-        # - **true**: The instance is the latest version.
-        # - **false**: The instance is not the latest version.
+        # - **true**: Latest version.
+        # - **false**: Not the latest version.
         self.is_new_container_version = is_new_container_version
         # Indicates whether the instance is the latest multi-edition. Valid values:
-        # - **true**: The instance is the latest multi-edition.
-        # - **false**: The instance is not the latest multi-edition.
+        # - **true**: Latest multi-edition.
+        # - **false**: Not the latest multi-edition.
         self.is_new_multi_version = is_new_multi_version
-        # Indicates whether the number of existing servers exceeds the maximum number of purchased authorizations. Valid values:
+        # Indicates whether the current number of servers exceeds the maximum number of purchased licenses. Valid values:
         # - **false**: Not exceeded.
         # - **true**: Exceeded.
-        # >Notice: **[Deprecated]** This parameter is deprecated. You can ignore it.</notice>
+        # >Notice: **[Deprecated]** You can ignore this parameter.</notice>
         self.is_over_balance = is_over_balance
-        # Indicates whether the pay-as-you-go billing method is enabled. Valid values:
-        # - **false**: Not enabled.
+        # Indicates whether pay-as-you-go is enabled. Valid values:
+        # - **false**: Disabled.
         # - **true**: Enabled.
         self.is_postpay = is_postpay
         # Indicates whether the current Security Center edition is a trial edition. Valid values:
-        # - **0**: No, it is not a trial edition.
-        # - **1**: Yes, it is a trial edition.
+        # - **0**: Non-trial edition.
+        # - **1**: Trial edition.
         self.is_trial_version = is_trial_version
         # The end timestamp of the last Security Center trial. Unit: milliseconds.
         self.last_trail_end_time = last_trail_end_time
-        # The total number of authorizations for the multi-edition purchase.
+        # The total number of licenses for the multi-edition purchase.
         self.mvauth_count = mvauth_count
-        # The total number of remaining authorizations for the multi-edition purchase.
+        # The total number of remaining licenses for the multi-edition purchase.
         self.mvunused_auth_count = mvunused_auth_count
         # The higher protection edition between the subscription and pay-as-you-go services when both are enabled for Security Center host and container security. Valid values:
-        # - **1**: Free Edition
-        # - **6**: Anti-virus Edition
-        # - **5**: Advanced Edition
-        # - **3**: Enterprise Edition
-        # - **7**: Ultimate Edition
+        # - **1**: Free Edition.
+        # - **6**: Anti-virus Edition.
+        # - **5**: Advanced Edition.
+        # - **3**: Enterprise Edition.
+        # - **7**: Ultimate Edition.
         self.merged_version = merged_version
-        # The multi-edition version numbers and authorization usage.
+        # The multi-edition version numbers and license usage.
         self.multi_version = multi_version
         # The AI digital human analysis traffic.
         self.new_post_paid_cspm = new_post_paid_cspm
-        # Indicates whether the new version of Cloud Threat Detection and Response (CTDR) is enabled. The new version of CTDR supports the purchase of inbound traffic and log storage capacity. Valid values:
+        # Indicates whether the new version of Cloud Threat Detection and Response (CTDR) is enabled. The new version of CTDR supports purchasing inbound traffic and log storage capacity. Valid values:
         # - **0**: No.
         # - **1**: Yes.
         self.new_threat_analysis = new_threat_analysis
@@ -184,49 +184,49 @@ class DescribeVersionConfigResponseBody(DaraModel):
         self.onboarded_assets = onboarded_assets
         # The timestamp when the service is enabled. Unit: milliseconds.
         self.open_time = open_time
-        # The first trial time for the pay-as-you-go billing method.
+        # The first trial time for pay-as-you-go.
         self.post_paid_first_trial_time = post_paid_first_trial_time
-        # The latest trial time for the pay-as-you-go billing method.
+        # The latest trial time for pay-as-you-go.
         self.post_paid_last_trial_time = post_paid_last_trial_time
-        # The trial expiration time for the pay-as-you-go billing method.
+        # The trial expiration time for pay-as-you-go.
         self.post_paid_trial_expired_time = post_paid_trial_expired_time
         # The highest protection edition for bound assets when the pay-as-you-go service for host and container security is enabled. Valid values:
-        # - **1**: Free Edition
-        # - **3**: Enterprise Edition
-        # - **5**: Advanced Edition
-        # - **6**: Anti-virus Edition
-        # - **7**: Ultimate Edition
+        # - **1**: Free Edition.
+        # - **3**: Enterprise Edition.
+        # - **5**: Advanced Edition.
+        # - **6**: Anti-virus Edition.
+        # - **7**: Ultimate Edition.
         self.post_pay_host_version = post_pay_host_version
         # The pay-as-you-go instance ID.
         self.post_pay_instance_id = post_pay_instance_id
         # The switch status of pay-as-you-go modules. The value is a JSON string. Valid values:
         # - Key:
-        #   - **VUL**: Vulnerability fixing module
-        #   - **CSPM**: Cloud Security Posture Management (CSPM) module
-        #   - **AGENTLESS**: Agentless detection module
-        #   - **SERVERLESS**: Serverless security module
-        #   - **CTDR**: Cloud Threat Detection and Response (CTDR) module
-        #   - **POST_HOST**: Host and container security module
-        #   - **SDK**: Malicious file detection SDK module
-        #   - **RASP**: Application protection module
+        #   - **VUL**: Vulnerability fixing module.
+        #   - **CSPM**: Cloud Security Posture Management (CSPM) module.
+        #   - **AGENTLESS**: Agentless detection module.
+        #   - **SERVERLESS**: Serverless security module.
+        #   - **CTDR**: Cloud Threat Detection and Response (CTDR) module.
+        #   - **POST_HOST**: Host and container security module.
+        #   - **SDK**: Malicious file detection SDK module.
+        #   - **RASP**: Application protection module.
         # - Value: 0 indicates disabled, and 1 indicates enabled.
         self.post_pay_module_switch = post_pay_module_switch
-        # The time when the pay-as-you-go billing method is enabled. The value is a UNIX timestamp. Unit: milliseconds.
+        # The time when pay-as-you-go is enabled. The value is a UNIX timestamp. Unit: milliseconds.
         self.post_pay_open_time = post_pay_open_time
         # The pay-as-you-go instance status. Valid values:
         # - **1**: Normal.
         # - **2**: Stopped due to overdue payment.
         self.post_pay_status = post_pay_status
-        # The number of purchased application protection authorizations. Unit: authorizations per month.
+        # The number of purchased application protection licenses. Unit: licenses per month.
         self.rasp_capacity = rasp_capacity
-        # The expiration UNIX timestamp of the Security Center instance. Unit: milliseconds.
-        # > If you do not complete the renewal within 7 days after the instance expires, your paid instance is downgraded to the Free Edition. You cannot continue to use the features of the paid edition, and you cannot view your previous Security Center configuration data and historical alerting data, such as DDoS alerting. In this case, you must repurchase the paid edition of Security Center to enable the service. For more information, see [Purchase Security Center](https://help.aliyun.com/document_detail/42308.html).
+        # The UNIX timestamp when the instance expires. Unit: milliseconds.
+        # > If you do not complete a renewal within 7 days after the instance expires, your paid instance is downgraded to the Free Edition. You will no longer be able to use the paid features, and your previous Security Center configuration data and historical alerting data (such as DDoS alerting) will become inaccessible. In this case, you must repurchase the service to enable the paid edition of Security Center. For more information, see [Purchase Security Center](https://help.aliyun.com/document_detail/42308.html).
         self.release_time = release_time
         # The unique identifier generated by Alibaba Cloud for the request.
         self.request_id = request_id
-        # The number of machines purchased for EDR.
+        # The number of machines purchased for Endpoint Detection and Response (EDR).
         self.sas_edr_client_auth_count = sas_edr_client_auth_count
-        # The pay-as-you-go EDR instance ID.
+        # The instance ID of the pay-as-you-go EDR.
         self.sas_edr_post_paid_instance_id = sas_edr_post_paid_instance_id
         # The subscription EDR instance.
         self.sas_edr_pre_paid_instance_id = sas_edr_pre_paid_instance_id
@@ -234,7 +234,7 @@ class DescribeVersionConfigResponseBody(DaraModel):
         self.sas_edr_pre_paid_instance_status = sas_edr_pre_paid_instance_status
         # The purchased EDR edition.
         self.sas_edr_version = sas_edr_version
-        # Indicates whether the log analysis feature is purchased. Valid values:
+        # Indicates whether log analysis is purchased. Valid values:
         # - **0**: Not purchased.
         # - **1**: Purchased.
         self.sas_log = sas_log
@@ -242,9 +242,9 @@ class DescribeVersionConfigResponseBody(DaraModel):
         # - **0**: Not purchased.
         # - **1**: Purchased.
         self.sas_screen = sas_screen
-        # The canary release status for the pay-as-you-go SDK.
+        # The canary release status of the pay-as-you-go SDK.
         self.sdk_ai_post_paid_gray = sdk_ai_post_paid_gray
-        # The number of malicious file detection SDK authorizations.
+        # The number of malicious file detection SDK licenses.
         self.sdk_capacity = sdk_capacity
         # The purchased log storage capacity. Unit: GB. Valid values: 0 to 200000.
         self.sls_capacity = sls_capacity
@@ -257,24 +257,24 @@ class DescribeVersionConfigResponseBody(DaraModel):
         # The trial edition.
         self.trial_version = trial_version
         # Indicates whether the custom alert feature is enabled. Valid values:
-        # - **0**: Not enabled.
+        # - **0**: Disabled.
         # - **2**: Enabled.
         self.user_defined_alarms = user_defined_alarms
         # The purchased Security Center edition. Valid values:  
-        # - **1**: Free Edition 
-        # - **3**: Enterprise Edition
-        # - **5**: Advanced Edition
-        # - **6**: Anti-virus Edition    
-        # - **7**: Ultimate Edition   
-        # - **8**: Multi-edition   
-        # - **10**: Value-added services only
+        # - **1**: Free Edition. 
+        # - **3**: Enterprise Edition.
+        # - **5**: Advanced Edition.
+        # - **6**: Anti-virus Edition.    
+        # - **7**: Ultimate Edition.   
+        # - **8**: Multi-edition.   
+        # - **10**: Value-added service only.
         self.version = version
-        # The number of purchased authorized cores.
+        # The number of purchased licensed cores.
         self.vm_cores = vm_cores
-        # The number of purchased vulnerability fixing quotas. Unit: fixes per month.
+        # The number of purchased vulnerability fixing licenses. Unit: fixes per month.
         self.vul_fix_capacity = vul_fix_capacity
         # Indicates whether the web tamper-proofing service is enabled. Valid values:
-        # - **0**: Not enabled.
+        # - **0**: Disabled.
         # - **1**: Enabled.
         self.web_lock = web_lock
         # The number of purchased web tamper-proofing authorizations. One authorization enables web tamper-proofing for one server. Valid values: 0 to N.
@@ -282,6 +282,8 @@ class DescribeVersionConfigResponseBody(DaraModel):
         self.web_lock_auth_count = web_lock_auth_count
 
     def validate(self):
+        if self.hybrid_paid_gray_status:
+            self.hybrid_paid_gray_status.validate()
         if self.trial_module_list:
             for v1 in self.trial_module_list:
                  if v1:
@@ -332,7 +334,7 @@ class DescribeVersionConfigResponseBody(DaraModel):
             result['HoneypotCapacity'] = self.honeypot_capacity
 
         if self.hybrid_paid_gray_status is not None:
-            result['HybridPaidGrayStatus'] = self.hybrid_paid_gray_status
+            result['HybridPaidGrayStatus'] = self.hybrid_paid_gray_status.to_map()
 
         if self.hybrid_paid_module_switch_map is not None:
             result['HybridPaidModuleSwitchMap'] = self.hybrid_paid_module_switch_map
@@ -536,7 +538,8 @@ class DescribeVersionConfigResponseBody(DaraModel):
             self.honeypot_capacity = m.get('HoneypotCapacity')
 
         if m.get('HybridPaidGrayStatus') is not None:
-            self.hybrid_paid_gray_status = m.get('HybridPaidGrayStatus')
+            temp_model = main_models.DescribeVersionConfigResponseBodyHybridPaidGrayStatus()
+            self.hybrid_paid_gray_status = temp_model.from_map(m.get('HybridPaidGrayStatus'))
 
         if m.get('HybridPaidModuleSwitchMap') is not None:
             self.hybrid_paid_module_switch_map = m.get('HybridPaidModuleSwitchMap')
@@ -724,6 +727,58 @@ class DescribeVersionConfigResponseBodyTrialModuleList(DaraModel):
         m = m or dict()
         if m.get('Name') is not None:
             self.name = m.get('Name')
+
+        return self
+
+class DescribeVersionConfigResponseBodyHybridPaidGrayStatus(DaraModel):
+    def __init__(
+        self,
+        anti_ransomware: int = None,
+        cspm_instance: int = None,
+        host: int = None,
+    ):
+        # The canary release status of anti-ransomware elastic protection. Valid values:
+        # - 1: In canary release.
+        # - 0: Not in canary release.
+        self.anti_ransomware = anti_ransomware
+        # The canary release status of Cloud Security Posture Management (CSPM) elastic protection. Valid values:
+        # - 1: In canary release.
+        # - 0: Not in canary release.
+        self.cspm_instance = cspm_instance
+        # The canary release status of server elastic protection. Valid values:
+        # - 1: In canary release.
+        # - 0: Not in canary release.
+        self.host = host
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        result = dict()
+        _map = super().to_map()
+        if _map is not None:
+            result = _map
+        if self.anti_ransomware is not None:
+            result['ANTI_RANSOMWARE'] = self.anti_ransomware
+
+        if self.cspm_instance is not None:
+            result['CSPM_INSTANCE'] = self.cspm_instance
+
+        if self.host is not None:
+            result['HOST'] = self.host
+
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('ANTI_RANSOMWARE') is not None:
+            self.anti_ransomware = m.get('ANTI_RANSOMWARE')
+
+        if m.get('CSPM_INSTANCE') is not None:
+            self.cspm_instance = m.get('CSPM_INSTANCE')
+
+        if m.get('HOST') is not None:
+            self.host = m.get('HOST')
 
         return self
 

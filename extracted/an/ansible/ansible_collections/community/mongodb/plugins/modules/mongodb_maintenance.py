@@ -16,6 +16,8 @@ description:
   - Wrapper around the replSetMaintenance command.
   - Performs no actions against a PRIMARY member.
   - When enabled SECONDARY members will not service reads.
+  - This module sets the connection option directConnection to true and
+    this means multiple hosts cannot be specified in login_hosts.
 author: Rhys Campbell (@rhysmeister)
 version_added: "1.0.0"
 
@@ -62,7 +64,7 @@ failed:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 from ansible_collections.community.mongodb.plugins.module_utils.mongodb_common import (
     missing_required_lib,
     mongodb_common_argument_spec,

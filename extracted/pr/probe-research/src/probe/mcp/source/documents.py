@@ -86,8 +86,9 @@ class DocumentReadsMixin:
 
     def summary(self, kind: str, entity_id: str, *, project_id: str | None = None) -> dict:
         """``GET …/summary``: `{markdown, version, edited_at, edited_by, via,
-        session_title, you, today, mode}`. A 404 is the SDK's `NotFoundError`:
-        on a server predating the route it is what "no such route" looks like."""
+        session_title, you, today, mode}`. A 404 is the SDK's `NotFoundError`: detail
+        "summary not found" is a page withheld from the caller (0223); any other is an
+        address that did not resolve (or, on a server predating the route, no route)."""
         return self.client.get_summary(**self._summary_anchor(kind, entity_id, project_id))
 
     def summary_versions(

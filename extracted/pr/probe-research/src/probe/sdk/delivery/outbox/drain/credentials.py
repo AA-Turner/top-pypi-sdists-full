@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 import hashlib
-import os
 import time
 from probe.foundation.compat.compat import StrEnum
 from typing import Any
@@ -12,7 +11,9 @@ from probe.sdk.delivery.status_fields import StatusField
 
 
 def _settings_for(context: dict | None):
-    from ....settings.settings import DEFAULT_BASE_URL, Settings, load_context, resolve
+    from ....settings.settings import (
+        DEFAULT_BASE_URL, Settings, keep_stored_keys_home, load_context, normalize_endpoint, resolve,
+    )
 
     name = (context or {}).get("name")
     pinned = (context or {}).get("base_url")
@@ -56,6 +57,11 @@ def _settings_for(context: dict | None):
         )
     if pinned:
         settings.base_url = pinned.rstrip("/")
+    stored_base = (stored.get("base_url") or DEFAULT_BASE_URL).rstrip("/")
+    if normalize_endpoint(stored_base) != normalize_endpoint(settings.base_url):
+        # Plan D26: here the address came from the environment (PROBE_BASE_URL): only the
+        # environment's own keys go there (`keep_stored_keys_home`).
+        return keep_stored_keys_home(settings, stored, name)
     # Same endpoint, but the pinned context STORES its own credential: the stored token
     # outranks any ambient PROBE_TOKEN for a drain. Tenants can share one API URL, and a
     # detached worker inheriting another account's env must not replay this context's ops
@@ -208,14 +214,16 @@ def _settings_for_op(
             "queued for the ingest route by a client that had no ingest token; nothing may "
             "send it with another one"
         )
-    from ....settings.settings import load_context, resolve
+    from ....settings.settings import keep_stored_keys_home, load_context, resolve
 
     name = (context or {}).get("name")
     pinned = ((context or {}).get("base_url") or "").rstrip("/")
     adopted = None if ingest else adopted_account(stamp.get("fingerprint"))
     try:
-        ambient = resolve(context=name) if adopted is None else None
-    except Exception:  # noqa: BLE001 -- an unreadable config is just no candidate
+        # D26 on the fast path too: a stored key `resolve` paired with an address from the environment
+        # is dropped there (only the environment's own keys go to it), before any fingerprint match.
+        ambient = keep_stored_keys_home(resolve(context=name), load_context(name), name) if adopted is None else None
+    except Exception:  # noqa: BLE001 -- an unreadable config, or no key left for that address: no candidate
         ambient = None
     if (
         ambient is not None
@@ -265,16 +273,16 @@ def _settings_for_op(
     stored.ingest_token = record.get("ingest_token")
     from ....settings.settings import DEFAULT_BASE_URL as _DEFAULT_BASE
 
+    from ....settings.settings import normalize_endpoint
+
     record_base = (record.get("base_url") or _DEFAULT_BASE).rstrip("/")
-    env_base = (os.environ.get("PROBE_BASE_URL") or "").rstrip("/")
-    if stored.base_url.rstrip("/") != record_base and (
-        adopted is not None or stored.base_url.rstrip("/") != env_base
-    ):
-        # The config changed between the reads: this token is never sent to a server its own
-        # record does not name. The next pass reads it again.
+    if normalize_endpoint(stored.base_url) != normalize_endpoint(record_base):
+        # D26: the stored login goes only to the server its own record names, never to one the
+        # environment names (`PROBE_BASE_URL`), and never after the config changed between reads.
+        # The write waits (an environment key of its own for that server sends it instead).
         raise CredentialNotHere(
-            f"the login of context {name or '<default>'} changed while this write was routed; "
-            "it waits"
+            f"the login stored for context {name or '<default>'} is {record_base}'s, never sent to "
+            f"{stored.base_url.rstrip('/')}; it waits"
         )
     queued_as = stamp_identity(stamp) or account or recorded_account(stamp.get("fingerprint"))
     if adopted is not None:

@@ -7,7 +7,7 @@ name = "octostar-python-client"
 # Fallback only. Release builds override this via the SDK_VERSION env var
 # (see scripts/sdk/build.sh); on main the version tracks the octostar-api
 # GitVersion tag.
-version = "0.1.1151"
+version = "0.1.1158"
 description = "A client library for accessing Octostar API"
 readme = "README.md"
 requires-python = ">=3.10"

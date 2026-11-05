@@ -48,11 +48,11 @@ class DescribeBackupPolicyResponseBody(DaraModel):
         self.advanced_backup_policy_enabled = advanced_backup_policy_enabled
         self.advanced_data_policies = advanced_data_policies
         self.advanced_log_policies = advanced_log_policies
-        # The number of archived backups retained for a **MySQL** instance.
+        # The number of archive backups retained for the **MySQL** instance.
         self.archive_backup_keep_count = archive_backup_keep_count
-        # The retention period for archived backups of a **MySQL** instance.
+        # The retention period of archive backups for the **MySQL** instance.
         self.archive_backup_keep_policy = archive_backup_keep_policy
-        # The number of days for which archived backups of a **MySQL** instance are retained.
+        # The number of days for which archive backups are retained for the **MySQL** instance.
         self.archive_backup_retention_period = archive_backup_retention_period
         # The backup interval. Unit: minutes.
         # * For MySQL instances: the [snapshot backup frequency](https://help.aliyun.com/document_detail/98818.html), not the snapshot backup cycle.
@@ -65,15 +65,15 @@ class DescribeBackupPolicyResponseBody(DaraModel):
         # **For SQL Server instances:**
         # 
         # - **Enable** is returned only when instance log backup frequency is **every 5 minutes**.
-        # - **Disabled** is returned when instance log backup frequency is **every 30 minutes** or **the same as the data backup frequency**. **Refer to the BackupInterval parameter for the actual frequency**.
+        # - **Disabled** is returned when instance log backup frequency is **every 30 minutes** or **the same as the data backup frequency**. **Refer to the value of BackupInterval**.
         self.backup_log = backup_log
         # The backup method for **SQL Server instances with cloud disks**. Valid values:
         # * **Physical**: physical backup
         # * **Snapshot**: snapshot backup
         self.backup_method = backup_method
         # The secondary node backup setting for **SQL Server Enterprise Cluster Edition** instances. Valid values:
-        # - **1**: prefer secondary node
-        # - **2**: force primary node
+        # - **1**: Prefer secondary node.
+        # - **2**: Force primary node.
         # 
         # > This parameter is returned only when SupportModifyBackupPriority is True.
         self.backup_priority = backup_priority
@@ -99,39 +99,39 @@ class DescribeBackupPolicyResponseBody(DaraModel):
         # 
         # **For SQL Server instances:**
         # - **1** is returned only when instance log backup frequency is **every 5 minutes**.
-        # - **0** is returned when instance log backup frequency is **every 30 minutes** or **the same as the data backup frequency**. **Refer to the BackupInterval parameter for the actual frequency**.
+        # - **0** is returned when instance log backup frequency is **every 30 minutes** or **the same as the data backup frequency**. **Refer to the value of BackupInterval**.
         self.enable_backup_log = enable_backup_log
-        # Indicates whether incremental backup is enabled for **SQL Server** instances. Valid values:
+        # Indicates whether incremental backup is enabled for the **SQL Server** instance. Valid values:
         # * **True**: yes
         # * **False**: no
         self.enable_increment_data_backup = enable_increment_data_backup
-        # Indicates whether point-in-time recovery (PITR) is enabled for **MySQL** instances. PITR is an upgraded version of log backup. Valid values:
+        # Indicates whether point-in-time recovery (PITR), an upgraded version of log backup, is enabled for the **MySQL** instance. Valid values:
         # - **True**: yes
         # - **False**: no
         # 
         # > For more information, see [Configure a point-in-time recovery policy](https://help.aliyun.com/document_detail/2666046.html).
         self.enable_pitr_protection = enable_pitr_protection
-        # Indicates whether binary logs are forcibly deleted when the storage usage of a **MySQL** instance exceeds 80% or the remaining storage is less than 5 GB. Valid values:
+        # Indicates whether binary logs are forcibly deleted when the storage usage of the **MySQL** instance exceeds 80% or the remaining storage is less than 5 GB. Valid values:
         # 
-        # * **Disable**: does not delete binary logs
-        # * **Enable**: deletes binary logs
+        # * **Disable**: no
+        # * **Enable**: yes
         self.high_space_usage_protection = high_space_usage_protection
         # The interval for high-frequency incremental backups. Unit: minutes. Valid values: 60, 120, 240, 360, and 720.
         self.inc_backup_interval = inc_backup_interval
-        # The number of hours for which binary log backups of a **MySQL** instance are retained.
+        # The number of hours for which local log backups are retained for the **MySQL** instance.
         self.local_log_retention_hours = local_log_retention_hours
-        # The maximum storage usage for binary logs of a **MySQL** instance.
+        # The maximum storage usage of local binary logs for the **MySQL** instance.
         self.local_log_retention_space = local_log_retention_space
-        # The log backup frequency for **SQL Server** instances. Valid values:
+        # The log backup frequency for the **SQL Server** instance. Valid values:
         # 
         # * **LogInterval**: every 30 minutes
         # * Default: the same as the data backup cycle specified by **PreferredBackupPeriod**
         self.log_backup_frequency = log_backup_frequency
-        # The number of local binary logs retained for a **MySQL** instance.
+        # The number of local binary logs retained for the **MySQL** instance.
         self.log_backup_local_retention_number = log_backup_local_retention_number
         # The number of days for which log backups are retained.
         self.log_backup_retention_period = log_backup_retention_period
-        # The number of days for which point-in-time recovery is available for a **MySQL** instance.
+        # The number of days for which point-in-time recovery is available for the **MySQL** instance.
         self.pitr_retention_period = pitr_retention_period
         # The data backup cycle. Separate multiple values with commas (,). Valid values:
         # * **Monday**: Monday
@@ -146,26 +146,26 @@ class DescribeBackupPolicyResponseBody(DaraModel):
         self.preferred_backup_time = preferred_backup_time
         # The time of the next backup. Format: <i>yyyy-MM-dd</i>T<i>HH:mm</i>Z (UTC).
         self.preferred_next_backup_time = preferred_next_backup_time
-        # The data retention policy for archived backups of deleted **MySQL** instances. Valid values:
+        # The data retention policy for archive backups of deleted **MySQL** instances. Valid values:
         # * **None**: no retention
-        # * **Lastest**: retains the last backup
-        # * **All**: retains all backups
+        # * **Lastest**: retains the last archive backup
+        # * **All**: retains all archive backups
         self.released_keep_policy = released_keep_policy
         # The request ID.
         self.request_id = request_id
-        # Indicates whether the secondary node backup option can be modified for **SQL Server** instances. Valid values:
+        # Indicates whether the **SQL Server** instance supports modifying the secondary node backup option. Valid values:
         # 
         # - **True**: yes
         # - **False**: no
         self.support_modify_backup_priority = support_modify_backup_priority
-        # A reserved parameter.
+        # The reserved parameter.
         self.support_released_keep = support_released_keep
-        # Indicates whether snapshot backup is supported for **SQL Server** instances. Valid values:
+        # Indicates whether the **SQL Server** instance supports snapshot backup. Valid values:
         # 
         # - **1**: yes
         # - **0**: no
         self.support_volume_shadow_copy = support_volume_shadow_copy
-        # Indicates whether the [5-minute log backup feature](https://help.aliyun.com/document_detail/95717.html) is supported for **SQL Server** instances. Valid values:
+        # Indicates whether the **SQL Server** instance supports the [5-minute log backup feature](https://help.aliyun.com/document_detail/95717.html). Valid values:
         # - **0**: not supported
         # - **1**: supported
         self.supports_high_frequency_backup = supports_high_frequency_backup

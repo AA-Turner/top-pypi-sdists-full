@@ -618,6 +618,8 @@ class Client(OpenApiClient):
             query['Vendor'] = request.vendor
         if not DaraCore.is_null(request.vendor_auth_alias):
             query['VendorAuthAlias'] = request.vendor_auth_alias
+        if not DaraCore.is_null(request.vendor_user_name):
+            query['VendorUserName'] = request.vendor_user_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -670,6 +672,8 @@ class Client(OpenApiClient):
             query['Vendor'] = request.vendor
         if not DaraCore.is_null(request.vendor_auth_alias):
             query['VendorAuthAlias'] = request.vendor_auth_alias
+        if not DaraCore.is_null(request.vendor_user_name):
+            query['VendorUserName'] = request.vendor_user_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -2900,6 +2904,8 @@ class Client(OpenApiClient):
             query['AddedCheck'] = request.added_check
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.config_id):
+            query['ConfigId'] = request.config_id
         if not DaraCore.is_null(request.config_requirement_ids_shrink):
             query['ConfigRequirementIds'] = request.config_requirement_ids_shrink
         if not DaraCore.is_null(request.config_standard_ids_shrink):
@@ -2908,6 +2914,8 @@ class Client(OpenApiClient):
             query['Configure'] = request.configure
         if not DaraCore.is_null(request.cycle_days):
             query['CycleDays'] = request.cycle_days
+        if not DaraCore.is_null(request.days_of_month):
+            query['DaysOfMonth'] = request.days_of_month
         if not DaraCore.is_null(request.dry_run):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.enable_add_check):
@@ -2916,6 +2924,10 @@ class Client(OpenApiClient):
             query['EnableAutoCheck'] = request.enable_auto_check
         if not DaraCore.is_null(request.end_time):
             query['EndTime'] = request.end_time
+        if not DaraCore.is_null(request.end_time_seconds):
+            query['EndTimeSeconds'] = request.end_time_seconds
+        if not DaraCore.is_null(request.frequency):
+            query['Frequency'] = request.frequency
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.removed_check):
@@ -2926,6 +2938,10 @@ class Client(OpenApiClient):
             query['StandardIds'] = request.standard_ids
         if not DaraCore.is_null(request.start_time):
             query['StartTime'] = request.start_time
+        if not DaraCore.is_null(request.start_time_seconds):
+            query['StartTimeSeconds'] = request.start_time_seconds
+        if not DaraCore.is_null(request.strategy_name):
+            query['StrategyName'] = request.strategy_name
         if not DaraCore.is_null(request.system_config):
             query['SystemConfig'] = request.system_config
         if not DaraCore.is_null(request.vendors):
@@ -2966,6 +2982,8 @@ class Client(OpenApiClient):
             query['AddedCheck'] = request.added_check
         if not DaraCore.is_null(request.client_token):
             query['ClientToken'] = request.client_token
+        if not DaraCore.is_null(request.config_id):
+            query['ConfigId'] = request.config_id
         if not DaraCore.is_null(request.config_requirement_ids_shrink):
             query['ConfigRequirementIds'] = request.config_requirement_ids_shrink
         if not DaraCore.is_null(request.config_standard_ids_shrink):
@@ -2974,6 +2992,8 @@ class Client(OpenApiClient):
             query['Configure'] = request.configure
         if not DaraCore.is_null(request.cycle_days):
             query['CycleDays'] = request.cycle_days
+        if not DaraCore.is_null(request.days_of_month):
+            query['DaysOfMonth'] = request.days_of_month
         if not DaraCore.is_null(request.dry_run):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.enable_add_check):
@@ -2982,6 +3002,10 @@ class Client(OpenApiClient):
             query['EnableAutoCheck'] = request.enable_auto_check
         if not DaraCore.is_null(request.end_time):
             query['EndTime'] = request.end_time
+        if not DaraCore.is_null(request.end_time_seconds):
+            query['EndTimeSeconds'] = request.end_time_seconds
+        if not DaraCore.is_null(request.frequency):
+            query['Frequency'] = request.frequency
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
         if not DaraCore.is_null(request.removed_check):
@@ -2992,6 +3016,10 @@ class Client(OpenApiClient):
             query['StandardIds'] = request.standard_ids
         if not DaraCore.is_null(request.start_time):
             query['StartTime'] = request.start_time
+        if not DaraCore.is_null(request.start_time_seconds):
+            query['StartTimeSeconds'] = request.start_time_seconds
+        if not DaraCore.is_null(request.strategy_name):
+            query['StrategyName'] = request.strategy_name
         if not DaraCore.is_null(request.system_config):
             query['SystemConfig'] = request.system_config
         if not DaraCore.is_null(request.vendors):
@@ -42648,6 +42676,8 @@ class Client(OpenApiClient):
     ) -> main_models.GetCheckConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.config_id):
+            query['ConfigId'] = request.config_id
         if not DaraCore.is_null(request.resource_directory_account_id):
             query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
@@ -42676,6 +42706,8 @@ class Client(OpenApiClient):
     ) -> main_models.GetCheckConfigResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.config_id):
+            query['ConfigId'] = request.config_id
         if not DaraCore.is_null(request.resource_directory_account_id):
             query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         req = open_api_util_models.OpenApiRequest(
@@ -62976,6 +63008,8 @@ class Client(OpenApiClient):
             query['TenantId'] = request.tenant_id
         if not DaraCore.is_null(request.vendor_auth_alias):
             query['VendorAuthAlias'] = request.vendor_auth_alias
+        if not DaraCore.is_null(request.vendor_user_name):
+            query['VendorUserName'] = request.vendor_user_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -63028,6 +63062,8 @@ class Client(OpenApiClient):
             query['TenantId'] = request.tenant_id
         if not DaraCore.is_null(request.vendor_auth_alias):
             query['VendorAuthAlias'] = request.vendor_auth_alias
+        if not DaraCore.is_null(request.vendor_user_name):
+            query['VendorUserName'] = request.vendor_user_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -65476,6 +65512,8 @@ class Client(OpenApiClient):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.edr_module_switch_shrink):
             query['EdrModuleSwitch'] = request.edr_module_switch_shrink
+        if not DaraCore.is_null(request.free_trial):
+            query['FreeTrial'] = request.free_trial
         if not DaraCore.is_null(request.post_paid_host_auto_bind):
             query['PostPaidHostAutoBind'] = request.post_paid_host_auto_bind
         if not DaraCore.is_null(request.post_paid_host_auto_bind_version):
@@ -65524,6 +65562,8 @@ class Client(OpenApiClient):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.edr_module_switch_shrink):
             query['EdrModuleSwitch'] = request.edr_module_switch_shrink
+        if not DaraCore.is_null(request.free_trial):
+            query['FreeTrial'] = request.free_trial
         if not DaraCore.is_null(request.post_paid_host_auto_bind):
             query['PostPaidHostAutoBind'] = request.post_paid_host_auto_bind
         if not DaraCore.is_null(request.post_paid_host_auto_bind_version):
@@ -73476,6 +73516,8 @@ class Client(OpenApiClient):
     ) -> main_models.SubmitCheckResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.config_id):
+            query['ConfigId'] = request.config_id
         if not DaraCore.is_null(request.resource_directory_account_id):
             query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.scan_range):
@@ -73508,6 +73550,8 @@ class Client(OpenApiClient):
     ) -> main_models.SubmitCheckResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.config_id):
+            query['ConfigId'] = request.config_id
         if not DaraCore.is_null(request.resource_directory_account_id):
             query['ResourceDirectoryAccountId'] = request.resource_directory_account_id
         if not DaraCore.is_null(request.scan_range):

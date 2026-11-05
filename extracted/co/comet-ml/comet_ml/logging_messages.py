@@ -1955,3 +1955,7 @@ METRICS_SAMPLER_MAX_OPERATION_STRING_VALUE_WARNING = "The value '%s' for the met
 HF_DATASET_USING_CACHED = "Using cached dataset from [%s] folder"
 
 HF_DATASET_DOWNLOADING_DATASET = "Downloading dataset from [%s] to [%s] folder"
+
+API_KEY_MASKING_FAILED_WARNING = (
+    "Failed to mask API keys in a %s message; sending it unmasked"
+)

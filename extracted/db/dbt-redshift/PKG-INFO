@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-redshift
-Version: 1.11.1
+Version: 1.11.2
 Summary: The Redshift adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-redshift
 Project-URL: Documentation, https://docs.getdbt.com

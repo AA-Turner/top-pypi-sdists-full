@@ -56,7 +56,7 @@ def _pack_ci_get_H (mc, mo, ci0):
                 y, x = x[:c.size], x[c.size:]
                 z.append (y)
             return z
-        assert (len (ci0) == mc.fcisolver.nroots), '{} {}'.format (len (ci0), mc.fcisolver.nroots)
+        assert (len (ci0) == mc.fcisolver.nroots), f'{len (ci0)} {mc.fcisolver.nroots}'
     ncas = mc.ncas
     nelecas = mc.nelecas
 
@@ -83,7 +83,7 @@ def _pack_ci_get_H (mc, mo, ci0):
                 nelec = mc.fcisolver._get_nelec (solver, nelecas)
                 op = solver.absorb_h1e (h1, h2, ncas, nelec, 0.5) if h1 is not None else h2
                 if solver.nroots == 1: ci = [ci]
-                hci.extend ((solver.contract_2e (op, c, ncas, nelec, link_index=linkstrl[ix]).ravel () for c in ci))
+                hci.extend (solver.contract_2e (op, c, ncas, nelec, link_index=linkstrl[ix]).ravel () for c in ci)
             return hci
 
         def _Hdiag (h1, h2):
@@ -500,9 +500,9 @@ def update_orb_ci(casscf, mo, ci0, eris, x0_guess=None,
             elif (stat.imic >= max_cycle or norm_gall < conv_tol_grad*.3):
                 break
 
-            elif ((ikf >= max(casscf.kf_interval, casscf.kf_interval-numpy.log(norm_dr+1e-7)) or
+            elif (ikf >= max(casscf.kf_interval, casscf.kf_interval-numpy.log(norm_dr+1e-7)) or
                    # Insert keyframe if the keyframe and the estimated grad are too different
-                   norm_gall < norm_gkf/casscf.kf_trust_region)):
+                   norm_gall < norm_gkf/casscf.kf_trust_region):
                 ikf = 0
                 u, ci_kf = extract_rotation(casscf, dr, u, ci_kf)
                 dr[:] = 0
@@ -854,99 +854,3 @@ class CASSCF(mc1step.CASSCF):
     def update_ao2mo(self, mo):
         raise DeprecationWarning('update_ao2mo was obsoleted since pyscf v1.0.  '
                                  'Use .ao2mo method instead')
-
-
-if __name__ == '__main__':
-    from pyscf import gto
-    import pyscf.fci
-
-    mol = gto.Mole()
-    mol.verbose = 0
-    mol.output = None#"out_h2o"
-    mol.atom = [
-        ['H', ( 1.,-1.    , 0.   )],
-        ['H', ( 0.,-1.    ,-1.   )],
-        ['H', ( 1.,-0.5   ,-1.   )],
-        ['H', ( 0.,-0.5   ,-1.   )],
-        ['H', ( 0.,-0.5   ,-0.   )],
-        ['H', ( 0.,-0.    ,-1.   )],
-        ['H', ( 1.,-0.5   , 0.   )],
-        ['H', ( 0., 1.    , 1.   )],
-    ]
-
-    mol.basis = {'H': 'sto-3g',
-                 'O': '6-31g',}
-    mol.build()
-
-    m = scf.RHF(mol)
-    ehf = m.scf()
-    emc = kernel(CASSCF(m, 4, 4), m.mo_coeff, verbose=4)[1]
-    print(ehf, emc, emc-ehf)
-    print(emc - -3.22013929407)
-
-    mc = CASSCF(m, 4, (3,1))
-    mc.verbose = 4
-    #mc.fcisolver = pyscf.fci.direct_spin1
-    mc.fcisolver = pyscf.fci.solver(mol, False)
-    emc = kernel(mc, m.mo_coeff, verbose=4)[1]
-    print(emc - -15.950852049859-mol.energy_nuc())
-
-    mol.atom = [
-        ['H', ( 5.,-1.    , 1.   )],
-        ['H', ( 0.,-5.    ,-2.   )],
-        ['H', ( 4.,-0.5   ,-3.   )],
-        ['H', ( 0.,-4.5   ,-1.   )],
-        ['H', ( 3.,-0.5   ,-0.   )],
-        ['H', ( 0.,-3.    ,-1.   )],
-        ['H', ( 2.,-2.5   , 0.   )],
-        ['H', ( 1., 1.    , 3.   )],
-    ]
-
-    mol.basis = {'H': 'sto-3g',
-                 'O': '6-31g',}
-    mol.build()
-
-    m = scf.RHF(mol)
-    ehf = m.scf()
-    emc = kernel(CASSCF(m, 4, 4), m.mo_coeff, verbose=4)[1]
-    print(ehf, emc, emc-ehf)
-    print(emc - -3.62638367550087, emc - -3.6268060528596635)
-
-    mc = CASSCF(m, 4, (3,1))
-    mc.verbose = 4
-    #mc.fcisolver = pyscf.fci.direct_spin1
-    mc.fcisolver = pyscf.fci.solver(mol, False)
-    emc = kernel(mc, m.mo_coeff, verbose=4)[1]
-    print(emc - -3.62638367550087)
-
-    mol.atom = [
-        ['O', ( 0., 0.    , 0.   )],
-        ['H', ( 0., -0.757, 0.587)],
-        ['H', ( 0., 0.757 , 0.587)],]
-    mol.basis = {'H': 'cc-pvdz',
-                 'O': 'cc-pvdz',}
-    mol.build()
-
-    m = scf.RHF(mol)
-    ehf = m.scf()
-    mc = CASSCF(m, 6, 4)
-    mc.fcisolver = pyscf.fci.solver(mol)
-    mc.verbose = 4
-    mo = addons.sort_mo(mc, m.mo_coeff, (3,4,6,7,8,9), 1)
-    emc = mc.mc1step(mo)[0]
-    print(ehf, emc, emc-ehf)
-    #-76.0267656731 -76.0873922924 -0.0606266193028
-    print(emc - -76.0873923174, emc - -76.0926176464)
-
-    mc = CASSCF(m, 6, (3,1))
-    mo = addons.sort_mo(mc, m.mo_coeff, (3,4,6,7,8,9), 1)
-    #mc.fcisolver = pyscf.fci.direct_spin1
-    mc.fcisolver = pyscf.fci.solver(mol, False)
-    mc.verbose = 4
-    emc = mc.mc1step(mo)[0]
-    #mc.analyze()
-    print(emc - -75.7155632535814)
-
-    mc.internal_rotation = True
-    emc = mc.mc1step(mo)[0]
-    print(emc - -75.7155632535814)

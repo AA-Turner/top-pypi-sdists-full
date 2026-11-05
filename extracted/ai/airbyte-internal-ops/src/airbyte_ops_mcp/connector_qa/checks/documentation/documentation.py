@@ -5,13 +5,13 @@ from difflib import get_close_matches, ndiff
 from threading import Thread
 from typing import ClassVar
 
-import requests  # type: ignore
-from pydash.objects import get  # type: ignore
+import requests
+from pydash.objects import get
 
 from airbyte_ops_mcp.connector_ops.utils import (
     Connector,
     ConnectorLanguage,
-)  # type: ignore
+)
 from airbyte_ops_mcp.connector_qa.models import (
     Check,
     CheckCategory,
@@ -285,9 +285,9 @@ class CheckDocumentationHeadersOrder(CheckDocumentationContent):
         actual_headers = prepare_headers(
             DocumentationContent(connector=connector).headers
         )
-        expected_headers = TemplateContent(connector.name_from_metadata).headers
+        expected_headers = TemplateContent(connector.name_from_metadata).headers  # ty: ignore[invalid-argument-type]
         not_required_headers = self.get_not_required_headers(
-            connector.name_from_metadata
+            connector.name_from_metadata  # ty: ignore[invalid-argument-type]
         )
 
         actual_header_len, expected_len = len(actual_headers), len(expected_headers)
@@ -499,9 +499,9 @@ class CheckSection(CheckDocumentationContent):
 
         errors: list[str] = []
 
-        expected = TemplateContent(connector.name_from_metadata).section(self.header)[
+        expected = TemplateContent(connector.name_from_metadata).section(self.header)[  # ty: ignore[invalid-argument-type]
             self.expected_section_index
-        ]  # type: ignore
+        ]
         actual_contents = documentation.section(self.header)
         if actual_contents is None:
             return [f"Documentation {self.header} section is empty"]
@@ -590,7 +590,7 @@ class CheckSourceSectionContent(CheckDocumentationContent):
         if actual_contents is None:
             return [f"Documentation {header} section is empty"]
 
-        expected = expected_content[self.expected_section_index]  # type: ignore
+        expected = expected_content[self.expected_section_index]
 
         if len(actual_contents) > 1:
             return [f"Expected only one header {header}. Please rename duplicate."]
@@ -676,9 +676,9 @@ class CheckChangelogSectionContent(CheckSection):
 
         errors = []
 
-        expected = TemplateContent(connector.name_from_metadata).section(self.header)[
+        expected = TemplateContent(connector.name_from_metadata).section(self.header)[  # ty: ignore[invalid-argument-type]
             self.expected_section_index
-        ]  # type: ignore
+        ]
         actual_contents = documentation.section(self.header)
         if actual_contents is None:
             return [f"Documentation {self.header} section is empty"]
@@ -725,7 +725,7 @@ class CheckChangelogEntry(DocumentationCheck):
         for line in doc_lines:
             if "# changelog" in line.lower():
                 after_changelog = True
-            if after_changelog and connector.version in line:
+            if after_changelog and connector.version in line:  # ty: ignore[unsupported-operator]
                 entry_found = True
 
         if not after_changelog:

@@ -16,20 +16,3 @@ function reviveBigInts(_key, value) {
 	}
 	return value;
 }
-
-/**
- * Encodes an AST for the native unparser, the inverse of {@link decodeAstJson}.
- *
- * `JSON.stringify` throws outright on a `BigInt`, so the values `decodeAstJson` revived have to
- * go back into their `{"$bigint": "…"}` wrappers.
- */
-export function encodeAstJson(nodes) {
-	return JSON.stringify(nodes, replaceBigInts);
-}
-
-function replaceBigInts(_key, value) {
-	if (typeof value === "bigint") {
-		return { $bigint: value.toString() };
-	}
-	return value;
-}

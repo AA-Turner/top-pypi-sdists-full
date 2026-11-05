@@ -2,6 +2,8 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+version = 1
+
 [collection_sources]
 "ansible.netcommon" = "git+https://github.com/ansible-collections/ansible.netcommon.git,main"
 "ansible.utils" = "git+https://github.com/ansible-collections/ansible.utils.git,main"
@@ -21,6 +23,24 @@
 vcs = "git"
 development_branch = "main"
 stable_branches = [ "stable-*" ]
+
+[releaser]
+type = "zuul+github"
+zuul_base_url = "https://gateway-cloud-softwarefactory.apps.ocp.cloud.ci.centos.org/zuul/"
+zuul_tenant = "ansible"
+zuul_project_name = "ansible-collections/community.routeros"
+github_org = "ansible-collections"
+github_repo = "community.routeros"
+github_release_title = "{version}"
+github_release_body = "See {repository_url}/blob/{branch}/CHANGELOG.md for all changes."
+git_release_branch = "main"
+git_tag_format = "{version}"
+git_sign_commits = true
+git_sign_tags = true
+git_release_commit_message = "Release {version}."
+git_release_tag_message = "{version}"
+git_prepare_commit_message = "Prepare {version}."
+git_sign_other_commits = false
 
 [sessions]
 
@@ -94,6 +114,7 @@ controller_python_versions_only = true
 "2.19" = ["3.11"]
 "2.20" = ["3.12"]
 "2.21" = ["3.13"]
+"2.22" = ["3.14"]
 
 [[sessions.ee_check.execution_environments]]
 name = "devel-ubi-10"

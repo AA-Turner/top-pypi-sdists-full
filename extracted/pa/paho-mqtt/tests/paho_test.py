@@ -32,16 +32,16 @@ def create_server_socket():
     return (sock, port)
 
 
-def create_server_socket_ssl(*, verify_mode=None, alpn_protocols=None):
+def create_server_socket_ssl(*, path = ssl_path, verify_mode=None, alpn_protocols=None):
     assert ssl, "SSL not available"
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_verify_locations(str(ssl_path / "all-ca.crt"))
+    context.load_verify_locations(str(path / "all-ca.crt"))
     context.load_cert_chain(
-        str(ssl_path / "server.crt"),
-        str(ssl_path / "server.key"),
+        str(path / "server.crt"),
+        str(path / "server.key"),
     )
     if verify_mode:
         context.verify_mode = verify_mode
@@ -56,7 +56,7 @@ def create_server_socket_ssl(*, verify_mode=None, alpn_protocols=None):
     return (ssock, port)
 
 
-def expect_packet(sock, name, expected):
+def expect_packet(sock, name, expected, is_mqtt5: bool = False):
     rlen = len(expected) if len(expected) > 0 else 1
 
     packet_recvd = b""
@@ -69,11 +69,11 @@ def expect_packet(sock, name, expected):
     except socket.timeout:  # pragma: no cover
         pass
 
-    assert packet_matches(name, packet_recvd, expected)
+    assert packet_matches(name, packet_recvd, expected, is_mqtt5=is_mqtt5)
     return True
 
 
-def expect_no_packet(sock, delay=1):
+def expect_no_packet(sock, delay=1, is_mqtt5: bool = False):
     """ expect that nothing is received within given delay
     """
     try:
@@ -86,16 +86,16 @@ def expect_no_packet(sock, delay=1):
         sock.settimeout(previous_timeout)
 
     if data is not None:
-        dump_packet("Received unexpected", data)
+        dump_packet("Received unexpected", data, is_mqtt5=is_mqtt5)
 
     assert data is None, "shouldn't receive any data"
 
 
-def packet_matches(name, recvd, expected):
+def packet_matches(name, recvd, expected, is_mqtt5: bool = False):
     if recvd != expected:  # pragma: no cover
         print(f"FAIL: Received incorrect {name}.")
-        dump_packet("Received", recvd)
-        dump_packet("Expected", expected)
+        dump_packet("Received", recvd, is_mqtt5=is_mqtt5)
+        dump_packet("Expected", expected, is_mqtt5=is_mqtt5)
         return False
     else:
         return True
@@ -139,9 +139,6 @@ def gen_connect(
         connect_flags = connect_flags | 0x02
 
     if proto_ver == 5:
-        if properties == b"":
-            properties += mqtt5_props.gen_uint16_prop(mqtt5_props.PROP_RECEIVE_MAXIMUM, 20)
-
         if session_expiry != -1:
             properties += mqtt5_props.gen_uint32_prop(mqtt5_props.PROP_SESSION_EXPIRY_INTERVAL, session_expiry)
 
@@ -225,7 +222,7 @@ def gen_publish(topic, qos, payload=None, retain=False, dup=False, mid=0, proto_
         properties = mqtt5_props.prop_finalise(properties)
         rl += len(properties)
         # This will break if len(properties) > 127
-        pack_format = pack_format + "%ds"%(len(properties))
+        pack_format = pack_format + f"{len(properties)}s"
 
     if payload is not None:
         if isinstance(payload, str):
@@ -403,6 +400,13 @@ def pack_remaining_length(remaining_length):
             return s
 
 
+def signal_client_ready():
+    ready_file = os.environ.get("PAHO_TEST_READY_FILE")
+    if ready_file is not None:
+        with open(ready_file, "w"):
+            pass
+
+
 def loop_until_keyboard_interrupt(mqttc):
     """
     Call loop() in a loop until KeyboardInterrupt is received.
@@ -413,6 +417,7 @@ def loop_until_keyboard_interrupt(mqttc):
     and stop the client gracefully.
     """
     try:
+        signal_client_ready()
         while True:
             mqttc.loop()
     except KeyboardInterrupt:
@@ -431,6 +436,7 @@ def wait_for_keyboard_interrupt():
     """
     yield  # If we get a KeyboardInterrupt during the block, it's too soon!
     try:
+        signal_client_ready()
         while True:
             time.sleep(0.1)
     except KeyboardInterrupt:

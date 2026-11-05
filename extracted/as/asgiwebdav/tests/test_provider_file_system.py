@@ -1,31 +1,44 @@
 import asyncio
+import builtins
 import errno
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
-import aiofiles
 import pytest
 from pytest_mock import MockerFixture
 
 from asgi_webdav.config import Config
-from asgi_webdav.constants import DAVPath, DAVUser
+from asgi_webdav.constants import RESPONSE_DATA_BLOCK_SIZE, DAVPath, DAVUser
 from asgi_webdav.property import DAVProperty
 from asgi_webdav.provider.file_system import (
     FileSystemProvider,
     _dav_response_body_generator,
+    _discard_stream,
+    _FileProbe,
     _load_extra_property,
     _open_tmp_exclusive,
-    _open_tmp_stream,
     _parser_property_from_json,
+    _put_discard_tmp,
     _put_error_status,
     _put_precheck,
+    _put_start_write,
+    _put_stream_chunk,
     _PutPrecheckResult,
+    _PutStream,
+    _read_block,
+    _run_probe,
+    _run_put_start,
+    _stat_open_read_block,
+    _stat_open_read_block_async,
+    _stat_open_tmp,
+    _stat_open_tmp_async,
     _update_extra_property,
     _write_all,
-    _write_file_atomic,
 )
+from asgi_webdav.request import DAVRequest
 from tests.kits.asgi import create_dav_request_object
 
 DAV_FILENAME = "/tmp/test.DAV"
@@ -102,15 +115,17 @@ async def test_dav_response_body_generator_multi_block(tmp_path: Path) -> None:
     block = bytes(range(256)) * 256  # 64KB
     big_file.write_bytes(block * 3)
 
+    probe = await _stat_open_read_block_async(big_file, RESPONSE_DATA_BLOCK_SIZE)
     chunks = [
-        (data, more) async for data, more in _dav_response_body_generator(big_file)
+        (data, more)
+        async for data, more in _dav_response_body_generator(
+            probe, big_file.stat().st_size
+        )
     ]
 
-    # three full blocks plus the empty terminator yielded after EOF
-    assert len(chunks) == 4
-    assert [data for data, _ in chunks[:3]] == [block] * 3
-    assert chunks[-1] == (b"", False)
-    assert [more for _, more in chunks] == [True, True, True, False]
+    # three blocks, the last one carrying more_body=False (no trailing
+    # empty chunk — aligned with the memory provider generator)
+    assert chunks == [(block, True), (block, True), (block, False)]
 
 
 @pytest.mark.asyncio
@@ -148,17 +163,19 @@ async def test_dav_response_body_generator_content_range_multi_block(
     content_range = DAVResponseContentRange(
         DAVRangeType.RANGE, 0, len(block) * 3 - 1, len(block) * 3
     )
+    probe = await _stat_open_tmp_async(big_file, RESPONSE_DATA_BLOCK_SIZE)
     chunks = [
         (data, more)
         async for data, more in _dav_response_body_generator(
-            big_file,
-            content_range=content_range,
+            probe,
+            len(block) * 3,
+            content_range,
         )
     ]
 
-    # three full blocks plus the empty terminator
-    assert [data for data, _ in chunks[:3]] == [block] * 3
-    assert chunks[-1] == (b"", False)
+    # the range span is fully ledgered; the last read closes the fp
+    assert [data for data, _ in chunks] == [block] * 3
+    assert [more for _, more in chunks] == [True, True, False]
     assert sum(len(data) for data, _ in chunks) == len(block) * 3
 
 
@@ -217,6 +234,650 @@ async def test_create_dav_property_obj_charset_detect(tmp_path: Path) -> None:
 
     assert dav_property.basic_data.content_type == "text/plain"
     assert dav_property.basic_data.content_charset is not None
+
+
+# ---- unit: GET/HEAD fused stat probe (no exists precheck, no sidecar) ----
+
+
+def make_get_request(
+    path: str, headers: Sequence[tuple[bytes, bytes]] | None = None
+) -> DAVRequest:
+    request = create_dav_request_object(method="GET", path=path, headers=headers)
+    request.dist_src_path = DAVPath(path)
+    request.user = DAVUser("testuser", "password", [], False)
+    return request
+
+
+@pytest.mark.asyncio
+async def test_do_get_missing_resource_404(tmp_path: Path) -> None:
+    provider = make_fs_provider(tmp_path)
+
+    status, basic_data, body, content_range = await provider._do_get(
+        make_get_request("/no_such_file")
+    )
+
+    assert status == 404
+    assert basic_data is None
+    assert body is None
+    assert content_range is None
+
+
+@pytest.mark.asyncio
+async def test_do_get_stat_oserror_maps_404(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # parity with the old exists() precheck: any OSError maps to 404,
+    # never a 500
+    provider = make_fs_provider(tmp_path)
+    target = tmp_path / "locked.bin"
+    target.write_bytes(b"data")
+    mocker.patch("os.stat", side_effect=OSError(errno.EACCES, "permission denied"))
+
+    status, _, _, _ = await provider._do_get(make_get_request("/locked.bin"))
+
+    assert status == 404
+
+
+@pytest.mark.asyncio
+async def test_do_get_dir_returns_no_body(tmp_path: Path) -> None:
+    provider = make_fs_provider(tmp_path)
+    (tmp_path / "a_dir").mkdir()
+
+    status, basic_data, body, _ = await provider._do_get(make_get_request("/a_dir"))
+
+    assert status == 200
+    assert basic_data is not None
+    assert basic_data.is_collection is True
+    assert body is None
+
+
+@pytest.mark.asyncio
+async def test_do_get_file_skips_sidecar(tmp_path: Path, mocker: MockerFixture) -> None:
+    # extras are enabled, but GET responses carry basic data only — the
+    # sidecar must not even be probed
+    provider = make_fs_provider(tmp_path)
+    assert provider.ignore_property_extra is False
+    target = tmp_path / "data.bin"
+    target.write_bytes(b"file body")
+    provider._get_fs_properties_path(target).write_text(
+        '{"property": [[["ns1", "key1"], "v1"]]}', encoding="utf-8"
+    )
+    mocker.patch(
+        "asgi_webdav.provider.file_system._load_extra_property",
+        side_effect=AssertionError("GET must not load the sidecar"),
+    )
+
+    status, basic_data, body, _ = await provider._do_get(make_get_request("/data.bin"))
+
+    assert status == 200
+    assert basic_data is not None
+    assert basic_data.content_length == len(b"file body")
+    assert body is not None
+    chunks = [data async for data, _ in body]
+    assert b"".join(chunks) == b"file body"
+
+
+@pytest.mark.asyncio
+async def test_do_head_missing_resource_404(tmp_path: Path) -> None:
+    provider = make_fs_provider(tmp_path)
+
+    status, basic_data = await provider._do_head(make_get_request("/no_such_file"))
+
+    assert status == 404
+    assert basic_data is None
+
+
+@pytest.mark.asyncio
+async def test_do_head_skips_sidecar(tmp_path: Path, mocker: MockerFixture) -> None:
+    provider = make_fs_provider(tmp_path)
+    target = tmp_path / "head.bin"
+    target.write_bytes(b"head body")
+    provider._get_fs_properties_path(target).write_text(
+        '{"property": [[["ns1", "key1"], "v1"]]}', encoding="utf-8"
+    )
+    mocker.patch(
+        "asgi_webdav.provider.file_system._load_extra_property",
+        side_effect=AssertionError("HEAD must not load the sidecar"),
+    )
+
+    status, basic_data = await provider._do_head(make_get_request("/head.bin"))
+
+    assert status == 200
+    assert basic_data is not None
+    assert basic_data.content_length == len(b"head body")
+
+
+@pytest.mark.asyncio
+async def test_create_dav_property_obj_fetch_extra_default_loads_sidecar(
+    tmp_path: Path,
+) -> None:
+    # regression: the default fetch_extra=True keeps PROPFIND sidecar loading
+    provider = make_fs_provider(tmp_path)
+    target = tmp_path / "prop.bin"
+    target.write_bytes(b"x")
+    provider._get_fs_properties_path(target).write_text(
+        '{"property": [[["ns1", "key1"], "v1"]]}', encoding="utf-8"
+    )
+
+    request = create_dav_request_object(method="PROPFIND", path="/prop.bin")
+    request.propfind_only_fetch_basic = False
+    request.propfind_extra_keys = [("ns1", "key1")]
+
+    dav_property = await provider._create_dav_property_obj(
+        request, DAVPath("/prop.bin"), target, target.stat()
+    )
+
+    assert dav_property.extra_data == {("ns1", "key1"): "v1"}
+
+
+# ---- unit: GET single-hop probe workers ----
+
+
+def test_stat_open_read_block_missing(tmp_path: Path) -> None:
+    probe = _stat_open_read_block(tmp_path / "nope", RESPONSE_DATA_BLOCK_SIZE)
+    assert probe.stat_result is None
+    assert probe.fp is None
+
+
+def test_stat_open_read_block_dir_never_opens(tmp_path: Path) -> None:
+    a_dir = tmp_path / "d"
+    a_dir.mkdir()
+    probe = _stat_open_read_block(a_dir, RESPONSE_DATA_BLOCK_SIZE)
+    assert probe.stat_result is not None
+    assert probe.fp is None
+
+
+def test_stat_open_read_block_short_read_closes_fp(tmp_path: Path) -> None:
+    # a short read proves EOF: the worker closes the fp, the caller
+    # never owns it
+    target = tmp_path / "small.bin"
+    target.write_bytes(b"hello")
+
+    probe = _stat_open_read_block(target, RESPONSE_DATA_BLOCK_SIZE)
+
+    assert probe.fp is None
+    assert probe.first_data == b"hello"
+
+
+def test_stat_open_read_block_full_read_keeps_fp(tmp_path: Path) -> None:
+    target = tmp_path / "full.bin"
+    target.write_bytes(b"x" * RESPONSE_DATA_BLOCK_SIZE)
+
+    probe = _stat_open_read_block(target, RESPONSE_DATA_BLOCK_SIZE)
+
+    assert probe.fp is not None
+    assert probe.first_data == b"x" * RESPONSE_DATA_BLOCK_SIZE
+    assert probe.fp is not None and probe.fp.closed is False
+    probe.fp.close()
+
+
+def test_stat_open_read_block_open_race_maps_missing(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # the file vanishes between stat and open — mapped to the missing
+    # sentinel (404), matching the former exists() semantics
+    target = tmp_path / "race.bin"
+    target.write_bytes(b"data")
+
+    real_open = builtins.open
+
+    def open_but_vanished(file: Any, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
+        if Path(file) == target:
+            raise FileNotFoundError(errno.ENOENT, "gone")
+        return real_open(file, mode, *args, **kwargs)
+
+    mocker.patch("builtins.open", side_effect=open_but_vanished)
+
+    probe = _stat_open_read_block(target, RESPONSE_DATA_BLOCK_SIZE)
+
+    assert probe.stat_result is None
+    assert probe.fp is None
+
+
+def test_stat_open_read_block_read_failure_self_heals(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    target = tmp_path / "io.bin"
+    target.write_bytes(b"data")
+    mock_fp = mocker.MagicMock()
+    mock_fp.read.side_effect = OSError(errno.EIO, "io")
+    mocker.patch("builtins.open", return_value=mock_fp)
+
+    with pytest.raises(OSError):
+        _stat_open_read_block(target, RESPONSE_DATA_BLOCK_SIZE)
+
+    mock_fp.close.assert_called_once()
+
+
+def test_stat_open_tmp_returns_open_fp(tmp_path: Path) -> None:
+    target = tmp_path / "t.bin"
+    target.write_bytes(b"range body")
+
+    probe = _stat_open_tmp(target, RESPONSE_DATA_BLOCK_SIZE)
+
+    assert probe.fp is not None
+    assert probe.first_data == b""
+    probe.fp.close()
+
+
+def test_read_block_closes_only_on_last(tmp_path: Path) -> None:
+    target = tmp_path / "rb.bin"
+    target.write_bytes(b"0123456789")
+    probe = _stat_open_tmp(target, RESPONSE_DATA_BLOCK_SIZE)
+    assert probe.fp is not None
+    fp = probe.fp
+
+    data = _read_block(fp, 4, False)
+    assert data == b"0123"
+    assert not fp.closed
+
+    data = _read_block(fp, 4, False)
+    assert data == b"4567"
+    assert not fp.closed
+
+    data = _read_block(fp, 2, True)
+    assert data == b"89"
+    assert fp.closed
+
+
+def test_read_block_seek_positions_read(tmp_path: Path) -> None:
+    target = tmp_path / "rs.bin"
+    target.write_bytes(b"0123456789")
+    probe = _stat_open_tmp(target, RESPONSE_DATA_BLOCK_SIZE)
+    assert probe.fp is not None
+    fp = probe.fp
+
+    data = _read_block(fp, 3, True, seek_to=5)
+
+    assert data == b"567"
+    assert fp.closed
+
+
+# ---- unit: GET body generator (probe-seeded, ledgered) ----
+
+
+def make_plain_probe(target: Path) -> _FileProbe:
+    return _stat_open_read_block(target, RESPONSE_DATA_BLOCK_SIZE)
+
+
+@pytest.mark.asyncio
+async def test_body_generator_chunk_parity(tmp_path: Path) -> None:
+    # ledgered chunking: no trailing empty chunk for block-multiple
+    # files (aligned with the memory provider generator)
+    empty = tmp_path / "empty.bin"
+    empty.write_bytes(b"")
+    probe = make_plain_probe(empty)
+    chunks = [(d, m) async for d, m in _dav_response_body_generator(probe, 0)]
+    assert chunks == [(b"", False)]
+
+    small = tmp_path / "small.bin"
+    small.write_bytes(b"tiny")
+    probe = make_plain_probe(small)
+    chunks = [(d, m) async for d, m in _dav_response_body_generator(probe, 4)]
+    assert chunks == [(b"tiny", False)]
+
+    exact = tmp_path / "exact.bin"
+    exact.write_bytes(b"x" * RESPONSE_DATA_BLOCK_SIZE)
+    probe = make_plain_probe(exact)
+    chunks = [
+        (d, m)
+        async for d, m in _dav_response_body_generator(probe, RESPONSE_DATA_BLOCK_SIZE)
+    ]
+    assert chunks == [(b"x" * RESPONSE_DATA_BLOCK_SIZE, False)]
+
+
+@pytest.mark.asyncio
+async def test_body_generator_range_within_block(tmp_path: Path) -> None:
+    from asgi_webdav.constants import DAVRangeType, DAVResponseContentRange
+
+    target = tmp_path / "r.bin"
+    target.write_bytes(b"0123456789")
+    content_range = DAVResponseContentRange(DAVRangeType.RANGE, 2, 5, 10)
+
+    probe = await _stat_open_tmp_async(target, RESPONSE_DATA_BLOCK_SIZE)
+    chunks = [
+        (d, m) async for d, m in _dav_response_body_generator(probe, 10, content_range)
+    ]
+
+    assert chunks == [(b"2345", False)]
+
+
+@pytest.mark.asyncio
+async def test_probe_cancel_drains_and_closes_fp(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    target = tmp_path / "c.bin"
+    target.write_bytes(b"x" * (RESPONSE_DATA_BLOCK_SIZE * 2))
+    opened: list[BinaryIO] = []
+    real = _stat_open_read_block
+
+    async def slow_probe(*args: Any) -> _FileProbe:
+        await asyncio.sleep(0.05)
+        probe = real(*args)
+        if probe.fp is not None:
+            opened.append(probe.fp)
+        return probe
+
+    mocker.patch(
+        "asgi_webdav.provider.file_system._stat_open_read_block_async",
+        side_effect=slow_probe,
+    )
+    task = asyncio.ensure_future(_run_probe(target, False, RESPONSE_DATA_BLOCK_SIZE))
+    await asyncio.sleep(0.01)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert opened
+    assert opened[0].closed
+
+
+@pytest.mark.asyncio
+async def test_probe_second_cancellation_still_closes(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    target = tmp_path / "c2.bin"
+    target.write_bytes(b"x" * (RESPONSE_DATA_BLOCK_SIZE * 2))
+    opened: list[BinaryIO] = []
+    real = _stat_open_read_block
+
+    async def slow_probe(*args: Any) -> _FileProbe:
+        await asyncio.sleep(0.05)
+        probe = real(*args)
+        if probe.fp is not None:
+            opened.append(probe.fp)
+        return probe
+
+    mocker.patch(
+        "asgi_webdav.provider.file_system._stat_open_read_block_async",
+        side_effect=slow_probe,
+    )
+    task = asyncio.ensure_future(_run_probe(target, False, RESPONSE_DATA_BLOCK_SIZE))
+    await asyncio.sleep(0.01)
+    task.cancel()  # first delivery — the drain begins
+    await asyncio.sleep(0.005)
+    task.cancel()  # second delivery lands inside the drain
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    # the task ends cancelled before the executor hop completes; the
+    # reaper closes the fp when the hop finishes
+    await asyncio.sleep(0.08)
+    assert opened
+    assert opened[0].closed
+
+
+@pytest.mark.asyncio
+async def test_probe_cancel_with_failing_worker(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # cancel during a probe whose worker fails: the reaper sees the
+    # exception and takes no closing action
+    async def slow_fail(*args: Any) -> _FileProbe:
+        await asyncio.sleep(0.05)
+        raise OSError(errno.ENOENT, "gone")
+
+    mocker.patch(
+        "asgi_webdav.provider.file_system._stat_open_read_block_async",
+        side_effect=slow_fail,
+    )
+    task = asyncio.ensure_future(
+        _run_probe(tmp_path / "x.bin", False, RESPONSE_DATA_BLOCK_SIZE)
+    )
+    await asyncio.sleep(0.01)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    await asyncio.sleep(0.08)  # let the hop finish under the reaper
+
+
+@pytest.mark.asyncio
+async def test_body_generator_aclose_closes_fp(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    target = tmp_path / "m.bin"
+    target.write_bytes(b"x" * (RESPONSE_DATA_BLOCK_SIZE * 2))
+    opened: list[BinaryIO] = []
+    real = _stat_open_read_block
+
+    async def capture_probe(*args: Any) -> _FileProbe:
+        probe = real(*args)
+        if probe.fp is not None:
+            opened.append(probe.fp)
+        return probe
+
+    mocker.patch(
+        "asgi_webdav.provider.file_system._stat_open_read_block_async",
+        side_effect=capture_probe,
+    )
+    provider = make_fs_provider(tmp_path)
+    status, _, body, _ = await provider._do_get(make_get_request("/m.bin"))
+    assert status == 200
+    assert body is not None
+    _, more_body = await body.__anext__()
+    assert more_body is True
+
+    await body.aclose()
+
+    assert opened
+    assert opened[0].closed
+
+
+@pytest.mark.asyncio
+async def test_do_get_range_unsatisfiable_closes_probe_fp(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # the ranged probe opens the fp before the range is judged: the
+    # 416 branch must close it explicitly
+    provider = make_fs_provider(tmp_path)
+    target = tmp_path / "r416.bin"
+    target.write_bytes(b"0123456789")
+    mock_fp = mocker.MagicMock()
+    mock_fp.closed = False
+
+    async def fake_probe_ranged(*args: Any) -> _FileProbe:
+        return _FileProbe(target.stat(), mock_fp, b"")
+
+    mocker.patch(
+        "asgi_webdav.provider.file_system._stat_open_tmp_async",
+        side_effect=fake_probe_ranged,
+    )
+    request = make_get_request("/r416.bin", headers=[(b"range", b"bytes=999999-")])
+    status, _, body, _ = await provider._do_get(request)
+
+    assert status == 416
+    assert body is None
+    mock_fp.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_do_get_if_range_mismatch_closes_probe_fp_and_reprobes(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    provider = make_fs_provider(tmp_path)
+    target = tmp_path / "irm.bin"
+    target.write_bytes(b"0123456789")
+    mock_fp = mocker.MagicMock()
+    mock_fp.closed = False
+
+    async def fake_probe_ranged(*args: Any) -> _FileProbe:
+        return _FileProbe(target.stat(), mock_fp, b"")
+
+    mocker.patch(
+        "asgi_webdav.provider.file_system._stat_open_tmp_async",
+        side_effect=fake_probe_ranged,
+    )
+    request = make_get_request(
+        "/irm.bin", headers=[(b"range", b"bytes=2-5"), (b"if-range", b'"nope"')]
+    )
+    status, _, body, content_range = await provider._do_get(request)
+
+    # validator mismatch: ignore Range, respond the entire file — the
+    # ranged probe's fp is closed and a plain probe re-reads the file
+    assert status == 200
+    assert content_range is None
+    assert mock_fp.close.called is True
+    assert body is not None
+    chunks = [d async for d, _ in body]
+    assert b"".join(chunks) == b"0123456789"
+
+
+@pytest.mark.asyncio
+async def test_body_generator_close_oserror_suppressed(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # a failing close (in the ledgered last read, then in the
+    # finalization) must not turn into an unexpected error
+    target = tmp_path / "oe.bin"
+    block = b"x" * RESPONSE_DATA_BLOCK_SIZE
+    target.write_bytes(block * 2)
+    mock_fp = mocker.MagicMock()
+    mock_fp.closed = False
+    mock_fp.read.side_effect = [block, b""]
+    mock_fp.close.side_effect = [None, OSError(errno.EIO, "close io")]
+
+    probe = _FileProbe(target.stat(), mock_fp, block)
+    chunks = [
+        (d, m) async for d, m in _dav_response_body_generator(probe, 2 * len(block))
+    ]
+
+    assert chunks == [(block, True), (block, False)]
+    assert mock_fp.close.call_count == 2
+
+
+def test_stat_open_tmp_missing(tmp_path: Path) -> None:
+    probe = _stat_open_tmp(tmp_path / "nope", RESPONSE_DATA_BLOCK_SIZE)
+    assert probe.stat_result is None
+    assert probe.fp is None
+
+
+def test_stat_open_tmp_dir_never_opens(tmp_path: Path) -> None:
+    a_dir = tmp_path / "d"
+    a_dir.mkdir()
+    probe = _stat_open_tmp(a_dir, RESPONSE_DATA_BLOCK_SIZE)
+    assert probe.stat_result is not None
+    assert probe.fp is None
+
+
+def test_stat_open_tmp_open_race_maps_missing(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    target = tmp_path / "race.bin"
+    target.write_bytes(b"data")
+
+    real_open = builtins.open
+
+    def open_but_vanished(file: Any, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
+        if Path(file) == target:
+            raise FileNotFoundError(errno.ENOENT, "gone")
+        return real_open(file, mode, *args, **kwargs)
+
+    mocker.patch("builtins.open", side_effect=open_but_vanished)
+
+    probe = _stat_open_tmp(target, RESPONSE_DATA_BLOCK_SIZE)
+
+    assert probe.stat_result is None
+    assert probe.fp is None
+
+
+def test_read_block_read_failure_self_heals(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    target = tmp_path / "io.bin"
+    target.write_bytes(b"data")
+    mock_fp = mocker.MagicMock()
+    mock_fp.read.side_effect = OSError(errno.EIO, "io")
+    mocker.patch("builtins.open", return_value=mock_fp)
+
+    with pytest.raises(OSError):
+        _read_block(mock_fp, RESPONSE_DATA_BLOCK_SIZE, False)
+
+    mock_fp.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_body_generator_do_get_ranged_missing_404(tmp_path: Path) -> None:
+    # ranged GET on a missing file goes through the ranged probe's
+    # missing sentinel
+    provider = make_fs_provider(tmp_path)
+    request = make_get_request("/no_such_file", headers=[(b"range", b"bytes=0-3")])
+    status, _, body, _ = await provider._do_get(request)
+
+    assert status == 404
+    assert body is None
+
+
+@pytest.mark.asyncio
+async def test_body_generator_do_get_ranged_dir_200(tmp_path: Path) -> None:
+    # ranged GET on a directory: the probe never opens, the dir branch
+    # answers without a body
+    provider = make_fs_provider(tmp_path)
+    (tmp_path / "d").mkdir()
+    request = make_get_request("/d", headers=[(b"range", b"bytes=0-3")])
+    status, basic_data, body, _ = await provider._do_get(request)
+
+    assert status == 200
+    assert basic_data is not None
+    assert basic_data.is_collection is True
+    assert body is None
+
+
+@pytest.mark.asyncio
+async def test_body_generator_plain_truncation_race_breaks(
+    tmp_path: Path,
+) -> None:
+    # file_size larger than the real content: the ledger reads past EOF,
+    # the short read ends the stream cleanly and closes the fp
+    target = tmp_path / "shrink.bin"
+    block = b"x" * RESPONSE_DATA_BLOCK_SIZE
+    target.write_bytes(block * 2)
+
+    probe = _stat_open_read_block(target, RESPONSE_DATA_BLOCK_SIZE)
+    assert probe.fp is not None
+    fp = probe.fp
+
+    chunks = [
+        (d, m) async for d, m in _dav_response_body_generator(probe, 3 * len(block))
+    ]
+
+    assert chunks[-1][1] is False
+    assert fp.closed
+
+
+@pytest.mark.asyncio
+async def test_body_generator_range_truncation_race_breaks(
+    tmp_path: Path,
+) -> None:
+    # a range spanning past the real content ends on the short read
+    from asgi_webdav.constants import DAVRangeType, DAVResponseContentRange
+
+    target = tmp_path / "shrink-r.bin"
+    target.write_bytes(b"0123456789")
+    content_range = DAVResponseContentRange(DAVRangeType.RANGE, 0, 99, 100)
+
+    probe = await _stat_open_tmp_async(target, RESPONSE_DATA_BLOCK_SIZE)
+    chunks = [
+        (d, m) async for d, m in _dav_response_body_generator(probe, 100, content_range)
+    ]
+
+    assert b"".join(d for d, _ in chunks) == b"0123456789"
+    assert chunks[-1][1] is False
+
+
+@pytest.mark.asyncio
+async def test_body_generator_range_none_fp_returns(tmp_path: Path) -> None:
+    # defensive guard: a dir/missing probe with a range yields nothing
+    from asgi_webdav.constants import DAVRangeType, DAVResponseContentRange
+
+    content_range = DAVResponseContentRange(DAVRangeType.RANGE, 0, 9, 10)
+    probe = _FileProbe(None, None, b"")
+
+    chunks = [
+        (d, m) async for d, m in _dav_response_body_generator(probe, 10, content_range)
+    ]
+
+    assert chunks == []
 
 
 # ---- unit: _do_proppatch branches (fs implementation) ----
@@ -387,80 +1048,279 @@ def test_open_tmp_exclusive_names(tmp_path: Path) -> None:
     assert tmp_path_created.read_bytes() == b"x"
 
 
-def test_write_file_atomic_create_and_overwrite(tmp_path: Path) -> None:
-    target = tmp_path / "atomic.bin"
-
-    # create -> 201
-    assert _write_file_atomic(target, [b"first-", b"second"]) == 201
-    assert target.read_bytes() == b"first-second"
-
-    # overwrite -> 204, previous content fully replaced
-    assert _write_file_atomic(target, [b"next"]) == 204
-    assert target.read_bytes() == b"next"
-
-    # empty body creates an empty file
-    assert _write_file_atomic(tmp_path / "empty.bin", []) == 201
-    assert (tmp_path / "empty.bin").read_bytes() == b""
+# ---- unit: PUT streaming probe workers ----
 
 
-@pytest.mark.asyncio
-async def test_open_tmp_stream_collision_retry(tmp_path: Path) -> None:
-    f, tmp_created = await _open_tmp_stream(tmp_path / "t.bin")
-    await f.close()
-    assert tmp_created.name.startswith("t.bin.")
-    assert tmp_created.name.endswith(".davtmp")
+def test_put_start_write_single_chunk_creates(tmp_path: Path) -> None:
+    target = tmp_path / "new.bin"
+
+    stream = _put_start_write(target, b"body", True)
+
+    assert stream.status == 201
+    assert stream.fd == -1
+    assert stream.tmp_path is None
+    assert target.read_bytes() == b"body"
 
 
-@pytest.mark.asyncio
-async def test_open_tmp_stream_cancellation_drains(tmp_path: Path) -> None:
-    # a cancellation during the executor open still drains the result: the
-    # descriptor closes and the partial temp is removed before the
-    # CancelledError propagates
-    task = asyncio.create_task(_open_tmp_stream(tmp_path / "t.bin"))
-    await asyncio.sleep(0)
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
+def test_put_start_write_single_chunk_overwrites(tmp_path: Path) -> None:
+    target = tmp_path / "exist.bin"
+    target.write_bytes(b"old")
+
+    stream = _put_start_write(target, b"new", True)
+
+    assert stream.status == 204
+    assert target.read_bytes() == b"new"
+
+
+def test_put_start_write_precheck_statuses(tmp_path: Path) -> None:
+    a_dir = tmp_path / "d"
+    a_dir.mkdir()
+
+    assert _put_start_write(a_dir, b"x", True).status == 405
+    assert _put_start_write(tmp_path / "no_parent" / "f", b"x", True).status == 409
+
+
+def test_put_start_write_multi_chunk_in_progress(tmp_path: Path) -> None:
+    target = tmp_path / "multi.bin"
+
+    stream = _put_start_write(target, b"part1-", False)
+
+    assert stream.status is None
+    assert stream.fd >= 0
+    assert stream.tmp_path is not None
+
+    status = _put_stream_chunk(
+        target, stream.fd, stream.tmp_path, b"part2", True, stream.target_exists
+    )
+
+    assert status == 201
+    assert target.read_bytes() == b"part1-part2"
+
+
+def test_put_start_write_open_failure_maps(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    mocker.patch("os.open", side_effect=OSError(errno.EACCES, "denied"))
+
+    stream = _put_start_write(tmp_path / "x.bin", b"b", True)
+
+    assert stream.status == 403
+    assert stream.fd == -1
+
+
+def test_put_start_write_write_failure_self_heals(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    mocker.patch("os.write", side_effect=OSError(errno.ENOSPC, "no space"))
+
+    stream = _put_start_write(tmp_path / "w.bin", b"b", True)
+
+    assert stream.status == 507
+    assert stream.fd == -1
+    assert not list(tmp_path.glob("*.davtmp"))
+
+
+def test_put_stream_chunk_failure_self_heals_and_maps(tmp_path: Path) -> None:
+    target = tmp_path / "c.bin"
+    stream = _put_start_write(target, b"p1-", False)
+    assert stream.status is None and stream.tmp_path is not None
+
+    # break the descriptor: the next write fails and the worker must
+    # clean up (close + remove) and answer the mapped status
+    os.close(stream.fd)
+    status = _put_stream_chunk(
+        target, stream.fd, stream.tmp_path, b"x", False, stream.target_exists
+    )
+
+    assert status == 500
+    assert not list(tmp_path.glob("*.davtmp"))
+
+
+def test_put_discard_tmp_idempotent(tmp_path: Path) -> None:
+    stream = _put_start_write(tmp_path / "d.bin", b"x", False)
+    assert stream.fd >= 0 and stream.tmp_path is not None
+
+    _put_discard_tmp(stream.fd, stream.tmp_path)
+    _put_discard_tmp(stream.fd, stream.tmp_path)
+
     assert not list(tmp_path.glob("*.davtmp"))
 
 
 @pytest.mark.asyncio
-async def test_open_tmp_stream_cancellation_with_failing_open(
+async def test_put_start_cancel_discards_stream(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
-    # the drain must also hold when the executor open fails while the
-    # cancellation is being delivered
-    async def failing_open(*args: Any, **kwargs: Any) -> Any:
-        await asyncio.sleep(0.05)
-        raise PermissionError()
+    target = tmp_path / "c.bin"
+    target.write_bytes(b"keep")
+    real = _put_start_write
 
-    mocker.patch("aiofiles.open", side_effect=failing_open)
-    task = asyncio.create_task(_open_tmp_stream(tmp_path / "t.bin"))
+    async def slow_start(*args: Any) -> _PutStream:
+        await asyncio.sleep(0.05)
+        return real(*args)
+
+    mocker.patch(
+        "asgi_webdav.provider.file_system._put_start_write_async",
+        side_effect=slow_start,
+    )
+    task = asyncio.ensure_future(_run_put_start(target, b"partial-", False))
     await asyncio.sleep(0.01)
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+
+    assert not list(tmp_path.glob("*.davtmp"))
+    assert target.read_bytes() == b"keep"
+
+
+@pytest.mark.asyncio
+async def test_put_start_second_cancellation_still_discards(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    target = tmp_path / "c2.bin"
+    real = _put_start_write
+
+    async def slow_start(*args: Any) -> _PutStream:
+        await asyncio.sleep(0.05)
+        return real(*args)
+
+    mocker.patch(
+        "asgi_webdav.provider.file_system._put_start_write_async",
+        side_effect=slow_start,
+    )
+    task = asyncio.ensure_future(_run_put_start(target, b"partial-", False))
+    await asyncio.sleep(0.01)
+    task.cancel()  # first delivery — the drain begins
+    await asyncio.sleep(0.005)
+    task.cancel()  # second delivery lands inside the drain
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    await asyncio.sleep(0.08)  # let the hop finish under the reaper
     assert not list(tmp_path.glob("*.davtmp"))
 
 
 @pytest.mark.asyncio
-async def test_open_tmp_stream_second_cancellation_still_cleans(
+async def test_put_start_single_chunk_cancel_self_contained(
     tmp_path: Path, mocker: MockerFixture
 ) -> None:
-    # a second cancellation delivered while the drain awaits (double-cancel
-    # delivery, anyio-style scopes) must not skip the temp removal
-    real_open = aiofiles.open
+    # a single-chunk probe finishes inside the hop: cancellation after
+    # completion leaves the renamed file standing (parity with the
+    # buffered write it replaces)
+    target = tmp_path / "s.bin"
+    real = _put_start_write
 
-    async def slow_open(*args: Any, **kwargs: Any) -> Any:
+    async def slow_start(*args: Any) -> _PutStream:
         await asyncio.sleep(0.05)
-        return await real_open(*args, **kwargs)
+        return real(*args)
 
-    mocker.patch("aiofiles.open", side_effect=slow_open)
-    task = asyncio.create_task(_open_tmp_stream(tmp_path / "t.bin"))
-    await asyncio.sleep(0.01)  # the handler suspends on the shield await
-    task.cancel()  # first delivery — the drain begins
-    await asyncio.sleep(0.005)  # the drain is now awaiting the inner task
-    task.cancel()  # second delivery lands inside the drain
+    mocker.patch(
+        "asgi_webdav.provider.file_system._put_start_write_async",
+        side_effect=slow_start,
+    )
+    task = asyncio.ensure_future(_run_put_start(target, b"final", True))
+    await asyncio.sleep(0.01)
+    task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+
+    await asyncio.sleep(0.08)  # let the hop finish
+    assert target.read_bytes() == b"final"
+
+
+def test_put_start_write_base_exception_self_heals(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # a non-OSError failure inside the worker still cleans up before
+    # propagating
+    mocker.patch("os.write", side_effect=KeyboardInterrupt)
+
+    with pytest.raises(KeyboardInterrupt):
+        _put_start_write(tmp_path / "k.bin", b"b", True)
+
     assert not list(tmp_path.glob("*.davtmp"))
+
+
+@pytest.mark.asyncio
+async def test_put_start_cancel_with_failing_worker(
+    tmp_path: Path, mocker: MockerFixture
+) -> None:
+    # cancel during a start hop whose worker fails: the reaper sees the
+    # exception and takes no discard action
+    async def slow_fail(*args: Any) -> _PutStream:
+        await asyncio.sleep(0.05)
+        raise OSError(errno.ENOENT, "gone")
+
+    mocker.patch(
+        "asgi_webdav.provider.file_system._put_start_write_async",
+        side_effect=slow_fail,
+    )
+    task = asyncio.ensure_future(_run_put_start(tmp_path / "x.bin", b"b", False))
+    await asyncio.sleep(0.01)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    await asyncio.sleep(0.08)  # let the hop finish under the reaper
+
+
+@pytest.mark.asyncio
+async def test_discard_stream_finished_stream_noop(tmp_path: Path) -> None:
+    # a finished/failed stream (tmp_path None) has nothing to discard
+    await _discard_stream(_PutStream(500, -1, None, False))
+
+
+# ---- unit: _do_put body streaming ----
+
+
+def make_put_events_request(events: list[dict[str, Any]]) -> DAVRequest:
+    request = create_dav_request_object(method="PUT", path="/put.bin")
+    request.dist_src_path = DAVPath("/put.bin")
+    request.user = DAVUser("testuser", "password", [], False)
+    iterator = iter(events)
+
+    async def receive() -> dict[str, Any]:
+        return next(iterator)
+
+    request.receive = receive  # type: ignore[assignment]
+    return request
+
+
+@pytest.mark.asyncio
+async def test_do_put_disconnect_before_first_chunk(tmp_path: Path) -> None:
+    provider = make_fs_provider(tmp_path)
+    request = make_put_events_request([{"type": "http.disconnect"}])
+
+    assert await provider._do_put(request) == 400
+    assert not list(tmp_path.glob("*.davtmp"))
+
+
+@pytest.mark.asyncio
+async def test_do_put_disconnect_mid_stream_discards(tmp_path: Path) -> None:
+    provider = make_fs_provider(tmp_path)
+    target = tmp_path / "t.bin"
+    target.write_bytes(b"original")
+    request = make_put_events_request(
+        [
+            {"type": "http.request", "body": b"part1-", "more_body": True},
+            {"type": "http.disconnect"},
+        ]
+    )
+
+    assert await provider._do_put(request) == 400
+    assert target.read_bytes() == b"original"
+    assert not list(tmp_path.glob("*.davtmp"))
+
+
+@pytest.mark.asyncio
+async def test_do_put_multi_chunk_roundtrip(tmp_path: Path) -> None:
+    provider = make_fs_provider(tmp_path)
+    request = make_put_events_request(
+        [
+            {"type": "http.request", "body": b"a" * 10, "more_body": True},
+            {"type": "http.request", "body": b"", "more_body": True},
+            {"type": "http.request", "body": b"b" * 10, "more_body": False},
+        ]
+    )
+
+    assert await provider._do_put(request) == 201
+    assert (tmp_path / "put.bin").read_bytes() == b"a" * 10 + b"b" * 10

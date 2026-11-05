@@ -121,7 +121,7 @@ def solve_df_rdm2 (mc_or_mc_grad, mo_cas=None, ci=None, casdm2=None):
     # Initialize casdm2 and mo_cas
     if mo_cas is None: mo_cas = mc.mo_coeff[:,ncore:nocc]
     if ci is None: ci = mc.ci
-    if casdm2 is None: casdm2 = mc.fcisolver.make_rdm12 (ci, ncas, nelecas)
+    if casdm2 is None: casdm2 = mc.fcisolver.make_rdm12 (ci, ncas, nelecas)[1]
     if np.asarray (casdm2).ndim == 4: casdm2 = [casdm2]
 
     # (P|Q) and (P|ij)
@@ -145,7 +145,7 @@ def solve_df_rdm2 (mc_or_mc_grad, mo_cas=None, ci=None, casdm2=None):
             nmo_pair = nmo[2] * nmo[3]
             int3c = int3c.reshape (naux, nmo_pair)
         else:
-            raise RuntimeError ('int3c.shape = {}'.format (int3c.shape))
+            raise RuntimeError (f'int3c.shape = {int3c.shape}')
         dm2 = dm2.reshape (nmo[0]*nmo[1], nmo_pair).T
         int3c_dm2 = np.dot (int3c, dm2)
         dfcasdm2.append (linalg.cho_solve (int2c, int3c_dm2).reshape (naux, nmo[0], nmo[1]))
@@ -217,7 +217,7 @@ def energy_elec_dferi (mc, mo_cas=None, ci=None, dfcasdm2=None, casdm2=None):
     elif len (mo_cas) == 4:
         mo_cas = tuple (mo_cas)
     else:
-        raise RuntimeError ('Invalid shape of np.asarray (mo_cas): {}'.format (mo_cas.shape))
+        raise RuntimeError (f'Invalid shape of np.asarray (mo_cas): {mo_cas.shape}')
     nmo = [mo.shape[1] for mo in mo_cas]
     if ci is None: ci = mc.ci
     if dfcasdm2 is None: dfcasdm2 = solve_df_rdm2 (mc, mo_cas=mo_cas[2:], ci=ci, casdm2=casdm2)
@@ -277,7 +277,7 @@ def gfock_dferi (mc, mo_cas=None, ci=None, dfcasdm2=None, casdm2=None, max_memor
     elif len (mo_cas) == 4:
         mo_cas = tuple (mo_cas)
     else:
-        raise RuntimeError ('Invalid shape of np.asarray (mo_cas): {}'.format (mo_cas.shape))
+        raise RuntimeError (f'Invalid shape of np.asarray (mo_cas): {mo_cas.shape}')
     if ci is None: ci = mc.ci
     if dfcasdm2 is None: dfcasdm2 = solve_df_rdm2 (mc, mo_cas=mo_cas[2:], ci=ci, casdm2=casdm2)
     dfcasdm2 = np.asarray (dfcasdm2)
@@ -338,7 +338,7 @@ def grad_elec_auxresponse_dferi (mc_grad, mo_cas=None, ci=None, dfcasdm2=None, c
     elif len (mo_cas) == 4:
         mo_cas = tuple (mo_cas)
     else:
-        raise RuntimeError ('Invalid shape of np.asarray (mo_cas): {}'.format (mo_cas.shape))
+        raise RuntimeError (f'Invalid shape of np.asarray (mo_cas): {mo_cas.shape}')
     nmo = [mo.shape[1] for mo in mo_cas]
     if atmlst is None: atmlst = list (range (mol.natm))
     if ci is None: ci = mc.ci
@@ -350,7 +350,7 @@ def grad_elec_auxresponse_dferi (mc_grad, mo_cas=None, ci=None, dfcasdm2=None, c
     # Shape dfcasdm2
     mosym, nmo_pair, mo_conc, mo_slice = _conc_mos(mo_cas[0], mo_cas[1], compact=True)
     if 's2' in mosym:
-        assert (nmo[0] == nmo[1]), 'How did I get {} with nmo[0] = {} and nmo[1] = {}'.format (mosym, nmo[0], nmo[1])
+        assert (nmo[0] == nmo[1]), f'How did I get {mosym} with nmo[0] = {nmo[0]} and nmo[1] = {nmo[1]}'
         dfcasdm2 = dfcasdm2.reshape (nset*naux, nmo[0], nmo[1])
         dfcasdm2 += dfcasdm2.transpose (0,2,1)
         diag_idx = np.arange(nmo[0])
@@ -436,7 +436,7 @@ def grad_elec_dferi (mc_grad, mo_cas=None, ci=None, dfcasdm2=None, casdm2=None, 
     elif len (mo_cas) == 4:
         mo_cas = tuple (mo_cas)
     else:
-        raise RuntimeError ('Invalid shape of np.asarray (mo_cas): {}'.format (mo_cas.shape))
+        raise RuntimeError (f'Invalid shape of np.asarray (mo_cas): {mo_cas.shape}')
     nmo = [mo.shape[1] for mo in mo_cas]
     if atmlst is None: atmlst = list (range (mol.natm))
     if ci is None: ci = mc.ci
@@ -469,98 +469,3 @@ def grad_elec_dferi (mc_grad, mo_cas=None, ci=None, dfcasdm2=None, casdm2=None, 
     aoslices = mol.aoslice_by_atom ()
     dE = np.array ([dE[:,p0:p1].sum (axis=1) for p0, p1 in aoslices[:,2:]]).transpose (1,0,2)
     return np.ascontiguousarray (dE)[:,atmlst,:]
-
-if __name__ == '__main__':
-    from pyscf.tools import molden
-    from pyscf.lib import logger, param
-    h2co_casscf66_631g_xyz = '''C  0.534004  0.000000  0.000000
-    O -0.676110  0.000000  0.000000
-    H  1.102430  0.000000  0.920125
-    H  1.102430  0.000000 -0.920125'''
-    mol = gto.M (atom = h2co_casscf66_631g_xyz, basis = '6-31g', symmetry = False, verbose = logger.INFO,
-                 output = 'h2co_casscf66_631g_grad.log')
-    mf = scf.RHF (mol).density_fit (auxbasis = df.aug_etb (mol)).run ()
-    mc = mcscf.CASSCF (mf, 11, 16)
-    mc.conv_tol = 1e-10
-    mc.kernel ()
-
-    ncore, ncas = mc.ncore, mc.ncas
-    nocc = ncore + ncas
-    nmo = mc.mo_coeff.shape[-1]
-    mo_cas = mc.mo_coeff[:,ncore:nocc]
-    casdm1, casdm2 = mc.fcisolver.make_rdm12 (mc.ci, mc.ncas, mc.nelecas)
-    eri_cas = mc.with_df.ao2mo (mo_cas, compact=False).reshape ((ncas,)*4)
-
-    # Full energy
-    e2_ref = np.dot (casdm2.ravel (), eri_cas.ravel ()) / 2
-    e2_test = energy_elec_dferi (mc, mo_cas=mo_cas, casdm2=casdm2)[0]
-    e2_err = e2_test - e2_ref
-    print ("Testing full energy calculation: e2_test - e2_ref = {:13.6e} - {:13.6e} = {:13.6e}".format (
-           e2_test, e2_ref, e2_err))
-
-    # 2-RDM slices (see: SA-CASSCF gradients)
-    eri_cas_sl = eri_cas[0:2,1:3,0:4,1:6]
-    casdm2_sl = casdm2[0:2,1:3,0:4,1:6]
-    mo_cas_sl = (mo_cas[:,0:2], mo_cas[:,1:3], mo_cas[:,0:4], mo_cas[:,1:6])
-    e2_ref = np.dot (casdm2_sl.ravel (), eri_cas_sl.ravel ())
-    e2_test = energy_elec_dferi (mc, mo_cas=mo_cas_sl, casdm2=casdm2_sl)[0] * 2
-    e2_err = e2_test - e2_ref
-    print ("Testing slice calculation: e2_test - e2_ref = {:13.6e} - {:13.6e} = {:13.6e}".format (
-           e2_test, e2_ref, e2_err))
-
-    # 2-RDM slice complex conjugate
-    casdm2_sl = casdm2[1:3,0:2,1:6,0:4]
-    eri_cas_sl = eri_cas[1:3,0:2,1:6,0:4]
-    mo_cas_sl = (mo_cas[:,1:3], mo_cas[:,0:2], mo_cas[:,1:6], mo_cas[:,0:4])
-    e2_test = np.dot (casdm2_sl.ravel (), eri_cas_sl.ravel ())
-    e2_err = e2_test - e2_ref
-    print ("Testing slice c.c. ERI: e2_test - e2_ref = {:13.6e} - {:13.6e} = {:13.6e}".format (
-           e2_test, e2_ref, e2_err))
-    e2_test = energy_elec_dferi (mc, mo_cas=mo_cas_sl, casdm2=casdm2_sl)[0] * 2
-    print ("Testing slice c.c. DFERI: e2_test - e2_ref = {:13.6e} - {:13.6e} = {:13.6e}".format (
-           e2_test, e2_ref, e2_err))
-
-    # 2-RDM slice electron interchange
-    casdm2_sl = casdm2[0:4,1:6,0:2,1:3]
-    eri_cas_sl = eri_cas[0:4,1:6,0:2,1:3]
-    mo_cas_sl = (mo_cas[:,0:4], mo_cas[:,1:6], mo_cas[:,0:2], mo_cas[:,1:3])
-    e2_test = np.dot (casdm2_sl.ravel (), eri_cas_sl.ravel ())
-    e2_err = e2_test - e2_ref
-    print ("Testing slice 1<->2 ERI: e2_test - e2_ref = {:13.6e} - {:13.6e} = {:13.6e}".format (
-           e2_test, e2_ref, e2_err))
-    e2_test = energy_elec_dferi (mc, mo_cas=mo_cas_sl, casdm2=casdm2_sl)[0] * 2
-    print ("Testing slice 1<->2 DFERI: e2_test - e2_ref = {:13.6e} - {:13.6e} = {:13.6e}".format (
-           e2_test, e2_ref, e2_err))
-
-    mc_grad_conv = mcscf.CASSCF (scf.RHF (mol).run (), 11, 16)
-    mc_grad_conv.conv_tol = 1e-10
-    mc_grad_conv = mc_grad_conv.run ().nuc_grad_method ()
-    dm1 = mc.make_rdm1 ()
-    hcore_deriv = mc_grad_conv.hcore_generator (mol)
-    dE_conv = mc_grad_conv.kernel ()
-    ###
-    dE_nuc = mc_grad_conv.grad_nuc (atmlst=list (range (mol.natm)))
-    dE_hcore = np.stack ([np.dot (hcore_deriv (iatm).reshape (3,-1), dm1.ravel ()) for iatm in range (mol.natm)],
-                         axis=0)
-    dE_ao = grad_elec_dferi (mc, mo_cas=mo_cas, casdm2=casdm2)
-    dE_aux = grad_elec_auxresponse_dferi (mc, mo_cas=mo_cas, casdm2=casdm2)
-    h1 = reduce (np.dot, (mc.mo_coeff.conjugate ().T, mc.get_hcore (), mo_cas))
-    gfock = np.zeros ((nmo,nmo), dtype=mc.mo_coeff.dtype)
-    gfock[:,:nocc] += np.dot (h1, casdm1)
-    gfock[:,:nocc] += np.squeeze (gfock_dferi (mc, mo_cas=(mc.mo_coeff, mo_cas, mo_cas, mo_cas), casdm2=casdm2,
-                                               ao_basis=False))
-    gfock = (gfock + gfock.T) / 2
-    gfock = reduce (np.dot, (mc.mo_coeff, gfock, mc.mo_coeff.conjugate ().T))
-    dE_renorm = np.einsum ('xij,ij->xi', mc_grad_conv.get_ovlp (mol), gfock)
-    aoslices = mol.aoslice_by_atom ()
-    dE_renorm = -2*np.array ([dE_renorm[:,p0:p1].sum (axis=1) for p0, p1 in aoslices[:,2:]])
-    dE = dE_ao + dE_aux + dE_nuc + dE_hcore + dE_renorm
-    ###
-    #from pyscf.grad.numeric import Gradients as NumGrad
-    #mc_numgrad = NumGrad (mc)
-    dE_num = 0
-    print ('Putative analytical DF-CASSCF gradient:\n', dE)
-    print ('Numerical DF-CASSCF gradient:\n', dE_num)
-    print ('Analytical CASSCF gradient:\n', dE_conv)
-    #print ('DF-CASSCF analytical-numerical disagreement:\n', dE-dE_num)
-    print ('Analytical DF-CASSCF - CASSCF disagreement:\n', dE-dE_conv)

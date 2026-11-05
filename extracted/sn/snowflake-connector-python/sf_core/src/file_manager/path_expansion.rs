@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 pub fn resolve_against_cwd(path: &str, cwd: Option<&Path>) -> PathBuf {
+    let path = strip_leading_slash_before_windows_drive(path);
     let Some(cwd) = cwd else {
         return PathBuf::from(path);
     };
@@ -13,6 +14,17 @@ pub fn resolve_against_cwd(path: &str, cwd: Option<&Path>) -> PathBuf {
     } else {
         cwd.join(path)
     }
+}
+
+fn strip_leading_slash_before_windows_drive(path: &str) -> &str {
+    #[cfg(windows)]
+    {
+        let bytes = path.as_bytes();
+        if bytes.len() > 2 && bytes[0] == b'/' && bytes[2] == b':' {
+            return &path[1..];
+        }
+    }
+    path
 }
 
 /// Expands file names using glob patterns, returning a list of valid file paths.
@@ -159,6 +171,10 @@ mod tests {
     #[test_case(Some(r"D:\other"), r"C:\already\abs.csv", r"C:\already\abs.csv" ; "Windows absolute path ignores cwd")]
     #[test_case(Some(r"C:\absolute\path"), r"..\data.csv", r"C:\absolute\path\..\data.csv" ; "parent path against a Windows cwd")]
     #[test_case(Some(r"C:\absolute\path"), r"..\..\..\data.csv", r"C:\absolute\path\..\..\..\data.csv" ; "parent path past Windows root stays in the join")]
+    #[test_case(None, "/C:/Users/data.csv", "C:/Users/data.csv" ; "three-slash drive path drops the extra slash")]
+    #[test_case(None, r"/C:\Users\data.csv", r"C:\Users\data.csv" ; "three-slash backslash drive path drops the extra slash")]
+    #[test_case(Some(r"D:\other"), "/C:/Users/data.csv", "C:/Users/data.csv" ; "three-slash drive path ignores cwd")]
+    #[test_case(Some(r"D:\other"), r"/C:\Users\data.csv", r"C:\Users\data.csv" ; "three-slash backslash drive path ignores cwd")]
     fn resolve_against_cwd_windows_cases(cwd: Option<&str>, path: &str, expected: &str) {
         assert_eq!(
             resolve_against_cwd(path, cwd.map(Path::new)),
@@ -262,6 +278,47 @@ mod tests {
             matches!(result, Err(PathExpansionError::Canonicalize { .. })),
             "a dangling symlink matched by glob must surface a canonicalize error"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn posix_three_slash_file_uri_path_still_matches() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("data.csv");
+        fs::write(&file, b"abc").unwrap();
+
+        let found = expand_filenames(file.to_str().unwrap()).unwrap();
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].filename, "data.csv");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn put_three_slash_windows_drive_path_finds_the_local_file() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("data.csv");
+        fs::write(&file, b"abc").unwrap();
+        let other = tempdir().unwrap();
+        let rendered = file.to_string_lossy();
+        let gs_paths = [
+            format!("/{}", rendered.replace('\\', "/")),
+            format!("/{}", rendered.replace('/', "\\")),
+        ];
+
+        for gs in gs_paths {
+            for cwd in [None, Some(other.path())] {
+                let resolved = resolve_against_cwd(&gs, cwd);
+                let found = expand_filenames(&resolved.to_string_lossy()).unwrap_or_else(|e| {
+                    panic!("PUT {gs} cwd={cwd:?} resolved to {resolved:?}: {e}")
+                });
+                assert_eq!(
+                    found.len(),
+                    1,
+                    "PUT {gs} cwd={cwd:?} resolved to {resolved:?}"
+                );
+                assert_eq!(found[0].filename, "data.csv");
+            }
+        }
     }
 
     #[cfg(unix)]

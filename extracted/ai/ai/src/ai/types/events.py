@@ -1,7 +1,15 @@
+from __future__ import annotations
+
 import abc
 import contextvars
-from collections.abc import AsyncGenerator, Callable, Sequence
-from typing import Annotated, Any, Literal
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterable,
+    Callable,
+    Mapping,
+    Sequence,
+)
+from typing import Annotated, Any, Literal, cast
 
 import pydantic
 
@@ -253,6 +261,7 @@ class MessageHydrator:
         self.messages_by_id: dict[str, messages.Message] = {}
         self._parts_by_message_id: dict[str, dict[str, messages.Part]] = {}
         self._streaming_index: int | None = None
+        self._retry_filter = _RetryFilter()
         self._message_selected = seed_message is not None
         self._seed_checked = False
         # A stream that exhausts without StreamEnd died mid-response.
@@ -262,6 +271,8 @@ class MessageHydrator:
         self.response_model: str | None = None
 
     def feed[T: BaseEvent](self, event: T) -> T:
+        if not self._retry_filter.feed(event):
+            return event
         # ToolCallResult and HookEvent always carry full messages, so we just
         # use them.
         if isinstance(event, ToolCallResult | HookEvent):
@@ -608,13 +619,82 @@ class ToolCallResult(BaseEvent):
     kind: Literal["tool_call_result"] = "tool_call_result"
 
 
+def _get(obj: Any, key: Any) -> Any | None:
+    return obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)
+
+
 class HookEvent(BaseEvent):
-    """Emitted when a hook suspends, resolves, or is cancelled."""
+    """Emitted when a hook suspends, resolves, or is cancelled.
+
+    Every instance is one of the per-status subclasses —
+    :class:`PendingHookEvent`, :class:`ResolvedHookEvent`, or
+    :class:`CancelledHookEvent` — matching ``hook.status``.  Construct
+    via :meth:`for_hook` (or a subclass directly); the base class
+    cannot be instantiated, and validating against it dispatches to
+    the matching subclass.
+    """
 
     message: messages.Message
     hook: messages.HookPart[Any]
 
     kind: Literal["hook"] = "hook"
+
+    def __init__(self, /, **data: Any) -> None:
+        if type(self) is HookEvent:
+            raise TypeError(
+                "HookEvent cannot be instantiated directly; use "
+                "HookEvent.for_hook() or a per-status subclass"
+            )
+        super().__init__(**data)
+
+    @classmethod
+    def for_hook(
+        cls, message: messages.Message, hook: messages.HookPart[Any]
+    ) -> HookEvent:
+        """Construct the per-status subclass matching ``hook.status``."""
+        return _HOOK_EVENTS[hook.status](message=message, hook=hook)
+
+    @pydantic.model_validator(mode="wrap")
+    @classmethod
+    def _dispatch_status(
+        cls, value: Any, handler: pydantic.ValidatorFunctionWrapHandler
+    ) -> HookEvent:
+        if cls is not HookEvent or not isinstance(value, Mapping):
+            return cast("HookEvent", handler(value))
+        hook = _get(value, "hook")
+        status = _get(hook, "status") if hook is not None else None
+        # On an invalid status, we validate against PendingHookEvent, but
+        # pydantic will report the missing fields.
+        sub = _HOOK_EVENTS.get(status, PendingHookEvent)
+        return sub.model_validate(value)
+
+    @pydantic.model_validator(mode="after")
+    def _check_status(self) -> HookEvent:
+        if not isinstance(self, _HOOK_EVENTS[self.hook.status]):
+            raise ValueError(
+                f"{type(self).__name__} cannot carry a "
+                f"{self.hook.status!r} hook"
+            )
+        return self
+
+
+class PendingHookEvent(HookEvent):
+    """The hook suspended; the run needs its resolution to proceed."""
+
+
+class ResolvedHookEvent(HookEvent):
+    """The hook resolved; ``hook.resolution`` carries the value."""
+
+
+class CancelledHookEvent(HookEvent):
+    """The hook was cancelled without a resolution."""
+
+
+_HOOK_EVENTS: dict[object, type[HookEvent]] = {
+    "pending": PendingHookEvent,
+    "resolved": ResolvedHookEvent,
+    "cancelled": CancelledHookEvent,
+}
 
 
 class RunBlocked(BaseEvent):
@@ -631,11 +711,11 @@ class RunBlocked(BaseEvent):
 
     There is no mirror "unblocked" event because it would be redundant:
     a blocked run can only resume via a hook resolution (or
-    cancellation), so the next ``HookEvent`` with a non-``pending``
-    status *is* the unblock signal.  Note the converse does not hold —
-    a ``ToolCallResult`` carrying an ``is_hook_deferred`` placeholder
-    (serverless abort) arrives while the run stays blocked, and the run
-    then ends still blocked.
+    cancellation), so the next :class:`ResolvedHookEvent` or
+    :class:`CancelledHookEvent` *is* the unblock signal.  Note the
+    converse does not hold — a ``ToolCallResult`` carrying an
+    ``is_hook_deferred`` placeholder (serverless abort) arrives while
+    the run stays blocked, and the run then ends still blocked.
     """
 
     hooks: tuple[messages.HookPart[Any], ...] = ()
@@ -653,7 +733,9 @@ class Retry(BaseEvent):
     Nothing in the library emits this yet.  It is for custom loops that
     retry a model call after it already produced events (e.g. a durable
     step that failed mid-stream); ``MessageHydrator``, ``RunStateTracker``
-    and the AI SDK UI adapter all handle it.
+    and the AI SDK UI adapter all handle it.  Loops emitting it should
+    call ``ToolRunner.discard_all()`` to cancel tools scheduled for the
+    discarded response.
     """
 
     kind: Literal["retry"] = "retry"
@@ -670,6 +752,68 @@ AgentEvent = Annotated[
 ]
 
 
+class _RetryFilter:
+    """Spot tool output for tool calls that a :class:`Retry` discarded.
+
+    In a distributed setup, a tool scheduled for a response that later
+    gets retried can still deliver its result (or a partial result, or
+    a hook event) after the ``Retry``.  Feed every event in order;
+    :meth:`feed` returns False for such leftovers.  A tool call id that
+    the retried response reuses counts as live again.
+    """
+
+    def __init__(self) -> None:
+        self._response: set[str] = set()
+        self._discarded: set[str] = set()
+
+    def feed(self, event: BaseEvent) -> bool:
+        match event:
+            case StreamStart():
+                self._response = set()
+            case (
+                ToolStart(tool_call_id=id)
+                | ToolDelta(tool_call_id=id)
+                | ToolEnd(tool_call_id=id)
+                | BuiltinToolStart(tool_call_id=id)
+                | BuiltinToolDelta(tool_call_id=id)
+                | BuiltinToolEnd(tool_call_id=id)
+            ):
+                self._response.add(id)
+                self._discarded.discard(id)
+            case StreamEnd():
+                ids = {tc.tool_call_id for tc in event.message.tool_calls}
+                self._response |= ids
+                self._discarded -= ids
+            case Retry():
+                self._discarded |= self._response
+                self._response = set()
+            case ToolCallResult():
+                return not event.results or not all(
+                    r.tool_call_id in self._discarded for r in event.results
+                )
+            case PartialToolCallResult():
+                return event.tool_call_id not in self._discarded
+            case HookEvent():
+                return event.hook.tool_call_id not in self._discarded
+        return True
+
+
+async def drop_discarded[E: BaseEvent](
+    events: AsyncIterable[E],
+) -> AsyncGenerator[E]:
+    """Yield ``events`` minus late tool output for calls a ``Retry`` discarded.
+
+    In a distributed setup, a tool scheduled for a response that later
+    gets retried can still deliver its result (or a partial result, or
+    a hook event) after the ``Retry``.  A tool call id that the retried
+    response reuses counts as live again.
+    """
+    retry_filter = _RetryFilter()
+    async for event in events:
+        if retry_filter.feed(event):
+            yield event
+
+
 class RunStateTracker:
     """Fold an agent event stream into run state (blocked-on-hooks).
 
@@ -681,8 +825,9 @@ class RunStateTracker:
 
     The fold reads three things:
 
-    * hook state from :class:`HookEvent` (``pending`` adds, ``resolved``
-      / ``cancelled`` removes);
+    * hook state from :class:`HookEvent` (:class:`PendingHookEvent`
+      adds, :class:`ResolvedHookEvent` / :class:`CancelledHookEvent`
+      remove);
     * model-stream activity from :class:`StreamStart` / :class:`StreamEnd`;
     * in-flight tool calls from the assistant message on
       :class:`StreamEnd` (scheduled) and :class:`ToolCallResult`
@@ -706,6 +851,7 @@ class RunStateTracker:
         self._streaming = 0
         self._stream_ended = False
         self._blocked = False
+        self._retry_filter = _RetryFilter()
 
     @property
     def blocked(self) -> bool:
@@ -716,6 +862,8 @@ class RunStateTracker:
         return list(self._deferred.values())
 
     def feed(self, event: AgentEvent) -> RunBlocked | None:
+        if not self._retry_filter.feed(event):
+            return None
         match event:
             case StreamStart():
                 self._streaming += 1
@@ -743,11 +891,10 @@ class RunStateTracker:
                 self._in_flight.difference_update(
                     r.tool_call_id for r in event.results
                 )
+            case PendingHookEvent():
+                self._deferred[event.hook.hook_id] = event.hook
             case HookEvent():
-                if event.hook.status == "pending":
-                    self._deferred[event.hook.hook_id] = event.hook
-                else:
-                    self._deferred.pop(event.hook.hook_id, None)
+                self._deferred.pop(event.hook.hook_id, None)
             case _:
                 return None
 

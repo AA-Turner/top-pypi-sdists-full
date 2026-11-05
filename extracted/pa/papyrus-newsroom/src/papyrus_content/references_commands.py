@@ -335,6 +335,8 @@ def references_backfill_feed_keys(flags: list[str]) -> None:
     from .reference_feed_backfill import backfill_feed_keys, corpus_ids_for
     options = parse_options(flags)
     apply = resolve_mutation_apply(options, "references backfill-feed-keys")
+    from .operator_errors import require_operator_lane
+    require_operator_lane("references backfill-feed-keys", "Reference records", writing=apply)
     client, _ = create_authoring_client()
     corpus_ids = corpus_ids_for(client, site=normalize_string(options.get("site")), corpus_keys=normalize_string(options.get("corpus-key")),
                                 all_corpora=bool(options.get("all-corpora")))
@@ -344,6 +346,31 @@ def references_backfill_feed_keys(flags: list[str]) -> None:
                                     progress=lambda line: print(f"references\tbackfill-feed-keys\tprogress\t{line}") if int(line.split()[0]) % 100 == 0 else None)
         for key, value in result.items():
             print(f"references\tbackfill-feed-keys\t{key}\t{value}")
+
+
+def references_backfill_medium(flags: list[str]) -> None:
+    """``papyrus references backfill-medium (--site KEY | --corpus-key KEY[,KEY...] | --all-corpora) [--write]``.
+
+    Sets ``medium``, ``playlistUrl``, ``evidenceLevel`` (aggregation only, only where empty), ``mediumFeedKey`` and ``contentNeededKey`` (the videos
+    still waiting for content, for ``references capture-transcripts``) from each current Reference's address and stored capture state
+    (src/papyrus_content/reference_medium_backfill.py). Unlike the other backfills it is SAFE BY DEFAULT: without ``--write`` it prints one
+    line per Reference it would change and the counts, and writes nothing. ``--dry-run`` is accepted and means the same. Run it only after the
+    site's data API has the fields and the index (docs/reference-feed-indexes.md#the-medium-index).
+    """
+    from .reference_feed_backfill import corpus_ids_for
+    from .reference_medium_backfill import backfill_medium
+    from .operator_errors import require_operator_lane
+    options = parse_options(flags)
+    write = parse_boolean_option(options.get("write"), default=False, label="--write") and not parse_boolean_option(options.get("dry-run"), default=False, label="--dry-run")
+    require_operator_lane("references backfill-medium", "Reference records", writing=write)
+    client, _ = create_authoring_client()
+    corpus_ids = corpus_ids_for(client, site=normalize_string(options.get("site")), corpus_keys=normalize_string(options.get("corpus-key")),
+                                all_corpora=bool(options.get("all-corpora")))
+    print(f"references\tbackfill-medium\tmode\t{'write' if write else 'preview (nothing is written; add --write)'}")
+    for corpus_id in corpus_ids:
+        result = backfill_medium(client, corpus_id=corpus_id, dry_run=not write, progress=lambda line: print(f"references\tbackfill-medium\t{line}"))
+        for key, value in result.items():
+            print(f"references\tbackfill-medium\t{key}\t{value}")
 
 
 def references_retire_citation_stubs(flags: list[str]) -> None:
@@ -392,6 +419,8 @@ def references_duplicates(flags: list[str]) -> None:
 def references_backfill_reviewed_feed_key(flags: list[str]) -> None:
     options = parse_options(flags)
     apply = resolve_mutation_apply(options, "references backfill-reviewed-feed-key")
+    from .operator_errors import require_operator_lane
+    require_operator_lane("references backfill-reviewed-feed-key", "Reference records", writing=apply)
     client, _ = create_authoring_client()
     references = client.list_records("Reference")
     changes: list[dict[str, Any]] = []
@@ -430,6 +459,8 @@ def references_backfill_corpus_storage_paths(flags: list[str]) -> None:
 
     options = parse_options(flags)
     apply = resolve_mutation_apply(options, "references backfill-corpus-storage-paths")
+    from .operator_errors import require_operator_lane
+    require_operator_lane("references backfill-corpus-storage-paths", "Reference records", writing=apply)
     mirror_s3 = parse_boolean_option(options.get("mirror-s3"), False, "--mirror-s3")
     reference_ids = set(parse_repeated_option(flags, "reference"))
     if options.get("reference"):

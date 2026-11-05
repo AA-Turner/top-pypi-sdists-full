@@ -54,8 +54,6 @@
     - 'not (ansible_facts.distribution in ["Alpine"] and item.0.key == "bcachefs")'
     # btrfs packages not available on RHEL/CentOS/Fedora
     - 'not (ansible_facts.os_family == "RedHat" and item.0.key == "btrfs")'
-    # btrfs-progs cannot be installed on ArchLinux
-    - 'not (item.0.key == "btrfs" and ansible_facts.distribution == "Archlinux")'  # TODO: figure out why it fails, fix it!
     # f2fs-tools package not available with RHEL/CentOS on CI
     - 'not (ansible_facts.distribution in ["CentOS", "RedHat"] and item.0.key == "f2fs")'
     # reiserfs not available with RHEL/CentOS/Fedora/Alpine/Arch Liux
@@ -68,10 +66,6 @@
     - 'not (item.0.key == "ocfs2" and ansible_facts.os_family != "Debian")'
     # Tests use losetup which can not be used inside unprivileged container
     - 'not (item.0.key == "lvm" and ansible_facts.virtualization_type in ["podman", "docker", "container", "containerd"])'
-    # vfat resizing fails on Debian (but not Ubuntu)
-    - 'not (item.0.key == "vfat" and ansible_facts.distribution == "Debian")'  # TODO: figure out why it fails, fix it!
-    # vfat resizing fails on ArchLinux
-    - 'not (item.0.key == "vfat" and ansible_facts.distribution == "Archlinux")'  # TODO: figure out why it fails, fix it!
     # vfat resizing fails on Ubuntu 22.04
     - 'not (item.0.key == "vfat" and ansible_facts.distribution == "Ubuntu" and (ansible_facts.distribution_major_version | int == 22))'
       # TODO: figure out why it fails, fix it!
@@ -85,12 +79,10 @@
   loop: "{{ query('dict', tested_filesystems)|product(['create_fs', 'reset_fs_uuid', 'overwrite_another_fs', 'remove_fs', 'set_fs_uuid_on_creation', 'set_fs_uuid_on_creation_with_opts'])|list }}"
 
 
-# With FreeBSD extended support (util-linux is not available before 12.2)
-
+# With FreeBSD extended support
 - ansible.builtin.include_tasks: freebsd_setup.yml
   when:
     - 'ansible_facts.system == "FreeBSD"'
-    - 'ansible_facts.distribution_version is version("12.2", ">=")'
 
 - ansible.builtin.include_tasks: create_device.yml
   vars:
@@ -102,6 +94,5 @@
     action: '{{ item.1 }}'
   when:
     - 'ansible_facts.system == "FreeBSD"'
-    - 'ansible_facts.distribution_version is version("12.2", ">=")'
     - 'item.0.key in ["xfs", "vfat"]'
   loop: "{{ query('dict', tested_filesystems)|product(['create_fs', 'overwrite_another_fs', 'remove_fs'])|list }}"

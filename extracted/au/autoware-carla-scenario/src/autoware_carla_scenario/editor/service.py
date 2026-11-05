@@ -548,9 +548,14 @@ class EditorService:
         """Apply one signal group's form.
 
         A rename carries: every phase state naming the old name is rewritten,
-        as is every ``conflicts_with`` entry pointing at it.  Leaving them to
-        the validator would turn a rename into a screenful of errors about
-        edits nobody made.
+        as is every ``conflicts_with`` entry pointing at it -- the renamed
+        group's own included, so a self-reference stays one for the validator
+        to report.  Leaving them to the validator would turn a rename into a
+        screenful of errors about edits nobody made.  While another group is
+        still called the old name, the references still resolve to it, so they
+        are left alone: the editor never makes two groups share a name, but a
+        document written by hand may, and renaming one of them must not carry
+        off what the other was driving.
         """
         from .forms import parse_int_list  # noqa: PLC0415
 
@@ -561,7 +566,12 @@ class EditorService:
                 _refuse_taken_name(
                     "signal group", new_name, document.map.signal_groups, group
                 )
-                self._rename_signal_group(document, group.name, new_name)
+                old_name = group.name
+                if not any(
+                    other is not group and other.name == old_name
+                    for other in document.map.signal_groups
+                ):
+                    self._rename_signal_group(document, old_name, new_name)
                 group.name = new_name
         if "lanelet2_regulatory_element_ids" in form:
             parsed = parse_int_list(form["lanelet2_regulatory_element_ids"])
@@ -575,6 +585,33 @@ class EditorService:
             group.conflicts_with = [
                 str(value) for value in values if str(value) in names
             ]
+            self._drop_unticked_conflicts(document, group)
+
+    @staticmethod
+    def _drop_unticked_conflicts(document: ScenarioDocument, group: Any) -> None:
+        """Take *group* out of the conflicts of every group its form left unticked.
+
+        The form ticks a box when either side lists the other, so a box left
+        unticked means "these two do not cross" -- which only holds once the
+        other side stops listing this group too.  Otherwise the untick would
+        be ignored: the box comes back ticked and the validator still reads
+        the two as crossing.  While another group shares this group's name (a
+        hand-written duplicate), an entry naming it may mean that other group,
+        so the references are left alone, as a rename or a delete leaves them.
+        """
+        if any(
+            other is not group and other.name == group.name
+            for other in document.map.signal_groups
+        ):
+            return
+        ticked = set(group.conflicts_with)
+        for other in document.map.signal_groups:
+            if other is group or other.name in ticked:
+                continue
+            if group.name in other.conflicts_with:
+                other.conflicts_with = [
+                    name for name in other.conflicts_with if name != group.name
+                ]
 
     @staticmethod
     def _rename_signal_group(document: ScenarioDocument, old: str, new: str) -> None:
@@ -594,11 +631,16 @@ class EditorService:
 
         The states go with it because a state whose group is gone sets nothing:
         leaving them behind would be a phase that reads as driving a movement
-        this map no longer has.
+        this map no longer has.  While another group is still called the same
+        thing, the name still resolves, so its states and conflicts are kept:
+        as with a controller, a hand-written duplicate is the validator's to
+        report, not this delete's to guess which of the two they meant.
         """
         group = self._signal_group(document, index)
         name = group.name
         document.map.signal_groups.pop(index)
+        if any(other.name == name for other in document.map.signal_groups):
+            return
         for other in document.map.signal_groups:
             other.conflicts_with = [n for n in other.conflicts_with if n != name]
         for controller in document.map.traffic_signal_controllers:
@@ -627,7 +669,17 @@ class EditorService:
     def update_signal_controller(
         self, document: ScenarioDocument, index: int, form: Mapping[str, Any]
     ) -> None:
-        """Apply one controller's own form -- its name and its offset."""
+        """Apply one controller's own form -- its name and its offset.
+
+        A rename carries: every ``reference`` offsetting from the old name is
+        rewritten, as is every card naming it -- the renamed controller's own
+        reference included, so a self-reference stays one for the validator to
+        report.  While another controller is still called the
+        old name, the references still resolve to it, so they are left alone:
+        the editor never makes two controllers share a name, but a document
+        written by hand may, and renaming one of them must not carry off the
+        cards and offsets that meant the other.
+        """
         controller = self._signal_controller(document, index)
         if "name" in form:
             new_name = str(form["name"]).strip()
@@ -639,12 +691,16 @@ class EditorService:
                     controller,
                 )
                 old = controller.name
-                for other in document.map.traffic_signal_controllers:
-                    if other.reference == old:
-                        other.reference = new_name
-                for path, node in _signal_controller_uses(document):
-                    if str(node.params.get("controller") or "") == old:
-                        node.params["controller"] = new_name
+                if not any(
+                    other is not controller and other.name == old
+                    for other in document.map.traffic_signal_controllers
+                ):
+                    for other in document.map.traffic_signal_controllers:
+                        if other.reference == old:
+                            other.reference = new_name
+                    for path, node in _signal_controller_uses(document):
+                        if str(node.params.get("controller") or "") == old:
+                            node.params["controller"] = new_name
                 controller.name = new_name
         if "reference" in form:
             reference = str(form["reference"]).strip()
@@ -712,6 +768,13 @@ class EditorService:
         they are the escape hatch for a junction the groups cannot describe,
         they are written by hand, and a form that does not show them must not
         be able to delete them either.
+
+        A rename carries into every card naming this controller and the old
+        phase name.  A card names a phase by the pair, so while another phase
+        still answers to it -- a sibling in this cycle, or a phase of a
+        same-named controller -- the cards still resolve to that one and are
+        left alone: the editor never makes two phases of a cycle share a name,
+        but a document written by hand may.
         """
         from ..authoring.models import SignalStateRef  # noqa: PLC0415
 
@@ -725,12 +788,18 @@ class EditorService:
                     f"phase of {controller.name!r}", new_name, controller.phases, phase
                 )
                 old = phase.name
-                for path, node in _signal_controller_uses(document):
-                    if (
-                        str(node.params.get("controller") or "") == controller.name
-                        and str(node.params.get("signal_phase") or "") == old
-                    ):
-                        node.params["signal_phase"] = new_name
+                if not any(
+                    other is not phase and other.name == old
+                    for cycle in document.map.traffic_signal_controllers
+                    if cycle.name == controller.name
+                    for other in cycle.phases
+                ):
+                    for path, node in _signal_controller_uses(document):
+                        if (
+                            str(node.params.get("controller") or "") == controller.name
+                            and str(node.params.get("signal_phase") or "") == old
+                        ):
+                            node.params["signal_phase"] = new_name
                 phase.name = new_name
         if "duration_seconds" in form:
             phase.duration_seconds = _as_float(
@@ -753,11 +822,25 @@ class EditorService:
     def delete_signal_phase(
         self, document: ScenarioDocument, index: int, phase_index: int
     ) -> None:
-        """Remove one step of a cycle, and any card that named it."""
+        """Remove one step of a cycle, and any card that named it.
+
+        A card names a phase by its controller's name and the phase's, so while
+        another phase still answers to that pair -- a sibling in this cycle, or
+        a phase of a same-named controller -- the cards still resolve to it and
+        are kept, as a rename leaves them: a hand-written duplicate is the
+        validator's to report, not this delete's to guess which one they meant.
+        """
         controller = self._signal_controller(document, index)
         phase = self._signal_phase(document, index, phase_index)
         name = phase.name
         controller.phases.pop(phase_index)
+        if any(
+            other is not phase and other.name == name
+            for cycle in document.map.traffic_signal_controllers
+            if cycle.name == controller.name
+            for other in cycle.phases
+        ):
+            return
         for path, node in _signal_controller_uses(document):
             if (
                 str(node.params.get("controller") or "") == controller.name
@@ -951,15 +1034,21 @@ class EditorService:
     def create_draft_for_map(self, uri: str, title: str = "") -> Draft:
         """Create a draft whose map is the one *uri* names.
 
+        The map is fetched before anything is stored, so a URI that names no
+        map, or a repository that cannot be reached, leaves no blank draft
+        behind (#1429).
+
         Raises:
-            EditorError: If the map could not be fetched.
+            EditorError: If the map could not be fetched.  No draft is created.
         """
-        draft = self.create_draft(kind="blank", title=title)
-        self.use_map(draft.document, uri)
+        document = blank_document(title=title)
+        if title:
+            document.title = title
+        self.use_map(document, uri)
         if not title:
-            draft.document.title = f"New scenario on {draft.document.map.name}"
-        draft.title = draft.document.title
-        return self.save(draft)
+            document.title = f"New scenario on {document.map.name}"
+        document.sync_layout()
+        return self.store.create(document, title=document.title)
 
     # ------------------------------------------------------------------
     # Entities

@@ -323,7 +323,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.20.2", features = ["git"] }
+//! bashkit = { version = "0.20.3", features = ["git"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -354,7 +354,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.20.2", features = ["python"] }
+//! bashkit = { version = "0.20.3", features = ["python"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -509,11 +509,11 @@ pub use execution_capability::{
     CapabilityCleanupReport, ExecutionCapability, ExecutionCapabilityError, ExecutionExtensions,
 };
 pub use fs::{
-    DirEntry, FileSystem, FileSystemExt, FileType, FsBackend, FsLimitExceeded, FsLimits, FsUsage,
-    InMemoryFs, LazyLoader, Metadata, MountableFs, NamespaceAccess, NamespaceFs,
+    DirEntry, DirListing, FileSystem, FileSystemExt, FileType, FsBackend, FsLimitExceeded,
+    FsLimits, FsUsage, InMemoryFs, LazyLoader, Metadata, MountableFs, NamespaceAccess, NamespaceFs,
     NamespaceFsBuilder, OverlayFs, PosixFs, ReadOnlyFs, SearchCapabilities, SearchCapable,
     SearchMatch, SearchProvider, SearchQuery, SearchResults, VfsEntry, VfsEntryKind, VfsSnapshot,
-    normalize_path, verify_filesystem_requirements, vfs_join,
+    WalkOptions, normalize_path, verify_filesystem_requirements, vfs_join, walk_with_read_dir,
 };
 #[cfg(feature = "realfs")]
 pub use fs::{RealFs, RealFsMode};
@@ -703,6 +703,7 @@ pub struct ExecOptions {
     positional: Option<Vec<String>>,
     stdin: Option<StreamData>,
     stream_output: Option<std::sync::Arc<execution::ExecutionOutput>>,
+    timeout: Option<std::time::Duration>,
 }
 
 impl ExecOptions {
@@ -780,6 +781,33 @@ impl ExecOptions {
     /// ```
     pub fn stdin(mut self, stdin: impl Into<StreamData>) -> Self {
         self.stdin = Some(stdin.into());
+        self
+    }
+
+    /// Cap this execution's wall-clock time at `timeout`.
+    ///
+    /// The cap can only tighten the configured
+    /// [`ExecutionLimits::timeout`](crate::ExecutionLimits::timeout), never
+    /// extend it: the effective budget is the smaller of the two, so an
+    /// untrusted caller (for example an LLM picking a per-command timeout)
+    /// cannot raise the sandbox's limit. Expiry fails the call with the same
+    /// [`LimitExceeded::Timeout`] error as the
+    /// configured limit and leaves the session usable.
+    ///
+    /// ```no_run
+    /// # use bashkit::{Bash, ExecOptions};
+    /// # use std::time::Duration;
+    /// # async fn run() -> bashkit::Result<()> {
+    /// let mut bash = Bash::new();
+    /// let result = bash
+    ///     .exec_with_options("sleep 5", ExecOptions::new().timeout(Duration::from_millis(100)))
+    ///     .await;
+    /// assert!(result.is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.timeout = Some(timeout);
         self
     }
 }
@@ -971,6 +999,7 @@ impl Bash {
             positional,
             stdin,
             stream_output,
+            timeout,
         } = options;
         let invocation = Invocation {
             arg0,
@@ -994,7 +1023,13 @@ impl Bash {
         self.interpreter.bind_command_hash_budget()?;
         // Expose active execution limits and deadline to builtins that need to
         // honor per-execution sandbox settings inside synchronous VM sections.
-        let active_limits = self.interpreter.limits().clone();
+        // Per-call timeout only tightens the configured limit (see
+        // `ExecOptions::timeout`).
+        let execution_timeout = timeout.map_or(self.interpreter.limits().timeout, |t| {
+            t.min(self.interpreter.limits().timeout)
+        });
+        let mut active_limits = self.interpreter.limits().clone();
+        active_limits.timeout = execution_timeout;
         let _ = extensions.insert(active_limits.clone());
         let _ = extensions.insert(self.interpreter.execution_budget().clone());
         let _ = extensions.insert(builtins::ExecutionDeadline::new(active_limits.timeout));
@@ -1011,7 +1046,7 @@ impl Bash {
         let _stream_guard =
             output_callback.map(|cb| OutputCallbackGuard::install(&mut self.interpreter, cb));
         let extensions_guard = self.interpreter.scoped_execution_extensions(extensions);
-        let mut result = self.exec_impl(script, invocation).await;
+        let mut result = self.exec_impl(script, invocation, execution_timeout).await;
         let cleanup = extensions_guard.finish();
         if let Ok(exec_result) = &mut result {
             exec_result.capability_cleanup = cleanup;
@@ -1029,7 +1064,12 @@ impl Bash {
         result
     }
 
-    async fn exec_impl(&mut self, script: &str, invocation: Invocation) -> Result<ExecResult> {
+    async fn exec_impl(
+        &mut self,
+        script: &str,
+        invocation: Invocation,
+        execution_timeout: std::time::Duration,
+    ) -> Result<ExecResult> {
         // THREAT[TM-ISO-005/006/007]: Reset transient state between exec() calls
         self.interpreter.reset_transient_state();
         #[cfg(feature = "terminal")]
@@ -1262,7 +1302,6 @@ impl Bash {
         let exec_start = crate::time_compat::Instant::now();
         // THREAT[TM-DOS-057]: Wrap execution with a host-backed timeout to
         // prevent sleep and pending async callbacks from bypassing the budget.
-        let execution_timeout = self.interpreter.limits().timeout;
         #[cfg(feature = "terminal")]
         let timed = {
             let clock = self.input_wait_clock.clone();
@@ -4254,6 +4293,22 @@ pub mod cpython_guide {}
 #[cfg(feature = "sqlite")]
 #[doc = include_str!("../docs/sqlite.md")]
 pub mod sqlite_guide {}
+
+/// Guide for the `markkit` and `fetchkit` builtins (features `markkit`, `fetchkit`).
+///
+/// Topics covered:
+/// - Same CLI as the standalone tools (`markkit extract`, `fetchkit fetch`)
+/// - VFS files, pipeline stdin, and the network allowlist
+/// - Limits that can only be lowered
+/// - Flags refused in the sandbox (`mcp`, `--ocr`, `--render-rakers`, ...)
+///
+/// **Related:** `BashBuilder::network`, `NetworkAllowlist`, [`threat_model`]
+#[cfg(all(
+    any(feature = "markkit", feature = "fetchkit"),
+    not(target_arch = "wasm32")
+))]
+#[doc = include_str!("../docs/markkit-fetchkit.md")]
+pub mod markkit_fetchkit_guide {}
 
 /// Guide for embedded TypeScript execution via the ZapCode interpreter.
 ///

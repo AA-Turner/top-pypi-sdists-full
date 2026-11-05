@@ -15,12 +15,10 @@ import math
 import re
 from typing import Any, cast
 
-from jsonschema.exceptions import ValidationError
-from jsonschema.protocols import Validator
-from jsonschema.validators import validator_for
-from referencing import Registry
 
 from river_client.renderers.base import (
+    append_visible_text,
+    rejected_call_text,
     ContentPart,
     ImageChunk,
     ImageFormat,
@@ -43,6 +41,11 @@ from river_client.renderers.base import (
     image_part,
     image_part_size,
 )
+from river_client.renderers.tool_arguments import (
+    ToolArguments,
+    protect_value_ends,
+    warn_untyped_without_tools,
+)
 
 IMAGE_BEGIN = "<|begin_of_image|>"
 IMAGE_TOKEN = "<|image|>"
@@ -58,28 +61,12 @@ _ARG_KEY_OPEN = "<arg_key>"
 _ARG_KEY_CLOSE = "</arg_key>"
 _ARG_VALUE_OPEN = "<arg_value>"
 _ARG_VALUE_CLOSE = "</arg_value>"
-_TOOL_NAME_RE = re.compile(r"[A-Za-z_]\w*", re.ASCII)
-
-
-def _decode_glm53_argument(raw: str, validator: Validator) -> Any:
-    """Preserve valid strings; otherwise decode and validate a JSON value.
-
-    GLM has no string/non-string marker. When a union accepts both the raw
-    string and its JSON interpretation, prefer the string to preserve its
-    contents. Nested values are validated, not recursively coerced.
-    """
-    if validator.is_valid(raw):
-        return raw
-    value = json.loads(raw)
-    if isinstance(value, str):
-        # GLM string values are verbatim, not JSON-quoted. Do not strip quotes
-        # to make a string satisfy an enum/pattern it originally violated.
-        validator.validate(raw)
-    # Python accepts NaN, Infinity, and overflowing floats as JSON; tools must
-    # receive standard JSON, including inside nested objects and arrays.
-    json.dumps(value, allow_nan=False)
-    validator.validate(value)
-    return value
+# The tags that end a GLM argument value or the call around it.
+GLM_VALUE_ENDS = (_TOOL_CALL_OPEN, _TOOL_CALL_CLOSE, _ARG_VALUE_CLOSE)
+# The template writes a call's name verbatim before its first <arg_key>, and
+# declared names need not be identifiers (MCP names use "-" and "."). Whitespace
+# marks prose and angle brackets a stray tag; either would not round-trip.
+_TOOL_NAME_RE = re.compile(r"[^\s<>]+")
 
 
 def _parse_glm53_tool_call(
@@ -88,8 +75,8 @@ def _parse_glm53_tool_call(
     """Parse GLM's ``name<arg_key>key</arg_key>...`` call dialect.
 
     The template writes strings verbatim and non-strings as JSON without type
-    markers. Tool parameter schemas disambiguate them. Without a matching
-    parameter schema, preserve the raw string.
+    markers. ``ToolArguments`` decodes each value by its tool's schema; see
+    ``docs/tool-call-parsing.md``.
     """
     body = body.strip()
     first_arg = body.find(_ARG_KEY_OPEN)
@@ -107,18 +94,6 @@ def _parse_glm53_tool_call(
             id=None,
             function=ToolCallFunction(name=name, arguments="{}"),
         )
-
-    tool = next((tool for tool in tools or [] if tool["name"] == name), None)
-    validator = None
-    properties = {}
-    if tool is not None:
-        schema = tool["parameters"]
-        validator_class = validator_for(schema)
-        validator_class.check_schema(schema)
-        # Resolve local $defs, but never fetch external references while
-        # parsing a completion. Invalid schemas are caller configuration errors.
-        validator = validator_class(schema, registry=Registry())
-        properties = schema.get("properties", {})
 
     arguments: dict[str, Any] = {}
     remaining = body[first_arg:]
@@ -149,20 +124,12 @@ def _parse_glm53_tool_call(
             return UnparsedToolCall(
                 raw_text=raw_text, error=f"Duplicate GLM argument name: {key}"
             )
-        raw_value = remaining[len(_ARG_VALUE_OPEN) : value_end]
-        if validator is not None and key in properties:
-            try:
-                arguments[key] = _decode_glm53_argument(
-                    raw_value, validator.evolve(schema=properties[key])
-                )
-            except (ValueError, ValidationError) as exc:
-                return UnparsedToolCall(
-                    raw_text=raw_text,
-                    error=f"Invalid GLM argument {name}.{key}: {exc}",
-                )
-        else:
-            arguments[key] = raw_value
+        arguments[key] = remaining[len(_ARG_VALUE_OPEN) : value_end]
         remaining = remaining[value_end + len(_ARG_VALUE_CLOSE) :].lstrip()
+
+    decoder = ToolArguments(tools, name)
+    for key, raw_value in arguments.items():
+        arguments[key] = decoder.decode(key, raw_value)
 
     return ToolCall(
         type="function",
@@ -189,9 +156,11 @@ def parse_glm53_content_blocks(
     renderer itself always passes its configured mode.
 
     ``tools`` supplies the same unwrapped ToolSpec definitions used for prompt
-    rendering. Declared parameter values are decoded and validated against
-    their schemas; undeclared values remain raw strings. Ambiguous unions
-    prefer a valid raw string. Invalid values become UnparsedToolCall entries.
+    rendering, ``[]`` when the prompt declared none. Each argument value is
+    decoded by the schema that applies to it, or as standard JSON when none
+    does; ``None`` also warns when the response contains a tool call. A value
+    that violates its schema keeps the call, so the tool reports it. Only
+    malformed call syntax is unparsed. See ``docs/tool-call-parsing.md``.
     """
     if thinking is None:
         thinking = (
@@ -233,26 +202,29 @@ def parse_glm53_content_blocks(
         open_at = remainder.find(_TOOL_CALL_OPEN, position)
         if open_at < 0:
             break
-        text_before = remainder[position:open_at]
-        if text_before:
-            parts.append(TextPart(type="text", text=text_before))
+        append_visible_text(parts, remainder[position:open_at])
         body_start = open_at + len(_TOOL_CALL_OPEN)
         close_at = remainder.find(_TOOL_CALL_CLOSE, body_start)
-        if close_at < 0:
+        next_open = remainder.find(_TOOL_CALL_OPEN, body_start)
+        if close_at < 0 or 0 <= next_open < close_at:
+            # Unclosed: the block ends where the next one opens, so it can
+            # never swallow a call written after it.
+            end = len(remainder) if next_open < 0 else next_open
             tool_results.append(
                 UnparsedToolCall(
-                    raw_text=remainder[open_at:], error="Unclosed GLM tool call"
+                    raw_text=remainder[open_at:end], error="Unclosed GLM tool call"
                 )
             )
-            return parts, tool_results
+            position = end
+            continue
         raw_text = remainder[open_at : close_at + len(_TOOL_CALL_CLOSE)]
         tool_results.append(
             _parse_glm53_tool_call(remainder[body_start:close_at], raw_text, tools)
         )
         position = close_at + len(_TOOL_CALL_CLOSE)
-    text_after = remainder[position:]
-    if text_after:
-        parts.append(TextPart(type="text", text=text_after))
+    append_visible_text(parts, remainder[position:])
+    if tools is None and tool_results:
+        warn_untyped_without_tools("GLM")
     return parts, tool_results
 
 
@@ -404,7 +376,8 @@ class Glm53FlashRenderer(Renderer):
         image_parts: list[ImagePart] = []
         for message in messages:
             content = message["content"]
-            has_structured_reasoning = isinstance(message.get("reasoning_content"), str)
+            reasoning = message.get("reasoning_content")
+            thinking: list[str] = []
             if isinstance(content, str):
                 rendered_content = content
             else:
@@ -414,10 +387,7 @@ class Glm53FlashRenderer(Renderer):
                     if part_type == "text":
                         parts.append(cast(TextPart, part)["text"])
                     elif part_type == "thinking":
-                        if has_structured_reasoning:
-                            continue
-                        thinking = cast(ThinkingPart, part)["thinking"]
-                        parts.append(f"<think>{thinking}</think>")
+                        thinking.append(cast(ThinkingPart, part)["thinking"])
                     elif part_type == "image":
                         image_parts.append(cast(ImagePart, part))
                         parts.append(_IMAGE_MARKER)
@@ -426,15 +396,27 @@ class Glm53FlashRenderer(Renderer):
                             f"Unsupported content part type: {part_type!r}"
                         )
                 rendered_content = "".join(parts)
-            rendered_content += "".join(
-                call["raw_text"] for call in message.get("unparsed_tool_calls", [])
-            )
+            if (
+                message["role"] == "assistant"
+                and not isinstance(reasoning, str)
+                and not (isinstance(content, str) and content)
+            ):
+                # A caller's string may carry its reasoning inline, which the
+                # template extracts. Parts, or an empty string beside calls,
+                # get the template's own field, even when empty: given one,
+                # it never searches the content, where visible text or a
+                # rejected block may contain </think>, for reasoning.
+                reasoning = "".join(thinking)
+            # Rejected blocks keep their raw text. The template writes the
+            # content before the calls, and a block ends where the next one
+            # opens, so one the output ended inside cannot swallow a call.
+            rendered_content += rejected_call_text(message)
             rendered_message: dict[str, Any] = {
                 "role": message["role"],
                 "content": rendered_content,
             }
-            if "reasoning_content" in message:
-                rendered_message["reasoning_content"] = message["reasoning_content"]
+            if "reasoning_content" in message or isinstance(reasoning, str):
+                rendered_message["reasoning_content"] = reasoning
             if "tool_calls" in message:
                 rendered_message["tool_calls"] = [
                     self._tool_call_for_template(call) for call in message["tool_calls"]
@@ -466,7 +448,13 @@ class Glm53FlashRenderer(Renderer):
         return {
             "type": "function",
             "id": call.get("id"),
-            "function": {"name": function["name"], "arguments": arguments},
+            "function": {
+                "name": function["name"],
+                "arguments": {
+                    key: protect_value_ends(value, GLM_VALUE_ENDS)
+                    for key, value in arguments.items()
+                },
+            },
         }
 
     def _apply_template(

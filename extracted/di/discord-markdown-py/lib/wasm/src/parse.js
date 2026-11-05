@@ -6,7 +6,6 @@ import {
 import {
 	parse as rawParse,
 	parseLossless as rawParseLossless,
-	unparse as rawUnparse,
 } from "./lib/discord_markdown_wasm.js";
 
 let ready = false;
@@ -59,9 +58,4 @@ export function parse(content, flags) {
 export function parseLossless(content, flags) {
 	ensureReady();
 	return rawParseLossless(content, flags);
-}
-
-export function unparse(nodes) {
-	ensureReady();
-	return rawUnparse(nodes);
 }

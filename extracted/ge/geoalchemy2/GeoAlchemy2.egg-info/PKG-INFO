@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GeoAlchemy2
-Version: 0.20.0
+Version: 0.21.0
 Summary: Using SQLAlchemy with Spatial Databases
 Author-email: Eric Lemoine <eric.lemoine@gmail.com>, Adrien Berchet <adrien.berchet@gmail.com>
 License-Expression: MIT
@@ -25,6 +25,8 @@ Requires-Dist: SQLAlchemy>=1.4
 Requires-Dist: packaging
 Provides-Extra: shapely
 Requires-Dist: Shapely>=1.7; extra == "shapely"
+Provides-Extra: wkb-wkt-converter
+Requires-Dist: wkb-wkt-converter>=0.6.3; extra == "wkb-wkt-converter"
 Dynamic: license-file
 
 ============

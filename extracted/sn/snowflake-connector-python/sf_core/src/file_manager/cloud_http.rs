@@ -78,7 +78,7 @@ pub(super) async fn build_gcs_client(stage_info: &StageInfo) -> Result<reqwest::
 }
 
 pub(crate) enum StorageHttp {
-    S3(reqwest::Client),
+    S3(crate::tls::aws_http_client::AwsSdkReqwestClient),
     Gcs(reqwest::Client),
     Azure(reqwest::Client),
 }
@@ -88,11 +88,6 @@ impl StorageHttp {
         Ok(match stage_info.location_type {
             LocationType::Azure => Self::Azure(build_azure_client(stage_info).await?),
             LocationType::Gcs => Self::Gcs(build_gcs_client(stage_info).await?),
-            // The sole producer of an `S3` slot, and so the sole reason
-            // `AwsSdkReqwestClient::from_shared` is sound -- see the doc on
-            // `into_shared`. Keep it that way: a second producer that skips
-            // this constructor would put an unconstrained client on the SDK
-            // transport without the type system objecting.
             LocationType::S3 => Self::S3(
                 crate::tls::aws_http_client::AwsSdkReqwestClient::build_prepared(
                     &stage_info.tls_config,
@@ -100,15 +95,22 @@ impl StorageHttp {
                     stage_info.crl_manager.clone(),
                     stage_info.root_store_provider.clone(),
                 )
-                .await?
-                .into_shared(),
+                .await?,
             ),
         })
     }
 
-    pub(crate) fn client(&self) -> &reqwest::Client {
+    pub(crate) fn s3(&self) -> Option<&crate::tls::aws_http_client::AwsSdkReqwestClient> {
         match self {
-            Self::S3(c) | Self::Gcs(c) | Self::Azure(c) => c,
+            Self::S3(client) => Some(client),
+            Self::Gcs(_) | Self::Azure(_) => None,
+        }
+    }
+
+    pub(crate) fn reqwest(&self) -> Option<&reqwest::Client> {
+        match self {
+            Self::Gcs(client) | Self::Azure(client) => Some(client),
+            Self::S3(_) => None,
         }
     }
 }
@@ -285,10 +287,20 @@ pub(super) fn spawn_s3_byte_stream_producer(
 }
 
 /// CSE decrypt inputs. `digest` is verified after decrypt when present;
-/// some S3 objects carry key-wrap headers without `sfc-digest`.
+/// objects written by a server-side unload carry key-wrap headers without
+/// `sfc-digest`.
 pub struct CseDownloadInfo {
     pub metadata: EncryptedFileMetadata,
     pub digest: Option<String>,
+}
+
+impl CseDownloadInfo {
+    pub(super) fn from_headers(
+        file_metadata: Option<EncryptedFileMetadata>,
+        digest: Option<String>,
+    ) -> Option<Self> {
+        file_metadata.map(|metadata| Self { metadata, digest })
+    }
 }
 
 /// Result of a streaming download from a reqwest-based cloud transport.
@@ -307,7 +319,10 @@ pub struct CloudStreamingDownload {
     /// [`StreamReader::bytes_read_handle`] in that case, which still counts
     /// on-cloud ciphertext bytes (not the decrypted plaintext length).
     pub cloud_byte_count: i64,
-    /// CSE key-wrap metadata and optional digest; `None` for SSE / raw objects.
+    /// CSE key-wrap metadata and optional digest as the cloud returned them;
+    /// `None` when the object has no encryption headers. Whether the body is
+    /// decrypted is decided against the GET's encryption material in
+    /// `file_manager`, since git-stage objects carry the same headers.
     pub cse_info: Option<CseDownloadInfo>,
     /// Running total of on-cloud (pre-decryption) ciphertext bytes pulled off
     /// the wire. `load` it after the decrypt task joins to recover the
@@ -348,25 +363,7 @@ impl CloudStreamingDownload {
         slot: super::scheduler::RequestTicket,
     ) -> Self {
         let cloud_byte_count = response.content_length().unwrap_or(0) as i64;
-        // Git-stage objects carry encryption headers but no sfc-digest —
-        // treat as non-CSE, matching every other download path.
-        let cse_info = match (file_metadata, digest) {
-            (Some(metadata), Some(digest)) => Some(CseDownloadInfo {
-                metadata,
-                digest: Some(digest),
-            }),
-            (Some(_), None) => {
-                // TODO(SNOW-4115038): missing digest currently writes raw bytes.
-                // Legacy Python/JDBC/Node fail the GET when encryption_material
-                // is set and unwrap/decrypt cannot succeed.
-                tracing::debug!(
-                    "encryptiondata present but sfc-digest absent (git-stage object); \
-                     treating as non-CSE"
-                );
-                None
-            }
-            (None, _) => None,
-        };
+        let cse_info = CseDownloadInfo::from_headers(file_metadata, digest);
         let (reader, producer_abort) = spawn_byte_stream_producer(response, slot);
         let cloud_bytes_read = reader.bytes_read_handle();
         Self {

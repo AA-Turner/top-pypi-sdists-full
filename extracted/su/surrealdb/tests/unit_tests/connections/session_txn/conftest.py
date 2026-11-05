@@ -7,8 +7,12 @@ docker-compose profile v3). They are skipped when the server version is not 3.x
 or when session-scoped create/query return empty.
 """
 
+import contextlib
+from typing import Any
+
 import pytest
 
+from surrealdb import StringRecordId
 from surrealdb.connections.blocking_ws import BlockingWsSurrealConnection
 
 pytestmark = pytest.mark.surrealdb_v3
@@ -18,11 +22,9 @@ def _is_surrealdb_v3(version_str: str) -> bool:
     version_str = (version_str or "").strip().lower()
     if not version_str:
         return False
-    if version_str.startswith("3.") or version_str.startswith("v3."):
+    if version_str.startswith(("3.", "v3.")):
         return True
-    if "surrealdb-3." in version_str:
-        return True
-    return False
+    return "surrealdb-3." in version_str
 
 
 @pytest.fixture(autouse=True)
@@ -47,14 +49,36 @@ def session_txn_requires_v3(
         connection_params["namespace"],
         connection_params["database_name"],
     )
+    result = None
+    probe_error: Exception | None = None
     try:
-        blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_probe;")
-        blocking_ws_connection.query("DEFINE TABLE session_txn_probe SCHEMALESS;")
-        session.create("session_txn_probe:check", {"probe": True})
-        result = session.query("SELECT * FROM session_txn_probe;")
+        blocking_ws_connection.query(
+            "REMOVE TABLE IF EXISTS session_txn_probe;"
+        ).execute()
+        blocking_ws_connection.query(
+            "DEFINE TABLE session_txn_probe SCHEMALESS;"
+        ).execute()
+        try:
+            # The session inherits the connection's root auth (see
+            # new_session), so - like the actual tests - it does not sign in
+            # again. ``.first()`` returns the first statement's rows (a list of
+            # record dicts); ``.execute()`` would wrap that in an outer
+            # per-statement list, so the row check below would never see a dict.
+            session.create(StringRecordId("session_txn_probe:check"), {"probe": True})
+            result = session.query("SELECT * FROM session_txn_probe;").first()
+        except Exception as exc:
+            probe_error = exc
     finally:
-        session.close_session()
-        blocking_ws_connection.query("REMOVE TABLE IF EXISTS session_txn_probe;")
+        with contextlib.suppress(Exception):
+            session.close_session()
+        blocking_ws_connection.query(
+            "REMOVE TABLE IF EXISTS session_txn_probe;"
+        ).execute()
+    if probe_error is not None:
+        pytest.skip(
+            "Session-scoped create/query failed "
+            f"({type(probe_error).__name__}: {probe_error}); ensure SurrealDB 3.x with session support."
+        )
     if not result or not any(
         r.get("probe") is True for r in result if isinstance(r, dict)
     ):
@@ -64,8 +88,8 @@ def session_txn_requires_v3(
 
 
 @pytest.fixture
-def ws_url() -> str:
-    return "ws://localhost:8000"
+def ws_url(connection_params: dict[str, Any]) -> str:
+    return str(connection_params["ws_url"])
 
 
 @pytest.fixture

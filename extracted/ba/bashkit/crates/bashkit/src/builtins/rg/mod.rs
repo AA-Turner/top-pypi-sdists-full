@@ -14,12 +14,21 @@
 //!   rg -m NUM PATTERN file      # max count per file
 //!   rg --no-filename PATTERN    # suppress filename
 //!   rg --color never PATTERN    # disable ANSI color output
+//!
+//! Decisions (round trips; remote VFS backends pay ~one network call per FS
+//! call, see `knowledge/foundations/vfs.md`):
+//! - A `SearchCapable` index answers even with ignore rules on: matches are
+//!   filtered through the walk's rules ([`RgIndexIgnore`]), loaded only along
+//!   the directories that lead to a match.
+//! - The walk lists a directory before loading its ignore files and opens
+//!   only those the listing shows; "inside a git repo" is carried down the
+//!   walk instead of a `stat` per ancestor.
 
 use async_trait::async_trait;
 use fancy_regex::RegexBuilder as FancyRegexBuilder;
 use regex::{Regex, RegexBuilder};
 use serde_json::json;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -3004,18 +3013,20 @@ async fn read_rg_text_file(
 async fn collect_rg_inputs(
     ctx: Context<'_>,
     opts: &RgOptions,
+    budget: &mut RgReadBudget,
 ) -> std::result::Result<RgCollectedInputs, ExecResult> {
     if opts.paths.is_empty() {
         if !opts.stdin_consumed_for_patterns
             && let Some(stdin) = ctx.stdin
         {
+            let stdin = stdin.to_string();
+            budget.charge(stdin.len());
             return Ok(RgCollectedInputs::new(vec![RgInput::explicit(
-                "(stdin)",
-                stdin.to_string(),
+                "(stdin)", stdin,
             )]));
         }
 
-        if let Some(inputs) = try_indexed_search(&*ctx.fs, opts, ctx.cwd).await {
+        if let Some(inputs) = try_indexed_search(&*ctx.fs, opts, ctx.cwd, budget).await {
             return Ok(RgCollectedInputs::new(inputs));
         }
 
@@ -3024,11 +3035,10 @@ async fn collect_rg_inputs(
             actual: ctx.cwd.to_path_buf(),
             display_hint: RgDisplayHint::None,
         };
-        let files = collect_rg_files_recursive(&*ctx.fs, &[root], opts, ctx.cwd).await;
-        return Ok(read_rg_files(&*ctx.fs, files, ctx.cwd, opts).await);
+        return Ok(stream_rg_root(&*ctx.fs, root, opts, ctx.cwd, budget).await);
     }
 
-    if let Some(inputs) = try_indexed_search(&*ctx.fs, opts, ctx.cwd).await {
+    if let Some(inputs) = try_indexed_search(&*ctx.fs, opts, ctx.cwd, budget).await {
         return Ok(RgCollectedInputs::new(inputs));
     }
 
@@ -3056,6 +3066,9 @@ async fn collect_rg_inputs(
                 });
             }
             None => {
+                if budget.exhausted() {
+                    break;
+                }
                 let text = match read_rg_text_file(&*ctx.fs, &path, ctx.cwd, p, opts).await {
                     Ok(t) => t,
                     Err(e) => {
@@ -3066,6 +3079,7 @@ async fn collect_rg_inputs(
                         continue;
                     }
                 };
+                budget.charge(text.len());
                 collected.inputs.push(RgInput::explicit(
                     apply_path_separator_to_display(p, opts),
                     text,
@@ -3073,17 +3087,81 @@ async fn collect_rg_inputs(
             }
         }
     }
+    let path_order = opts.sort == RgSort::Path && !opts.sort_reverse;
+    if path_order
+        && roots.len() == 1
+        && let Some(root) = roots.pop()
+    {
+        // Explicit files come first, then the one root's walk in path order:
+        // read them as found instead of holding every candidate.
+        let read = read_rg_files(&*ctx.fs, candidates, ctx.cwd, opts, budget).await;
+        collected.had_errors |= read.had_errors;
+        collected.stderr.push_str(&read.stderr);
+        collected.inputs.extend(read.inputs);
+        let read = stream_rg_root(&*ctx.fs, root, opts, ctx.cwd, budget).await;
+        collected.had_errors |= read.had_errors;
+        collected.stderr.push_str(&read.stderr);
+        collected.inputs.extend(read.inputs);
+        return Ok(collected);
+    }
     if !roots.is_empty() {
         candidates.extend(collect_rg_files_recursive(&*ctx.fs, &roots, opts, ctx.cwd).await);
     }
-    if opts.sort != RgSort::Path || opts.sort_reverse {
+    if !path_order {
         sort_rg_candidates(&mut candidates, opts);
     }
-    let read = read_rg_files(&*ctx.fs, candidates, ctx.cwd, opts).await;
+    let read = read_rg_files(&*ctx.fs, candidates, ctx.cwd, opts, budget).await;
     collected.had_errors |= read.had_errors;
     collected.stderr.push_str(&read.stderr);
     collected.inputs.extend(read.inputs);
     Ok(collected)
+}
+
+/// Charges file contents to the execution budget as they are read.
+///
+/// THREAT[TM-DOS-140]: rg holds every searched file's text until output is
+/// built, so a tree bigger than the input budget must stop at the budget,
+/// not load everything first and fail after. Reading stops at the first
+/// refused charge; the caller turns it into the limit error.
+struct RgReadBudget {
+    budget: Option<crate::limits::ExecutionBudget>,
+    exceeded: Option<crate::limits::LimitExceeded>,
+}
+
+impl RgReadBudget {
+    fn new(budget: Option<crate::limits::ExecutionBudget>) -> Self {
+        Self {
+            budget,
+            exceeded: None,
+        }
+    }
+
+    /// Charge one file's text; false once the budget is spent.
+    fn charge(&mut self, bytes: usize) -> bool {
+        if self.exceeded.is_some() {
+            return false;
+        }
+        let Some(budget) = &self.budget else {
+            return true;
+        };
+        let work = u64::try_from(bytes.div_ceil(64))
+            .unwrap_or(u64::MAX)
+            .saturating_add(1);
+        match budget
+            .consume_input(bytes)
+            .and_then(|()| budget.consume_work(work))
+        {
+            Ok(()) => true,
+            Err(e) => {
+                self.exceeded = Some(e);
+                false
+            }
+        }
+    }
+
+    fn exhausted(&self) -> bool {
+        self.exceeded.is_some()
+    }
 }
 
 #[derive(Default)]
@@ -3158,7 +3236,7 @@ async fn load_rg_ignore_files(
 
     for ignore_file in opts.ignore_file_paths.clone() {
         let path = resolve_path(cwd, &ignore_file);
-        let content = match read_rg_ignore_file(fs, &path).await {
+        let content = match read_rg_ignore_file(fs, &path, None).await {
             Ok(content) => content,
             Err(Error::Execution(message)) if message.starts_with("rg: ignore file") => {
                 return Err(ExecResult::err(format!("{message}\n"), 2));
@@ -3316,9 +3394,47 @@ fn parse_rg_ignore_rules(
     Ok(rules)
 }
 
+/// Names of the per-directory ignore files, lowest precedence first.
+const RG_VCS_IGNORE_FILE: &str = ".gitignore";
+const RG_DOT_IGNORE_FILES: [&str; 2] = [".ignore", ".rgignore"];
+
+/// Whether a directory listing holds a `.git` directory.
+fn listing_has_git_dir(listing: &[crate::fs::DirEntry]) -> bool {
+    listing
+        .iter()
+        .any(|e| e.name == ".git" && e.metadata.file_type.is_dir())
+}
+
+/// What a directory listing says about an ignore file: `None` when the
+/// listing shows it is absent (skip it, no round trip), otherwise the size
+/// hint to validate against (`None` inside: unknown, `stat` it first).
+fn listed_ignore_file(listing: Option<&[crate::fs::DirEntry]>, name: &str) -> Option<Option<u64>> {
+    let Some(listing) = listing else {
+        return Some(None);
+    };
+    let entry = listing.iter().find(|e| e.name == name)?;
+    Some(
+        entry
+            .metadata
+            .file_type
+            .is_file()
+            .then_some(entry.metadata.size),
+    )
+}
+
+/// Load `dir`'s own ignore files.
+///
+/// `listing` is `dir`'s `read_dir` result when the caller already has it:
+/// ignore files it does not list are skipped without a lookup, so a walk
+/// costs one `read_dir` per directory plus one read per ignore file that
+/// exists. `in_git` is whether `dir` or an ancestor up to `root` holds a
+/// `.git` directory, when the caller tracks it; otherwise it is probed.
+#[allow(clippy::too_many_arguments)]
 async fn load_local_ignore_rules(
     fs: &dyn crate::fs::FileSystem,
     dir: &Path,
+    listing: Option<&[crate::fs::DirEntry]>,
+    in_git: Option<bool>,
     root: &Path,
     opts: &RgOptions,
     inherited_rule_count: usize,
@@ -3329,11 +3445,19 @@ async fn load_local_ignore_rules(
     }
 
     // Ignore evaluation is last-match-wins, so load lower-precedence files first.
-    if !opts.no_ignore_vcs && (!opts.require_git || has_git_dir_in_ancestors(fs, dir, root).await) {
-        if !opts.no_ignore_exclude {
+    let git_applies = !opts.no_ignore_vcs
+        && (!opts.require_git
+            || match in_git {
+                Some(in_git) => in_git,
+                None => has_git_dir_in_ancestors(fs, dir, root).await,
+            });
+    if git_applies {
+        let has_git = listing.is_none_or(listing_has_git_dir);
+        if !opts.no_ignore_exclude && has_git {
             load_optional_ignore_file_with_rule_base(
                 fs,
                 &vfs_join(dir, ".git/info/exclude"),
+                None,
                 dir,
                 opts.ignore_file_case_insensitive,
                 inherited_rule_count,
@@ -3341,35 +3465,34 @@ async fn load_local_ignore_rules(
             )
             .await?;
         }
-        load_optional_ignore_file_with_rule_base(
-            fs,
-            &vfs_join(dir, ".gitignore"),
-            dir,
-            opts.ignore_file_case_insensitive,
-            inherited_rule_count,
-            rules,
-        )
-        .await?;
+        if let Some(size) = listed_ignore_file(listing, RG_VCS_IGNORE_FILE) {
+            load_optional_ignore_file_with_rule_base(
+                fs,
+                &vfs_join(dir, RG_VCS_IGNORE_FILE),
+                size,
+                dir,
+                opts.ignore_file_case_insensitive,
+                inherited_rule_count,
+                rules,
+            )
+            .await?;
+        }
     }
     if !opts.no_ignore_dot {
-        load_optional_ignore_file_with_rule_base(
-            fs,
-            &vfs_join(dir, ".ignore"),
-            dir,
-            opts.ignore_file_case_insensitive,
-            inherited_rule_count,
-            rules,
-        )
-        .await?;
-        load_optional_ignore_file_with_rule_base(
-            fs,
-            &vfs_join(dir, ".rgignore"),
-            dir,
-            opts.ignore_file_case_insensitive,
-            inherited_rule_count,
-            rules,
-        )
-        .await?;
+        for name in RG_DOT_IGNORE_FILES {
+            if let Some(size) = listed_ignore_file(listing, name) {
+                load_optional_ignore_file_with_rule_base(
+                    fs,
+                    &vfs_join(dir, name),
+                    size,
+                    dir,
+                    opts.ignore_file_case_insensitive,
+                    inherited_rule_count,
+                    rules,
+                )
+                .await?;
+            }
+        }
     }
     Ok(())
 }
@@ -3390,8 +3513,26 @@ async fn load_parent_ignore_rules(
     let mut ancestors: Vec<PathBuf> = parent.ancestors().map(Path::to_path_buf).collect();
     ancestors.reverse();
 
+    // Top-down, so "a `.git` at or above this directory" accumulates from
+    // the listings instead of a `stat` per ancestor per level.
+    let mut in_git = false;
     for ancestor in ancestors {
-        load_local_ignore_rules(fs, &ancestor, Path::new("/"), opts, 0, rules).await?;
+        let listing = fs.read_dir(&ancestor).await.ok();
+        in_git = match &listing {
+            Some(listing) => in_git || listing_has_git_dir(listing),
+            None => has_git_dir_in_ancestors(fs, &ancestor, Path::new("/")).await,
+        };
+        load_local_ignore_rules(
+            fs,
+            &ancestor,
+            listing.as_deref(),
+            Some(in_git),
+            Path::new("/"),
+            opts,
+            0,
+            rules,
+        )
+        .await?;
     }
     Ok(())
 }
@@ -3419,18 +3560,19 @@ async fn load_optional_ignore_file(
     case_insensitive: bool,
     rules: &mut Vec<RgIgnoreRule>,
 ) -> Result<()> {
-    load_optional_ignore_file_with_rule_base(fs, path, base, case_insensitive, 0, rules).await
+    load_optional_ignore_file_with_rule_base(fs, path, None, base, case_insensitive, 0, rules).await
 }
 
 async fn load_optional_ignore_file_with_rule_base(
     fs: &dyn crate::fs::FileSystem,
     path: &Path,
+    size_hint: Option<u64>,
     base: &Path,
     case_insensitive: bool,
     inherited_rule_count: usize,
     rules: &mut Vec<RgIgnoreRule>,
 ) -> Result<()> {
-    let content = match read_rg_ignore_file(fs, path).await {
+    let content = match read_rg_ignore_file(fs, path, size_hint).await {
         Ok(content) => content,
         Err(Error::Execution(message)) if message.starts_with("rg: ignore file") => {
             return Err(Error::Execution(message));
@@ -3442,9 +3584,20 @@ async fn load_optional_ignore_file_with_rule_base(
     append_rg_ignore_rules_with_base(rules, parsed, inherited_rule_count)
 }
 
-async fn read_rg_ignore_file(fs: &dyn crate::fs::FileSystem, path: &Path) -> Result<Vec<u8>> {
-    if let Ok(meta) = fs.stat(path).await {
-        validate_rg_ignore_file_size(path, meta.size)?;
+/// Read an ignore file, refusing oversized ones before loading them.
+/// `size_hint` is the size from a directory listing, which saves the `stat`.
+async fn read_rg_ignore_file(
+    fs: &dyn crate::fs::FileSystem,
+    path: &Path,
+    size_hint: Option<u64>,
+) -> Result<Vec<u8>> {
+    match size_hint {
+        Some(size) => validate_rg_ignore_file_size(path, size)?,
+        None => {
+            if let Ok(meta) = fs.stat(path).await {
+                validate_rg_ignore_file_size(path, meta.size)?;
+            }
+        }
     }
     let content = fs.read_file(path).await?;
     validate_rg_ignore_file_size(path, content.len() as u64)?;
@@ -3551,6 +3704,8 @@ struct RgWalkItem {
     rules: Arc<RgIgnoreRuleSet>,
     ancestors: Vec<PathBuf>,
     display_hint: RgDisplayHint,
+    /// A `.git` directory sits in an ancestor between the walk root and here.
+    in_git: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -3621,14 +3776,142 @@ async fn collect_rg_files_recursive(
     opts: &RgOptions,
     cwd: &Path,
 ) -> Vec<RgFileCandidate> {
-    let mut result = Vec::new();
-    let mut stack = Vec::new();
+    let mut sink = RgSink::Collect(Vec::new());
+    walk_rg_files(fs, roots, opts, cwd, &mut sink).await;
+    let mut result = match sink {
+        RgSink::Collect(files) => files,
+        RgSink::Read { .. } => Vec::new(),
+    };
+    sort_rg_candidates(&mut result, opts);
+    result
+}
+
+/// Where the walk hands each file it accepts.
+enum RgSink<'a> {
+    /// Keep candidates for the caller to sort or list.
+    Collect(Vec<RgFileCandidate>),
+    /// Read each file as it is found. THREAT[TM-DOS-140]: on a huge tree the
+    /// candidate list alone (two paths and metadata per file) costs hundreds
+    /// of bytes per file before any budget check; reading as found holds only
+    /// what the budget admits and stops the walk once it is spent.
+    Read {
+        cwd: &'a Path,
+        budget: &'a mut RgReadBudget,
+        out: RgCollectedInputs,
+    },
+}
+
+impl RgSink<'_> {
+    async fn push(
+        &mut self,
+        fs: &dyn crate::fs::FileSystem,
+        opts: &RgOptions,
+        file: RgFileCandidate,
+    ) {
+        match self {
+            Self::Collect(files) => files.push(file),
+            Self::Read { cwd, budget, out } => {
+                read_rg_candidate(fs, file, cwd, opts, budget, out).await;
+            }
+        }
+    }
+
+    fn stopped(&self) -> bool {
+        matches!(self, Self::Read { budget, .. } if budget.exhausted())
+    }
+}
+
+/// One listed directory of the walk, its entries still to visit.
+struct RgWalkFrame {
+    item: RgWalkItem,
+    /// The directory's effective rules (its own ignore files applied).
+    rules: Arc<RgIgnoreRuleSet>,
+    in_git: bool,
+    /// Sorted by name, descending: `pop` yields them in ascending order.
+    entries: Vec<crate::fs::DirEntry>,
+}
+
+/// List `item` and push its frame, or hand it to the sink if it is a file.
+async fn enter_rg_walk_item(
+    fs: &dyn crate::fs::FileSystem,
+    item: RgWalkItem,
+    opts: &RgOptions,
+    cwd: &Path,
+    stack: &mut Vec<RgWalkFrame>,
+    sink: &mut RgSink<'_>,
+) {
+    // List first: the listing says which ignore files exist, so missing
+    // ones cost no lookup (one `read_dir` per directory on remote VFSes).
+    match fs.read_dir(&item.actual).await {
+        Ok(mut entries) => {
+            let in_git = item.in_git || listing_has_git_dir(&entries);
+            let mut local_rules = Vec::new();
+            let _ = load_local_ignore_rules(
+                fs,
+                &item.actual,
+                Some(&entries),
+                Some(in_git),
+                &item.actual_root,
+                opts,
+                item.rules.len(),
+                &mut local_rules,
+            )
+            .await;
+            let rules = if local_rules.is_empty() {
+                item.rules.clone()
+            } else {
+                Arc::new(RgIgnoreRuleSet::child(item.rules.clone(), local_rules))
+            };
+            entries.sort_by(|a, b| b.name.cmp(&a.name));
+            stack.push(RgWalkFrame {
+                item,
+                rules,
+                in_git,
+                entries,
+            });
+        }
+        Err(_) => {
+            if let Ok(meta) = fs.stat(&item.actual).await
+                && meta.file_type.is_file()
+                && opts.matches_max_filesize(meta.size)
+                && opts.matches_globs(&item.logical, cwd)
+                && opts.matches_type_filters(&item.logical)
+            {
+                sink.push(
+                    fs,
+                    opts,
+                    RgFileCandidate {
+                        logical: item.logical,
+                        actual: item.actual,
+                        metadata: meta,
+                        display_hint: item.display_hint,
+                        display_override: None,
+                        explicit: false,
+                    },
+                )
+                .await;
+            }
+        }
+    }
+}
+
+/// Depth-first walk in path order: each directory's entries by name, a
+/// subdirectory's files before the next sibling. That is the order
+/// `sort_rg_candidates` gives by path, so a single root can stream.
+async fn walk_rg_files(
+    fs: &dyn crate::fs::FileSystem,
+    roots: &[RgSearchRoot],
+    opts: &RgOptions,
+    cwd: &Path,
+    sink: &mut RgSink<'_>,
+) {
+    let mut stack: Vec<RgWalkFrame> = Vec::new();
     for root in roots {
         let mut rules = Vec::new();
         append_global_ignore_rules_for_root(fs, &root.actual, opts, &mut rules).await;
         rules.extend(opts.explicit_ignore_rules.clone());
         let _ = load_parent_ignore_rules(fs, &root.actual, opts, &mut rules).await;
-        stack.push(RgWalkItem {
+        let item = RgWalkItem {
             logical: root.logical.clone(),
             actual: root.actual.clone(),
             actual_root: root.actual.clone(),
@@ -3636,103 +3919,87 @@ async fn collect_rg_files_recursive(
             rules: Arc::new(RgIgnoreRuleSet::root(rules)),
             ancestors: vec![root.actual.clone()],
             display_hint: root.display_hint,
-        });
-    }
-
-    while let Some(item) = stack.pop() {
-        let mut local_rules = Vec::new();
-        let _ = load_local_ignore_rules(
-            fs,
-            &item.actual,
-            &item.actual_root,
-            opts,
-            item.rules.len(),
-            &mut local_rules,
-        )
-        .await;
-        let rules = if local_rules.is_empty() {
-            item.rules.clone()
-        } else {
-            Arc::new(RgIgnoreRuleSet::child(item.rules.clone(), local_rules))
+            in_git: false,
         };
-        if let Ok(entries) = fs.read_dir(&item.actual).await {
-            for entry in entries {
-                let path = vfs_join(&item.logical, &entry.name);
-                let actual_path = vfs_join(&item.actual, &entry.name);
-                let hidden_entry = !opts.hidden && is_hidden_name(&entry.name);
-                let entry_depth = item.depth + 1;
-                let (entry_actual_path, entry_metadata) =
-                    if entry.metadata.file_type.is_symlink() && opts.follow_symlinks {
-                        let Some((target, target_meta)) =
-                            resolve_rg_symlink_target(fs, &actual_path, &item.actual_root).await
-                        else {
-                            continue;
-                        };
-                        (target, target_meta)
-                    } else {
-                        (actual_path, entry.metadata)
-                    };
+        enter_rg_walk_item(fs, item, opts, cwd, &mut stack, sink).await;
 
-                if entry_metadata.file_type.is_dir() {
-                    if hidden_entry || opts.is_ignored_by_rules(&path, true, &rules) {
+        while let Some(frame) = stack.last_mut() {
+            if sink.stopped() {
+                return;
+            }
+            let Some(entry) = frame.entries.pop() else {
+                stack.pop();
+                continue;
+            };
+            let item = &frame.item;
+            let rules = frame.rules.clone();
+            let in_git = frame.in_git;
+            let path = vfs_join(&item.logical, &entry.name);
+            let actual_path = vfs_join(&item.actual, &entry.name);
+            let hidden_entry = !opts.hidden && is_hidden_name(&entry.name);
+            let entry_depth = item.depth + 1;
+            let (entry_actual_path, entry_metadata) =
+                if entry.metadata.file_type.is_symlink() && opts.follow_symlinks {
+                    let Some((target, target_meta)) =
+                        resolve_rg_symlink_target(fs, &actual_path, &item.actual_root).await
+                    else {
                         continue;
-                    }
-                    if opts
-                        .max_depth
-                        .is_none_or(|max_depth| entry_depth < max_depth)
-                        && !item.ancestors.contains(&entry_actual_path)
-                    {
-                        let mut child_ancestors = item.ancestors.clone();
-                        child_ancestors.push(entry_actual_path.clone());
-                        stack.push(RgWalkItem {
-                            logical: path,
-                            actual: entry_actual_path,
-                            actual_root: item.actual_root.clone(),
-                            depth: entry_depth,
-                            rules: rules.clone(),
-                            ancestors: child_ancestors,
-                            display_hint: item.display_hint,
-                        });
-                    }
-                } else if entry_metadata.file_type.is_file()
-                    && opts
-                        .max_depth
-                        .is_none_or(|max_depth| entry_depth <= max_depth)
-                    && opts.matches_max_filesize(entry_metadata.size)
-                    && !opts.is_ignored_by_rules(&path, false, &rules)
-                    && opts.matches_globs(&path, cwd)
-                    && opts.matches_type_filters(&path)
-                    && (!hidden_entry || opts.explicitly_includes_hidden_file(&path, cwd))
+                    };
+                    (target, target_meta)
+                } else {
+                    (actual_path, entry.metadata)
+                };
+
+            if entry_metadata.file_type.is_dir() {
+                if hidden_entry || opts.is_ignored_by_rules(&path, true, &rules) {
+                    continue;
+                }
+                if opts
+                    .max_depth
+                    .is_none_or(|max_depth| entry_depth < max_depth)
+                    && !item.ancestors.contains(&entry_actual_path)
                 {
-                    result.push(RgFileCandidate {
+                    let mut child_ancestors = item.ancestors.clone();
+                    child_ancestors.push(entry_actual_path.clone());
+                    let child = RgWalkItem {
+                        logical: path,
+                        actual: entry_actual_path,
+                        actual_root: item.actual_root.clone(),
+                        depth: entry_depth,
+                        rules,
+                        ancestors: child_ancestors,
+                        display_hint: item.display_hint,
+                        in_git,
+                    };
+                    enter_rg_walk_item(fs, child, opts, cwd, &mut stack, sink).await;
+                }
+            } else if entry_metadata.file_type.is_file()
+                && opts
+                    .max_depth
+                    .is_none_or(|max_depth| entry_depth <= max_depth)
+                && opts.matches_max_filesize(entry_metadata.size)
+                && !opts.is_ignored_by_rules(&path, false, &rules)
+                && opts.matches_globs(&path, cwd)
+                && opts.matches_type_filters(&path)
+                && (!hidden_entry || opts.explicitly_includes_hidden_file(&path, cwd))
+            {
+                let display_hint = item.display_hint;
+                sink.push(
+                    fs,
+                    opts,
+                    RgFileCandidate {
                         logical: path,
                         actual: entry_actual_path,
                         metadata: entry_metadata,
-                        display_hint: item.display_hint,
+                        display_hint,
                         display_override: None,
                         explicit: false,
-                    });
-                }
+                    },
+                )
+                .await;
             }
-        } else if let Ok(meta) = fs.stat(&item.actual).await
-            && meta.file_type.is_file()
-            && opts.matches_max_filesize(meta.size)
-            && opts.matches_globs(&item.logical, cwd)
-            && opts.matches_type_filters(&item.logical)
-        {
-            result.push(RgFileCandidate {
-                logical: item.logical,
-                actual: item.actual,
-                metadata: meta,
-                display_hint: item.display_hint,
-                display_override: None,
-                explicit: false,
-            });
         }
     }
-
-    sort_rg_candidates(&mut result, opts);
-    result
 }
 
 fn sort_rg_candidates(files: &mut [RgFileCandidate], opts: &RgOptions) {
@@ -3839,22 +4106,66 @@ async fn read_rg_files(
     files: Vec<RgFileCandidate>,
     cwd: &Path,
     opts: &RgOptions,
+    budget: &mut RgReadBudget,
 ) -> RgCollectedInputs {
     let mut collected = RgCollectedInputs::default();
     for file in files {
-        let display = candidate_display_path(&file, cwd, opts);
-        match read_rg_text_file(fs, &file.actual, cwd, &display, opts).await {
-            Ok(text) if file.explicit => collected.inputs.push(RgInput::explicit(display, text)),
-            Ok(text) => collected.inputs.push(RgInput::discovered(display, text)),
-            Err(e) => {
-                collected.had_errors = true;
-                if opts.messages {
-                    collected.stderr.push_str(&e.stderr);
-                }
+        if budget.exhausted() {
+            break;
+        }
+        read_rg_candidate(fs, file, cwd, opts, budget, &mut collected).await;
+    }
+    collected
+}
+
+/// Walk one root in path order, reading each file as it is found.
+async fn stream_rg_root(
+    fs: &dyn crate::fs::FileSystem,
+    root: RgSearchRoot,
+    opts: &RgOptions,
+    cwd: &Path,
+    budget: &mut RgReadBudget,
+) -> RgCollectedInputs {
+    if opts.sort != RgSort::Path || opts.sort_reverse {
+        let files = collect_rg_files_recursive(fs, &[root], opts, cwd).await;
+        return read_rg_files(fs, files, cwd, opts, budget).await;
+    }
+    let mut sink = RgSink::Read {
+        cwd,
+        budget,
+        out: RgCollectedInputs::default(),
+    };
+    walk_rg_files(fs, &[root], opts, cwd, &mut sink).await;
+    match sink {
+        RgSink::Read { out, .. } => out,
+        RgSink::Collect(_) => RgCollectedInputs::default(),
+    }
+}
+
+/// Read one candidate into `out`, charging `budget` (nothing once spent).
+async fn read_rg_candidate(
+    fs: &dyn crate::fs::FileSystem,
+    file: RgFileCandidate,
+    cwd: &Path,
+    opts: &RgOptions,
+    budget: &mut RgReadBudget,
+    out: &mut RgCollectedInputs,
+) {
+    if budget.exhausted() {
+        return;
+    }
+    let display = candidate_display_path(&file, cwd, opts);
+    match read_rg_text_file(fs, &file.actual, cwd, &display, opts).await {
+        Ok(text) if !budget.charge(text.len()) => {}
+        Ok(text) if file.explicit => out.inputs.push(RgInput::explicit(display, text)),
+        Ok(text) => out.inputs.push(RgInput::discovered(display, text)),
+        Err(e) => {
+            out.had_errors = true;
+            if opts.messages {
+                out.stderr.push_str(&e.stderr);
             }
         }
     }
-    collected
 }
 
 fn candidate_display_path(file: &RgFileCandidate, cwd: &Path, opts: &RgOptions) -> String {
@@ -3867,12 +4178,12 @@ async fn try_indexed_search(
     fs: &dyn crate::fs::FileSystem,
     opts: &RgOptions,
     cwd: &Path,
+    budget: &mut RgReadBudget,
 ) -> Option<Vec<RgInput>> {
     let index_can_use_literal = opts.fixed_strings && !opts.word_boundary && !opts.line_regexp;
     if opts.invert_match
         || opts.files_without_matches
         || opts.crlf
-        || opts.uses_ignore_files()
         || opts.patterns.len() != 1
         || opts.max_filesize.is_some()
         || !opts.type_includes.is_empty()
@@ -3912,12 +4223,11 @@ async fn try_indexed_search(
         if !caps.content_search || (!opts.fixed_strings && !caps.regex) {
             return None;
         }
-        let explicit_file_root = root_arg.is_some()
-            && fs
-                .stat(&root)
-                .await
-                .ok()
-                .is_some_and(|meta| meta.file_type.is_file());
+        // A missing operand goes to the walk, which reports it like ripgrep.
+        let explicit_file_root = match root_arg {
+            Some(_) => fs.stat(&root).await.ok()?.file_type.is_file(),
+            None => false,
+        };
         let pattern = if index_can_use_literal {
             opts.patterns[0].clone()
         } else {
@@ -3937,6 +4247,9 @@ async fn try_indexed_search(
         };
 
         let results = provider.search(&query).ok()?;
+        // Built on the first match that needs it: no matches, no listings.
+        let mut ignore: Option<RgIndexIgnore<'_>> = None;
+        let uses_ignore = opts.uses_ignore_files() && !explicit_file_root;
         for m in &results.matches {
             let candidate = if m.path.is_absolute() {
                 crate::fs::normalize_path(&m.path)
@@ -3950,12 +4263,29 @@ async fn try_indexed_search(
                 || (!explicit_file_match && !opts.matches_globs(&candidate, cwd))
                 || (!explicit_file_match
                     && !path_allowed_by_hidden_filter(&candidate, &root, opts, cwd))
+                || (!explicit_file_match && !within_rg_max_depth(&candidate, &root, opts))
             {
                 continue;
+            }
+            if uses_ignore && !explicit_file_match {
+                if ignore.is_none() {
+                    ignore = Some(RgIndexIgnore::new(fs, &root, opts).await);
+                }
+                if let Some(ignore) = ignore.as_mut()
+                    && !ignore.allows(&candidate).await
+                {
+                    continue;
+                }
+            }
+            if budget.exhausted() {
+                break;
             }
             if let Ok(content) = fs.read_file(&candidate).await {
                 let display = display_path_for(&candidate, cwd, root_arg.as_deref(), opts);
                 let content = decode_rg_content(&content, opts);
+                if !budget.charge(content.len()) {
+                    break;
+                }
                 let input = if explicit_file_match {
                     RgInput::explicit(display, content)
                 } else {
@@ -3967,6 +4297,123 @@ async fn try_indexed_search(
     }
 
     Some(inputs)
+}
+
+/// `--max-depth` for an index match: the root's children are depth 1.
+fn within_rg_max_depth(path: &Path, root: &Path, opts: &RgOptions) -> bool {
+    opts.max_depth.is_none_or(|max_depth| {
+        path.strip_prefix(root)
+            .map(|rel| rel.components().count() <= max_depth)
+            .unwrap_or(false)
+    })
+}
+
+/// Ignore rules for index matches, loaded only along the directories that
+/// lead to a match.
+///
+/// The walk loads every directory's ignore files; an index answer only needs
+/// the directories between the root and each matching file. Each such
+/// directory is listed once (the listing says which ignore files exist and
+/// whether it is a git repository), and a directory that the rules exclude
+/// is never listed: everything below it is dropped. The rules, their order
+/// and their precedence are the walk's (`collect_rg_files_recursive`).
+struct RgIndexIgnore<'a> {
+    fs: &'a dyn crate::fs::FileSystem,
+    opts: &'a RgOptions,
+    root: PathBuf,
+    /// Rules in effect inside each visited directory and its `in_git` flag;
+    /// `None` marks a directory that is ignored (or hidden), with its subtree.
+    dirs: HashMap<PathBuf, Option<(Arc<RgIgnoreRuleSet>, bool)>>,
+}
+
+impl<'a> RgIndexIgnore<'a> {
+    async fn new(fs: &'a dyn crate::fs::FileSystem, root: &Path, opts: &'a RgOptions) -> Self {
+        let mut rules = Vec::new();
+        append_global_ignore_rules_for_root(fs, root, opts, &mut rules).await;
+        rules.extend(opts.explicit_ignore_rules.clone());
+        let _ = load_parent_ignore_rules(fs, root, opts, &mut rules).await;
+        let base = Arc::new(RgIgnoreRuleSet::root(rules));
+        let mut this = Self {
+            fs,
+            opts,
+            root: root.to_path_buf(),
+            dirs: HashMap::new(),
+        };
+        let state = this.enter(root, base, false).await;
+        this.dirs.insert(root.to_path_buf(), Some(state));
+        this
+    }
+
+    /// Rules in effect inside `dir`, given the rules of its parent.
+    async fn enter(
+        &self,
+        dir: &Path,
+        parent_rules: Arc<RgIgnoreRuleSet>,
+        parent_in_git: bool,
+    ) -> (Arc<RgIgnoreRuleSet>, bool) {
+        let listing = self.fs.read_dir(dir).await.ok();
+        let in_git = parent_in_git || listing.as_deref().is_some_and(listing_has_git_dir);
+        let mut local = Vec::new();
+        let _ = load_local_ignore_rules(
+            self.fs,
+            dir,
+            listing.as_deref(),
+            Some(in_git),
+            &self.root,
+            self.opts,
+            parent_rules.len(),
+            &mut local,
+        )
+        .await;
+        let rules = if local.is_empty() {
+            parent_rules
+        } else {
+            Arc::new(RgIgnoreRuleSet::child(parent_rules, local))
+        };
+        (rules, in_git)
+    }
+
+    /// Whether the walk would have searched `path`, a file under the root.
+    async fn allows(&mut self, path: &Path) -> bool {
+        let Ok(rel) = path.strip_prefix(&self.root) else {
+            return false;
+        };
+        let names: Vec<String> = rel
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect();
+        let Some((_, dirs)) = names.split_last() else {
+            return false;
+        };
+        let mut dir = self.root.clone();
+        let Some(Some((mut rules, mut in_git))) = self.dirs.get(&dir).cloned() else {
+            return false;
+        };
+        for name in dirs {
+            let child = vfs_join(&dir, name);
+            let state = match self.dirs.get(&child) {
+                Some(state) => state.clone(),
+                None => {
+                    let state = if (!self.opts.hidden && is_hidden_name(name))
+                        || rules.is_ignored(&child, true)
+                    {
+                        None
+                    } else {
+                        Some(self.enter(&child, rules.clone(), in_git).await)
+                    };
+                    self.dirs.insert(child.clone(), state.clone());
+                    state
+                }
+            };
+            let Some((child_rules, child_in_git)) = state else {
+                return false;
+            };
+            rules = child_rules;
+            in_git = child_in_git;
+            dir = child;
+        }
+        !rules.is_ignored(path, false)
+    }
 }
 
 fn path_allowed_by_hidden_filter(path: &Path, root: &Path, opts: &RgOptions, cwd: &Path) -> bool {
@@ -5324,19 +5771,13 @@ impl Builtin for Rg {
         let execution_budget = ctx
             .execution_budget()
             .and_then(|budget| budget.try_with(Clone::clone).ok());
-        let collected_inputs = match collect_rg_inputs(ctx, &opts).await {
+        let mut read_budget = RgReadBudget::new(execution_budget);
+        let collected_inputs = match collect_rg_inputs(ctx, &opts, &mut read_budget).await {
             Ok(inputs) => inputs,
             Err(result) => return Ok(result),
         };
-        if let Some(budget) = execution_budget {
-            let input_bytes = collected_inputs.inputs.iter().fold(0usize, |total, input| {
-                total.saturating_add(input.content.len())
-            });
-            budget.consume_input(input_bytes)?;
-            budget.consume_work(
-                u64::try_from(input_bytes.div_ceil(64)).unwrap_or(u64::MAX)
-                    + u64::try_from(collected_inputs.inputs.len()).unwrap_or(u64::MAX),
-            )?;
+        if let Some(exceeded) = read_budget.exceeded {
+            return Err(exceeded.into());
         }
         let inputs = collected_inputs.inputs;
 

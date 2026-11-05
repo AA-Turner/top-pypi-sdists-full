@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import Protocol, TypeVar
 
-from datamodel_code_generator import Error
+from datamodel_code_generator._document_reader import nesting_limit
 from datamodel_code_generator._message_text import counted
 from datamodel_code_generator._model_keys import ModelKey, model_key_of
 from datamodel_code_generator._url_redaction import named_location, redact_reference
@@ -25,13 +25,14 @@ from datamodel_code_generator.parser._passes._shared import (
     GenerationStoreHost,
     RecursionFactsHost,
     RootModelTypeHost,
-    _is_pydantic_v2_root_model,
     _runtime_validation_reference_keys,
     _sort_models_by_class_body_references,
+    definition_reads,
 )
 from datamodel_code_generator.parser._passes._state import ParseConfigView, RecursionFacts
 from datamodel_code_generator.parser._passes._warnings import warn_as_parser_base
 from datamodel_code_generator.parser.generation import set_model_base_classes
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import _UNMATCHED_MODEL_NAME_KEYS_REPORTED, location_of
 
 if TYPE_CHECKING:
@@ -253,9 +254,12 @@ def sort_data_models(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
             # Build lookup dict for O(1) index access instead of O(n) list.index()
             key_to_index = {model_key_of(m.reference): idx for idx, m in enumerate(unresolved_references)}
             for model in unresolved_references:
+                fields = definition_reads(
+                    model, row="legacy-class-body-without-alias-values", root_model_type=pydantic_v2_root_model_type
+                )
                 references = (
-                    (t.reference for f in model.fields for t in f.data_type.all_data_types)
-                    if _is_pydantic_v2_root_model(model, pydantic_v2_root_model_type)
+                    (t.reference for f in fields for t in f.data_type.all_data_types)
+                    if fields is not None
                     else (b.reference for b in model.base_classes)
                 )
                 indexes = [
@@ -383,7 +387,7 @@ def warn_about_unmatched_model_name_keys(parser: SettleHost[Any]) -> None:
     if _UNMATCHED_MODEL_NAME_KEYS_REPORTED.get() and (
         unmatched_keys := sorted({redact_reference(key) for key in parser.model_resolver.unmatched_model_name_keys()})
     ):
-        listed = ", ".join(map(repr, unmatched_keys))
+        listed = ", ".join(map(stable_repr, unmatched_keys))
         warn_as_parser_base(
             f"--model-name-map: {counted(len(unmatched_keys), 'key')} matched no generated model: {listed}",
             UserWarning,
@@ -461,16 +465,11 @@ def parse_raw(parser: ParseHost, run: SettleRun[Any]) -> None:
     A parse that exceeds the recursion limit on deeply nested schemas stops with an error, not a partial result.
     """
     try:
-        if run.suppress_parse_warnings:
-            parser._run_with_suppressed_warnings(parser.parse_raw)  # noqa: SLF001
-        else:
-            parser.parse_raw()
-    except RecursionError:
-        msg = (
-            "Schema nesting is too deep to generate: parsing the nested schemas exceeded the Python recursion "
-            f"limit ({sys.getrecursionlimit()})."
-        )
-        raise Error(msg) from None
+        with nesting_limit():
+            if run.suppress_parse_warnings:
+                parser._run_with_suppressed_warnings(parser.parse_raw)  # noqa: SLF001
+            else:
+                parser.parse_raw()
     finally:
         parser._close_http_fetch_session()  # noqa: SLF001
 

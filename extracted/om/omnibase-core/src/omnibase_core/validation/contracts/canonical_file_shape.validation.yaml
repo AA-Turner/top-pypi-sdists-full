@@ -41,10 +41,18 @@ validation:
         src_root: "src"
         shebang_prefix: "#!"
         canonical_src_min_parts: 4
-        noncanonical_text: "new code file outside a canonical location (src/<pkg>/{nodes,handlers,models,protocols,contracts,enums}/,
-          src/<pkg>/validation/{checker_*,validator_*}.py, tests/, docs/). Build it as a contract + node
-          + handler."
-        shell_text: "shell scripts have no canonical location in any repository (OMN-21332)."
+        noncanonical_text: "{path}: new code file outside a canonical location (src/<pkg>/{{nodes,handlers,models,protocols,contracts,enums}}/,
+          src/<pkg>/validation/{{checker_*,validator_*}}.py, tests/, docs/). Build it as node {node}:
+          a contract + node + handler: the legal home of a new node is omnimarket, src/omnimarket/nodes/node_<name>/
+          (contract.yaml, node.py, handlers/). Move the file's logic there; a repository other than omnimarket
+          keeps only models, protocols, enums and contracts, and a validator node that lists 'validator_node'
+          or 'validator_support_node' under tags in its contract.yaml may stay."
+        shell_text: "{path}: shell scripts have no canonical location in any repository (OMN-21332). Build
+          it as node {node}: a contract + node + handler. Move the logic there; the legal home of a new
+          node is omnimarket, src/omnimarket/nodes/node_<name>/."
+        node_name_template: "node_{stem}"
+        node_stem_separator_pattern: "[^a-z0-9]+"
+        node_stem_separator: "_"
         # TypeScript/React and shell locations (OMN-21332, plan rules T1-T17).
         typescript_extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]
         typescript_src_extensions: [".ts", ".tsx"]
@@ -78,6 +86,19 @@ validation:
           # a canonical location or rewritten as contract + node + handler. A new
           # line is refused.
 
+    - rule_id: script-unit-new
+      description: A new launchd, cron or systemd unit whose text runs a script. A scheduled script is
+        still a script; the job is a node and the schedule triggers the node.
+      severity: error
+      enabled: true
+      parameters:
+        unit_extensions: [".plist", ".cron", ".crontab", ".timer", ".service"]
+        unit_dirs: ["launchd", "cron", "cron.d", "systemd"]
+        unit_added_statuses: ["A", "C"]
+        unit_script_pattern: '(?<![\w.-])[\w./~$-]+\.(?:sh|bash|zsh|py|rb|pl|js|mjs|cjs|ts)\b|(?:^|[\s/>"])scripts?/'
+        script_unit_text: "{path}: new scheduled unit runs a script; scripts have no canonical location.
+          Build the job as node {node}: a contract + node + handler, and schedule the node."
+
     - rule_id: baseline-stale
       description: A baseline entry whose file was removed, moved or made canonical.
       severity: error
@@ -94,9 +115,10 @@ validation:
       severity: error
       enabled: true
       parameters:
-        baseline_growth_text: "entry '{path}' is new; the baseline only shrinks"
+        baseline_growth_text: "entry '{path}' is new; the baseline only shrinks. Build it as node {node}:
+          a contract + node + handler, not a baseline line."
         burndown_growth_text: "burn-down entry '{path}' is new; once installed the burn-down baseline
-          only shrinks"
+          only shrinks. Build it as node {node}: a contract + node + handler, not a baseline line."
 
     - rule_id: baselined-file-growth
       description: A baselined code file with more code lines than at base.
@@ -104,10 +126,10 @@ validation:
       enabled: true
       parameters:
         comment_prefixes: ["#", "//"]
-        baselined_growth_text: "code lines {old} -> {new}; a baselined file only shrinks. Put the new
-          behaviour in a contract + node + handler (rulings 2026-10-01T12:36:54Z, 2026-10-15T08:14:15Z).
-          A handler file that a node contract binds leaves the baseline in the same commit and may then
-          change freely."
+        baselined_growth_text: "{path}: code lines {old} -> {new}; a baselined file only shrinks. Put
+          the new behaviour in node {node}, a contract + node + handler (rulings 2026-10-01T12:36:54Z,
+          2026-10-15T08:14:15Z). A handler file that a node contract binds leaves the baseline in the
+          same commit and may then change freely."
 
     - rule_id: burndown-baseline
       description: Names the ticketed burn-down baseline, a second shrink-only file that carries the file-rule
@@ -188,8 +210,8 @@ validation:
         suppression_patterns: ['#\s*noqa\b', '#\s*type:\s*ignore\b', '#\s*pyright:\s*ignore\b', '#\s*mypy:\s*ignore-errors\b',
           '#\s*pylint:\s*disable\b', '#\s*ruff:\s*noqa\b', '#\s*pragma:\s*(no\s+cover|allowlist)\b', '#\s*nosec\b',
           '#\s*shellcheck\s+disable\b', '#\s*yamllint\s+disable\b', '#\s*aislop:\s*ignore\b', '#\s*onex-allow',
-          '#\s*[A-Za-z][\w-]*-ok\b', 'ONEX_EXCLUD[E]', 'NOSONA[R]', 'gitleaks:allo[w]', '(//|/\*)\s*eslint-disable',
-          '@ts-(?:ignor[e]|expect-erro[r]|nochec[k])']
+          '#\s*(?!(?i:advisory-ok:\s*OMN-\d+[ \t]+\S))[A-Za-z][\w-]*-ok\b', 'ONEX_EXCLUD[E]', 'NOSONA[R]',
+          'gitleaks:allo[w]', '(//|/\*)\s*eslint-disable', '@ts-(?:ignor[e]|expect-erro[r]|nochec[k])']
         config_extensions: [".yaml", ".yml", ".toml", ".cfg", ".ini"]
         suppression_growth_text: "suppression comments {old} -> {new}; fix the code instead"
 
@@ -220,7 +242,7 @@ validation:
         gate_hook_ids: ["check-direct-model-call", "check-node-boundary-imports", "check-hardcoded-model-config-compute",
           "check-dependency-direction", "check-merge-queue-parity", "check-public-runner-placement", "check-ci-inheritance",
           "check-checker-rule-data", "check-protocol-binding", "check-event-chain-walker", "check-contract-chain-coverage",
-          "handler-di-gate"]
+          "handler-di-gate", "no-except-swallow", "no-none-guard-publish", "no-import-none-fallback"]
         node_boundary_hook_name: "check-node-boundary-imports"
         node_boundary_baseline: ".onex_ratchets/node_boundary_import_baseline.yaml"
         model_config_hook_name: "check-hardcoded-model-config-compute"
@@ -285,7 +307,8 @@ validation:
         binding_module_key: "module"
         binding_default_key: "default_handler"
         handler_outside_node_text: "handler no contract.yaml binds (handler.module, handler_routing or
-          default_handler); bind it from a node contract or move it into a node"
+          default_handler); bind it from a node contract or move it into a node. The legal home of a new
+          node is omnimarket, src/omnimarket/nodes/node_<name>/; move the handler there with its contract.yaml"
 
     - rule_id: cli_entry_outside_node
       description: An argparse main() or a [project.scripts] entry whose module is not a node runtime.
@@ -326,7 +349,8 @@ validation:
         node_home_node_class_pattern: '^Node[A-Z]\w*$'
         node_home_admitted_field: "tags"
         node_home_admitted_categories: ["validator_node", "validator_support_node"]
-        node_home_outside_market_text: "new or renamed node directory; the node moves to omnimarket instead,
+        node_home_outside_market_text: "new or renamed node directory; the node moves to omnimarket instead:
+          move the whole directory (contract.yaml, node.py, handlers/) to src/omnimarket/nodes/node_<name>/,
           unless its contract.yaml lists 'validator_node' or 'validator_support_node' under tags"
 
     - rule_id: "node-home:baseline-stale"

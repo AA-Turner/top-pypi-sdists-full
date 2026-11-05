@@ -3,6 +3,7 @@
 import asyncio
 import math
 import random
+import re
 from collections.abc import Callable, Collection, Mapping
 from contextlib import AbstractAsyncContextManager
 from http import HTTPMethod
@@ -13,6 +14,7 @@ import httpx
 
 from mistralai.vibe_agents.analytics import EXCLUDE_FROM_ANALYTICS_HEADER
 from mistralai.vibe_agents.sdk.app.config import TelemetrySettings, mistral_api_http_proxy
+from mistralai.vibe_agents.sdk.authoring.errors import SdkError
 from mistralai.vibe_agents.user_agent import USER_AGENT
 
 _DEFAULT_GET_RETRIES = 3
@@ -27,6 +29,19 @@ _UNSENT_TRANSPORT_ERRORS: tuple[type[httpx.TransportError], ...] = (
     httpx.ConnectTimeout,
     httpx.PoolTimeout,
 )
+
+
+# A Mistral API key is visible ASCII. httpx refuses a newline or control character in a header only when it
+# sends the request, and its error then prints the whole header, key included.
+_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]*")
+
+
+def _header_api_key(api_key: str, *, name: str = "The API key") -> str:
+    """Return ``api_key`` without surrounding whitespace, or raise ``SdkError`` naming ``name``, never the key."""
+    key = api_key.strip()
+    if not _API_KEY_CHARACTERS.fullmatch(key):
+        raise SdkError(f"{name} contains a space, newline, control or non-ASCII character: copy the key again")
+    return key
 
 
 def _retry_transport_error(error: httpx.TransportError, *, only_unsent: bool) -> bool:
@@ -84,7 +99,7 @@ class _InternalHTTPClient:
         # Case-insensitive, so an `authorization` in extra_headers replaces the API key instead of joining it.
         self._default_headers = httpx.Headers()
         if api_key is not None:
-            self._default_headers["Authorization"] = f"Bearer {api_key}"
+            self._default_headers["Authorization"] = f"Bearer {_header_api_key(api_key)}"
         if extra_headers:
             self._default_headers.update(extra_headers)
         self._pool = pool

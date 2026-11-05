@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 import strawberry
-from flask import Response, jsonify, request
+from flask import Flask, Response, jsonify, request
 from rich.console import Console
 
 import schemathesis
@@ -29,6 +29,7 @@ from schemathesis.core import NOT_SET
 from schemathesis.core.failures import ServerError
 from schemathesis.core.transforms import UNRESOLVABLE
 from schemathesis.reporting.crashes import MANIFEST_FILENAME, CrashCheck, CrashFile, CrashLink, CrashStep, CrashWriter
+from schemathesis.schemas import BaseSchema
 from test.apps.catalog.openapi import basic as openapi_basic
 from test.apps.catalog.openapi.modifiers.stateful import IndependentInternalError
 from test.apps.catalog.openapi.modifiers.under_declared_security import (
@@ -736,6 +737,54 @@ def test_replay_graphql_stateful_crash(cli, ctx, tmp_path):
     assert (result.exit_code, "ERROR" in result.output, "1 failed" in result.output) == (1, False, True), result.output
 
 
+@pytest.mark.parametrize(("fixed", "expected"), [(False, "x FAILED"), (True, "+ FIXED")], ids=["buggy", "fixed"])
+def test_replay_graphql_reextracts_created_ids_on_fresh_server(cli, ctx, tmp_path, fixed, expected):
+    api = ctx.graphql.apps.generic_id_pool()
+    cli.run(api.schema_url, "--max-examples=20", "--phases=stateful", "--mode=positive", "--seed=42")
+    crash_files = _list_crash_files(crash_cache_dir(tmp_path))
+    # A fresh server knows none of the recorded ids, so only an id taken from its own response reaches the bug.
+    fresh = ctx.graphql.apps.generic_id_pool(fixed=fixed)
+
+    result = cli.main("replay", f"--url={fresh.schema_url}")
+
+    assert (
+        re.findall(r"^  ([+x!] [A-Z]+)", result.stdout, re.MULTILINE),
+        [path.exists() for path in crash_files],
+    ) == ([expected] * 2, [not fixed] * 2), result.output
+
+
+def test_replay_graphql_sends_recorded_id_without_json_response(cli, ctx, app_runner, tmp_path):
+    api = ctx.graphql.apps.generic_id_pool()
+    cli.run(api.schema_url, "--max-examples=20", "--phases=stateful", "--mode=positive", "--seed=42")
+    elsewhere = Flask(__name__)
+
+    @elsewhere.route("/graphql", methods=["POST"])
+    def graphql():
+        if request.json["query"].startswith("mutation"):
+            return "unavailable"
+        return jsonify({"data": None, "errors": [{"message": "planted", "path": ["user"]}]})
+
+    port = app_runner.run_flask_app(elsewhere)
+
+    result = cli.main("replay", f"--url=http://127.0.0.1:{port}/graphql", "--keep")
+
+    assert re.findall(r'^ +2  POST  /graphql  200  ~  (\w+) = "[^"]+" \((.+)\)$', result.stdout, re.MULTILINE) == [
+        ("authorId", "recorded, not re-extracted"),
+        ("id", "recorded, not re-extracted"),
+    ], result.output
+
+
+def test_replay_graphql_lists_no_link_for_explored_id(cli, ctx, tmp_path):
+    api = ctx.graphql.apps.unknown_id_failure()
+    cli.run(api.schema_url, "--max-examples=20", "--phases=stateful", "--mode=positive", "--seed=42")
+
+    result = cli.main("replay", "--keep")
+
+    # The failing step sends a generated id instead of the one its parent created.
+    steps = re.findall(r"^ +\d+  POST  /graphql  200(.*)$", result.stdout, re.MULTILINE)
+    assert ["from step 1" in step for step in steps] == [False, True, True, False], result.output
+
+
 def test_graphql_crash_url_template_is_endpoint_url(cli, ctx, tmp_path):
     @strawberry.type
     class Query:
@@ -1318,7 +1367,7 @@ def test_replay_interrupt_exit_code(cli, app_runner, ctx, crash_factory, tmp_pat
     assert (result.exit_code, crash_file.exists()) == (130, True), result.output
 
 
-def test_summary_not_green_when_no_outcomes_ran():
+def test_summary_not_green_when_no_outcomes_ran(ctx):
     console = Console(file=io.StringIO(), force_terminal=True, color_system="standard", width=100)
     render_replay(
         crashes=[],
@@ -1327,6 +1376,7 @@ def test_summary_not_green_when_no_outcomes_ran():
         base_url=None,
         duration_ms=10,
         output_config=OutputConfig(),
+        schema=ctx.openapi.load_schema({}),
         incompatible_count=2,
         console=console,
     )
@@ -1336,6 +1386,7 @@ def test_summary_not_green_when_no_outcomes_ran():
 
 def _capture_render(
     *,
+    schema: BaseSchema,
     crashes: list[CrashFile],
     outcomes: list[ReplayOutcome],
     source: str = ".schemathesis/crashes/",
@@ -1355,13 +1406,14 @@ def _capture_render(
             base_url=base_url,
             duration_ms=duration_ms,
             output_config=OutputConfig(),
+            schema=schema,
             removal_count=removal_count,
             console=console,
         )
     return buffer.getvalue()
 
 
-def test_render_unit_fixed(snapshot, crash_factory):
+def test_render_unit_fixed(ctx, snapshot, crash_factory):
     crashes = [
         crash_factory.single(
             path="/users",
@@ -1371,10 +1423,10 @@ def test_render_unit_fixed(snapshot, crash_factory):
         )
     ]
     outcomes = [ReplayOutcome(status=ReplayStatus.FIXED, duration_ms=142)]
-    assert _capture_render(crashes=crashes, outcomes=outcomes) == snapshot
+    assert _capture_render(schema=ctx.openapi.load_schema({}), crashes=crashes, outcomes=outcomes) == snapshot
 
 
-def test_render_error_outcome(snapshot, crash_factory):
+def test_render_error_outcome(ctx, snapshot, crash_factory):
     crashes = [
         crash_factory.single(
             path="/accounts/{id}/verify",
@@ -1390,10 +1442,10 @@ def test_render_error_outcome(snapshot, crash_factory):
             error_message="extraction failed at step 2 - $response.body#/id not found",
         )
     ]
-    assert _capture_render(crashes=crashes, outcomes=outcomes) == snapshot
+    assert _capture_render(schema=ctx.openapi.load_schema({}), crashes=crashes, outcomes=outcomes) == snapshot
 
 
-def test_render_removal_notice(snapshot, crash_factory):
+def test_render_removal_notice(ctx, snapshot, crash_factory):
     crashes = [
         crash_factory.single(
             path="/users",
@@ -1403,10 +1455,13 @@ def test_render_removal_notice(snapshot, crash_factory):
         )
     ]
     outcomes = [ReplayOutcome(status=ReplayStatus.FIXED, duration_ms=142)]
-    assert _capture_render(crashes=crashes, outcomes=outcomes, removal_count=5) == snapshot
+    assert (
+        _capture_render(schema=ctx.openapi.load_schema({}), crashes=crashes, outcomes=outcomes, removal_count=5)
+        == snapshot
+    )
 
 
-def test_render_step_chain(snapshot, crash_factory, response_factory):
+def test_render_step_chain(ctx, snapshot, crash_factory, response_factory):
     # Step rows colour each status and flag a body change even when the recorded body is invalid JSON.
     crash = crash_factory.chain(
         steps=[
@@ -1441,7 +1496,7 @@ def test_render_step_chain(snapshot, crash_factory, response_factory):
             ],
         )
     ]
-    assert _capture_render(crashes=crashes, outcomes=outcomes) == snapshot
+    assert _capture_render(schema=ctx.openapi.load_schema({}), crashes=crashes, outcomes=outcomes) == snapshot
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -1602,6 +1657,38 @@ def test_replay_query_link_param_falls_back_to_recorded_when_unresolvable(
 
     assert cli.main("replay", "--keep") == snapshot_cli
     assert received == ["recorded"]
+
+
+@pytest.mark.parametrize("consumer", ["path", "body"])
+@pytest.mark.parametrize("fresh_ids", [[1, 2], [3, 4]], ids=["recorded-match", "first-match"])
+def test_replay_inferred_list_link_uses_live_wildcard_match(cli, ctx, tmp_path, fresh_ids, consumer):
+    api = ctx.openapi.apps.replay_inferred_list_link(item_ids=[1, 2], failing=True, consumer=consumer)
+    cli.run(api.schema_url, "--phases=stateful", "--max-examples=10", "--seed=1")
+    crash_dir = crash_cache_dir(tmp_path)
+    [crash_file] = _list_crash_files(crash_dir)
+    crash = json.loads(crash_file.read_text())
+    assert crash["sequence"][0]["response"]["body"] == '{"data":[{"id":1},{"id":2}]}\n'
+    target = crash["sequence"][1]
+    recorded_id = (
+        target["path_parameters"]["itemId"]
+        if consumer == "path"
+        else target["case_body"]["value"]["lines"][0]["itemId"]
+    )
+    fresh = ctx.openapi.apps.replay_inferred_list_link(item_ids=fresh_ids, failing=False, consumer=consumer)
+
+    result = cli.main("replay", f"--url={fresh.base_url}")
+
+    sent = [
+        int(request.path.rsplit("/", 1)[1]) if consumer == "path" else request.json()["lines"][0]["itemId"]
+        for request in fresh.requests
+        if request.path != "/items"
+    ]
+    expected_id = recorded_id if recorded_id in fresh_ids else fresh_ids[0]
+    assert (
+        re.findall(r"^  ([+x!] [A-Z]+)", result.stdout, re.MULTILINE),
+        sent,
+        len(_list_crash_files(crash_dir)),
+    ) == (["+ FIXED"], [expected_id] * 3, 0), result.output
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)

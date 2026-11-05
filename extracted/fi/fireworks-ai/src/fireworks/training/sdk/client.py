@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import re
 import json
+import math
 import time
 import uuid
 import base64
@@ -40,6 +41,7 @@ from pydantic import Field, BaseModel, field_validator
 from fireworks.training.sdk import types
 from fireworks.training.sdk._core import APIStatusError, SamplingClient
 from fireworks.training.sdk._core._compat import model_dump as _training_model_dump
+from fireworks.training.sdk.tokenizer_identity import is_deepseek_v4_model_name, requires_code_free_tokenizer_loading
 
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizerBase
@@ -1596,6 +1598,7 @@ class FiretitanTrainingClient(TrainingClient):
         self._saved_state_names: set[str] = set()
         self._sampler_backend: Any | None = None
         self._tokenizer_model: str | None = None
+        self._tokenizer_base_model: str | None = None
         self._lora_rank = lora_rank
         self._sampler_checkpoint_saved = False
         self._first_sampler_checkpoint_type = self._normalize_sampler_checkpoint_type(first_sampler_checkpoint_type)
@@ -3104,6 +3107,13 @@ class FiretitanTrainingClient(TrainingClient):
         # lazy: tokenizer downloads are optional; transport needs no transformers.
         from transformers import AutoTokenizer
 
+        if is_deepseek_v4_model_name(
+            getattr(self, "_tokenizer_base_model", None)
+        ) or requires_code_free_tokenizer_loading(self._tokenizer_model):
+            # Recognized official DeepSeek V4 data ships no remote code; an
+            # explicit False resolves the identical tokenizer class and keeps
+            # any checkpoint-staged Python inert.
+            return AutoTokenizer.from_pretrained(self._tokenizer_model, trust_remote_code=False)
         return AutoTokenizer.from_pretrained(self._tokenizer_model)
 
     def create_base_training_client(
@@ -3358,6 +3368,73 @@ class FiretitanServiceClient(ServiceClient):
         session this service owns, for CP ops (GetTrainingSession, checkpoint
         list/promote, DeleteTrainingSession). None for non-serverless services."""
         return self._serverless_training_session_name(self._current_session_id())
+
+    def _reports_client_metrics(self) -> bool:
+        """Whether this service should append script metrics to its trainer job.
+
+        A serverless session shares one trainer, so its loss does not belong on
+        that job. A managed SFT or DPO job already records metrics on the
+        parent; the child trainer is marked with ``managed_by``. A customer
+        RLOR job has neither.
+        """
+        if self.training_session_id is not None:
+            return False
+        config = getattr(self, "_managed_config", None)
+        managed_by = getattr(config, "managed_by", None)
+        return not (isinstance(managed_by, str) and managed_by)
+
+    def log_training_metrics(self, record: dict[str, Any]) -> None:
+        """Append one training-script metric record onto a customer RLOR job.
+
+        Serverless sessions and managed child trainers return without writing.
+        ``record`` is the dictionary ``log_metrics`` already sends to W&B,
+        including ``step``.
+        """
+        if not self._reports_client_metrics():
+            return
+        step = record.get("step")
+        if isinstance(step, bool) or not isinstance(step, (int, float)):
+            raise ValueError("metric record is missing a numeric step")
+        metrics: dict[str, float] = {}
+        for key, value in record.items():
+            if key in {"step", "session_id"}:
+                continue
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            number = float(value)
+            if not math.isfinite(number):
+                continue
+            metrics[str(key)] = number
+        if not metrics:
+            return
+        if not self._fireworks_api_key:
+            raise RuntimeError("Cannot report training metrics without a Fireworks API key")
+        # lazy: fireworks_client imports the service client
+        from fireworks.training.sdk.fireworks_client import FireworksClient
+
+        with FireworksClient(
+            api_key=self._fireworks_api_key,
+            base_url=_fireworks_api_root_url(getattr(self, "_managed_base_url", None)),
+            additional_headers=getattr(self, "_managed_additional_headers", None),
+        ) as fw_client:
+            # "unset" is the missing-cache sentinel from getattr, not an account id.
+            # Dedicated trainers usually have not called _resolved_account_id yet.
+            cached = getattr(self, "_cp_account_id", "unset")
+            if cached == "unset":
+                # One attempt. The default account lookup retries for five
+                # minutes, which would stall the training step.
+                account = fw_client._resolve_account_id(max_wait_time=0)
+                self._cp_account_id = account
+            else:
+                account = cached
+            if not isinstance(account, str) or not account:
+                raise RuntimeError("Cannot report training metrics without a resolved account id")
+            name = f"accounts/{account}/rlorTrainerJobs/{self.trainer_job_id}"
+            body_record: dict[str, Any] = {"step": int(step), "metrics": metrics}
+            session_id = record.get("session_id")
+            if isinstance(session_id, str) and session_id:
+                body_record["session_id"] = session_id
+            fw_client.log_rlor_trainer_job_metrics(name, [body_record])
 
     def delete_training_session(self) -> None:
         """Close this service's serverless training session, releasing its
@@ -4059,6 +4136,9 @@ class FiretitanServiceClient(ServiceClient):
                     create_model_kwargs["projection_head_dim"] = configured_projection_head_dim
                 training_client = managed_handle.service_client.create_training_client(**create_model_kwargs)
                 training_client._tokenizer_model = managed_config.tokenizer_model
+                training_client._tokenizer_base_model = (
+                    "deepseek_v4" if managed_config.base_model_type == "deepseek_v4" else managed_config.base_model
+                )
                 if managed_handle.sampler_backend is not None:
                     training_client._attach_sampler_backend(managed_handle.sampler_backend)
                 managed_handle.training_clients.append(training_client)
@@ -4066,7 +4146,9 @@ class FiretitanServiceClient(ServiceClient):
 
         if managed_config is not None:
             if base_model is not None:
-                _warn_deprecated_override("create_training_client", "base_model", base_model, managed_config.base_model)
+                _warn_deprecated_override(
+                    "create_training_client", "base_model", base_model, managed_config.base_model
+                )
             _warn_deprecated_override("create_training_client", "lora_rank", lora_rank, managed_config.lora_rank)
             if projection_head_dim is not None and projection_head_dim != managed_config.projection_head_dim:
                 raise ValueError(
@@ -4794,7 +4876,9 @@ class FiretitanServiceClient(ServiceClient):
             )
 
         ready = deploy_mgr.wait_for_ready(resolved_config.deployment_id, timeout_s=timeout_s)
-        model = ready.inference_model or f"accounts/{deploy_mgr.account_id}/deployments/{resolved_config.deployment_id}"
+        model = (
+            ready.inference_model or f"accounts/{deploy_mgr.account_id}/deployments/{resolved_config.deployment_id}"
+        )
         return self.create_deployment_sampler_for_model(
             model,
             tokenizer=tokenizer,

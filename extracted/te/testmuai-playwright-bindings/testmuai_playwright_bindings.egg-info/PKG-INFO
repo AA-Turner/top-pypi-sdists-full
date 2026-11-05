@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testmuai-playwright-bindings
-Version: 0.1.53
+Version: 0.1.54
 Summary: TestMu binding for Playwright Python — thin test runtime for TestMu-exported tests on the LambdaTest grid
 Author-email: TestMu AI <engineering@testmu.ai>
 License-Expression: MIT
@@ -30,6 +30,7 @@ Requires-Dist: websockets>=12
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: jsonschema>=4.18.0
 Requires-Dist: python-jsonpath>=2.2.1
+Requires-Dist: lambdatest-sdk-utils>=1.0.5
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
@@ -153,7 +154,8 @@ class is identical in both modes and is exported as the real class.
 - **`@testmu.test`** — decorator that wraps async Playwright tests with session lifecycle management
 - **`testmu.step(...)`** — context manager for structured test steps
 - **`testmu.var()` / `testmu.set_var()`** — template-based variable resolution (with ATMS lookup when authed)
-- **Helpers** — `execute_js`, `execute_api`, `execute_db`, `vision_query`, `network_query`, `smartui_snapshot_async`, and more
+- **Helpers** — `execute_js`, `execute_api`, `execute_db`, `vision_query`, `network_query`, `smartui_snapshot`, and more
+- **SmartUI snapshots** — `smartui_snapshot(page, name)` captures through a running SmartUI server (`npx smartui exec:start`) at `SMARTUI_SERVER_ADDRESS` (default `http://localhost:49152`). With no server answering, the step skips with a warning; a SmartUI error is logged and never fails the step
 - **Reporters** — local console reporter and TestMu cloud reporter (LambdaTest dashboard)
 - **Self-healing locators** — automatic locator recovery via heal patch (when smart mode enabled)
 - **Replayed reads** — `textual_analyzer` re-reads an answer that disagrees with its expected answer until it holds (budget above), and a drift heal re-derives the extraction from the query. Its optional `variables={name: value}` fills `{{name}}` references in the recorded code (JS-escaped) and in the query, condition and expected value before the read runs

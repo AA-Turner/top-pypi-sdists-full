@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pystac
-Version: 1.15.2
+Version: 1.16.0
 Summary: Python library for working with the SpatioTemporal Asset Catalog (STAC) specification
 Project-URL: Documentation, https://pystac.readthedocs.io
 Project-URL: Repository, https://github.com/stac-utils/pystac
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
-Requires-Dist: pystac-core<2,>=1.15.0
+Requires-Dist: pystac-core<2,>=1.15.2
 Requires-Dist: pystac-ext-classification
 Requires-Dist: pystac-ext-datacube
 Requires-Dist: pystac-ext-eo
@@ -124,8 +124,8 @@ The core PySTAC API follows [Semantic Versioning](https://semver.org/).
 As of [Spring 2026](https://github.com/stac-utils/pystac/pull/1650), our [extension](https://stac-extensions.github.io/) implementations have moved to their own Python packages, so they can be versioned independently of the core PySTAC API.
 Breaking changes to the API of extension packages are _not_ considered breaking changes for the purposes of PySTAC versioning.
 
-The STAC extension packages' version will match the version extension itself, e.g. **pystac-ext-projection** v2.0.0 corresponds to the [v2.0.0](https://github.com/stac-extensions/projection/releases/tag/v2.0.0) release of the **projection** extension.
-Any changes to the software (not the extension) will be released via [post releases](https://packaging.python.org/en/latest/discussions/versioning/#valid-version-numbers).
+The STAC extension packages' MAJOR and MINOR versions will match the version extension itself, e.g. **pystac-ext-projection** v2.0.0 corresponds to the [v2.0.0](https://github.com/stac-extensions/projection/releases/tag/v2.0.0) release of the **projection** extension.
+Any changes to the software (not the extension) will be released via [PATCH releases](https://packaging.python.org/en/latest/discussions/versioning/#valid-version-numbers).
 
 ## Documentation
 

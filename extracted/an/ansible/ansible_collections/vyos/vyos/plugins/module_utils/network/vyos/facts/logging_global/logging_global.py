@@ -5,7 +5,6 @@
 
 from __future__ import absolute_import, division, print_function
 
-
 __metaclass__ = type
 
 """
@@ -15,7 +14,6 @@ for a given resource, parsed, and the facts tree is populated
 based on the configuration.
 """
 
-from ansible.module_utils.six import iteritems
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common import utils
 
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.argspec.logging_global.logging_global import (
@@ -24,6 +22,13 @@ from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.argspec.log
 from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.rm_templates.logging_global import (
     Logging_globalTemplate,
 )
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.rm_templates.logging_global_15 import (
+    Logging_globalTemplate15,
+)
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.utils.version import (
+    LooseVersion,
+)
+from ansible_collections.vyos.vyos.plugins.module_utils.network.vyos.vyos import get_os_version
 
 
 class Logging_globalFacts(object):
@@ -38,7 +43,7 @@ class Logging_globalFacts(object):
 
     def process_facts(self, objFinal):
         if objFinal:
-            for ke, vl in iteritems(objFinal):
+            for ke, vl in objFinal.items():
                 if ke == "files":
                     _files = []
                     for k, v in vl.items():
@@ -81,8 +86,17 @@ class Logging_globalFacts(object):
         if not data:
             data = self.get_logging_data(connection)
 
-        # parse native config using the Logging_global template
-        logging_global_parser = Logging_globalTemplate(lines=data.splitlines(), module=self._module)
+        if LooseVersion(get_os_version(self._module)) >= LooseVersion("1.5"):
+            logging_global_parser = Logging_globalTemplate15(
+                lines=data.splitlines(),
+                module=self._module,
+            )
+        else:
+            logging_global_parser = Logging_globalTemplate(
+                lines=data.splitlines(),
+                module=self._module,
+            )
+
         objs = logging_global_parser.parse()
         ansible_facts["ansible_network_resources"].pop("logging_global", None)
         objs = self.process_facts(objs)

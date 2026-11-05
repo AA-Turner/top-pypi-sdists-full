@@ -33,10 +33,6 @@ public:
 		std::string content,
 		std::optional<double> flags,
 		std::optional<double> fuel);
-
-	// Turns a JSON AST back into the markdown it came from; throws a JS error if the AST is
-	// malformed. Takes what `parseToAstString` produced, `$bigint` wrappers and all.
-	std::string unparseFromAstString(jsi::Runtime &rt, std::string ast);
 };
 
 } // namespace facebook::react

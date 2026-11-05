@@ -11,6 +11,7 @@ from typing_extensions import Sentinel
 from datamodel_code_generator._records import record
 from datamodel_code_generator._regex_syntax import needs_python_engine
 from datamodel_code_generator._requirements import pydantic_target_meets
+from datamodel_code_generator.python_literal import stable_repr
 
 if TYPE_CHECKING:
     from datamodel_code_generator.types import DataType
@@ -75,8 +76,8 @@ class PatternPropertiesRule:
 
         A pattern of a type the rule names is checked by the adapter the helper builds for it, which has no model
         config; the adapter row of ``needs_python_engine`` selects the engine there (a model's row keeps the default
-        engine for a verbose pattern and for syntax newer than its target Python). A type alias has no config either,
-        so the string patterns of the aliases a type names count as its own.
+        engine for a verbose pattern that Rust accepts). A type alias has no config either, so the string patterns of
+        the aliases a type names count as its own.
         """
         return tuple(
             index for index, data_type in enumerate(self.data_types) if _needs_python_regex_engine(data_type, set())
@@ -222,10 +223,10 @@ class SchemaRuntimeValidation:
                 )
                 for rule in self.pattern_properties
             ),
-            repr(self.required_groups),
-            repr(self.conditional_required),
-            repr(self.property_count),
-            repr(self.unique_items),
+            stable_repr(self.required_groups),
+            stable_repr(self.conditional_required),
+            stable_repr(self.property_count),
+            stable_repr(self.unique_items),
             self.replace_unique_items,
         )
 

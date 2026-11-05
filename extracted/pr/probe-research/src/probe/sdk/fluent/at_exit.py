@@ -110,15 +110,18 @@ def _launcher_finalizes(run: "Run") -> bool:
 
 def _close_for_preemption() -> None:
     """A SIGTERM is ending this process (:mod:`probe.sdk.run.launch.preempt`, on its
-    worker thread): close what :func:`_finish_at_exit` would close, ``failed``.
-    `Run.finish` adds the preemption's facts and holds each close to the
-    budget."""
+    worker thread): close what :func:`_finish_at_exit` would close, with the
+    ending's verdict (``canceled`` or ``failed``). `Run.finish` adds the
+    preemption's facts and holds each close to the budget."""
     if not _in_hooks_process():
         return
+    from ..run.launch import preempt
+
+    ending = preempt.ending()
     # Recorded, so a finalizing launcher's child still speaks (the launcher
     # never learns the SIGTERM), and no exit span from here: `Run.finish`
     # writes the preemption's own.
-    _record_exit("failed")
+    _record_exit(ending.get_status() if ending is not None else "failed")
     _finish_at_exit()
 from probe.sdk.fluent.attach import _nonzero_global_rank  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.fluent.exit import (  # noqa: E402 -- pieces need each other; the front door loads this one first

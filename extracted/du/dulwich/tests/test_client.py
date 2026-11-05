@@ -56,6 +56,7 @@ from dulwich.client import (
     SubprocessSSHVendor,
     TCPGitClient,
     TraditionalGitClient,
+    TransportNotAllowed,
     Urllib3HttpGitClient,
     _buffer_or_stream,
     _download_packfile_from_uri,
@@ -68,6 +69,7 @@ from dulwich.client import (
     _win32_url_to_path,
     build_fetch_request_v2,
     build_ls_refs_request_v2,
+    check_transport_allowed,
     check_wants,
     default_urllib3_manager,
     default_user_agent_string,
@@ -110,6 +112,54 @@ class DeprecatedReexportTests(TestCase):
                 with self.assertWarns(DeprecationWarning):
                     obj = getattr(client, name)
                 self.assertIs(getattr(bundle_uri, name), obj)
+
+
+class SidebandSanitizationTests(TestCase):
+    """Tests for terminal-control filtering on sideband progress/fatal data."""
+
+    def _pkt(self, chan: int, data: bytes) -> bytes:
+        return bytes([chan]) + data
+
+    def test_progress_strips_ansi(self) -> None:
+        from dulwich.client import _read_side_band64k_data
+        from dulwich.protocol import (
+            SIDE_BAND_CHANNEL_PROGRESS,
+        )
+
+        payload = b"progress\x1b[2J\x1b]0;hacked\x07 90%"
+        pkts = [self._pkt(SIDE_BAND_CHANNEL_PROGRESS, payload)]
+        result = list(_read_side_band64k_data(pkts))
+        self.assertEqual(
+            result,
+            [(SIDE_BAND_CHANNEL_PROGRESS, b"progress?[2J?]0;hacked? 90%")],
+        )
+
+    def test_fatal_strips_ansi(self) -> None:
+        from dulwich.client import _read_side_band64k_data
+        from dulwich.protocol import SIDE_BAND_CHANNEL_FATAL
+
+        pkts = [self._pkt(SIDE_BAND_CHANNEL_FATAL, b"nope\x1b[31mred")]
+        result = list(_read_side_band64k_data(pkts))
+        self.assertEqual(result, [(SIDE_BAND_CHANNEL_FATAL, b"nope?[31mred")])
+
+    def test_data_channel_untouched(self) -> None:
+        from dulwich.client import _read_side_band64k_data
+        from dulwich.protocol import SIDE_BAND_CHANNEL_DATA
+
+        # Pack data on channel 1 is binary; it must not be rewritten.
+        payload = b"\x1b\x00\x01\x02binary"
+        pkts = [self._pkt(SIDE_BAND_CHANNEL_DATA, payload)]
+        result = list(_read_side_band64k_data(pkts))
+        self.assertEqual(result, [(SIDE_BAND_CHANNEL_DATA, payload)])
+
+    def test_progress_keeps_cr_lf_bs_tab(self) -> None:
+        from dulwich.client import _read_side_band64k_data
+        from dulwich.protocol import SIDE_BAND_CHANNEL_PROGRESS
+
+        payload = b"line1\n\rprogress\t50%\x08\x08\x0875%"
+        pkts = [self._pkt(SIDE_BAND_CHANNEL_PROGRESS, payload)]
+        result = list(_read_side_band64k_data(pkts))
+        self.assertEqual(result, [(SIDE_BAND_CHANNEL_PROGRESS, payload)])
 
 
 class DummyClient(TraditionalGitClient):
@@ -3637,6 +3687,106 @@ class RsyncUrlTests(TestCase):
 
     def test_path(self) -> None:
         self.assertRaises(ValueError, parse_rsync_url, "/path")
+
+
+class CheckTransportAllowedTests(TestCase):
+    def check(self, location, config=None, from_user=True) -> None:
+        client, _ = get_transport_and_path(location, config=config)
+        check_transport_allowed(client, config=config, from_user=from_user)
+
+    def test_defaults_from_user(self) -> None:
+        for location in (
+            "https://example.com/repo.git",
+            "http://example.com/repo.git",
+            "git://example.com/repo",
+            "ssh://example.com/repo",
+            "git@example.com:repo.git",
+            "/srv/repo",
+            "file:///srv/repo",
+        ):
+            self.check(location, from_user=True)
+
+    def test_defaults_not_from_user(self) -> None:
+        for location in (
+            "https://example.com/repo.git",
+            "http://example.com/repo.git",
+            "git://example.com/repo",
+            "ssh://example.com/repo",
+            "git@example.com:repo.git",
+        ):
+            self.check(location, from_user=False)
+        for location in ("/srv/repo", "file:///srv/repo"):
+            self.assertRaises(
+                TransportNotAllowed,
+                self.check,
+                location,
+                from_user=False,
+            )
+
+    def test_config_file_always(self) -> None:
+        config = ConfigFile()
+        config.set((b"protocol", b"file"), b"allow", b"always")
+        self.check("/srv/repo", config=config, from_user=False)
+
+    def test_config_never(self) -> None:
+        config = ConfigFile()
+        config.set((b"protocol", b"https"), b"allow", b"never")
+        self.assertRaises(
+            TransportNotAllowed,
+            self.check,
+            "https://example.com/repo.git",
+            config=config,
+            from_user=True,
+        )
+
+    def test_config_global_user(self) -> None:
+        config = ConfigFile()
+        config.set((b"protocol",), b"allow", b"user")
+        self.check("https://example.com/repo.git", config=config, from_user=True)
+        self.assertRaises(
+            TransportNotAllowed,
+            self.check,
+            "https://example.com/repo.git",
+            config=config,
+            from_user=False,
+        )
+
+    def test_config_protocol_overrides_global(self) -> None:
+        config = ConfigFile()
+        config.set((b"protocol",), b"allow", b"never")
+        config.set((b"protocol", b"file"), b"allow", b"always")
+        self.check("/srv/repo", config=config, from_user=False)
+
+        config = ConfigFile()
+        config.set((b"protocol",), b"allow", b"always")
+        config.set((b"protocol", b"https"), b"allow", b"never")
+        self.assertRaises(
+            TransportNotAllowed,
+            self.check,
+            "https://example.com/repo.git",
+            config=config,
+        )
+
+    def test_config_insteadof(self) -> None:
+        config = ConfigFile()
+        config.set((b"url", b"/srv/"), b"insteadOf", b"https://example.com/")
+        self.assertRaises(
+            TransportNotAllowed,
+            self.check,
+            "https://example.com/repo.git",
+            config=config,
+            from_user=False,
+        )
+
+    def test_config_invalid_value(self) -> None:
+        config = ConfigFile()
+        config.set((b"protocol",), b"allow", b"sometimes")
+        self.assertRaises(
+            ValueError,
+            self.check,
+            "https://example.com/repo.git",
+            config=config,
+        )
 
 
 class CheckWantsTests(TestCase):

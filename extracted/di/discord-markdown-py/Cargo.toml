@@ -14,7 +14,6 @@ members = ["ffi/py", "packages/confusables", "packages/emoji", "packages/variant
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-aho-corasick = "1.1.5"
 derive-where = "1.7.0"
 discord-confusables = { version = "0.1.0", path = "packages/confusables" }
 discord-emoji = { version = "0.1.0", path = "packages/emoji" }
@@ -22,7 +21,6 @@ enumset = { version = "1.1.5", features = ["alloc"] }
 icu_properties = "2.2.0"
 itertools = "0.14.0"
 memchr = "2.7.4"
-nom = "8.0.0"
 serde = { version = "1.0.204", optional = true, features = ["derive"] }
 tracing = "0.1.41"
 url = "2.5.0"
@@ -31,7 +29,6 @@ variant-struct = { version = "0.1.0", path = "packages/variant-struct" }
 [dev-dependencies]
 discord-markdown = { path = ".", features = ["serde"] }
 gungraun = "0.20.0"
-nom-language = "0.1.0"
 ntest = "^0.9"
 pretty_assertions = "1.4.0"
 serde_json = "1.0.120"

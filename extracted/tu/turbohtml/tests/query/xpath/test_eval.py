@@ -14,6 +14,7 @@ construction (mirroring ``lxml.etree.XPath``).
 from __future__ import annotations
 
 import gc
+import subprocess  # ruff:ignore[suspicious-subprocess-import]
 import sys
 from functools import partial
 from operator import ge, gt, le, lt
@@ -860,6 +861,50 @@ def test_deep_operator_spine_raises_instead_of_overflowing(doc: turbohtml.Node, 
     # spine; the depth cap raises before the C stack overflows (issue #421)
     with pytest.raises(ValueError, match="nested too deeply"):
         doc.xpath(expr)
+
+
+@pytest.mark.parametrize(
+    "expr",
+    [
+        pytest.param(" | ".join(["//p"] * 5000), id="xpath-union"),
+        pytest.param(css_to_xpath(",".join(["p"] * 1100)), id="css-selector-list"),
+    ],
+)
+def test_long_union_chain_evaluates(doc: turbohtml.Node, expr: str) -> None:
+    # the evaluator walks a union spine instead of recursing per operand, so a long
+    # selector list does not hit the depth cap
+    assert doc.xpath(expr) == doc.xpath("//p")
+
+
+@pytest.mark.parametrize(
+    "expr",
+    [
+        pytest.param("(" + "+".join(["1"] * 5000) + ") | //p", id="first-operand"),
+        pytest.param("//p | (" + "+".join(["1"] * 5000) + ") | //p", id="middle-operand"),
+    ],
+)
+def test_deep_union_operand_still_raises(doc: turbohtml.Node, expr: str) -> None:
+    with pytest.raises(ValueError, match="nested too deeply"):
+        doc.xpath(expr)
+
+
+def test_long_union_in_predicate_needs_no_c_stack() -> None:
+    # the //X collapse scans each predicate for position()/last(); a union spine there is as deep as it is long
+    code = (
+        "import threading, turbohtml\n"
+        "doc = turbohtml.parse('<p><a/></p><p></p>')\n"
+        "expr = '//p[' + ' | '.join(['a'] * 10000) + ']'\n"
+        "result = []\n"
+        "threading.stack_size(128 * 1024)\n"
+        "worker = threading.Thread(target=lambda: result.append(len(doc.xpath(expr))))\n"
+        "worker.start()\n"
+        "worker.join()\n"
+        "print(result[0])\n"
+    )
+    result = subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=120, check=False
+    )
+    assert (result.returncode, result.stdout) == (0, "1\n"), result.stderr
 
 
 def test_moderately_nested_expression_still_evaluates(doc: turbohtml.Node) -> None:

@@ -60,6 +60,7 @@ from mistralai.vibe.harness.runtime.tools import (
 from mistralai.vibe.harness.runtime.tools.handler import FilesystemHandler
 from mistralai.vibe_agents.sdk.app.config import KOYEB_SANDBOX_SETUP_FRESH_SANDBOX_ATTEMPTS
 from mistralai.vibe_agents.sdk.authoring import contracts, session_input
+from mistralai.vibe_agents.sdk.sandbox.metrics import NOOP_SANDBOX_METRICS, SandboxMetrics
 
 if TYPE_CHECKING:
     from mistralai.vibe_agents.sdk.app.worker.sandbox_lifecycle import SandboxLifecycle
@@ -100,6 +101,7 @@ class AgentsSdkSandbox(WorkflowSandboxHostPort):
         proxy_identity: dict[str, str] | None = None,
         terminal_hook_failures: bool = False,
         lifecycle: SandboxLifecycle | None = None,
+        metrics: SandboxMetrics = NOOP_SANDBOX_METRICS,
     ) -> None:
         self.definition = definition
         self.config = config
@@ -107,6 +109,7 @@ class AgentsSdkSandbox(WorkflowSandboxHostPort):
         self._proxy_identity = proxy_identity
         self._terminal_hook_failures = terminal_hook_failures
         self._lifecycle = lifecycle
+        self._metrics = metrics
         self._custom: contracts.CustomSandbox | None = None
         self._koyeb_driver: KoyebSandboxDriver | None = None
         self._session_inputs: Mapping[str, JsonValue] = {}
@@ -152,6 +155,7 @@ class AgentsSdkSandbox(WorkflowSandboxHostPort):
                 self._authored,
                 restored_state,
                 proxy_identity=self._proxy_identity,
+                metrics=self._metrics,
             )
             if restored_state is not None and self._lifecycle is not None:
                 self._lifecycle.reattach(self._koyeb_driver)
@@ -333,6 +337,7 @@ def compile_sandbox(
     session_id: str | None = None,
     terminal_hook_failures: bool = False,
     lifecycle: SandboxLifecycle | None = None,
+    metrics: SandboxMetrics = NOOP_SANDBOX_METRICS,
 ) -> AgentsSdkSandbox:
     """Compile SDK-owned sandbox authoring into one Vibe resource definition.
 
@@ -403,6 +408,7 @@ def compile_sandbox(
         proxy_identity=proxy_identity,
         terminal_hook_failures=terminal_hook_failures,
         lifecycle=lifecycle,
+        metrics=metrics,
     )
 
 

@@ -3,12 +3,17 @@ send what the child read and wrote."""
 
 from __future__ import annotations
 import os
+import shutil
 import socket
 import subprocess
+import tempfile
 import time
 import warnings
-from ...recording_rules import ignore as _ignore
+from ...recording_rules import recording_rules as _ignore
 from . import launch as _launch
+from . import preempt as _preempt
+from . import program as _program
+from .oom import OomCounter
 from ...capture.logs import stream as _logstream
 from ...capture import outputs as _outputs
 
@@ -195,6 +200,18 @@ class ExecuteMixin:
                 process_env[_ignore.ENV_EXPORTED] = _ignore.join_lines(
                     [*_ignore.split_lines(process_env.get(_ignore.ENV_EXPORTED)), *self._ignore_patterns]
                 )
+        # How the child ends, as only it can tell (a SIGTERM's sender) and as this machine counts it
+        # (OOM kills): `_read_exit_verdict`. An outer launcher's note folder is never passed on.
+        note_folder = None
+        oom = None
+        process_env.pop(_preempt.EXIT_NOTE_ENV, None)
+        if finalize:
+            oom = OomCounter()
+            try:
+                note_folder = tempfile.mkdtemp(prefix="probe-exit-")
+                process_env[_preempt.EXIT_NOTE_ENV] = note_folder
+            except OSError:
+                note_folder = None
         log_stats = None
         try:
             if log_path is not None:
@@ -214,8 +231,10 @@ class ExecuteMixin:
                     teed_env={_outputs.LOG_OWNER_ENV: socket.gethostname()},
                 )
             else:
-                result = subprocess.run(argv, cwd=cwd, env=process_env, check=False)
+                # Here, or by the `probe` shim when this runs in the service (T42).
+                result = _program.run_program(argv, cwd=cwd, env=process_env)
         except BaseException as exc:
+            _remove_folder(note_folder)
             if reads_child:
                 self._finalize_child_reads(interrupted=True)
             if capture is not None:
@@ -249,6 +268,20 @@ class ExecuteMixin:
                 except Exception:  # noqa: BLE001 -- the interrupt must still propagate
                     pass
             raise
+        verdict = _read_exit_verdict(result.returncode, note_folder, oom)
+        _remove_folder(note_folder)
+        stopped = verdict == "canceled" and result.returncode < 0
+        if finalize and stopped:
+            # Before the sweep: a killed SDK child's own lease, reported gone by the watcher,
+            # would count `crashed` over this verdict (`_release_dead_writer`).
+            self._release_dead_writer(verdict)
+        attributes = {
+            "argv": scrubbed_argv,
+            "cwd": os.path.abspath(cwd or os.getcwd()),
+            "exit_code": result.returncode,
+        }
+        if stopped:
+            attributes["reason"] = _preempt.STOPPED_REASON
         self.span(
             "process",
             id=span_id,
@@ -256,11 +289,7 @@ class ExecuteMixin:
             status="completed" if result.returncode == 0 else "failed",
             started_at=started_at,
             ended_at=_now(),
-            attributes={
-                "argv": scrubbed_argv,
-                "cwd": os.path.abspath(cwd or os.getcwd()),
-                "exit_code": result.returncode,
-            },
+            attributes=attributes,
         )
         # 0205. The launcher is the DESIGNATED FINALIZER for a wrapped run: it
         # is the only party holding the child's exit code. Before this, execute()
@@ -307,10 +336,7 @@ class ExecuteMixin:
             # In a `finally`: a Ctrl-C during the sweep must not cost the run
             # the child's exit code.
             if finalize:
-                self.set_status(
-                    _status_for_exit(result.returncode),
-                    only_if_running=True,
-                )
+                self.set_status(verdict, only_if_running=True)
         return result
 
     def _finalize_child_reads(self, *, interrupted: bool = False) -> None:
@@ -348,5 +374,22 @@ class ExecuteMixin:
                 self._client.hand_off_delivery()
         except Exception:  # noqa: BLE001
             pass
+
+
+def _read_exit_verdict(returncode: int, note_folder: str | None, oom: OomCounter | None) -> str:
+    """The run's status from the child's exit (`_status_for_exit`): its own note for a SIGTERM,
+    the OOM counter for a SIGKILL -- unless this launcher is itself being stopped."""
+    if _preempt.ending() is not None:
+        return _status_for_exit(returncode)
+    note = _preempt.read_exit_note(note_folder) if note_folder else None
+    unchanged = oom is not None and oom.is_unchanged()
+    return _status_for_exit(returncode, note=note, is_oom_unchanged=unchanged)
+
+
+def _remove_folder(folder: str | None) -> None:
+    if folder:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 from probe.sdk.run.closing.status import _status_for_exit  # noqa: E402 -- pieces need each other; the front door loads this one first
 from probe.sdk.run.metrics.values import _now  # noqa: E402 -- pieces need each other; the front door loads this one first

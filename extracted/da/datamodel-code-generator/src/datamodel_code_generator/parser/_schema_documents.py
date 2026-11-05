@@ -33,9 +33,11 @@ from urllib.parse import ParseResult, unquote, urljoin, urlparse
 from typing_extensions import Protocol
 
 from datamodel_code_generator import Error, InvalidClassNameError, InvalidFileFormatError, JsonSchemaVersion
-from datamodel_code_generator._json_pointer import escape_token
+from datamodel_code_generator._document_reader import member_key
+from datamodel_code_generator._json_pointer import escape_token, is_pointer_fragment
 from datamodel_code_generator._json_schema import DEFINITION_KEYS, NAMESPACE_DEFINITION_KEYS, subschema_entries
-from datamodel_code_generator._paths import files_under
+from datamodel_code_generator._openapi_objects import held_schemas
+from datamodel_code_generator._paths import file_uri_path, files_under
 from datamodel_code_generator._source import _load_parser_source_data_from_path_bytes, load_data
 from datamodel_code_generator._url_redaction import redact_url
 from datamodel_code_generator.parser._null_facts import dump_null_sources, resolve_null_facts
@@ -45,6 +47,7 @@ from datamodel_code_generator.parser._schema_graph import (
     ReservedTarget,
     ResolvedRef,
     keep_resolved_ref,
+    pointer_ref_spelling,
     walk_schema_resources,
 )
 from datamodel_code_generator.parser._schema_object import (
@@ -62,6 +65,7 @@ from datamodel_code_generator.parser._schema_reading import (
 )
 from datamodel_code_generator.parser.base import title_to_class_name
 from datamodel_code_generator.parser.schema_version import JsonSchemaFeatures, _detect_declared_jsonschema_version
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.reference import SchemaLocation, is_url
 from datamodel_code_generator.util import get_yaml_parse_errors
 
@@ -186,13 +190,6 @@ def _document_location(location: str, document: str) -> str:
     return f"#{pointer}" if target_document == document else location
 
 
-def _file_uri_path(uri: str) -> Path:
-    """Return the local path that a file URI names."""
-    from urllib.request import url2pathname  # noqa: PLC0415
-
-    return Path(url2pathname(uri[5:]))
-
-
 class SchemaDocumentsHost(Protocol):
     """The options, caches and hooks of the parser that the document reading reads."""
 
@@ -216,6 +213,7 @@ class SchemaDocumentsHost(Protocol):
     reserved_refs: defaultdict[tuple[str, ...], set[str]]
     source: str | Path | list[Path] | ParseResult | dict[str, YamlValue]
     _cache_local_sources: bool
+    _document_roles: dict[str, dict[str, None]]
     _documents_as_written: dict[int, tuple[dict[str, YamlValue], dict[str, YamlValue]]]
     _has_embedded_schema_resources: bool
     _implicit_documents: set[str]
@@ -548,15 +546,14 @@ def resolve_schema_resource_ref(
     if (location := parser._schema_resource_registry.location(absolute)) is not None:  # noqa: SLF001
         return _document_location(location, document)
     if (
-        fragment
-        and not fragment.startswith("/")
+        not is_pointer_fragment(fragment)
         and (root := parser._schema_resource_locations.get(resource)) is not None  # noqa: SLF001
         and root.split("#", 1)[1]
     ):
-        msg = f"Embedded schema resource has no anchor {fragment!r}: {redact_url(reference)!r}"
+        msg = f"Embedded schema resource has no anchor {stable_repr(fragment)}: {stable_repr(redact_url(reference))}"
         raise Error(msg)
     if nested_scope and resource.startswith("file://") and not reference.startswith("file://"):
-        absolute = _file_uri_path(resource).as_posix() + absolute[len(resource) :]
+        absolute = file_uri_path(resource).as_posix() + absolute[len(resource) :]
     return absolute if nested_scope else reference
 
 
@@ -579,15 +576,16 @@ def resolve_lenient_resource_ref(parser: SchemaDocumentsHost, reference: str, ba
         if not lenient_pointer_exists(parser, document, reference):
             return target if lenient_pointer_exists(parser, document, target) else reference
         message = (
-            f"$ref {redact_url(reference)!r} in {source} is resolved against the document for compatibility, "
-            f"but JSON Schema resolves it against the enclosing $id, to {redact_url(target)!r}."
+            f"$ref {stable_repr(redact_url(reference))} in {source} is resolved against the document for "
+            "compatibility, but JSON Schema resolves it against the enclosing $id, to "
+            f"{stable_repr(redact_url(target))}."
         )
     else:
         if not loads_document(parser, urljoin(parser._schema_resource_root_bases[document], reference)):  # noqa: SLF001
             return target
         message = (
-            f"$ref {redact_url(reference)!r} in {source} loads the referenced document for compatibility, "
-            f"but JSON Schema resolves it to the schema with that $id at {redact_url(target)!r}."
+            f"$ref {stable_repr(redact_url(reference))} in {source} loads the referenced document for compatibility, "
+            f"but JSON Schema resolves it to the schema with that $id at {stable_repr(redact_url(target))}."
         )
     parser._resource_ref_warnings.add(f"{message} Update the reference or the $id so that both name one schema.")  # noqa: SLF001
     return reference
@@ -603,7 +601,7 @@ def loads_document(parser: SchemaDocumentsHost, absolute: str) -> bool:
     """Return whether loading an absolute reference as a document would find one."""
     if not absolute.startswith("file://"):
         return is_url(absolute) and parser.allow_remote_refs is not False
-    return _file_uri_path(absolute.partition("#")[0]).is_file()
+    return file_uri_path(absolute.partition("#")[0]).is_file()
 
 
 def rewrite_schema_resource_refs(  # noqa: PLR0913, PLR0917
@@ -616,17 +614,22 @@ def rewrite_schema_resource_refs(  # noqa: PLR0913, PLR0917
     *,
     is_root: bool = False,
 ) -> dict[str, Any]:
-    """Copy only schema containers whose resource-relative references change."""
+    """Copy only schema containers whose resource-relative references change.
+
+    A reference is resolved with its pointer opened by ``/`` (``pointer_ref_spelling``), which the walk of the
+    schema graph writes in place of an opening ``%2F`` either way.
+    """
     id_field, identifier = parser._schema_resource_identifier(schema, id_field, is_root=is_root)  # noqa: SLF001
     if isinstance(identifier, str):
         base = urljoin(base, identifier).split("#", 1)[0]
     result = schema
     if isinstance(reference := schema.get("$ref"), str):
+        reference = pointer_ref_spelling(reference)
         resolved = parser._resolve_schema_resource_ref(reference, base, document, nested_scope=base != root_base)  # noqa: SLF001
         if resolved != reference:
             result = {**schema, "$ref": resolved}
     children = parser._iter_schema_resource_children(schema)  # noqa: SLF001
-    for path, child in chain(children, implicit_schema_resources(parser, schema)) if is_root else children:
+    for path, child in chain(children, implicit_schema_resources(parser, schema, document)) if is_root else children:
         rewritten = rewrite_schema_resource_refs(parser, child, document, base, root_base, id_field)
         if rewritten is child:
             continue
@@ -634,31 +637,31 @@ def rewrite_schema_resource_refs(  # noqa: PLR0913, PLR0917
             result = dict(schema)
         parent: Any = result
         original: Any = schema
-        for part in path[:-1]:
+        for token in path[:-1]:
+            part = member_key(original, str(token))
             if parent[part] is original[part]:
                 parent[part] = copy(original[part])
             parent, original = parent[part], original[part]
-        if isinstance(parent, list):
-            parent[cast("int", path[-1])] = rewritten
-        else:
-            cast("dict[str, Any]", parent)[cast("str", path[-1])] = rewritten
+        parent[member_key(original, str(path[-1]))] = rewritten
     return result
 
 
 def implicit_schema_resources(
-    parser: SchemaDocumentsHost, raw: dict[str, Any]
+    parser: SchemaDocumentsHost, raw: dict[str, Any], document: str
 ) -> Iterator[tuple[tuple[str | int, ...], dict[str, Any]]]:
     """Yield the paths and schemas that a document evaluates as schema resources without an $id.
 
-    Formats such as OpenAPI evaluate each component schema independently.
+    Formats such as OpenAPI evaluate each component schema independently, and each schema of the object a reference
+    names the document's root as (``_schema_refs.hold_document_root``), such as the schema of a Parameter Object.
     """
-    if not parser._component_schemas_are_resources:  # noqa: SLF001
-        return
-    match raw.get("components"):
-        case {"schemas": dict() as schemas}:
-            for name, schema in schemas.items():
-                if isinstance(schema, dict):
-                    yield ("components", "schemas", name), schema
+    if parser._component_schemas_are_resources:  # noqa: SLF001
+        match raw.get("components"):
+            case {"schemas": dict() as schemas}:
+                for name, schema in schemas.items():
+                    if isinstance(schema, dict):
+                        yield ("components", "schemas", name), schema
+    roles = parser._document_roles.get(document, ())  # noqa: SLF001
+    yield from {path: schema for role in roles for path, schema in held_schemas(raw, role)}.items()
 
 
 def prepare_schema_resources(parser: SchemaDocumentsHost, raw: dict[str, Any], path_parts: list[str]) -> dict[str, Any]:
@@ -684,7 +687,7 @@ def prepare_schema_resources(parser: SchemaDocumentsHost, raw: dict[str, Any], p
     )
     resources = walk_schema_resources(
         raw,
-        tuple(implicit_schema_resources(parser, raw)),
+        tuple(implicit_schema_resources(parser, raw, document)),
         document=DocumentId(document),
         base=base,
         id_field=id_field,

@@ -27,6 +27,8 @@ Usage::
         GetRemediationsV2Paginator,
         GetResourcesTrendsV2Paginator,
         GetResourcesV2Paginator,
+        GetSoftwareResourcesV2Paginator,
+        GetSoftwareV2Paginator,
         ListAggregatorsV2Paginator,
         ListConfigurationPoliciesPaginator,
         ListConfigurationPolicyAssociationsPaginator,
@@ -60,6 +62,8 @@ Usage::
     get_remediations_v2_paginator: GetRemediationsV2Paginator = client.get_paginator("get_remediations_v2")
     get_resources_trends_v2_paginator: GetResourcesTrendsV2Paginator = client.get_paginator("get_resources_trends_v2")
     get_resources_v2_paginator: GetResourcesV2Paginator = client.get_paginator("get_resources_v2")
+    get_software_resources_v2_paginator: GetSoftwareResourcesV2Paginator = client.get_paginator("get_software_resources_v2")
+    get_software_v2_paginator: GetSoftwareV2Paginator = client.get_paginator("get_software_v2")
     list_aggregators_v2_paginator: ListAggregatorsV2Paginator = client.get_paginator("list_aggregators_v2")
     list_configuration_policies_paginator: ListConfigurationPoliciesPaginator = client.get_paginator("list_configuration_policies")
     list_configuration_policy_associations_paginator: ListConfigurationPolicyAssociationsPaginator = client.get_paginator("list_configuration_policy_associations")
@@ -114,6 +118,10 @@ from .type_defs import (
     GetResourcesTrendsV2ResponseTypeDef,
     GetResourcesV2RequestPaginateTypeDef,
     GetResourcesV2ResponseTypeDef,
+    GetSoftwareResourcesV2RequestPaginateTypeDef,
+    GetSoftwareResourcesV2ResponseTypeDef,
+    GetSoftwareV2RequestPaginateTypeDef,
+    GetSoftwareV2ResponseTypeDef,
     ListAggregatorsV2RequestPaginateTypeDef,
     ListAggregatorsV2ResponseTypeDef,
     ListConfigurationPoliciesRequestPaginateTypeDef,
@@ -163,6 +171,8 @@ __all__ = (
     "GetRemediationsV2Paginator",
     "GetResourcesTrendsV2Paginator",
     "GetResourcesV2Paginator",
+    "GetSoftwareResourcesV2Paginator",
+    "GetSoftwareV2Paginator",
     "ListAggregatorsV2Paginator",
     "ListConfigurationPoliciesPaginator",
     "ListConfigurationPolicyAssociationsPaginator",
@@ -446,6 +456,42 @@ class GetResourcesV2Paginator(_GetResourcesV2PaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetResourcesV2.html#SecurityHub.Paginator.GetResourcesV2.paginate)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/paginators/#getresourcesv2paginator)
+        """
+
+if TYPE_CHECKING:
+    _GetSoftwareResourcesV2PaginatorBase = Paginator[GetSoftwareResourcesV2ResponseTypeDef]
+else:
+    _GetSoftwareResourcesV2PaginatorBase = Paginator  # type: ignore[assignment]
+
+class GetSoftwareResourcesV2Paginator(_GetSoftwareResourcesV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetSoftwareResourcesV2.html#SecurityHub.Paginator.GetSoftwareResourcesV2)
+    [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/paginators/#getsoftwareresourcesv2paginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetSoftwareResourcesV2RequestPaginateTypeDef]
+    ) -> PageIterator[GetSoftwareResourcesV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetSoftwareResourcesV2.html#SecurityHub.Paginator.GetSoftwareResourcesV2.paginate)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/paginators/#getsoftwareresourcesv2paginator)
+        """
+
+if TYPE_CHECKING:
+    _GetSoftwareV2PaginatorBase = Paginator[GetSoftwareV2ResponseTypeDef]
+else:
+    _GetSoftwareV2PaginatorBase = Paginator  # type: ignore[assignment]
+
+class GetSoftwareV2Paginator(_GetSoftwareV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetSoftwareV2.html#SecurityHub.Paginator.GetSoftwareV2)
+    [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/paginators/#getsoftwarev2paginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetSoftwareV2RequestPaginateTypeDef]
+    ) -> PageIterator[GetSoftwareV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/GetSoftwareV2.html#SecurityHub.Paginator.GetSoftwareV2.paginate)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/paginators/#getsoftwarev2paginator)
         """
 
 if TYPE_CHECKING:

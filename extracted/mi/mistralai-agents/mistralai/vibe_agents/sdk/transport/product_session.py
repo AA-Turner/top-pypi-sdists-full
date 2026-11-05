@@ -9,9 +9,12 @@ from mistralai.vibe_agents.sessions_client import AgentSessionResponse, AgentSes
 def build_session_from_product(product: AgentSessionResponse) -> harness_session.Session:
     """Describe a product session row as a Harness session, before any event is folded."""
 
-    status: harness_session.SessionStatus
+    status: harness_session.SessionStatus | harness_session.UnknownValue
     termination: harness_session.Termination | None = None
-    if product.status is AgentSessionStatus.WAITING:
+    if product.status is AgentSessionStatus.UNKNOWN:
+        # A status a newer control plane added: kept, so a reader sees it is not one it knows.
+        status = harness_session.UnknownValue(product.status_text)
+    elif product.status is AgentSessionStatus.WAITING:
         status = "waiting"
     elif product.status in {
         AgentSessionStatus.COMPLETED,

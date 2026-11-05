@@ -2,6 +2,7 @@
 
 import pytest
 
+from surrealdb import Duration
 from surrealdb.errors import (
     AlreadyExistsDetailKind,
     AlreadyExistsError,
@@ -264,7 +265,12 @@ class TestParseRpcErrorNewFormat:
         )
         assert isinstance(err, QueryError)
         assert err.is_timed_out is True
-        assert err.timeout == {"secs": 5, "nanos": 0}
+        # Normalised to a `Duration`, whatever shape it arrived in. This payload
+        # is hand-built in the `{secs, nanos}` form the old annotation promised;
+        # no supported version actually sends it - 3.x sends a `Duration` and 2.x
+        # sends no structured detail at all - which is why this test passed while
+        # `timeout` returned `None` for every real timeout.
+        assert err.timeout == Duration(5_000_000_000)
 
     def test_query_cancelled(self) -> None:
         err = parse_rpc_error(
@@ -277,6 +283,22 @@ class TestParseRpcErrorNewFormat:
         )
         assert isinstance(err, QueryError)
         assert err.is_cancelled is True
+
+    def test_query_transaction_conflict(self) -> None:
+        err = parse_rpc_error(
+            {
+                "code": -32003,
+                "kind": "Query",
+                "message": "Transaction conflict",
+                "details": {"kind": "TransactionConflict"},
+            }
+        )
+        assert isinstance(err, QueryError)
+        assert err.is_transaction_conflict is True
+        assert err.is_not_executed is False
+        assert err.is_timed_out is False
+        assert err.is_cancelled is False
+        assert err.timeout is None
 
     def test_configuration_live_query_not_supported(self) -> None:
         err = parse_rpc_error(
@@ -688,6 +710,7 @@ class TestDetailKindConstants:
         assert QueryDetailKind.NOT_EXECUTED == "NotExecuted"
         assert QueryDetailKind.TIMED_OUT == "TimedOut"
         assert QueryDetailKind.CANCELLED == "Cancelled"
+        assert QueryDetailKind.TRANSACTION_CONFLICT == "TransactionConflict"
 
     def test_serialization_detail_kinds(self) -> None:
         assert SerializationDetailKind.SERIALIZATION == "Serialization"
@@ -875,6 +898,7 @@ class TestSdkSideErrors:
             InvalidTableError,
         ]
         for cls in sdk_classes:
+            err: SurrealError
             if cls is UnsupportedEngineError:
                 err = cls("ws://bad")
             else:

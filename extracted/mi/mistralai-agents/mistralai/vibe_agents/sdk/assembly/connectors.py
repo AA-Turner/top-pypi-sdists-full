@@ -28,6 +28,7 @@ from mistralai.vibe.harness.runtime.capabilities import (
     McpToolCallRequest,
     McpToolCallResult,
     McpToolCallSucceeded,
+    McpToolCatalog,
     MistralConnectorConfiguration,
     MistralConnectorDescriptor,
 )
@@ -39,6 +40,7 @@ from mistralai.vibe.harness.runtime.capabilities.plugins.mistral_connectors impo
 )
 from mistralai.vibe.harness.runtime.content import to_model_json_text
 from mistralai.vibe.harness.runtime.hosts.mcp_http import McpHttpCapabilityHost
+from mistralai.vibe_agents._http import _header_api_key
 from mistralai.vibe_agents.sdk.assembly.local_mistral import local_mistral_client
 from mistralai.vibe_agents.sdk.authoring import connector_selection
 from mistralai.vibe_agents.sdk.authoring.errors import MistralConnectorNotFoundError
@@ -69,7 +71,7 @@ def get_workflow_mistral_client(run_as: RunAs) -> Mistral:
     agent = workflows_config.worker.agent
     api_key = agent.mistral_client_api_key
     return get_workflows_mistral_client(
-        api_key=api_key.get_secret_value() if api_key else None,
+        api_key=_header_api_key(api_key.get_secret_value(), name="The worker's Mistral API key") if api_key else None,
         server=agent.mistral_client_server,
         server_url=agent.mistral_client_server_url,
         url_params=agent.mistral_client_url_params,
@@ -79,7 +81,6 @@ def get_workflow_mistral_client(run_as: RunAs) -> Mistral:
     )
 
 
-_JSON_OBJECT_ADAPTER = TypeAdapter(dict[str, JsonValue])
 _JSON_VALUE_ADAPTER: TypeAdapter[JsonValue] = TypeAdapter(JsonValue)
 _SOURCE_PREFIX = "agents-sdk-connector:"
 _DISCOVERED_REF = re.compile(r"(?P<digest>[0-9a-f]{16})@(?P<name>.+)", re.DOTALL)
@@ -89,6 +90,14 @@ _MISSING_CREDENTIAL_PREFIXES = (
 )
 _MCP_NOT_SUPPORTED_DETAIL = "Connector does not support MCP."
 _UNSUPPORTED_REASON = "it exposes no MCP-compatible tool interface."
+_UNAVAILABLE_REASON = "the connectors API failed for it."
+_NOT_FOUND_REASON = "no connector has this name."
+# Ends every warning for a connector the Session starts without. Each of these has a notice too,
+# which `agents chat` prints, so the chat leaves out the log lines that end with it.
+SESSION_GOES_ON_WITHOUT_IT = "the Session goes on without it"
+# Enough of an error message to diagnose it. An API error's message is not logged at all: it
+# embeds the response body.
+_LOGGED_ERROR_MAX_CHARS = 300
 # How many connectors to probe at once. The connectors API limits MCP operations by rate, not by
 # concurrency, so going faster does not finish sooner - it only converts requests into retries.
 # Measured over a 129-connector catalog: at 8 at a time, 236 calls were rate-limited and 86
@@ -174,9 +183,16 @@ class _ConnectorApiError(BaseModel):
 
 @dataclass(frozen=True, slots=True)
 class ResolvedConnector:
+    """One connector as the connectors API resolved it.
+
+    ``instructions`` is the API's ``system_prompt``: the instructions the connector's MCP
+    server returned at ``initialize``.
+    """
+
     id: str
     name: str
     authenticated: bool | None = None
+    instructions: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,6 +206,8 @@ class BootstrappedConnector:
 
     ``needs_auth`` separates the two ways a connector can be unready: the user has not
     connected it, which they can fix, or the API failed to reach it, which they cannot.
+
+    ``instructions`` is the API's ``system_prompt``, as on :class:`ResolvedConnector`.
     """
 
     id: str
@@ -197,12 +215,21 @@ class BootstrappedConnector:
     is_ready: bool
     tools: tuple[McpRemoteToolDefinition, ...] = ()
     needs_auth: bool = False
+    instructions: str | None = None
+
+    @property
+    def unreachable(self) -> bool:
+        """Whether the API failed to reach the connector, which the user cannot fix."""
+
+        return not self.is_ready and not self.needs_auth
 
 
 @dataclass(frozen=True, slots=True)
 class _ConnectorSourceBinding:
     connector_id: str
     credentials_name: str | None
+    # Kept with the route because the connector tool listing does not return them.
+    instructions: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,9 +330,9 @@ def _unsupported_descriptor(authored_name: str, resolved: ResolvedConnector) -> 
     unusable slot no longer has to fail discovery for every other slot.
     """
 
-    logger.info(
-        "agents_sdk connector slot is not MCP-capable",
-        authored_name=authored_name,
+    logger.warning(
+        f"agents_sdk connector is not MCP-capable; {SESSION_GOES_ON_WITHOUT_IT}",
+        connector_name=authored_name,
         connector_id=resolved.id,
     )
     return MistralConnectorDescriptor(
@@ -313,6 +340,58 @@ def _unsupported_descriptor(authored_name: str, resolved: ResolvedConnector) -> 
         name=resolved.name,
         status="unsupported",
         unsupported_reason=_UNSUPPORTED_REASON,
+    )
+
+
+def _not_found_descriptor(error: MistralConnectorNotFoundError) -> MistralConnectorDescriptor:
+    """Report an authored name the connectors API does not know, so the Session goes on without it.
+
+    No later listing fixes a wrong name, so it is unsupported, which the Harness never retries.
+    The reason carries the close names the error suggests, so the notice and the model's message
+    both name them. It is logged at warning, like the other connector failures in this module.
+    """
+
+    logger.warning(
+        f"agents_sdk found no connector with an authored name; {SESSION_GOES_ON_WITHOUT_IT}",
+        connector_name=error.connector_name,
+        error=str(error),
+    )
+    reason = _NOT_FOUND_REASON
+    if error.close_matches:
+        reason += f" Did you mean {' or '.join(repr(name) for name in error.close_matches)}?"
+    return MistralConnectorDescriptor(
+        id=error.connector_name,
+        name=error.connector_name,
+        status="unsupported",
+        unsupported_reason=reason,
+    )
+
+
+def _unavailable_descriptor(authored_name: str, error: Exception) -> MistralConnectorDescriptor:
+    """Report a slot the connectors API failed to describe, so the rest of the session keeps theirs.
+
+    Without this, one connector's failed probe - a rate limit that outlasted the retries, a
+    timeout - failed the whole listing, and the Harness started the Session with no connector at
+    all. The Harness turns this descriptor into a notice naming the connector and lists it again
+    at later Turn starts. No credential would fix it, so it is not offered for authentication.
+    """
+
+    if isinstance(error, mistral_errors.MistralError):
+        status_code, message = error.status_code, None
+    else:
+        status_code, message = None, str(error)[:_LOGGED_ERROR_MAX_CHARS]
+    logger.warning(
+        f"agents_sdk could not describe a connector; {SESSION_GOES_ON_WITHOUT_IT}",
+        connector_name=authored_name,
+        error_type=type(error).__name__,
+        status_code=status_code,
+        error=message,
+    )
+    return MistralConnectorDescriptor(
+        id=authored_name,
+        name=authored_name,
+        status="unavailable",
+        unavailable_reason=_UNAVAILABLE_REASON,
     )
 
 
@@ -445,10 +524,12 @@ class MistralConnectorApi(ConnectorApi):
         raw = getattr(connector, "raw", None)
         if getattr(connector, "is_unknown", False) is True and isinstance(raw, dict):
             connector_id, name, authenticated = raw.get("id"), raw.get("name"), raw.get("is_authenticated")
+            system_prompt = raw.get("system_prompt")
         else:
             connector_id = getattr(connector, "id", None)
             name = getattr(connector, "name", None)
             authenticated = getattr(connector, "is_authenticated", None)
+            system_prompt = getattr(connector, "system_prompt", None)
         if not isinstance(connector_id, str) or not isinstance(name, str):
             raise ValueError(f"Mistral returned an unsupported connector for {connector_id_or_name}")
         if isinstance(authenticated, Unset) or authenticated is None:
@@ -459,6 +540,7 @@ class MistralConnectorApi(ConnectorApi):
             id=connector_id,
             name=name,
             authenticated=resolved_authenticated,
+            instructions=system_prompt if isinstance(system_prompt, str) else None,
         )
 
     async def list_tools(
@@ -567,6 +649,11 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
         # What bootstrap already told us about each discovered connector: whether it is
         # callable, and its tools. Keyed by connector name, filled during discovery.
         self._bootstrapped: dict[str, BootstrappedConnector] = {}
+        # Whether a listing already used bootstrap's answer. A later listing is a Turn-start
+        # retry, which asks a connector bootstrap failed to reach directly: bootstrap's answer
+        # for it is stale by then. Only an in-process Session gets here: a deployed worker opens
+        # a fresh resource per listing, so its fresh bootstrap answer already says what changed.
+        self._listed = False
         # Tools bootstrap resolved, keyed by the source they were mounted under, so routing
         # does not list them again per connector at Session start.
         self._source_tools: dict[str, tuple[McpRemoteToolDefinition, ...]] = {}
@@ -652,7 +739,7 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
             logger.warning(
                 "agents_sdk mounted a large connector set; the Agent searches every connector's "
                 "tools, so a tool from an unrelated connector can win. Narrow it with "
-                "all_connectors(exclude=[...]) or all_connectors(max_connectors=...).",
+                "all_connectors(exclude=[...]) or name the connectors the Agent needs.",
                 selected_count=len(slots),
             )
         return slots
@@ -671,20 +758,35 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
         # MCP operations. Probing all of them at once trips that limit and starts the Session with
         # no connectors at all.
         slots = await self._resolved_slots()
+        capped_out = self._capped_out(slots)
+        retry = self._listed
         limit = asyncio.Semaphore(_PROBE_CONCURRENCY)
 
         async def describe(slot: connector_decorator.ConnectorSlot) -> MistralConnectorDescriptor | None:
             bootstrapped = self._bootstrapped.get(slot.connector_name)
             # Bootstrap already answered for a discovered connector. An authored one is still
             # probed: it may name a credential bootstrap did not resolve against, and the Agent
-            # asked for it by name, so it deserves the direct answer.
+            # asked for it by name, so it deserves the direct answer. A discovered connector
+            # bootstrap failed to reach is probed too on a later listing: the Harness is retrying
+            # it, and bootstrap's answer is stale by then.
             if bootstrapped is not None and slot.connector_name not in self._authored_slots:
-                return self._descriptor_from_bootstrap(slot, bootstrapped, configuration)
+                if not (bootstrapped.unreachable and retry):
+                    return self._descriptor_from_bootstrap(slot, bootstrapped, configuration)
             async with limit:
-                return await self._describe_slot(slot, configuration)
+                try:
+                    return await self._describe_slot(slot, configuration)
+                except MistralConnectorNotFoundError as error:
+                    return _not_found_descriptor(error)
+                except ValidationError:
+                    # A descriptor our own models reject is a bug here, not an outage: no later
+                    # session fixes it, so it still fails preparation and names the problem.
+                    raise
+                except Exception as error:  # noqa: BLE001 - one connector's outage must not cost the others.
+                    return _unavailable_descriptor(slot.connector_name, error)
 
-        described = await asyncio.gather(*(describe(slot) for slot in slots.values()))
-        return self._apply_cap([descriptor for descriptor in described if descriptor is not None])
+        described = await asyncio.gather(*(describe(slot) for name, slot in slots.items() if name not in capped_out))
+        self._listed = True
+        return [descriptor for descriptor in described if descriptor is not None]
 
     def _descriptor_from_bootstrap(
         self,
@@ -695,24 +797,34 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
         """Describe a discovered connector from what bootstrap already resolved.
 
         An unready connector is only offered when connecting it is what it lacks. One the API
-        failed to reach is left out: offering it would start an authorization flow that
-        cannot fix it.
+        failed to reach is unavailable: offering it would start an authorization flow that
+        cannot fix it, and the Harness lists it again at later Turn starts.
         """
 
         authored_name = slot.connector_name
+        if bootstrapped.unreachable:
+            logger.warning(
+                f"agents_sdk could not describe a connector; {SESSION_GOES_ON_WITHOUT_IT}",
+                connector_name=authored_name,
+            )
+            return MistralConnectorDescriptor(
+                id=authored_name,
+                name=bootstrapped.name,
+                status="unavailable",
+                unavailable_reason=_UNAVAILABLE_REASON,
+            )
         if not bootstrapped.is_ready:
-            if not bootstrapped.needs_auth:
-                logger.warning(
-                    "agents_sdk left out a discovered connector the connectors API could not reach",
-                    connector_name=bootstrapped.name,
-                )
-                return None
             return MistralConnectorDescriptor(
                 id=authored_name,
                 name=bootstrapped.name,
                 status="unauthenticated",
             )
-        resolved = ResolvedConnector(id=bootstrapped.id, name=bootstrapped.name, authenticated=True)
+        resolved = ResolvedConnector(
+            id=bootstrapped.id,
+            name=bootstrapped.name,
+            authenticated=True,
+            instructions=bootstrapped.instructions,
+        )
         source = self._build_source(
             slot,
             resolved,
@@ -726,51 +838,51 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
             mcp_source=source,
         )
 
-    def _apply_cap(self, descriptors: list[MistralConnectorDescriptor]) -> list[MistralConnectorDescriptor]:
-        """Hold the discovered set to ``max_connectors`` usable connectors.
+    def _capped_out(self, slots: dict[str, connector_decorator.ConnectorSlot]) -> set[str]:
+        """The discovered connectors ``max_connectors`` leaves out of this Session.
 
-        The cap counts connectors the Session user can actually use, which bootstrap
-        reports, rather than entries in the catalog. A cap spent on connectors they cannot
-        use protects nothing: what the Agent searches is the tool list of a connector that
-        actually mounts.
+        The cap counts the connectors that are possible, not the ones that loaded: every
+        discovered connector the user has signed in to, including one the API failed to reach.
+        Such a connector keeps its place and gets its notice, and its tools take that same place
+        when it loads at a later Turn start. Nothing moves between places, and the answer only
+        needs bootstrap, so a deployed worker, which opens a fresh resource for every listing,
+        gets the same set, as long as the user has not signed in to or out of a connector
+        since. A connector that loads at once does not take a failed one's place:
+        the cap is a rarely used safety limit, and keeping it simple matters more than filling
+        every place.
 
         An explicitly authored connector is never capped away - naming a connector is a
-        stronger statement than the selection that happens to also cover it. A usable
+        stronger statement than the selection that happens to also cover it. A signed-in
         connector past the cap leaves the set altogether rather than becoming an offer:
         offering one the user has already connected would ask them to authorize what they
         have authorized.
 
         Discovered connectors the user has not connected are only offered while the cap has
-        room. Connecting one once it is full would mount nothing: the refreshed set would
-        cap it straight back out, after the Agent was told its tools are now available.
+        room. Connecting one once it is full would mount nothing: the refreshed set would cap
+        it straight back out, after the Agent was told its tools are now available.
         """
 
         discovery = self._discovery
         if discovery is None or discovery.max_connectors is None:
-            return descriptors
-        mountable = {
-            descriptor.id
-            for descriptor in descriptors
-            if descriptor.status == "authenticated" and descriptor.id not in self._authored_slots
+            return set()
+        discovered = {
+            name: self._bootstrapped[name]
+            for name in slots
+            if name not in self._authored_slots and name in self._bootstrapped
         }
-        kept = set(discovery.cap(sorted(mountable)))
-        dropped = sorted(mountable - kept)
-        if dropped:
+        # The cap is on the connectors that are possible, not the ones that loaded.
+        signed_in = [name for name, connector in discovered.items() if not connector.needs_auth]
+        kept = set(discovery.cap(signed_in))
+        capped_out = {name for name in signed_in if name not in kept}
+        if capped_out:
             logger.info(
                 "agents_sdk held the discovered connector set to its cap",
                 max_connectors=discovery.max_connectors,
-                dropped=dropped,
+                dropped=sorted(capped_out),
             )
-        cap_is_full = len(kept) >= discovery.max_connectors
-
-        def keeps(descriptor: MistralConnectorDescriptor) -> bool:
-            if descriptor.id in self._authored_slots or descriptor.id in kept:
-                return True
-            if descriptor.status == "authenticated":
-                return False
-            return descriptor.status != "unauthenticated" or not cap_is_full
-
-        return [descriptor for descriptor in descriptors if keeps(descriptor)]
+        if len(kept) >= discovery.max_connectors:
+            capped_out |= {name for name, connector in discovered.items() if connector.needs_auth}
+        return capped_out
 
     async def _describe_slot(
         self,
@@ -790,13 +902,12 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
         # and it cannot report MCP capability at all. Deciding both here, once, is what keeps a
         # descriptor from claiming a connector is callable when tool listing will reject it.
         try:
-            await self._api.list_tools(resolved.id, credentials_name=credentials_name)
+            tools = await self._api.list_tools(resolved.id, credentials_name=credentials_name)
         except ConnectorAuthenticationRequiredError:
-            authenticated = False
+            tools = None
         except ConnectorMcpNotSupportedError:
             return _unsupported_descriptor(authored_name, resolved)
-        else:
-            authenticated = True
+        authenticated = tools is not None
         source = (
             self._build_source(
                 slot,
@@ -806,6 +917,10 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
             if authenticated
             else None
         )
+        if source is not None and tools is not None:
+            # The probe's answer is the tool list: serving it saves listing the tools again,
+            # which on a Turn start would run outside the time the Harness gives the probe.
+            self._source_tools[source.source_ref] = tuple(tools)
         return MistralConnectorDescriptor(
             id=authored_name,
             name=resolved.name,
@@ -869,13 +984,17 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
         bootstrapped = self._bootstrapped.get(authored_name)
         if bootstrapped is not None:
             connector_id = bootstrapped.id
+            instructions = bootstrapped.instructions
             if credentials_name is None:
                 self._source_tools.setdefault(source.source_ref, bootstrapped.tools)
         else:
-            connector_id = (await self._api.resolve(authored_name)).id
+            resolved = await self._api.resolve(authored_name)
+            connector_id = resolved.id
+            instructions = resolved.instructions
         self._source_bindings[source.source_ref] = _ConnectorSourceBinding(
             connector_id=connector_id,
             credentials_name=credentials_name,
+            instructions=instructions,
         )
 
     def _discovered_slot_owning(
@@ -934,22 +1053,24 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
     async def list_tools(
         self,
         source: McpSourceConfiguration,
-    ) -> list[McpRemoteToolDefinition]:
+    ) -> McpToolCatalog:
         if not isinstance(source, McpHostSourceConfiguration):
             return await self._http_mcp_host.list_tools(source)
+        binding = self._source_bindings.get(source.source_ref)
+        instructions = binding.instructions if binding is not None else None
         # Bootstrap resolved these tools already. Serving them from that answer is what keeps
         # a Session with a dozen connectors from making a dozen more MCP calls to learn what
         # it has just been told, against the rate limit that makes those calls expensive.
         cached = self._source_tools.get(source.source_ref)
         if cached is not None:
-            return list(cached)
-        binding = self._source_bindings.get(source.source_ref)
+            return McpToolCatalog(tools=list(cached), instructions=instructions)
         if binding is None:
             return await self._http_mcp_host.list_tools(source)
-        return await self._api.list_tools(
+        tools = await self._api.list_tools(
             binding.connector_id,
             credentials_name=binding.credentials_name,
         )
+        return McpToolCatalog(tools=tools, instructions=instructions)
 
     async def call_tool(self, request: McpToolCallRequest) -> McpToolCallResult:
         if not isinstance(request.source, McpHostSourceConfiguration):
@@ -983,6 +1104,7 @@ class AgentsSdkConnectorResource(McpCapabilityHost, MistralConnectorHost):
         binding = _ConnectorSourceBinding(
             connector_id=resolved.id,
             credentials_name=credentials_name,
+            instructions=resolved.instructions,
         )
         self._source_bindings[source_ref] = binding
         return McpHostSourceConfiguration(
@@ -1049,6 +1171,7 @@ def _parse_bootstrap(payload: object) -> list[BootstrappedConnector]:
                     "agents_sdk skipped a bootstrap tool it could not read",
                     connector_name=name,
                 )
+        system_prompt = row.get("system_prompt")
         bootstrapped.append(
             BootstrappedConnector(
                 id=identifier,
@@ -1056,6 +1179,7 @@ def _parse_bootstrap(payload: object) -> list[BootstrappedConnector]:
                 is_ready=is_ready,
                 tools=tuple(tools),
                 needs_auth=needs_auth,
+                instructions=system_prompt if isinstance(system_prompt, str) else None,
             )
         )
     return bootstrapped
@@ -1074,18 +1198,7 @@ def _build_remote_tool(tool: object) -> McpRemoteToolDefinition:
         )
     else:
         raise TypeError(f"Unsupported connector tool response {type(tool).__name__}")
-    input_schema = payload.get("inputSchema", payload.get("input_schema", {}))
-    output_schema = payload.get("outputSchema", payload.get("output_schema"))
-    meta = payload.get("_meta")
-    if meta is None:
-        meta = payload.get("meta")
-    return McpRemoteToolDefinition(
-        name=str(payload["name"]),
-        description=str(payload.get("description") or ""),
-        meta=(None if meta is None else _JSON_OBJECT_ADAPTER.validate_python(meta)),
-        input_schema=_JSON_OBJECT_ADAPTER.validate_python(input_schema),
-        output_schema=(None if output_schema is None else _JSON_OBJECT_ADAPTER.validate_python(output_schema)),
-    )
+    return McpRemoteToolDefinition.model_validate(payload)
 
 
 def _connector_response_text(content: Sequence[object]) -> str:

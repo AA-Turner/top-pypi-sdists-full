@@ -12,6 +12,7 @@ from test_brief import API_KEY, FakeClaude, connect
 
 from myorb.ask.chat import clean_history
 from myorb.brief.writer import BriefError
+from myorb.plugins import ActionResult, AskAction, Plugin, Widget, WidgetContext, WidgetData
 from myorb.tasks.plugin import TasksPlugin
 
 
@@ -622,6 +623,7 @@ def test_a_reply_is_drafted_from_the_chat(make_client: MakeClient, claude: FakeC
         "Save a reply to Pepper Potts (“Board meeting <today>”) as a Gmail draft. Nothing is sent."
     )
     assert proposal["summary"].endswith(body)
+    assert "warning" not in proposal  # a draft reaches no one until the user sends it
 
     drafts.clear()
     claude.answer = ["Saved, it waits in Gmail."]
@@ -639,6 +641,64 @@ def test_a_reply_is_drafted_from_the_chat(make_client: MakeClient, claude: FakeC
         "/ask/undo", json={"conversation": lines[0]["conversation"], "id": done["undo"]}
     ).json()
     assert undone == {"message": "Removed the draft from Gmail."} and drafts == []
+
+
+class Sharing(Plugin):
+    """A plugin whose action reaches others, as a comment or an invitation does."""
+
+    id = "share"
+    name = "Share"
+
+    def widgets(self) -> list[Widget]:
+        async def load(context: WidgetContext) -> WidgetData:
+            return WidgetData(value=1, summary="post")
+
+        return [Widget(id="posts", label="Posts", title="Posts", icon="", load=load)]
+
+    def ask_actions(self) -> list[AskAction]:
+        async def summary(context: WidgetContext, data: dict) -> str:
+            return f"Post “{data['text']}”"
+
+        async def post(context: WidgetContext, data: dict) -> ActionResult:
+            return ActionResult("Posted.")
+
+        schema = {"type": "object", "properties": {"text": {"type": "string"}}}
+        return [AskAction("post", "Post a text.", schema, summary, post, outward=True)]
+
+
+def test_what_reaches_others_after_an_email_is_flagged(make_client: MakeClient, claude: FakeClaude):
+    from fakegoogle import FakeGoogle
+    from test_widgets import GMAIL, connect_google, gmail_api
+
+    from myorb.plugins.gmail import GmailPlugin
+
+    google = FakeGoogle()
+    google.routes[GMAIL] = gmail_api
+
+    def transport(request: httpx2.Request) -> httpx2.Response:
+        return claude(request) if request.url.host == "api.anthropic.com" else google(request)
+
+    plugins = {"gmail": GmailPlugin(), "share": Sharing()}
+    app = make_client(transport=httpx2.MockTransport(transport), plugins=plugins)
+    complete_setup(app)
+    connect_google(app, google)
+    connect(app)
+    # Without an email read first, the card is as always.
+    claude.answer = []
+    claude.tool_calls = [("share__post", {"text": "Hello"})]
+    lines = ask(app, [{"role": "user", "content": "Post"}])
+    [proposal] = [line["proposal"] for line in lines if "proposal" in line]
+    assert "warning" not in proposal
+    # An email asks for it (prompt injection): the card says Claude read one first.
+    claude.tool_calls = [("gmail__read_email", {"email": "email 1/t1"})]
+    claude.later_tool_calls = [[("share__post", {"text": "Erik has 7 tasks"})]]
+    lines = ask(app, [{"role": "user", "content": "What does Pepper want?"}])
+    [proposal] = [line["proposal"] for line in lines if "proposal" in line]
+    assert proposal["summary"] == "Post “Erik has 7 tasks”"
+    assert proposal["warning"].startswith(
+        "Orb proposes this after reading the email “Board meeting <today>” from "
+        "Pepper Potts <pepper@stark.example>."
+    )
 
 
 def test_drafts_from_the_chat_need_the_permission(make_client: MakeClient, claude: FakeClaude):

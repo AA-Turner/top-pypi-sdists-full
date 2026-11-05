@@ -25,6 +25,7 @@ from .literals import (
     ActionHistoryStatusType,
     ActionStatusType,
     ActionTypeType,
+    AmiArchitectureType,
     ApplicationVersionStatusType,
     ArchitectureTypeType,
     ComputeTypeType,
@@ -89,6 +90,7 @@ __all__ = (
     "CreatePlatformVersionResultTypeDef",
     "CreateStorageLocationResultMessageTypeDef",
     "CustomAmiTypeDef",
+    "DefaultAmiTypeDef",
     "DeleteApplicationMessageTypeDef",
     "DeleteApplicationVersionMessageTypeDef",
     "DeleteConfigurationTemplateMessageTypeDef",
@@ -386,6 +388,11 @@ class PlatformSummaryTypeDef(TypedDict):
 
 class CustomAmiTypeDef(TypedDict):
     VirtualizationType: NotRequired[str]
+    ImageId: NotRequired[str]
+
+
+class DefaultAmiTypeDef(TypedDict):
+    Architecture: NotRequired[AmiArchitectureType]
     ImageId: NotRequired[str]
 
 
@@ -1074,6 +1081,7 @@ class PlatformDescriptionTypeDef(TypedDict):
     ProgrammingLanguages: NotRequired[list[PlatformProgrammingLanguageTypeDef]]
     Frameworks: NotRequired[list[PlatformFrameworkTypeDef]]
     CustomAmiList: NotRequired[list[CustomAmiTypeDef]]
+    DefaultAmiList: NotRequired[list[DefaultAmiTypeDef]]
     SupportedTierList: NotRequired[list[str]]
     SupportedAddonList: NotRequired[list[str]]
     PlatformLifecycleState: NotRequired[str]

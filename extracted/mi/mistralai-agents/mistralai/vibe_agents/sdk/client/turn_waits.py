@@ -136,9 +136,13 @@ class _Wait:
         *,
         tools: Mapping[str, _Tool] = NO_TOOLS,
         client_tools: ClientToolRegistry = NO_CLIENT_TOOLS,
+        confirmed: bool = False,
     ) -> None:
         self.session_id = session_id
         self.turn_id = turn_id
+        # Whether the host confirmed the turn, as a start's or a send's answer does: a read that
+        # does not list it yet says it runs (see ``read_turn_and_start``).
+        self.confirmed = confirmed
         self.after = after is not None
         # The turn running at the last event the wait read (``seen``): another turn's record says
         # which turn runs at its position; its cursor alone does not.
@@ -147,6 +151,20 @@ class _Wait:
         self.active_known = not isinstance(after, str)
         # The id of the last event the wait read.
         self.seen = after if after is None or isinstance(after, str) else after.cursor
+        # Where the wait started reading: see ``position``.
+        self.start = self.seen
+        # Whether the wait read an event of its turn, or its record running: see ``position``.
+        self.reached = False
+        # After a record taken where the turn does not run, such as the previous turn's result, the
+        # wait names the previous turn's start until it reads its turn: a cursor between the turns
+        # would not say that no turn runs there. ``_read_from_start`` reads it.
+        self.before = after is not None and not isinstance(after, str) and self.active != turn_id
+        # The turn running at ``start``, and whether that is known: a wait that read nothing of its
+        # turn reads again from ``start``, since ``active`` says nothing of the turns it read past.
+        self.start_active, self.start_known = self.active, self.active_known
+        # Whether the wait gave an event that names no turn, raised while no turn ran: ``seen`` is
+        # before the turn's start, where no turn runs.
+        self.gap = False
         # The subagents' callbacks the caller has: those a Blocked record passed as ``after`` lists.
         self.listed = frozenset(
             (callback.session_id, callback.id)
@@ -166,6 +184,27 @@ class _Wait:
         # Whether ``on_event`` has an event now: a wait that starts again lets it finish first.
         self.delivering = False
         self.delivered = asyncio.Event()
+
+    def position(self) -> str | None:
+        """Where a caller resumes: ``seen``, or ``start`` until the wait read its turn running.
+
+        A position read before the turn's start, in the previous turn or after it, would not say
+        which turn ran there: a reader after it would take the events there as this turn's.
+        """
+        return self.seen if self.reached else self.start
+
+    def note(self, cursor: str, event: Event | None) -> None:
+        """Note that the wait read up to ``cursor``, ``event`` there."""
+        self.seen = cursor
+        if event is None:
+            return
+        if event.turn_id == self.turn_id or self.active == self.turn_id:
+            # An event of the turn, or one that names no turn, such as a SessionUpdated, given while
+            # the turn runs: it still runs there.
+            self.active, self.active_known, self.reached = self.turn_id, True, True
+        elif event.turn_id is None and not self.reached:
+            # An event that names no turn, given before the turn's start: no turn runs there.
+            self.active, self.active_known, self.gap = None, True, True
 
     def returns(self, state: TurnState[str]) -> bool:
         """Whether a wait returns this record: the turn ended, or it waits on a callback that opened
@@ -212,6 +251,7 @@ async def wait_for_turn(
     approvals: Approvals | None = None,
     tools: Mapping[str, _Tool] = NO_TOOLS,
     client_tools: ClientToolRegistry = NO_CLIENT_TOOLS,
+    confirmed: bool = False,
 ) -> TurnState[str]:
     """Return the turn's record at its end, or at a callback opened after ``after``.
 
@@ -224,8 +264,10 @@ async def wait_for_turn(
     ``WaitBudget`` bounds them by the time spent waiting for the host only.
 
     ``on_event`` gets the turn's events after ``after`` up to the record returned, at the timeout
-    too: without ``after``, after ``start`` (a cursor read before the turn started), else from the
-    turn's start position the host recorded, else from the session's start. They are read up to
+    too: without ``after``, after ``start`` (the previous turn's start, read before this turn
+    started), else from the previous turn's start position the host recorded, else from the
+    session's start: the events that name no turn since the previous turn's end are this
+    turn's. They are read up to
     the record's position with no time limit. The record's ``cursor`` is the position they reached.
     With ``approvals``, which the caller serves while the call waits, a ``Blocked`` returns only on a
     callback its handler does not answer, or an approval it leaves open. A client tool call
@@ -233,14 +275,19 @@ async def wait_for_turn(
     either: a client attached in this process answers it, in the session or its subagents. One
     whose answer returned ``agents.KeepCallbackOpen()`` does.
 
+    A ``confirmed`` turn, one a start or a send returned, that the host's read does not list yet
+    is followed as running: a deployment answers the start before its read lists the turn. Such a
+    turn the host never lists is waited for until ``timeout``, or the session's end.
+
     Raises:
+        TurnNotFoundError: The session has no turn with this id, and it is not ``confirmed``.
         ObservationLost: The session's events, or its subagents' callbacks, could not be read, and
             the turn has not ended.
         Exception: The approval handler raised this error; its approval stays open.
     """
-    wait = _Wait(session_id, turn_id, after, approvals, tools=tools, client_tools=client_tools)
+    wait = _Wait(session_id, turn_id, after, approvals, tools=tools, client_tools=client_tools, confirmed=confirmed)
     if on_event is not None and start is not None and after is None:
-        wait.seen = start
+        wait.seen = wait.start = start
     # A notebook's stop must land while the turn is quiet: see ``waking``.
     budget = timeout if isinstance(timeout, WaitBudget) else WaitBudget(timeout)
     budget.start()
@@ -318,7 +365,7 @@ async def _wait_for_turn(
                     if target is not None or _ended(state):
                         return state
                     if after is None:
-                        wait.seen, wait.active = state.cursor, turn_id
+                        wait.seen, wait.active, wait.reached = state.cursor, turn_id, True
                     return await _follow(raw, transport, wait)
                 if isinstance(state, Running | Blocked):
                     return await _follow(raw, transport, wait, on_event=on_event, target=target)
@@ -336,14 +383,25 @@ async def _wait_for_turn(
 
 
 async def _read_from_start(raw: _RawSession, wait: _Wait, *, on_event: EventHandler | None) -> TurnState[str]:
-    """Read the turn. A handler with no position yet gets the turn's events from the start the host recorded.
+    """Read the turn. A handler with no position yet gets the turn's events from the previous turn's start.
 
-    Without one, the events are read from the session's start, and the other turns' are skipped.
+    Without one recorded, the events are read from the session's start, and the other turns' are skipped.
     """
+    if wait.before:
+        state, wait.start = await read_turn_and_start(
+            raw, wait.session_id, wait.turn_id, tools=wait.tools, confirmed=wait.confirmed
+        )
+        # Once read: a read cut short by the deadline is made again.
+        wait.before = False
+        # The previous turn's start: no turn runs there.
+        wait.start_active, wait.start_known = None, True
+        return state
     if on_event is None or wait.seen is not None:
-        return await read_turn(raw, wait.session_id, wait.turn_id, tools=wait.tools)
-    state, start = await read_turn_and_start(raw, wait.session_id, wait.turn_id, tools=wait.tools)
-    wait.seen = start
+        return await read_turn(raw, wait.session_id, wait.turn_id, tools=wait.tools, confirmed=wait.confirmed)
+    state, start = await read_turn_and_start(
+        raw, wait.session_id, wait.turn_id, tools=wait.tools, confirmed=wait.confirmed
+    )
+    wait.seen = wait.start = start
     return state
 
 
@@ -394,9 +452,13 @@ async def _follow(
                     ends[wait.turn_id] = state  # Its TurnEnded needs no second read.
             else:
                 # The stream ended: the session may have ended with the turn.
-                if _ended(state := await read_turn(raw, wait.session_id, wait.turn_id, tools=wait.tools)):
+                if _ended(
+                    state := await read_turn(
+                        raw, wait.session_id, wait.turn_id, tools=wait.tools, confirmed=wait.confirmed
+                    )
+                ):
                     return state
-                raise ObservationLost(wait.session_id, wait.seen)
+                raise ObservationLost(wait.session_id, wait.position())
         # The next leg reads after the record's position: give every event up to it first.
         if wait.seen != target.cursor:
             stream = _only_events(items)
@@ -418,7 +480,7 @@ async def _with_subagents(
 
     An event is read while the caller waits for the next item, and, after the callbacks, while the
     caller reads the turn: if the turn ends then, ``follow`` may read the turn once more.
-    An error of the subagents' list raises ``ObservationLost`` at ``wait.seen``, the events after
+    An error of the subagents' list raises ``ObservationLost`` at ``wait.position()``, the events after
     it not taken yet. Once ``watching()`` is false, at the caller's next item, the list is closed
     and its error, if any, dropped. This ends with ``events``; the subagents' list ending does not.
     """
@@ -445,7 +507,7 @@ async def _with_subagents(
                 except StopAsyncIteration:
                     subagents = None
                 except harness_session.SessionEventStreamLostError as error:
-                    raise ObservationLost(wait.session_id, wait.seen) from error
+                    raise ObservationLost(wait.session_id, wait.position()) from error
                 else:
                     if opened:
                         yield opened
@@ -517,7 +579,7 @@ async def _read_opened(raw: _RawSession, wait: _Wait, opened: frozenset[tuple[st
         listed = await _still_open(raw, wait, opened)
         if listed is not None and not listed:
             return None
-        state = await read_turn(raw, wait.session_id, wait.turn_id, tools=wait.tools)
+        state = await read_turn(raw, wait.session_id, wait.turn_id, tools=wait.tools, confirmed=wait.confirmed)
         if _ended(state) or (isinstance(state, Blocked) and _lists(state, opened)):
             return state
         if listed is None:
@@ -566,11 +628,17 @@ async def _up_to_end(
     on_event: EventHandler | None,
     reconnect: bool = True,
 ) -> None:
-    """Give the events of the turn that ended, ``state`` its record, after ``wait.seen``, as ``up_to_end`` does."""
+    """Give the events of the turn that ended, ``state`` its record, after ``wait.seen``, as ``up_to_end`` does.
+
+    ``up_to_end`` raises ``ObservationLost`` before it gives any event: at ``wait.position()``.
+    """
     events = _events(raw, transport, wait, ends={wait.turn_id: state}, reconnect=reconnect)
-    async for event in up_to_end(events, after=wait.seen, state=state):
-        wait.seen = event.id
-        await _deliver(wait, on_event, event)
+    try:
+        async for event in up_to_end(events, after=wait.seen, state=state):
+            wait.note(event.id, event)
+            await _deliver(wait, on_event, event)
+    except ObservationLost as error:
+        raise ObservationLost(wait.session_id, wait.position()) from error.__cause__
 
 
 async def _catch_up(
@@ -599,11 +667,17 @@ def _read_to(wait: _Wait, state: TurnState[str]) -> TurnState[str]:
     """``state`` at the position the handler's events reached, if short of its own.
 
     ``up_to`` can stop before the record's position, at the stream's end: the next leg, after the
-    record returned, then neither repeats nor misses an event.
+    record returned, then neither repeats nor misses an event. Short of it with no position to
+    name, read from the session's start, the wait raises ``ObservationLost`` with no cursor.
     """
-    if wait.seen is None or wait.seen == state.cursor:
+    position = wait.position()
+    if wait.seen == state.cursor or position == state.cursor:
         return state
-    return dataclasses.replace(state, cursor=wait.seen)
+    if position is None:
+        # Read from the session's start and short of the turn's start: a resume after the record
+        # would miss the notices before it.
+        raise ObservationLost(wait.session_id, None)
+    return dataclasses.replace(state, cursor=position)
 
 
 def _events(
@@ -615,12 +689,19 @@ def _events(
     reconnect: bool = True,
     reread: bool = True,
 ) -> AsyncGenerator[tuple[str, Event | None]]:
-    """``follow`` the turn's events after ``wait.seen``."""
+    """``follow`` the turn's events after ``wait.seen``.
+
+    A wait that read nothing of its turn reads again from its start: it does not know which turn
+    runs at ``seen``. It gave no event then.
+    """
+    if not (wait.reached or wait.gap):
+        wait.seen, wait.active, wait.active_known = wait.start, wait.start_active, wait.start_known
     return follow(
         raw,
         transport,
         wait.session_id,
         after=wait.seen,
+        start=wait.position(),
         active_turn_id=wait.active,
         active_known=wait.active_known,
         turn_id=wait.turn_id,
@@ -628,14 +709,14 @@ def _events(
         reconnect=reconnect,
         reread=reread,
         tools=wait.tools,
+        confirmed=wait.confirmed,
     )
 
 
 async def _take(wait: _Wait, on_event: EventHandler | None, cursor: str, event: Event | None) -> TurnState[str] | None:
     """Give ``event`` and note it in ``wait``; the turn's record if it ended there."""
-    wait.seen = cursor
+    wait.note(cursor, event)
     if event is not None:
-        wait.active = wait.turn_id  # An event of the turn: it runs there.
         await _deliver(wait, on_event, event)
     if isinstance(event, TurnEnded):
         return event.state

@@ -50,7 +50,6 @@ class MessageTypeWebhookV2Beta(Enums.KnownString):
     V3_RNAOLIGOUPDATED = "v3.rnaOligo.updated"
     V3_RNASEQUENCECREATED = "v3.rnaSequence.created"
     V3_RNASEQUENCEUPDATED = "v3.rnaSequence.updated"
-    V3_RUNCREATED = "v3.run.created"
 
     def __str__(self) -> str:
         return str(self.value)

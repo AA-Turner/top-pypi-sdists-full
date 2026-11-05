@@ -7,6 +7,25 @@ mistralai-vibe-harness. Import this submodule only when you need the client;
 importing the root ``mistralai.vibe_agents`` does not trigger these imports.
 """
 
+# The types SessionsClient's methods take, and the members of the SessionWorkflowCommand and
+# MessagePart unions;
+# the module that defines them is internal.
+from mistralai.vibe_agents.session_workflow import (
+    CallbackResultCommand,
+    CallbackResultPayload,
+    CommandMetadata,
+    IntegrationEventCommand,
+    MessageCommand,
+    MessageInput,
+    MessagePartForm,
+    MessagePartImage,
+    MessagePartResourceLink,
+    MessagePartText,
+    SessionAgentCustomization,
+    SessionWorkflowCommand,
+    SessionWorkflowSubscription,
+    SystemCommand,
+)
 from mistralai.vibe_agents.sessions_client.api_models import (
     AgentSessionResponse,
     AgentSessionStatus,
@@ -42,24 +61,37 @@ from mistralai.vibe_agents.sessions_client.rendered_session_v1 import (
 __all__ = [
     "AgentSessionResponse",
     "AgentSessionStatus",
+    "CallbackResultCommand",
+    "CallbackResultPayload",
+    "CommandMetadata",
     "ArchiveSessionRequest",
     "CancelAgentSessionRequest",
     "DirectChildrenScopeInput",
     "IdempotencyKey",
+    "IntegrationEventCommand",
     "Callback",
     "InterruptAgentSessionRequest",
     "ListSessionsResult",
+    "MessageCommand",
+    "MessageInput",
+    "MessagePartForm",
+    "MessagePartImage",
+    "MessagePartResourceLink",
+    "MessagePartText",
     "ObservedControllerEventResponse",
     "RenameSessionRequest",
     "RootsScopeInput",
     "SessionCatalogScopeInput",
     "RenderedSessionV1",
     "SessionAgentConfiguration",
+    "SessionAgentCustomization",
     "SessionEventsHistoryResponse",
     "SessionProtocol",
     "SessionCommandRejectedError",
     "SessionsAPIError",
     "SessionsClient",
+    "SessionWorkflowCommand",
+    "SessionWorkflowSubscription",
     "SessionToolset",
     "StartAgentSessionRequest",
     "StartAgentSessionResponse",
@@ -67,6 +99,7 @@ __all__ = [
     "SubmitAgentMessageResponse",
     "SubmitCallbackResultRequest",
     "SubmitCallbackResultResponse",
+    "SystemCommand",
     "TreeScopeInput",
     "parse_session_v1_event",
 ]

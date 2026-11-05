@@ -3,12 +3,12 @@
 from pathlib import Path
 from typing import ClassVar, Iterable
 
-from pydash.objects import get  # type: ignore
+from pydash.objects import get
 
 from airbyte_ops_mcp.connector_ops.utils import (
     Connector,
     ConnectorLanguage,
-)  # type: ignore
+)
 from airbyte_ops_mcp.connector_qa import consts
 from airbyte_ops_mcp.connector_qa.models import (
     Check,

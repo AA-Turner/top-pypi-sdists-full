@@ -3475,7 +3475,7 @@ class BaseVersion(RootModel[int]):
 class Conclusion(RootModel[str]):
     root: str = Field(
         ...,
-        description='The experiment\'s answer: what the work found, with its evidence. `""` clears it. An `authored_by=agent` write over a conclusion a person wrote is a 409: put the finding in the notes instead.',
+        description='The experiment\'s answer in plain words: what the work found. `""` clears it. An `authored_by=agent` write over a conclusion a person wrote is a 409: put the finding in the notes instead.',
         max_length=2000,
         title='Conclusion',
     )
@@ -3555,7 +3555,7 @@ class ProjectExperimentPatch(BaseModel):
     )
     conclusion: Conclusion | None = Field(
         None,
-        description='The experiment\'s answer: what the work found, with its evidence. `""` clears it. An `authored_by=agent` write over a conclusion a person wrote is a 409: put the finding in the notes instead.',
+        description='The experiment\'s answer in plain words: what the work found. `""` clears it. An `authored_by=agent` write over a conclusion a person wrote is a 409: put the finding in the notes instead.',
         title='Conclusion',
     )
     document: Document1 | None = Field(

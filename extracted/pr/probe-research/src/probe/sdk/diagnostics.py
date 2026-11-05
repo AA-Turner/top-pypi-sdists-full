@@ -514,7 +514,6 @@ def capture_swallowed(
     run: Any = None,
     base_url: str | None = None,
     spool_dir: str | None = None,
-    surface: str = "sdk",
 ) -> bool:
     """Report an exception that was caught and deliberately NOT re-raised.
 
@@ -560,7 +559,8 @@ def capture_swallowed(
         ):
             return False
         telemetry_mod.report_crash(
-            exc, surface=surface, report=build_report(exc), base_url=base_url, handled=True, site=site
+            exc, surface=telemetry_mod.ProductSurface.SDK, report=build_report(exc),
+            base_url=base_url, handled=True, site=site,
         )
         return True
     except Exception:

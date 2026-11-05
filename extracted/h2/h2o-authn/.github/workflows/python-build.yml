@@ -3,25 +3,33 @@ name: Python Build
 on:
   workflow_call:
 
+permissions: {}
+
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         id: setup-python
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-build-${{ steps.setup-python.outputs.python-version }}-${{ github.sha }}

@@ -70,7 +70,7 @@ from .._core.reporting import (
     error_of,
 )
 from .waits import Interrupted, _StartWait, _Waits, _gpu_said
-from ..errors import InvalidRequest, SequencesError, Unavailable, WaitingForPlan
+from ..errors import NOT_THE_PLATFORM, InvalidRequest, SequencesError, Unavailable
 from .types import Ready
 
 
@@ -94,13 +94,27 @@ def _default_warming_notice(waited_s: float, retry_s: float) -> None:
           f"(waited {waited_s:.0f}s so far)", file=sys.stderr, flush=True)
 
 
+
+
+
+_FIRST_ANSWER_S = 30.0
+
+
 def _unanswered(exc: Unavailable) -> bool:
     """Whether a ready poll, or the connect wait_until_ready() sends, went unanswered for the moment - its read timed out
-    or its connection was cut on the way (the transport's "could not reach"), or the gateway answered 502, 503 or 504 -
-    rather than answered for good: refused, out of credit, the key's requests a minute (said with how to poll,
-    _ready_body), a line or a wait for its card the platform ended."""
+    or its connection was cut on the way (the transport's "could not reach"), or the gateway answered 502, 503 or 504,
+    or something other than the platform answered in its place (errors.not_the_platform) - rather than answered for
+    good: refused, out of credit, the key's requests a minute (said with how to poll, _ready_body), a line or a wait for
+    its card the platform ended, a start its worker said will not serve."""
     reason = (exc.details or {}).get("reason")
+    if reason == NOT_THE_PLATFORM:
+        return True
     if reason == "queue_timeout" or (reason == "gpu_low_stock" and (exc.details or {}).get("waited_s") is not None):
+        return False
+    if reason == "worker_failed":
+
+
+
         return False
     return isinstance(exc.__cause__, httpx.TransportError) or exc.status in (502, 503, 504)
 
@@ -142,6 +156,18 @@ def _end_reports(reason: str) -> None:
 
 _seat.on_ending(_end_reports)
 atexit.register(_end_reports, "exit")
+
+
+def _reserved_keys(inputs: Any) -> None:
+    """Refuse, before anything is sent, an observation with a top-level key that starts with "seq.": those are the
+    platform's own ("seq.observations", "seq.actions", "seq.plans" in an episode's state), which the worker refuses too.
+    """
+    if not isinstance(inputs, dict):
+        return
+    for key in inputs:
+        if isinstance(key, str) and key.startswith("seq."):
+            raise InvalidRequest(f'"{key}" is the platform\'s: keys that start with "seq." cannot be observed, so name '
+                                 "it something else")
 
 
 class Policy(_Waits):
@@ -386,6 +412,7 @@ class Policy(_Waits):
 
         WHY: an act was the only upload, so every frame between two acts waited for the next one - 24 frames, 1.3 MB and
         a read p50 of 425 ms from a robot at home."""
+        _reserved_keys(inputs)
         episode = self._episode_for(episode_id)
         observe = getattr(self._t, "observe", None)
         if observe is None:
@@ -538,6 +565,13 @@ class Policy(_Waits):
         with getattr(self._t, "waiting_ready", nullcontext)():
             return self._poll_until_ready(timeout_s, poll_s)
 
+    def _nothing_of_ours_there(self, exc: Unavailable, started: float) -> bool:
+        """Something other than the platform has answered this wait since it began, for _FIRST_ANSWER_S, and the
+        platform never has on this connection: raised then, as a wrong base_url was at once."""
+        return ((exc.details or {}).get("reason") == NOT_THE_PLATFORM
+                and not getattr(self._t, "platform_answered", True)
+                and time.monotonic() - started >= _FIRST_ANSWER_S)
+
     def _poll_until_ready(self, timeout_s: float | None, poll_s: float) -> float:
         """wait_until_ready()'s wait, until this robot holds a seat on a running worker - its connection to it open - or
         its limit passes: the seconds that took. A poll only looks (GET /v1/act/ready): what places the robot is its
@@ -572,7 +606,8 @@ class Policy(_Waits):
 
 
 
-                    if not _unanswered(exc) or time.monotonic() >= wait_for.deadline:
+                    if (not _unanswered(exc) or time.monotonic() >= wait_for.deadline
+                            or self._nothing_of_ours_there(exc, started)):
                         raise
                     missed += 1
                     if missed == 1:
@@ -608,8 +643,9 @@ class Policy(_Waits):
 
 
 
-                        if not _unanswered(exc) or (time.monotonic() >= wait_for.deadline
-                                                    and (not line or wait_for.bounds_a_line)):
+                        if (not _unanswered(exc) or self._nothing_of_ours_there(exc, started)
+                                or (time.monotonic() >= wait_for.deadline
+                                    and (not line or wait_for.bounds_a_line))):
                             raise
                         unplaced += 1
                         if unplaced == 1:
@@ -709,6 +745,7 @@ class Policy(_Waits):
         stale = self._interrupt.is_set()
         self._assert_open()
         self._beat_start()
+        _reserved_keys(observation)
         if _marked.holds(observation):
 
             raise InvalidRequest("act(): a sequence_ai.Video, Depth or Tactile item goes in observe(), which sends it as "
@@ -909,12 +946,6 @@ class Policy(_Waits):
                 metrics.finalize()
                 self._report(metrics)
                 self._wait_out(exc, wait_for, wait_for.began)
-            except WaitingForPlan:
-
-                metrics.outcome = OUTCOME_WARMING
-                metrics.finalize()
-                self._report(metrics)
-                raise
             except Exception as exc:
                 metrics.outcome = OUTCOME_ERROR
                 metrics.error = error_of(exc)

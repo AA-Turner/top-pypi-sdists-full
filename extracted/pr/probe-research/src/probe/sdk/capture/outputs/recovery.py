@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ....foundation.os_backend import os_backend as oscompat
-from ...recording_rules import ignore as _ignore
+from ...recording_rules import recording_rules as _ignore
 from ..logs import stream as _logstream
 from ..logs.logs import _spawn_recovery, read_stats
 #: A recovery claim older than this belongs to a recoverer that died.

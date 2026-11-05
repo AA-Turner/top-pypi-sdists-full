@@ -1,5 +1,5 @@
 ---
-requires_ansible: ">=2.15.0"
+requires_ansible: ">=2.16.0"
 plugin_routing:
   modules:
     banner:
@@ -14,6 +14,8 @@ plugin_routing:
       redirect: vyos.vyos.vyos_config
     facts:
       redirect: vyos.vyos.vyos_facts
+    file:
+      redirect: vyos.vyos.vyos_file
     firewall_global:
       redirect: vyos.vyos.vyos_firewall_global
     firewall_interfaces:
@@ -44,6 +46,8 @@ plugin_routing:
       redirect: vyos.vyos.vyos_logging_global
     ntp_global:
       redirect: vyos.vyos.vyos_ntp_global
+    nat:
+      redirect: vyos.vyos.vyos_nat
     ospfv2:
       redirect: vyos.vyos.vyos_ospfv2
     ospfv3:
@@ -55,7 +59,7 @@ plugin_routing:
     prefix_lists:
       redirect: vyos.vyos.vyos_prefix_lists
     snmp_server:
-      redirect: vyos.vyos.vyos_snmp_servers
+      redirect: vyos.vyos.vyos_snmp_server
     static_routes:
       redirect: vyos.vyos.vyos_static_routes
     system:
@@ -64,3 +68,11 @@ plugin_routing:
       redirect: vyos.vyos.vyos_user
     vlan:
       redirect: vyos.vyos.vyos_vlan
+    vrf:
+      redirect: vyos.vyos.vyos_vrf
+    vpn_ipsec:
+      redirect: vyos.vyos.vyos_vpn_ipsec
+    vpn_ipsec_s2s:
+      redirect: vyos.vyos.vyos_vpn_ipsec_s2s
+    ha:
+      redirect: vyos.vyos.vyos_ha

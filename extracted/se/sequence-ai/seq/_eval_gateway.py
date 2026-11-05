@@ -66,6 +66,13 @@ def _episode_filters(task: str | list[str] | None, outcome: str | None, arm: int
     return {**out, **{k: v for k, v in (("outcome", outcome), ("arm", arm)) if v is not None}}
 
 
+class Registered(BenchmarkStatusResponse):
+    """A registration's 202 as this sequence-ai read it: the contract's fields, and beside them the adapters registered
+    with it in the account (the X-Adapters-Registered header) - none for a benchmark that is no template's."""
+
+    adapters: list[str] = []
+
+
 class EvalGatewayClient:
     def __init__(self, api_key: str | None = None, base_url: str | None = None, *, transport: Any = None) -> None:
         self._base = (base_url or os.environ.get("SEQUENCES_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
@@ -92,14 +99,15 @@ class EvalGatewayClient:
         return r
 
 
-    def register(self, request: BenchmarkRegisterRequest, *, override: bool = False) -> BenchmarkStatusResponse:
+    def register(self, request: BenchmarkRegisterRequest, *, override: bool = False) -> Registered:
         """POST /v1/benchmarks: every earlier version is kept - or, `override` (seq deploy --override), the one evals run
         now is deleted once this one has passed its check."""
 
-        body = self._request("POST", "/v1/benchmarks", content=request.model_dump_json(exclude_none=True),
-                             headers={"Content-Type": "application/json"},
-                             params={"override": "true"} if override else None)
-        return BenchmarkStatusResponse.model_validate(body)
+        from seq._deploy_gateway import adapters_of
+
+        r = self._get("POST", "/v1/benchmarks", timeout=_TIMEOUT_S, content=request.model_dump_json(exclude_none=True),
+                      headers={"Content-Type": "application/json"}, params={"override": "true"} if override else None)
+        return Registered(**BenchmarkStatusResponse.model_validate(r.json()).model_dump(), adapters=adapters_of(r))
 
     def validate(self, path: str, **kwargs: Any) -> dict | None:
         """POST to the platform's own check of a registration, with nothing registered or built - /v1/benchmarks/validate
@@ -279,6 +287,12 @@ class EvalGatewayClient:
             cursor = page.get("next_cursor")
             if not cursor:
                 return out
+
+    def open_machines(self) -> list[dict]:
+        """The account's machines open beside its workers and evals' (GET /v1/machines: its benchmarks' shells, and machines
+        checking a version on a VM), each what it is for, its version and card, when its card's first second was and what
+        it still waits on."""
+        return list((self._request("GET", "/v1/machines") or {}).get("data") or [])
 
     def benchmark_tasks(self, name: str, *, version: int | None = None) -> dict:
         """GET /v1/benchmarks/{name}/tasks: a benchmark version's tasks (the current one unless `version`) - each

@@ -6,7 +6,7 @@ description = "Ephemeral SQL index over a local directory"
 # version stays for the binding crates (publish = false). The literal
 # intentionally lags the published version: putitoutthere rewrites it to
 # the planned release version at build time and never commits it back.
-version = "0.4.131"
+version = "0.4.153"
 edition.workspace = true
 # Literal `license` (not `license.workspace = true`) because
 # putitoutthere's preflight check reads `[package].license` directly
@@ -96,6 +96,9 @@ typed-path = "0.12"
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "1", features = ["fs"] }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
+
 [lints.rust]
 # `deny`, not `forbid`: rusqlite's API imposes five unavoidable `unsafe`
 # sites (the `load_extension` guard and four `unsafe impl VTab`/`VTabCursor`).
@@ -133,6 +136,7 @@ eventsource-client = "0.13"
 futures-executor = "0.3"
 futures-util = "0.3"
 libc = "0.2"
+rusqlite = { version = "0.34", features = ["limits"] }
 predicates = "3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream"] }
 serde_json.workspace = true

@@ -2,6 +2,7 @@
 
 from .advantages import Batchwise, GroupCentered, build_batch, decouple_ppo
 from .checkpoint import Checkpointing
+from .spill import Spill
 from .config import (
     Adam,
     Admission,
@@ -29,7 +30,6 @@ from .env import (
     tool,
 )
 from .evaluation import CheckpointSampler, Evaluation, Evaluator, WandbSink
-from .deployment import EvaluationDeployment
 from .losses import (
     CISPO,
     CustomLoss,
@@ -61,6 +61,7 @@ __all__ = [
     "Budget",
     "CheckpointSampler",
     "Checkpointing",
+    "Spill",
     "CompletedGroup",
     "Cosine",
     "Env",
@@ -69,7 +70,6 @@ __all__ = [
     "ErrorOperation",
     "Recover",
     "Evaluation",
-    "EvaluationDeployment",
     "Evaluator",
     "ForwardBackwardBatch",
     "GroupCentered",

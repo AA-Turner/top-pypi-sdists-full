@@ -29,6 +29,7 @@ from .notices import NOTICE_WATCHER
 from ...settings.settings import Settings
 from ...values import unstorable
 from .protocols import observer
+from .relay import FILE_BODY_EXTENSION, pick_http_transport  # noqa: F401 -- blobs.py reads the extension name here
 
 #: SDK reliability 2.8: every request says this client speaks per-writer leases. The server
 #: flips a `leases` run to the legacy rules on the first heartbeat, status write or logged
@@ -189,9 +190,18 @@ class Transport(_TransportParts):
 
     # -- lifecycle ----------------------------------------------------------
     def _build_http_client(self) -> httpx.Client:
+        timeout = httpx.Timeout(self.timeout, connect=min(self.timeout, _DEFAULT_CONNECT_TIMEOUT))
+        relay = pick_http_transport(self.surface)
+        if relay is not None:
+            # A training process sends no HTTP of its own (plan D10): the service sends it,
+            # through this process's proxies and CAs (`relay.get_network_env`), or the service's
+            # own when this caller is fenced (H-2), never httpx's here.
+            return httpx.Client(
+                base_url=self.settings.base_url, timeout=timeout, transport=relay, trust_env=False, verify=ssl_context(),
+            )
         return httpx.Client(
             base_url=self.settings.base_url,
-            timeout=httpx.Timeout(self.timeout, connect=min(self.timeout, _DEFAULT_CONNECT_TIMEOUT)),
+            timeout=timeout,
             verify=ssl_context(),
             limits=_KEEPALIVE_LIMITS,
         )
@@ -240,6 +250,7 @@ class Transport(_TransportParts):
         re-encoded."""
         if content is not None and json_body is not None:
             raise ValueError("pass json_body or content, not both")
+        need_api_path(path)
         json_body = self._prepare_json_body(method, path, json_body, params)
         # Serialize ourselves so the HMAC signs the exact sanitized bytes.
         if content is not None:
@@ -611,3 +622,12 @@ fold_parts(
     TrackingMarkerMixin,
     BlobsMixin,
 )
+
+
+def need_api_path(path: str) -> None:
+    """An API path is one path on the configured server: it starts with exactly one `/` (C2). A
+    `//host/...` path or an absolute URL would send this client's signed request and its key to
+    another host (httpx joins them onto `base_url` as a new authority). Raised as a
+    ValidationError: a queued op holding one is dead-lettered, never retried."""
+    if not isinstance(path, str) or not path.startswith("/") or path.startswith("//") or "\\" in path:
+        raise errors.ValidationError(f"refused API path {str(path)[:80]!r}: not one path on the configured server")

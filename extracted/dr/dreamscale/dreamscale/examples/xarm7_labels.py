@@ -5,16 +5,22 @@ label at a time: Enter starts the next label, `b` goes back one, `q` stops. Whic
 the label doesn't move is held where it was when the label started, whatever the model says
 for it.
 
-Run: python -m dreamscale.examples.xarm7_labels <account>/<slug>
-It uses the rig file `dreamscale robots xarm7 setup` writes. Adapt LABELS and ACTIVE_ARM to
-your own task; this is a starting point for your own runner, not a product command.
+Run: python -m dreamscale.examples.xarm7_labels <account>/<slug> labels.json [first label]
+labels.json lists the task's labels in order, each with the arm it moves ("fore" or "aft"):
+
+    [["pick up the cup", "fore"], ["hold the lid open", "aft"]]
+
+It uses the rig file `dreamscale robots xarm7 setup` writes. This is a starting point for your
+own runner, not a product command.
 """
 
 from __future__ import annotations
 
+import json
 import queue
 import sys
 import threading
+from pathlib import Path
 
 import numpy as np
 
@@ -22,25 +28,6 @@ import dreamscale
 from dreamscale.hardware.xarm7_config import ARMS, ROLES, load_config
 from dreamscale.hardware.xarm7_rig import XArm7Rig
 
-# The wiper-fluid refill: (label, the arm it moves), in task order.
-LABELS = (
-    ("inspect the wiper fluid cap", "fore"),
-    ("move the arm above the wiper fluid cap", "aft"),
-    ("align the gripper and pop open the cap", "aft"),
-    ("hold the wiper fluid cap open", "aft"),
-    ("pick up the funnel from the table", "fore"),
-    ("move the funnel above the wiper fluid pipe", "fore"),
-    ("seat and release the funnel, then move clear", "fore"),
-    ("move to and reach around the bottle", "fore"),
-    ("grasp the bottle and position it over the funnel", "fore"),
-    ("tip and hold the bottle while pouring", "fore"),
-    ("return and release the bottle on the table", "fore"),
-    ("move to and grasp the funnel in the pipe", "fore"),
-    ("lift the funnel out and return it above the table", "fore"),
-    ("set down the funnel and inspect the cap", "fore"),
-    ("prepare the gripper and press the cap closed", "aft"),
-    ("move clear of the closed cap", "aft"),
-)
 ARM_SIZE = 8  # seven joints, then the gripper
 
 
@@ -51,6 +38,17 @@ def frozen(action, hold, active: str) -> tuple[float, ...]:
         if arm != active:
             out[i * ARM_SIZE:(i + 1) * ARM_SIZE] = hold[i * ARM_SIZE:(i + 1) * ARM_SIZE]
     return tuple(out.tolist())
+
+
+def load_labels(path: str) -> list[tuple[str, str]]:
+    """The (label, arm) pairs in a labels file, in task order."""
+    labels = json.loads(Path(path).read_text())
+    if not isinstance(labels, list) or not labels or not all(
+        isinstance(pair, list) and len(pair) == 2 and isinstance(pair[0], str)
+        and pair[0].strip() and pair[1] in ARMS for pair in labels
+    ):
+        sys.exit(f"{path}: expected a list of [label, arm] pairs, arm one of {', '.join(ARMS)}")
+    return [(label, arm) for label, arm in labels]
 
 
 def keys() -> queue.Queue:
@@ -65,7 +63,7 @@ def keys() -> queue.Queue:
     return lines
 
 
-def run(deployment: str, *, first: int = 0) -> None:
+def run(deployment: str, labels: list[tuple[str, str]], *, first: int = 0) -> None:
     config = load_config().validate(complete=True)
     rig = XArm7Rig(config, roles=ROLES, max_joint_step=0.2, max_joint_velocity=0.5)
     typed = keys()
@@ -73,9 +71,9 @@ def run(deployment: str, *, first: int = 0) -> None:
     with dreamscale.connect(deployment) as policy:
         rig.open(attended=True)
         try:
-            while 0 <= index < len(LABELS):
-                label, active = LABELS[index]
-                print(f"[{index + 1}/{len(LABELS)}] {label} ({active} arm). "
+            while 0 <= index < len(labels):
+                label, active = labels[index]
+                print(f"[{index + 1}/{len(labels)}] {label} ({active} arm). "
                       "Enter to start · q to quit")
                 if typed.get() == "q":
                     break
@@ -91,7 +89,7 @@ def run(deployment: str, *, first: int = 0) -> None:
                         rig.stop()
                         index += -1 if key == "b" else 1
                         if key == "q":
-                            index = len(LABELS)
+                            index = len(labels)
                         break
                     action = policy.next_action(rig.observe(None), label)
                     rig.act(frozen(action, hold, active))
@@ -101,6 +99,8 @@ def run(deployment: str, *, first: int = 0) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit("usage: python -m dreamscale.examples.xarm7_labels <account>/<slug> [first label]")
-    run(sys.argv[1], first=int(sys.argv[2]) - 1 if len(sys.argv) > 2 else 0)
+    if len(sys.argv) < 3:
+        sys.exit("usage: python -m dreamscale.examples.xarm7_labels <account>/<slug> labels.json"
+                 " [first label]")
+    run(sys.argv[1], load_labels(sys.argv[2]),
+        first=int(sys.argv[3]) - 1 if len(sys.argv) > 3 else 0)

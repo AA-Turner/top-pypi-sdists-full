@@ -6,7 +6,7 @@ export { Syntax, type SyntaxFlags } from "@discord/markdown-types";
  * Compile and instantiate the wasm.
  *
  * Only needed outside Node, where the bytes cannot be read without awaiting: Node initialises
- * itself on the first {@link parse} or {@link unparse}. Repeat calls are a no-op.
+ * itself on the first {@link parse} or {@link parseLossless}. Repeat calls are a no-op.
  *
  * This module has no top-level await, so importing it never makes the graph async.
  */
@@ -40,15 +40,3 @@ export function parseLossless(
 	content: string,
 	flags?: SyntaxFlags | null,
 ): LosslessNode;
-
-/**
- * Turn an AST back into markdown. Throws if the AST is malformed.
- *
- * Not byte-exact for everything: text is not re-escaped, italics always come back as `_`, and
- * unordered lists always as `* `, and a link written without a scheme comes back with `https://`.
- * Everything else round trips exactly -- including mentions, which are stored as a parsed id and
- * so cannot be rebuilt any other way.
- *
- * Throws if the wasm is not initialised. See {@link init}.
- */
-export function unparse(nodes: Block[]): string;

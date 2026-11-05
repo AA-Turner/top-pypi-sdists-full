@@ -37,6 +37,12 @@ merged:
         connection_type: invalid
     twa_hazards_protection: true
     validation: strict
+    zone:
+      - name: ZONE-TEST
+        default_action: drop
+        description: zone-test test description
+        interfaces:
+          - eth0.1234
   config:
     validation: strict
     log_martians: true
@@ -70,6 +76,45 @@ merged:
           description: This group has the Management network addresses
           members:
             - address: 192.0.1.0/24
+    zone:
+      - name: ZONE-TEST
+        description: zone-test test description
+        interfaces:
+          - eth0.1234
+
+  diff_config:
+    validation: strict
+    log_martians: true
+    syn_cookies: true
+    twa_hazards_protection: true
+    ping:
+      all: true
+      broadcast: true
+    state_policy:
+      - connection_type: established
+        action: accept
+        log: true
+      - connection_type: invalid
+        action: reject
+    route_redirects:
+      - afi: ipv4
+        ip_src_route: true
+        icmp_redirects:
+          send: true
+          receive: false
+    group:
+      address_group:
+        - name: MGMT-HOSTS
+          description: This group has the Management hosts address list
+          members:
+            - address: 192.0.1.1
+            - address: 192.0.1.3
+            - address: 192.0.1.5
+      network_group:
+        - name: MGMT
+          description: This group has the Management network addresses
+          members:
+            - address: 1.1.1.1/32
 
 populate:
   validation: strict
@@ -106,7 +151,12 @@ populate:
         members:
           - address: 192.0.1.0/24
         afi: ipv4
-
+  zone:
+    - name: ZONE-TEST
+      description: zone-test test description
+      interfaces:
+        - eth0.1234
+      default_action: drop
 replaced:
   commands: "{{ replaced_commands }}"
   after:
@@ -150,6 +200,16 @@ replaced:
     syn_cookies: true
     twa_hazards_protection: true
     validation: strict
+    zone:
+      - name: FZP-2
+        default_action: reject
+        default_log: true
+        description: This is the Firewall zone fzp2
+        interfaces:
+          - eth2
+          - lo
+        intra_zone_filtering:
+          action: accept
   config:
     validation: strict
     log_martians: true
@@ -188,6 +248,54 @@ replaced:
           description: This group has the Management network addresses
           members:
             - address: 192.0.1.0/24
+    zone:
+      - name: FZP-2
+        default_action: reject
+        default_log: true
+        description: This is the Firewall zone fzp2
+        interfaces:
+          - eth2
+          - lo
+        intra_zone_filtering:
+          action: accept
+  diff_config:
+    validation: strict
+    log_martians: true
+    syn_cookies: true
+    twa_hazards_protection: true
+    ping:
+      all: true
+      broadcast: true
+    state_policy:
+      - connection_type: established
+        action: accept
+        log: true
+      - connection_type: invalid
+        action: reject
+    route_redirects:
+      - afi: ipv4
+        ip_src_route: true
+        icmp_redirects:
+          send: true
+          receive: false
+    group:
+      address_group:
+        - name: SALES-HOSTS
+          description: Sales office hosts address list
+          members:
+            - address: 192.0.2.1
+            - address: 192.0.2.2
+            - address: 192.0.2.3
+        - name: ENG-HOSTS
+          description: Sales office hosts address list
+          members:
+            - address: 192.0.3.1
+            - address: 192.0.3.2
+      network_group:
+        - name: MGMT
+          description: This group has the Management network addresses
+          members:
+            - address: 1.1.1.1/32
 
 rendered:
   commands: "{{ rendered_commands }}"
@@ -229,6 +337,12 @@ rendered:
           description: This group has the Management network addresses
           members:
             - address: 192.0.1.0/24
+    zone:
+      - name: ZONE-TEST
+        description: zone-test test description
+        interfaces:
+          - eth0.1234
+        default_action: drop
 
 deleted:
   commands: "{{ deleted_commands }}"
@@ -270,6 +384,16 @@ round_trip:
           members:
             - address: 192.0.1.0/24
           afi: ipv4
+    zone:
+      - name: FZP-2
+        default_action: reject
+        default_log: true
+        description: This is the Firewall zone fzp2
+        interfaces:
+          - eth2
+          - lo
+        intra_zone_filtering:
+          action: accept
   forward_config:
     validation: strict
     log_martians: true
@@ -303,6 +427,16 @@ round_trip:
           description: This group has the Management network addresses
           members:
             - address: 192.0.1.0/24
+    zone:
+      - name: FZP-2
+        default_action: reject
+        default_log: true
+        description: This is the Firewall zone fzp2
+        interfaces:
+          - eth2
+          - lo
+        intra_zone_filtering:
+          action: accept
   revert_config:
     validation: strict
     log_martians: false

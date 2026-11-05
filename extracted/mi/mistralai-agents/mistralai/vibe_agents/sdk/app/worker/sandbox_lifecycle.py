@@ -44,6 +44,8 @@ class SandboxLifecycle(Protocol):
     def continuation(self) -> dict[str, JsonValue]: ...
 
 
+# Called with the start input, the attested caller (None for a Session that runs for no user), and
+# the lifecycle state carried across Continue-As-New.
 type SandboxLifecycleFactory = Callable[
-    [wire.SessionWorkflowStartInput, dict[str, JsonValue] | None], SandboxLifecycle | None
+    [wire.SessionWorkflowStartInput, wire.Principal | None, dict[str, JsonValue] | None], SandboxLifecycle | None
 ]

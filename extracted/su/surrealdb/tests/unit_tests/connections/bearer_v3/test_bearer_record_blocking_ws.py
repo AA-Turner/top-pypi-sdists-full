@@ -11,7 +11,11 @@ Mirrors behavior documented in surrealdb.go contrib/testenv:
 import pytest
 
 from surrealdb.connections.blocking_ws import BlockingWsSurrealConnection
+from surrealdb.errors import SurrealError
 from surrealdb.types import Tokens
+from tests.unit_tests.connections.bearer_v3.server_version import (
+    bearer_jwts_authenticate,
+)
 
 
 def test_bearer_access_record_user(bearer_v3_root_ws: dict) -> None:
@@ -24,17 +28,17 @@ def test_bearer_access_record_user(bearer_v3_root_ws: dict) -> None:
     namespace = bearer_v3_root_ws["namespace"]
     database_name = bearer_v3_root_ws["database_name"]
 
-    root.query("DEFINE TABLE IF NOT EXISTS users SCHEMAFULL")
-    root.query("DEFINE FIELD IF NOT EXISTS name ON users TYPE string")
+    root.query("DEFINE TABLE IF NOT EXISTS users SCHEMAFULL").execute()
+    root.query("DEFINE FIELD IF NOT EXISTS name ON users TYPE string").execute()
     root.query_raw("DELETE users:testrecord")
-    root.query("CREATE users:testrecord SET name = 'Test Record User'")
+    root.query("CREATE users:testrecord SET name = 'Test Record User'").execute()
     root.query(
         "DEFINE ACCESS IF NOT EXISTS bearer_record_api ON DATABASE TYPE BEARER FOR RECORD"
-    )
+    ).execute()
 
     grant_result = root.query(
         "ACCESS bearer_record_api GRANT FOR RECORD users:testrecord"
-    )
+    ).first()
     assert grant_result is not None
     assert isinstance(grant_result, dict)
     grant_info = grant_result.get("grant")
@@ -59,35 +63,35 @@ def test_bearer_access_record_user(bearer_v3_root_ws: dict) -> None:
         assert tokens.access is not None
         assert tokens.access != ""
 
-        result = conn.query("RETURN 1")
+        result = conn.query("RETURN 1").first()
         assert result == 1
     finally:
         if conn.socket:
             conn.socket.close()
 
 
-def test_bearer_record_signin_token_not_usable_with_authenticate(
+def test_bearer_record_signin_token_with_authenticate(
     bearer_v3_root_ws: dict,
 ) -> None:
     """
-    Authenticate does NOT work with bearer-obtained JWT for record users.
-    Bearer keys are for SignIn only.
+    Authenticate refuses a record user's bearer-obtained JWT before 3.4 and
+    accepts it from 3.4 on, where the server checks it against its grant.
     """
     root = bearer_v3_root_ws["connection"]
     url = bearer_v3_root_ws["url"]
     namespace = bearer_v3_root_ws["namespace"]
     database_name = bearer_v3_root_ws["database_name"]
 
-    root.query("DEFINE TABLE IF NOT EXISTS auth_records SCHEMAFULL")
-    root.query("DEFINE FIELD IF NOT EXISTS name ON auth_records TYPE string")
+    root.query("DEFINE TABLE IF NOT EXISTS auth_records SCHEMAFULL").execute()
+    root.query("DEFINE FIELD IF NOT EXISTS name ON auth_records TYPE string").execute()
     root.query_raw("DELETE auth_records:auth_test")
-    root.query("CREATE auth_records:auth_test SET name = 'Auth Test Record'")
+    root.query("CREATE auth_records:auth_test SET name = 'Auth Test Record'").execute()
     root.query(
         "DEFINE ACCESS IF NOT EXISTS bearer_record_auth ON DATABASE TYPE BEARER FOR RECORD"
-    )
+    ).execute()
     grant_result = root.query(
         "ACCESS bearer_record_auth GRANT FOR RECORD auth_records:auth_test"
-    )
+    ).first()
     bearer_key = grant_result["grant"]["key"]
 
     conn = BlockingWsSurrealConnection(url)
@@ -105,8 +109,12 @@ def test_bearer_record_signin_token_not_usable_with_authenticate(
         conn2 = BlockingWsSurrealConnection(url)
         try:
             conn2.use(namespace=namespace, database=database_name)
-            with pytest.raises(Exception):
+            if bearer_jwts_authenticate(bearer_v3_root_ws["version"]):
                 conn2.authenticate(tokens.access)
+                assert conn2.query("RETURN 1").first() == 1
+            else:
+                with pytest.raises(SurrealError):
+                    conn2.authenticate(tokens.access)
         finally:
             if conn2.socket:
                 conn2.socket.close()

@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from ....recording_rules import ignore as _ignore
+from ....recording_rules import recording_rules as _ignore
 
 
 def _header(raw: str) -> dict | None:

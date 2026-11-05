@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any, NoReturn, Self, cast
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
-import jsonschema_rs
 from google.protobuf import (
     descriptor_pb2,
     descriptor_pool,
@@ -30,6 +29,7 @@ from hypothesis import strategies as st
 from typing_extensions import override
 
 from schemathesis import auths
+from schemathesis.config._checks import NOT_A_SERVER_ERROR_EXPECTED_STATUSES
 from schemathesis.core import NOT_SET, SCHEMATHESIS_TEST_CASE_HEADER, Body, NotSet, Specification
 from schemathesis.core.control import SkipTest
 from schemathesis.core.errors import (
@@ -46,14 +46,14 @@ from schemathesis.core.result import Ok, Result
 from schemathesis.core.schema_analysis import SchemaWarning
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
 from schemathesis.core.timing import Instant
-from schemathesis.core.transforms import deepclone
-from schemathesis.core.transport import CallOutcome, Response
+from schemathesis.core.transforms import UNRESOLVABLE, deepclone
+from schemathesis.core.transport import CallOutcome, Response, StatusClass
 from schemathesis.core.warnings import SchemathesisWarning
 from schemathesis.filters import FilterUsage, OperationContext
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
 from schemathesis.generation.hypothesis.reporting import UnsatisfiableSchema
-from schemathesis.generation.jsonschema.builder import EMPTY_STRATEGY, build
+from schemathesis.generation.jsonschema.builder import EMPTY_STRATEGY
 from schemathesis.generation.jsonschema.context import Alphabet
 from schemathesis.generation.meta import (
     PhaseInfo,
@@ -77,22 +77,22 @@ from schemathesis.specs.grpc.converter import (
     request_message,
     rewrite_json,
 )
-from schemathesis.specs.grpc.formats import grpc_formats
+from schemathesis.specs.grpc.formats import message_values
 from schemathesis.specs.grpc.stateful import (
     GrpcLink,
     LinkedValue,
     create_state_machine,
     infer_links,
     link_candidates,
+    response_value,
     with_value,
 )
 from schemathesis.specs.grpc.status import (
+    GRPC_STATUS_CODES_BY_CLASS,
+    GRPC_STATUS_CODES_BY_NAME,
     GRPC_STATUSES,
-    INTERNAL,
     LIBRARY_DECODE_ERRORS,
     OK,
-    STATUS_NAMES_BY_HTTP_STATUS,
-    grpc_status,
     starts_with_verb,
 )
 
@@ -111,7 +111,7 @@ if TYPE_CHECKING:
     from schemathesis.filters import FilterSet
     from schemathesis.generation.case import Case
     from schemathesis.generation.coverage import GenerationSession
-    from schemathesis.generation.stateful.state_machine import APIStateMachine
+    from schemathesis.generation.stateful.state_machine import APIStateMachine, StepOutput
     from schemathesis.hooks import HookDispatcher
     from schemathesis.resources import ResourcePool
     from schemathesis.transport.grpc import GrpcTransport
@@ -191,6 +191,8 @@ class GrpcSchema(BaseSchema):
     pool: descriptor_pool.DescriptorPool = field(default_factory=descriptor_pool.DescriptorPool)
     # Tested services by full name, in declaration order.
     services: dict[str, ServiceDescriptor] = field(default_factory=dict)
+    # Services of files imported from other APIs, tested only when a filter selects them explicitly.
+    imported_services: frozenset[str] = frozenset()
     _transport: GrpcTransport | None = None
 
     def __repr__(self) -> str:
@@ -202,6 +204,7 @@ class GrpcSchema(BaseSchema):
         # Descriptors never change, so clones share them.
         cloned.pool = self.pool
         cloned.services = self.services
+        cloned.imported_services = self.imported_services
         return cloned
 
     @property
@@ -213,7 +216,12 @@ class GrpcSchema(BaseSchema):
     def get_transport(self, app: object) -> GrpcTransport:
         if self._transport is None:
             # grpcio has no free-threaded build, so loading a schema does not import it.
-            from schemathesis.transport.grpc import GrpcTransport
+            try:
+                from schemathesis.transport.grpc import GrpcTransport
+            except ImportError as exc:
+                from schemathesis.grpc.loaders import EXTRA_HINT
+
+                raise ImportError(EXTRA_HINT) from exc
 
             self._transport = GrpcTransport()
         return self._transport
@@ -312,8 +320,46 @@ class GrpcSchema(BaseSchema):
         return shlex.join(args)
 
     @override
+    def as_curl_command(
+        self, case: Case, *, headers: Mapping[str, Any] | None, verify: bool, base_url: str | None = None
+    ) -> str:
+        return self.as_reproduction_command(case, headers=headers, verify=verify, base_url=base_url)
+
+    @override
+    def as_transport_kwargs(
+        self, case: Case, *, base_url: str | None, headers: dict[str, str] | None
+    ) -> dict[str, Any]:
+        return prepare_call_kwargs(case, request_metadata(case, headers))
+
+    @override
     def status_name_for_code(self, status_code: int) -> str | None:
-        return STATUS_NAMES_BY_HTTP_STATUS.get(status_code)
+        status = GRPC_STATUSES.get(status_code)
+        return status.name if status is not None else None
+
+    @override
+    def classify_status(self, status_code: int) -> StatusClass:
+        status = GRPC_STATUSES.get(status_code)
+        # Crash files may record a status from outside the gRPC range.
+        return status.status_class if status is not None else StatusClass.OTHER
+
+    @override
+    def status_code_for(self, status_class: StatusClass) -> int:
+        return GRPC_STATUS_CODES_BY_CLASS[status_class]
+
+    @override
+    def is_response_status_expected(self, response: Response, expected_statuses: list[str]) -> bool:
+        status = response.status_code
+        # The default names HTTP status classes; listed gRPC status names are allowed on top of every non-server error.
+        invalid = [
+            expected
+            for expected in expected_statuses
+            if expected not in GRPC_STATUS_CODES_BY_NAME and expected not in NOT_A_SERVER_ERROR_EXPECTED_STATUSES
+        ]
+        if invalid:
+            self._raise_invalid_status_values(invalid)
+        if not GRPC_STATUSES[status].status_class.is_server_error:
+            return True
+        return any(GRPC_STATUS_CODES_BY_NAME.get(expected) == status for expected in expected_statuses)
 
     @override
     def operation_label_for_display(self, operation_label: str | None) -> str | None:
@@ -332,26 +378,24 @@ class GrpcSchema(BaseSchema):
 
     @override
     def classify_call_outcome(self, case: Case, response: Response) -> CallOutcome:
-        return GRPC_STATUSES[grpc_status(response)].outcome
+        if _is_library_decode_error(case, response):
+            return CallOutcome.UNINFORMATIVE
+        return GRPC_STATUSES[response.status_code].outcome
+
+    @override
+    def evaluate_server_error(self, case: Case, response: Response) -> None:
+        if _is_library_decode_error(case, response):
+            raise self.server_error(case, response)
 
     @override
     def server_error(self, case: Case, response: Response) -> ServerError:
-        status = grpc_status(response)
-        name = GRPC_STATUSES[status].name
-        # Raw bytes are sent unchanged, so a decode failure there is the input's fault, not the message type's.
-        if (
-            status == INTERNAL
-            and not isinstance(case.body, bytes)
-            and response.headers.get("grpc-message", [""])[0].startswith(LIBRARY_DECODE_ERRORS)
-        ):
-            return UndecodableGrpcRequest(
-                operation=case.operation.label, status_code=response.status_code, status_name=name
-            )
-        return ServerError(operation=case.operation.label, status_code=response.status_code, status_name=name)
+        if _is_library_decode_error(case, response):
+            return UndecodableGrpcRequest(operation=case.operation.label, status_code=response.status_code)
+        return ServerError(operation=case.operation.label, status_code=response.status_code)
 
     @override
     def validate_response(self, operation: APIOperation, response: Response, *, case: Case | None = None) -> None:
-        if grpc_status(response) == OK:
+        if response.status_code == OK:
             output_type = operation.definition.raw.output_type
             decoded = _decode(operation, message_factory.GetMessageClass(output_type), response.content, "response")
             undeclared = dict.fromkeys(_undeclared_fields(operation, decoded, output_type, "response"))
@@ -370,7 +414,7 @@ class GrpcSchema(BaseSchema):
 
     @override
     def evaluate_auth(self, ctx: CheckContext, response: Response, case: Case) -> bool | None:
-        if grpc_status(response) != OK:
+        if response.status_code != OK:
             return True
         label = case.operation.label
         if AUTH_METADATA not in response.request.headers:
@@ -398,7 +442,7 @@ class GrpcSchema(BaseSchema):
         kwargs.pop("auth", None)
         probe_response = ctx.internals.send_probe(case, probe, kwargs)
         # Without declared security, other errors may come from the anonymous caller's data, not from ignored auth.
-        if grpc_status(probe_response) == OK:
+        if probe_response.status_code == OK:
             raise _ignored_auth(label, probe.id)
         if enforced is not None:
             enforced.add(label)
@@ -425,6 +469,15 @@ class GrpcSchema(BaseSchema):
         method = operation.definition.raw
         service = method.containing_service
         return method.GetOptions().deprecated or service.GetOptions().deprecated or service.file.GetOptions().deprecated
+
+    @override
+    def _should_skip(self, operation: APIOperation) -> bool:
+        if (
+            operation.definition.raw.containing_service.full_name in self.imported_services
+            and not self.filter_set.is_explicitly_included(operation)
+        ):
+            return True
+        return super()._should_skip(operation)
 
     @override
     def _measure_statistic(self) -> ApiStatistic:
@@ -524,11 +577,8 @@ class GrpcSchema(BaseSchema):
                         operation_label=operation.label, location=ParameterLocation.BODY
                     ),
                 )
-            bodies: SearchStrategy[Body] = build(
-                schema,
-                draft=jsonschema_rs.Draft202012,
-                formats=grpc_formats(),
-                alphabet=Alphabet(allow_x00=generation.allow_x00, codec=generation.codec),
+            bodies: SearchStrategy[Body] = message_values(
+                schema, Alphabet(allow_x00=generation.allow_x00, codec=generation.codec)
             ).map(lambda generated: float32_values(generated, input_type))
             if isinstance(body, LinkedValue):
                 bodies = bodies.map(lambda generated: with_value(operation, generated, body.field, body.value))
@@ -596,6 +646,11 @@ class GrpcSchema(BaseSchema):
         return link_candidates(
             self._links_by_source.get(operation.label, []), case, response, operations_by_label, excluded_labels
         )
+
+    @override
+    def resolve_link_value(self, definition: object, output: StepOutput, recorded: object) -> object:
+        assert isinstance(definition, str)
+        return response_value(output.case.operation, output.response, definition) or UNRESOLVABLE
 
     @override
     def create_extra_data_source(self) -> None:
@@ -669,6 +724,11 @@ def parse_target(url: str, verify: bool | str | None, *, uses_proxy: bool) -> tu
 def metadata_pairs(headers: Mapping[str, str]) -> tuple[tuple[str, str | bytes], ...]:
     """Metadata as gRPC sends it: values of `-bin` keys travel as bytes."""
     return tuple((key, _metadata_value(key, value)) for key, value in headers.items())
+
+
+def prepare_call_kwargs(case: Case, request_headers: Mapping[str, str]) -> dict[str, Any]:
+    """Arguments for the bound unary RPC callable."""
+    return {"request": request_payload(case), "metadata": metadata_pairs(request_headers)}
 
 
 def _metadata_value(key: str, value: str) -> str | bytes:
@@ -815,6 +875,14 @@ def _drop_unknown_fields(decoded: message.Message) -> bool:
     size = len(decoded.SerializeToString())
     decoded.DiscardUnknownFields()
     return len(decoded.SerializeToString()) != size
+
+
+def _is_library_decode_error(case: Case, response: Response) -> bool:
+    # Raw bytes are sent unchanged, so a decode failure there is the input's fault, not the message type's.
+    if isinstance(case.body, bytes):
+        return False
+    prefixes = LIBRARY_DECODE_ERRORS.get(response.status_code, ())
+    return response.headers.get("grpc-message", [""])[0].startswith(prefixes)
 
 
 def _decode(

@@ -59,7 +59,7 @@ type CommandPublication = Annotated[
 class MessageReceiptRecord(BaseModel):
     """What a message Update decided for one command id, so a retry gets the same answer."""
 
-    # Only on a send_message receipt: a start or steer replays by command id alone (ADR 0038).
+    # On a send_message or start_turn receipt: a steer replays by command id alone (ADR 0038).
     digest: str | None
     # Set once the Runtime admitted the message.
     turn_id: str | None = None

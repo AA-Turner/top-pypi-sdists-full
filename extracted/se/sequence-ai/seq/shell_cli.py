@@ -6,8 +6,8 @@ at a time on a worker, up to 120 s. (The gateway's POST /v1/deployments/{name}/s
 shell.py.)
 
 `seq benchmark shell <name>[@vN] -- <command>`: the same on a machine of a version of your benchmark, in its image on the
-card it declares - one its last check left warm, else one opened for it, waited for - which ends ten minutes after its
-last command, or at `--stop`.
+card it declares - opened for it once its image is there to load, waited for, what it waits on said as it moves on - which
+ends ten minutes after its last command, or at `--stop`.
 
 """
 from __future__ import annotations
@@ -19,9 +19,12 @@ from sequence_ai._core.names import segment
 from sequence_ai.errors import InvalidRequest, Unavailable
 
 TIMED_OUT = 124
-WAIT_MOST_S = 1800.0
+
+
+WAIT_MOST_S = 3600.0
 POLL_S = 5.0
 IDLE_MIN = 10
+SAID_AGAIN_S = 120
 
 
 def command_of(words: list[str], kind: str = "policy") -> str:
@@ -47,21 +50,26 @@ def shell(name: str, words: list[str], *, worker: str | None = None, timeout_s: 
 def benchmark_shell(name: str, words: list[str], *, version: int | None = None, timeout_s: float = 30.0,
                     base_url: str | None = None, echo=print, clock=time.monotonic) -> dict:
     """The command run once on a shell machine of benchmark `name` (its version `version`, else its newest), asked
-    again while the machine opens - that said once - for WAIT_MOST_S at most; then as on a policy's worker. What it
-    answered: exit_code, output, truncated, timed_out, seconds, machine, version."""
+    again while the machine opens - for WAIT_MOST_S at most - what it waits on said as the platform words it (the gateway's
+    eval/machine_start.of_shell), again when that moves on and each SAID_AGAIN_S it lasts; then as on a policy's worker. What
+    it answered: exit_code, output, truncated, timed_out, seconds, machine, version.
+"""
     from seq.deployments_cli import _call
 
     path = f"/v1/benchmarks/{segment(name)}/shell"
     body = {"command": command_of(words, "benchmark"), "timeout_s": timeout_s,
             **({"version": version} if version is not None else {})}
-    began, said = clock(), False
+    began, opening, seen = clock(), False, None
     while (out := _call("POST", path, base_url, body, timeout=timeout_s + 45)).get("state") == "starting":
-        if not said:
-            eta = out.get("eta_s")
-            echo(f"opening a machine for {name} v{out.get('version')} on its card"
-                 + (f", about {max(1, round(float(eta) / 60))} min" if eta else "")
-                 + f": it stays up {IDLE_MIN} minutes after your last command (seq benchmark shell {name} --stop ends it)")
-            said = True
+        if not opening:
+            echo(f"opening a machine for {name} v{out.get('version')} on its card: it stays up {IDLE_MIN} minutes after "
+                 f"your last command (seq benchmark shell {name} --stop ends it)")
+            opening = True
+
+        mark = (out.get("machine"), out.get("what"), int(out.get("since_s") or 0) // SAID_AGAIN_S)
+        if out.get("sentence") and mark != seen:
+            echo(f"  {out['sentence']}")
+            seen = mark
         if clock() - began > WAIT_MOST_S:
             raise Unavailable(f"the machine for {name} did not open in {WAIT_MOST_S / 60:g} minutes: run it again")
         time.sleep(POLL_S)

@@ -1,29 +1,15 @@
-use std::{fmt::Debug, marker::PhantomData};
-
-use nom::{
-	AsChar, Parser,
-	branch::alt,
-	character::{
-		complete::{char, digit1, one_of},
-		satisfy,
-	},
-	combinator::{map, map_opt, opt, recognize},
-	multi::{many0_count, many1_count},
-};
-use tracing::Level;
 use url::Url;
 
 use crate::{
 	Input,
 	context::Context,
-	error::ParseError,
+	error::{Fail, PResult},
 	lossless::TokenKind,
 	node::Element,
-	scope::Scope,
-	span::{Span, Spanned, Syntax, TraceOk, TraceParse, WithSpan, WithToken, attach},
+	span::{Span, Spanned, Syntax, Trace},
 };
 
-use super::{Link, parse_and_validate_url};
+use super::{Link, ParsedLink, parse_and_validate_url};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedContact<'data> {
@@ -35,157 +21,97 @@ fn is_valid_email_char(ch: char) -> bool {
 	!ch.is_ascii_whitespace() && ch != '<' && ch != '>' && ch != '@'
 }
 
-fn phone_group<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<'data>,
-{
-	alt((
-		recognize(satisfy(AsChar::is_dec_digit)),
-		recognize((char('('), digit1, char(')'))),
-	))
+/// A digit, or digits in parentheses.
+fn phone_group(input: &mut Input) -> PResult<()> {
+	if input.satisfy(|ch| ch.is_ascii_digit()).is_ok() {
+		return Ok(());
+	}
+	input.char('(')?;
+	input.take_while1(|ch| ch.is_ascii_digit())?;
+	input.char(')')?;
+	Ok(())
 }
 
-fn phone<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<'data>,
-{
-	recognize((
-		char('+'),
-		phone_group(),
-		many0_count((opt(one_of("- /.")), phone_group())),
-	))
+fn phone(input: &mut Input) -> PResult<()> {
+	input.char('+')?;
+	phone_group(input)?;
+	while input
+		.attempt(|input| {
+			let _ = input.satisfy(|ch| matches!(ch, '-' | ' ' | '/' | '.'));
+			phone_group(input)
+		})?
+		.is_some()
+	{}
+	Ok(())
 }
 
-fn email<'data, E>() -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
-where
-	E: ParseError<'data>,
-{
-	recognize((
-		many1_count(satisfy(is_valid_email_char)),
-		char('@'),
-		many1_count(satisfy(is_valid_email_char)),
-	))
+fn email(input: &mut Input) -> PResult<()> {
+	input.take_while1(is_valid_email_char)?;
+	input.char('@')?;
+	input.take_while1(is_valid_email_char)?;
+	Ok(())
 }
 
 /// Convert a Markdown-style email address or phone number to a URL
-#[must_use]
-fn verify_phone_email<'data, E>(
+fn verify_phone_email<'data>(
+	input: &mut Input<'data>,
 	dev_links: bool,
-) -> impl Parser<Input<'data>, Output = ParsedContact<'data>, Error = E>
-where
-	E: ParseError<'data>,
-{
-	nom::error::context(
-		"link::verify_phone_email",
-		alt((
-			map_opt(phone(), move |input: Input<'data>| {
-				Some(ParsedContact {
-					url: parse_and_validate_url(
-						&format!("tel:{}", input.content.replace([' ', '/'], "-")),
-						dev_links,
-					)?,
-					text: input.content,
-				})
-			}),
-			map_opt(email(), move |input: Input<'data>| {
-				Some(ParsedContact {
-					url: parse_and_validate_url(&format!("mailto:{}", input.content), dev_links)?,
-					text: input.content,
-				})
-			}),
-		)),
-	)
+) -> PResult<ParsedContact<'data>> {
+	let phone = input.attempt(|input| {
+		let text = input.recognize(phone)?;
+		let url =
+			parse_and_validate_url(&format!("tel:{}", text.replace([' ', '/'], "-")), dev_links)
+				.ok_or(Fail::NoMatch)?;
+		Ok(ParsedContact { url, text })
+	})?;
+	if let Some(phone) = phone {
+		return Ok(phone);
+	}
+
+	let text = input.recognize(email)?;
+	let url = parse_and_validate_url(&format!("mailto:{text}"), dev_links).ok_or(Fail::NoMatch)?;
+	Ok(ParsedContact { url, text })
 }
 
 pub const DELIMITER: &str = ">";
-
-struct ContactParser<S, E> {
-	context: Context,
-	span: PhantomData<S>,
-	error: PhantomData<E>,
-}
-
-impl<S, E> Debug for ContactParser<S, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("ContactParser")
-			.field("context", &self.context)
-			.field("error", &self.error)
-			.finish()
-	}
-}
-
-impl<'data, S, E> Parser<Input<'data>> for ContactParser<S, E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	type Output = (Link<S, Element<'data, S>>, S::Syntax);
-	type Error = E;
-
-	#[tracing::instrument(name = "contact_parser", level = Level::TRACE, fields(ok, output))]
-	fn process<OM: nom::OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> nom::PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		nom::error::context(
-			"link::contact",
-			map(
-				(
-					char('<').token::<S>(TokenKind::LinkOpen),
-					// the text records its token; the sequence holding it spans the same, bare
-					verify_phone_email(self.context.dev_links)
-						.with_token::<S>(TokenKind::Text)
-						.span::<S>()
-						.map(attach)
-						.span::<S>(),
-					char('>').token::<S>(TokenKind::LinkClose),
-				),
-				|(open, Spanned { value: text, span }, close)| {
-					let url = text.value.url;
-					let text = Spanned {
-						value: Element::Text(text.value.text.into()),
-						span: text.span,
-					};
-					let link = Link {
-						text: Some(Spanned {
-							value: vec![text],
-							span,
-						}),
-						title: None,
-						url,
-					};
-					(link, open.join(close))
-				},
-			),
-		)
-		.trace_parse()
-		.process::<OM>(input)
-		.trace_ok()
-	}
-}
 
 /// Parse email/phone-number auto-link content.
 ///
 /// # Errors
 /// If the content does not begin with an auto-linked email/phone number.
-#[must_use]
-pub fn contact<'data, S, E>(
-	context: Context,
-) -> impl Parser<Input<'data>, Output = (Link<S, Element<'data, S>>, S::Syntax), Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	ContactParser {
-		context: context.with_scope(Scope::AutoLink),
-		span: PhantomData,
-		error: PhantomData,
-	}
+#[tracing::instrument(name = "contact_parser", level = "trace", skip_all, fields(ok, output))]
+pub fn contact<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<ParsedLink<'data, S>> {
+	let open = input.token::<S, _>(TokenKind::LinkOpen, |input| input.char('<'))?;
+	// the text records its token; the sequence holding it spans the same, bare
+	let start = input.start;
+	let contact = input.spanned_with_syntax::<S, _>(|input| {
+		input.with_token::<S, _>(TokenKind::Text, |input| {
+			verify_phone_email(input, context.dev_links)
+		})
+	})?;
+	let span = input.span(start);
+	let close = input.token::<S, _>(TokenKind::LinkClose, |input| input.char('>'))?;
+
+	let text = Spanned {
+		value: Element::Text(contact.value.text.into()),
+		span: contact.span,
+	};
+	let link = Link {
+		text: Some(Spanned {
+			value: vec![text],
+			span,
+		}),
+		title: None,
+		url: contact.value.url,
+	};
+	Ok((link, open.join(close))).trace()
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
 	use url::Url;
 
 	use super::contact;
@@ -193,17 +119,14 @@ mod test {
 	use crate::lossless::LinkKind;
 	use crate::node::inline::link::Link;
 	use crate::node::{Element, Inline};
-	use crate::test_utils::{handle_nom_err, resolved_inline};
+	use crate::test_utils::{resolved_inline, run};
 	use crate::{spanned_vec, text};
 
 	#[test]
 	fn phone_number_link() {
 		let s = "<+1 (800) 588-2300>";
-		let (rem, (res, ())) = contact::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) =
+			run(s, |input| contact::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(
@@ -221,21 +144,14 @@ mod test {
 		// This should fail, and not take an exponential amount of time to do so
 		let s =
 			"<+1(111)1111111-11111111111111.1111111/11111111 11111111111111111111111111111111a>";
-		contact::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect_err("able to parse");
+		run(s, |input| contact::<()>(input, &Context::default())).expect_err("able to parse");
 	}
 
 	#[test]
 	fn email_address_link() {
 		let s = "<tim@apple.com>";
-		let (rem, (res, ())) = contact::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, (res, ())) =
+			run(s, |input| contact::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(

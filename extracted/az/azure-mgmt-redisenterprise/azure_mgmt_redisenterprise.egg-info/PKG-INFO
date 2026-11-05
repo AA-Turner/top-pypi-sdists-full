@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-redisenterprise
-Version: 3.1.0
+Version: 4.0.0
 Summary: Microsoft Azure Redisenterprise Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -10,15 +10,15 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: msrest>=0.7.1
+Requires-Dist: isodate>=0.6.1
 Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
 Dynamic: license-file
@@ -26,7 +26,7 @@ Dynamic: license-file
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Redis Enterprise Management Client Library.
-This package has been tested with Python 3.9+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -37,7 +37,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.9+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -49,7 +49,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
+By default, [Microsoft Entra](https://learn.microsoft.com/entra/fundamentals/what-is-entra) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -86,6 +86,156 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 4.0.0 (2026-10-16)
+
+### Features Added
+
+  - Client `RedisEnterpriseManagementClient` added method `send_request`
+  - Client `RedisEnterpriseManagementClient` added operation group `clusters`
+  - Client `RedisEnterpriseManagementClient` added operation group `migrations`
+  - Model `AccessPolicyAssignment` added property `properties`
+  - Model `AccessPolicyAssignment` added property `system_data`
+  - Model `Cluster` added property `properties`
+  - Model `Cluster` added property `system_data`
+  - Model `ClusterCreateProperties` added property `maintenance_configuration`
+  - Model `ClusterCreateProperties` added property `migrated_endpoint`
+  - Model `ClusterProperties` added property `maintenance_configuration`
+  - Model `ClusterProperties` added property `migrated_endpoint`
+  - Model `ClusterUpdate` added property `properties`
+  - Model `ClusterUpdateProperties` added property `maintenance_configuration`
+  - Model `ClusterUpdateProperties` added property `migrated_endpoint`
+  - Model `Database` added property `properties`
+  - Model `DatabaseCreateProperties` added property `notify_keyspace_events`
+  - Model `DatabaseProperties` added property `notify_keyspace_events`
+  - Model `DatabaseUpdateProperties` added property `notify_keyspace_events`
+  - Model `PrivateEndpointConnection` added property `properties`
+  - Model `PrivateEndpointConnection` added property `system_data`
+  - Model `PrivateLinkResource` added property `properties`
+  - Model `PrivateLinkResource` added property `system_data`
+  - Model `Resource` added property `system_data`
+  - Model `TrackedResource` added property `system_data`
+  - Added model `AccessPolicyAssignmentProperties`
+  - Added model `AzureCacheForRedisMigrationProperties`
+  - Added model `MaintenanceConfiguration`
+  - Added enum `MaintenanceDayOfWeek`
+  - Added model `MaintenanceWindow`
+  - Added model `MaintenanceWindowSchedule`
+  - Added enum `MaintenanceWindowType`
+  - Added model `Migration`
+  - Added model `MigrationProperties`
+  - Added enum `MigrationProvisioningState`
+  - Added enum `MigrationRollbackReason`
+  - Added model `MigrationUndoRequest`
+  - Added model `MigrationValidationDisparity`
+  - Added model `MigrationValidationError`
+  - Added model `MigrationValidationRequest`
+  - Added model `MigrationValidationResponse`
+  - Added model `MigrationValidationWarning`
+  - Added model `PrivateEndpointConnectionProperties`
+  - Added model `PrivateLinkResourceProperties`
+  - Added enum `SourceType`
+  - Added operation group `ClustersOperations`
+  - Operation group `ClustersOperations` added method `begin_unlink_migrated_endpoint`
+  - Added operation group `MigrationsOperations`
+  - Operation group `MigrationsOperations` added method `begin_undo`
+  - Operation group `MigrationsOperations` added method `begin_unlink_migrated_endpoint`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - Model `Cluster` moved instance variable `high_availability`, `minimum_tls_version`, `encryption`, `host_name`, `provisioning_state`, `redundancy_mode`, `resource_state`, `redis_version`, `private_endpoint_connections` and `public_network_access` under property `properties` whose type is `ClusterCreateProperties`
+  - Model `ClusterUpdate` moved instance variable `high_availability`, `minimum_tls_version`, `encryption`, `host_name`, `provisioning_state`, `redundancy_mode`, `resource_state`, `redis_version`, `private_endpoint_connections` and `public_network_access` under property `properties` whose type is `ClusterUpdateProperties`
+  - Model `Database` moved instance variable `client_protocol`, `port`, `provisioning_state`, `resource_state`, `clustering_policy`, `eviction_policy`, `persistence`, `modules`, `geo_replication`, `redis_version`, `defer_upgrade` and `access_keys_authentication` under property `properties` whose type is `DatabaseCreateProperties`
+  - Model `DatabaseUpdate` moved instance variable `client_protocol`, `port`, `provisioning_state`, `resource_state`, `clustering_policy`, `eviction_policy`, `persistence`, `modules`, `geo_replication`, `redis_version`, `defer_upgrade` and `access_keys_authentication` under property `properties` whose type is `DatabaseUpdateProperties`
+  - Model `AccessPolicyAssignment` moved instance variable `access_policy_name`, `provisioning_state` and `user` under property `properties` whose type is `AccessPolicyAssignmentProperties`
+  - Model `PrivateEndpointConnection` moved instance variable `private_endpoint`, `private_link_service_connection_state` and `provisioning_state` under property `properties` whose type is `PrivateEndpointConnectionProperties`
+  - Model `PrivateLinkResource` moved instance variable `group_id`, `required_members` and `required_zone_names` under property `properties` whose type is `PrivateLinkResourceProperties`
+
+### Other Changes
+
+  - Deleted model `AccessPolicyAssignmentList`/`ClusterList`/`DatabaseList`/`ErrorDetailAutoGenerated`/`ErrorResponseAutoGenerated`/`OperationListResult`/`PrivateEndpointConnectionListResult`/`PrivateLinkResourceListResult`/`ProxyResourceAutoGenerated`/`ResourceAutoGenerated` which actually were not used by SDK users
+
+## 4.0.0b3 (2026-07-14)
+
+### Other Changes
+
+  - The two preceding preview releases (`4.0.0b1` and `4.0.0b2`) were published based on a preview API spec that contained a bug. The issue has been corrected in the `2026-06-01-preview` API version used by this release. Please upgrade to `4.0.0b3` and do not use `4.0.0b1` or `4.0.0b2`.
+
+### Features Added
+
+  - Model `AccessPolicyAssignmentProperties` added property `access_string`
+  - Model `AccessPolicyAssignmentProperties` added property `provisioning_error`
+  - Added model `AccessPolicyAssignmentProvisioningError`
+  - Operation group `MigrationsOperations` added method `begin_cancel`
+  - Operation group `MigrationsOperations` added method `begin_start`
+  - Operation group `MigrationsOperations` added method `list`
+
+### Breaking Changes
+
+  - Deleted or renamed client operation group `RedisEnterpriseManagementClient.migration`
+  - Deleted or renamed operation group `MigrationOperations`
+
+## 4.0.0b2 (2026-06-12)
+
+### Features Added
+
+  - Model `DatabaseCreateProperties` added property `notify_keyspace_events`
+  - Model `DatabaseProperties` added property `notify_keyspace_events`
+  - Model `DatabaseUpdateProperties` added property `notify_keyspace_events`
+
+## 4.0.0b1 (2026-03-26)
+
+### Features Added
+
+  - Client `RedisEnterpriseManagementClient` added method `send_request`
+  - Client `RedisEnterpriseManagementClient` added operation group `migrations`
+  - Client `RedisEnterpriseManagementClient` added operation group `migration`
+  - Model `AccessPolicyAssignment` added property `system_data`
+  - Model `Cluster` added property `system_data`
+  - Model `ClusterCreateProperties` added property `maintenance_configuration`
+  - Model `ClusterCreateProperties` added property `migrated_endpoint`
+  - Model `ClusterProperties` added property `maintenance_configuration`
+  - Model `ClusterProperties` added property `migrated_endpoint`
+  - Model `ClusterUpdateProperties` added property `maintenance_configuration`
+  - Model `ClusterUpdateProperties` added property `migrated_endpoint`
+  - Model `PrivateEndpointConnection` added property `system_data`
+  - Model `PrivateLinkResource` added property `system_data`
+  - Model `Resource` added property `system_data`
+  - Model `TrackedResource` added property `system_data`
+  - Added model `AzureCacheForRedisMigrationProperties`
+  - Added model `MaintenanceConfiguration`
+  - Added enum `MaintenanceDayOfWeek`
+  - Added model `MaintenanceWindow`
+  - Added model `MaintenanceWindowSchedule`
+  - Added enum `MaintenanceWindowType`
+  - Added model `Migration`
+  - Added model `MigrationProperties`
+  - Added enum `MigrationProvisioningState`
+  - Added model `MigrationValidationDisparity`
+  - Added model `MigrationValidationError`
+  - Added model `MigrationValidationRequest`
+  - Added model `MigrationValidationResponse`
+  - Added model `MigrationValidationWarning`
+  - Added enum `SourceType`
+  - Added operation group `MigrationOperations`
+  - Added operation group `MigrationsOperations`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - Model `Cluster` moved instance variable `high_availability`, `minimum_tls_version`, `encryption`, `host_name`, `provisioning_state`, `redundancy_mode`, `resource_state`, `redis_version`, `private_endpoint_connections` and `public_network_access` under property `properties`
+  - Model `ClusterUpdate` moved instance variable `high_availability`, `minimum_tls_version`, `encryption`, `host_name`, `provisioning_state`, `redundancy_mode`, `resource_state`, `redis_version`, `private_endpoint_connections` and `public_network_access` under property `properties`
+  - Model `Database` moved instance variable `client_protocol`, `port`, `provisioning_state`, `resource_state`, `clustering_policy`, `eviction_policy`, `persistence`, `modules`, `geo_replication`, `redis_version`, `defer_upgrade` and `access_keys_authentication` under property `properties`
+  - Model `DatabaseUpdate` moved instance variable `client_protocol`, `port`, `provisioning_state`, `resource_state`, `clustering_policy`, `eviction_policy`, `persistence`, `modules`, `geo_replication`, `redis_version`, `defer_upgrade` and `access_keys_authentication` under property `properties`
+  - Deleted or renamed model `ErrorDetailAutoGenerated`
+  - Deleted or renamed model `ErrorResponseAutoGenerated`
+  - Deleted or renamed model `ProxyResourceAutoGenerated`
+  - Deleted or renamed model `ResourceAutoGenerated`
+
+### Other Changes
+
+  - Deleted model `AccessPolicyAssignmentList`/`ClusterList`/`DatabaseList` which actually were not used by SDK users
 
 ## 3.1.0 (2025-10-20)
 

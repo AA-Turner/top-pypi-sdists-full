@@ -27,11 +27,13 @@ async def test_batch(async_ws_connection: AsyncWsSurrealConnection) -> None:
                 tg.create_task(
                     async_ws_connection.query(
                         f"RETURN sleep({sleep_fn}($d)) or $p**2",
-                        dict(d=10 if num % 2 else 0, p=num),
-                    )
+                        {"d": 10 if num % 2 else 0, "p": num},
+                    ).first()
                 )
                 for num in range(5)
             ]
 
         outcome = [t.result() for t in tasks]
-        assert [0 == 1, 4, 9, 16], outcome
+        # Each task returns `$p ** 2` for p in range(5), and the results must
+        # come back in task-creation order regardless of the staggered sleeps.
+        assert outcome == [num**2 for num in range(5)], outcome

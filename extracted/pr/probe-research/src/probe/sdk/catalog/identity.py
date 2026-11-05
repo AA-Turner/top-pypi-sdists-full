@@ -11,7 +11,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 from .vocab import HashMode, Identity
-from probe.sdk.catalog.manifest import Manifest, ManifestFile, _hash_cache, _levels, _shown_relpath, build_manifest
+from probe.sdk.catalog.manifest import Manifest, ManifestFile, _hash_cache, _shown_relpath, build_manifest
 from probe.sdk.catalog.refs import CatalogRefused, check_name, ref_of
 from probe.sdk.catalog.server import _warn_once
 
@@ -48,8 +48,27 @@ class Prepared:
     manifest: Manifest | None = None
     #: The local file or folder, or None for a remote uri.
     local: str | None = None
-    #: The `.probe.config` level of ``local`` (`on` or `hash`).
-    level: str = "on"
+
+
+def to_local_path(uri: str | None) -> str | None:
+    """The local path a `file://` uri names (`file:///a%20b`, `file://localhost/x`), else None."""
+    if not isinstance(uri, str) or not uri.lower().startswith("file:"):
+        return None
+    from urllib.parse import unquote, urlparse
+
+    parsed = urlparse(uri)
+    if parsed.netloc not in ("", "localhost"):
+        return None
+    return unquote(parsed.path) or None
+
+
+def to_display_path(path: str | os.PathLike) -> str:
+    """A path as a message names it (`~` for home)."""
+    text = os.fspath(path)
+    home = os.path.expanduser("~")
+    if home and home != "/" and (text == home or text.startswith(home + os.sep)):
+        return "~" + text[len(home):]
+    return text
 
 
 def _remote(path_or_uri: str) -> str | None:
@@ -69,9 +88,7 @@ def prepare(
 ) -> Prepared:
     """Work out what is registered: a remote pointer, or a local file/folder hashed within
     ``budget`` (every byte for ``hash_mode="full"`` or ``upload``). Raises `CatalogRefused`
-    for a path a `.probe.config` excludes, a missing path, or an upload of a `hash` path."""
-    from ..recording_rules import recording_rules as exclusions
-    from .. import probe_config as pc
+    for a missing path."""
     from ..artifact.hashing import local_file_uri
 
     try:
@@ -90,37 +107,23 @@ def prepare(
             identity=Identity.POINTER.value,
             meta={"identity": Identity.POINTER.value},
         )
-    local = pc.local_path_of(raw) or raw
+    local = to_local_path(raw) or raw
     local = os.path.abspath(os.path.expanduser(local))
     if not os.path.exists(local):
         raise CatalogRefused(f"no such file or folder: {local}")
     is_dir = os.path.isdir(local)
-    on, hash_level, _read, _off = _levels()
-    verdict = exclusions.excluded(local, is_dir=is_dir)
-    level = getattr(verdict, "level", on if not verdict.excluded else pc.OFF)
-    if level not in (on, hash_level):
-        raise CatalogRefused(
-            f"`{pc.shown(local)}` is excluded by `{exclusions.source(verdict)}`, so nothing was recorded about it"
-        )
-    if upload and level == hash_level:
-        raise CatalogRefused(
-            f"`{pc.shown(local)}` is `hash` in `{exclusions.source(verdict)}`: Probe records its identity "
-            "only and never uploads it (leave out upload to register it as a reference)"
-        )
     full = upload or mode is HashMode.FULL
     spend = [1 << 62] if full else (budget if budget is not None else _fresh_budget())
     bound = FULL_HASH_DEADLINE_SECONDS if full else HASH_DEADLINE_SECONDS
     deadline = time.monotonic() + bound
-    hashed_level = level == hash_level
     host = socket.gethostname()
     meta: dict[str, Any] = {"local_path": local, "host": host}
     content_hash = size = rows = None
     identity = Identity.BYTES.value
     got, manifest = _hash_off_thread(
-        lambda: _hash_local(local, single=not is_dir, upload=upload, spend=spend, deadline=deadline,
-                            hashed_level=hashed_level, full=full),
+        lambda: _hash_local(local, single=not is_dir, upload=upload, spend=spend, deadline=deadline, full=full),
         deadline=deadline,
-        what=pc.shown(local),
+        what=to_display_path(local),
         bound=bound,
     )
     if got is not None:
@@ -131,14 +134,10 @@ def prepare(
         rows = manifest.total_rows
         identity = Identity.PARTIAL.value if manifest.partial else Identity.BYTES.value
         meta["files"] = len(manifest.files)
-        if manifest.excluded:
-            meta["excluded"] = manifest.excluded
         meta["rows_complete"] = manifest.rows_complete
     if rows is not None:
         meta["rows"] = rows
     meta["identity"] = identity
-    if level == hash_level:
-        meta["identity_only"] = True
     return Prepared(
         uri=local_file_uri(local),
         content_hash=str(content_hash),
@@ -147,36 +146,11 @@ def prepare(
         meta=meta,
         manifest=manifest,
         local=local,
-        level=level,
     )
 
 
-def identity_meta(local: str, run_id: str) -> dict:
-    """What a `hash`-level path's reference row records beyond its location
-    (`Run.log_artifact(reference=True)` under a `.probe.config` `hash` rule):
-    ``identity_only``, plus its dataset-rule identity from the run's one hashing budget
-    (a file's sha256, or its fingerprint over 1 GiB/past budget; a folder's manifest) as
-    ``fingerprint`` (the key the server pins a hashless checkpoint's bytes by), with
-    ``identity`` `bytes` or `partial`. Never raises: a gone/unreadable path records location only."""
-    from ..capture import lineage as inputs
-
-    meta: dict[str, Any] = {"identity_only": True}
-    budget = inputs.run_hash_budget(run_id)
-    before = budget[0]
-    try:
-        prepared = prepare(local, budget=budget)
-    except Exception:  # noqa: BLE001 -- the identity is evidence, never the call's failure
-        return meta
-    finally:
-        inputs.charge_run_hash(run_id, before - budget[0])
-    meta.update(fingerprint=prepared.content_hash, identity=prepared.identity)
-    if prepared.meta.get("rows") is not None:
-        meta["rows"] = prepared.meta["rows"]
-    return meta
-
-
 def _hash_local(
-    local: str, *, single: bool, upload: bool, spend: list[int], deadline: float, hashed_level: bool, full: bool
+    local: str, *, single: bool, upload: bool, spend: list[int], deadline: float, full: bool
 ) -> tuple[dict | None, Manifest | None]:
     """The walk and hashing `prepare` waits for: ``(identity, None)`` for a fully hashed single
     file, else ``(None, manifest)``. Runs on a worker thread; its opens are Probe's own, not the run's reads."""
@@ -185,15 +159,15 @@ def _hash_local(
 
         cache = _hash_cache()
         try:
-            got = _identify(local, budget=spend, deadline=deadline, hash_level=hashed_level, full=full, cache=cache)
+            got = _identify(local, budget=spend, deadline=deadline, full=full, cache=cache)
         finally:
             cache.flush()
         if got is None:
             raise CatalogRefused(f"{local} could not be read")
         if got.get("content_hash"):
             return got, None
-        # Fingerprinted/over budget/under the hash floor: a one-file partial manifest.
-        manifest = Manifest(identity_only=hashed_level, partial=True)
+        # Fingerprinted or over budget: a one-file partial manifest.
+        manifest = Manifest(partial=True)
         manifest.files.append(ManifestFile(
             relpath=_shown_relpath(os.path.basename(local)), size_bytes=int(got.get("size_bytes") or 0),
             fingerprint=got.get("fingerprint"), rows=got.get("rows"), full=local,
@@ -202,13 +176,6 @@ def _hash_local(
     manifest = build_manifest(local, budget=spend, deadline=deadline, require_full=upload, full=full)
     if not manifest.files:
         raise CatalogRefused(f"{local} holds no file Probe may record")
-    if upload and manifest.identity_only:
-        from .. import probe_config as pc
-
-        raise CatalogRefused(
-            f"`{pc.shown(local)}` holds files a `.probe.config` sets to `hash`: Probe records their identity "
-            "only and never uploads them (leave out upload to register it as a reference)"
-        )
     return None, manifest
 
 

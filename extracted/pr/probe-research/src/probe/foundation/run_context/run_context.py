@@ -190,7 +190,7 @@ def uninstall() -> None:
 #: run never changes directory, so they are made absolute against it (plan H2).
 RELATIVE_PATH_VARS = ("PROBE_CONFIG_PATH", "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE",
                       "XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "KIMI_CODE_HOME",
-                      "CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "PROBE_OUTBOX_DIR", "PROBE_SPOOL_DIR",
+                      "PROBE_CURSOR_HOME", "CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR", "PROBE_OUTBOX_DIR", "PROBE_SPOOL_DIR",
                       "PROBE_READS_DIR", "PROBE_DEVICE_ID_PATH", "PROBE_BOX_DIR", "PROBE_WATCHER_DIR",
                       "PROBE_BACKFILL_STATE_DIR")
 

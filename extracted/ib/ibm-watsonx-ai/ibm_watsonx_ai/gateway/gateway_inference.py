@@ -4,11 +4,11 @@
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Iterator
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, Union
+from typing import TYPE_CHECKING, Any, Union
 
-from ibm_watsonx_ai.gateway.utils.utils import drop_nones
 from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -474,7 +474,7 @@ class GatewayInference(WMLResource):
         :rtype: dict
         """
         self._validate_type(messages, "messages", list, True)
-        call_params = drop_nones(
+        call_params = self._drop_nones_from_payload(
             kwargs,
             temperature=temperature,
             max_completion_tokens=max_completion_tokens,
@@ -649,7 +649,7 @@ class GatewayInference(WMLResource):
         :rtype: Iterator
         """
         self._validate_type(messages, "messages", list, True)
-        call_params = drop_nones(
+        call_params = self._drop_nones_from_payload(
             kwargs,
             temperature=temperature,
             max_completion_tokens=max_completion_tokens,
@@ -827,7 +827,7 @@ class GatewayInference(WMLResource):
         :rtype: dict
         """
         self._validate_type(messages, "messages", list, True)
-        call_params = drop_nones(
+        call_params = self._drop_nones_from_payload(
             kwargs,
             temperature=temperature,
             max_completion_tokens=max_completion_tokens,
@@ -1002,7 +1002,7 @@ class GatewayInference(WMLResource):
         :rtype: AsyncIterator
         """
         self._validate_type(messages, "messages", list, True)
-        call_params = drop_nones(
+        call_params = self._drop_nones_from_payload(
             kwargs,
             temperature=temperature,
             max_completion_tokens=max_completion_tokens,
@@ -1142,7 +1142,7 @@ class GatewayInference(WMLResource):
         :rtype: dict
         """
         self._validate_type(prompt, "prompt", [str, list], True)
-        call_params = drop_nones(
+        call_params = self._drop_nones_from_payload(
             kwargs,
             temperature=temperature,
             max_tokens=max_tokens,
@@ -1270,7 +1270,7 @@ class GatewayInference(WMLResource):
         :rtype: dict
         """
         self._validate_type(prompt, "prompt", [str, list], True)
-        call_params = drop_nones(
+        call_params = self._drop_nones_from_payload(
             kwargs,
             temperature=temperature,
             max_tokens=max_tokens,
@@ -1398,7 +1398,7 @@ class GatewayInference(WMLResource):
         :rtype: Iterator
         """
         self._validate_type(prompt, "prompt", [str, list], True)
-        call_params = drop_nones(
+        call_params = self._drop_nones_from_payload(
             kwargs,
             temperature=temperature,
             max_tokens=max_tokens,
@@ -1527,7 +1527,7 @@ class GatewayInference(WMLResource):
         :rtype: AsyncIterator
         """
         self._validate_type(prompt, "prompt", [str, list], True)
-        call_params = drop_nones(
+        call_params = self._drop_nones_from_payload(
             kwargs,
             temperature=temperature,
             max_tokens=max_tokens,

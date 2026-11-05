@@ -1,13 +1,12 @@
 //! Delimiter runs, recorded while parsing and paired by [`super::resolve`].
 
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
-use nom::{Emit, Err, Input as _, Mode, OutputM, OutputMode, PResult, Parser, error::ErrorKind};
 use variant_struct::VariantStruct;
 
 use crate::{
 	Input,
-	error::ParseError,
+	error::{Fail, PResult},
 	node::modifier::ModifierKind,
 	syntax::{Syntax, SyntaxSet},
 };
@@ -264,125 +263,25 @@ pub fn starts_delimiter(text: &str, allowed: SyntaxSet) -> bool {
 	})
 }
 
-pub struct DelimParser<E> {
-	allowed: SyntaxSet,
-	error: PhantomData<E>,
-}
-
-impl<E> Debug for DelimParser<E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("DelimParser")
-			.field("allowed", &self.allowed)
-			.field("error", &self.error)
-			.finish()
-	}
-}
-
-impl<'data, E> Parser<Input<'data>> for DelimParser<E>
-where
-	E: ParseError<'data>,
-{
-	type Output = Delim;
-	type Error = E;
-
-	fn process<OM: OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let Some(ch) = first(&input, self.allowed) else {
-			return Err(Err::Error(OM::Error::bind(|| {
-				E::from_error_kind(input, ErrorKind::Char)
-			})));
-		};
-		let len = input.chars().take_while(|&next| next == ch.char()).count();
-		if len < ch.min_len(self.allowed) {
-			return Err(Err::Error(OM::Error::bind(|| {
-				E::from_error_kind(input, ErrorKind::Char)
-			})));
-		}
-		let start = Offset(input.start);
-		let (rest, _) = input.take_split(len * ch.char().len_utf8());
-		Ok((
-			rest,
-			OM::Output::bind(|| Delim {
-				ch,
-				len,
-				start,
-				before_block: false,
-				alone: false,
-			}),
-		))
-	}
-}
-
 /// Parse a run of one delimiter character.
 ///
 /// # Errors
 /// If the input does not begin with an allowed delimiter.
-#[must_use]
-pub fn delim<'data, E>(allowed: SyntaxSet) -> impl Parser<Input<'data>, Output = Delim, Error = E>
-where
-	E: ParseError<'data>,
-{
-	DelimParser {
-		allowed,
-		error: PhantomData,
+pub fn delim(input: &mut Input, allowed: SyntaxSet) -> PResult<Delim> {
+	let ch = first(input, allowed).ok_or(Fail::NoMatch)?;
+	let len = input.chars().take_while(|&next| next == ch.char()).count();
+	if len < ch.min_len(allowed) {
+		return Err(Fail::NoMatch);
 	}
-}
-
-pub struct OpenerParser<F, E> {
-	delim: DelimParser<E>,
-	disabled: F,
-}
-
-impl<F, E> Debug for OpenerParser<F, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("OpenerParser")
-			.field("delim", &self.delim)
-			.finish_non_exhaustive()
-	}
-}
-
-impl<'data, F, E> Parser<Input<'data>> for OpenerParser<F, E>
-where
-	F: Fn(Offset) -> bool,
-	E: ParseError<'data>,
-{
-	type Output = Delim;
-	type Error = E;
-
-	fn process<OM: OutputMode>(
-		&mut self,
-		input: Input<'data>,
-	) -> PResult<OM, Input<'data>, Self::Output, Self::Error> {
-		let (rest, delim) = self
-			.delim
-			.process::<OutputM<Emit, OM::Error, OM::Incomplete>>(input.clone())?;
-		if rest.chars().next().is_none_or(char::is_whitespace) {
-			return Err(Err::Error(OM::Error::bind(|| {
-				E::from_error_kind(rest, ErrorKind::Satisfy)
-			})));
-		}
-		let closable = rest.contains(
-			&delim
-				.ch
-				.char()
-				.to_string()
-				.repeat(delim.ch.min_len(self.delim.allowed)),
-		);
-		if (self.disabled)(delim.start) || !closable {
-			return Err(Err::Error(OM::Error::bind(|| {
-				E::from_error_kind(input, ErrorKind::Verify)
-			})));
-		}
-		Ok((
-			rest,
-			OM::Output::bind(|| Delim {
-				before_block: true,
-				..delim
-			}),
-		))
-	}
+	let start = Offset(input.start);
+	input.advance(len * ch.char().len_utf8());
+	Ok(Delim {
+		ch,
+		len,
+		start,
+		before_block: false,
+		alone: false,
+	})
 }
 
 /// Parse a run of delimiters opening block syntax on the same line, as `*` does in `*1. foo`. It
@@ -394,19 +293,25 @@ where
 ///
 /// # Errors
 /// If the input does not begin with such a run.
-#[must_use]
-pub fn opener<'data, E>(
+pub fn opener(
+	input: &mut Input,
 	allowed: SyntaxSet,
 	disabled: impl Fn(Offset) -> bool,
-) -> impl Parser<Input<'data>, Output = Delim, Error = E>
-where
-	E: ParseError<'data>,
-{
-	OpenerParser {
-		delim: DelimParser {
-			allowed,
-			error: PhantomData,
-		},
-		disabled,
+) -> PResult<Delim> {
+	let delim = delim(input, allowed)?;
+	if input.peek().is_none_or(char::is_whitespace) {
+		return Err(Fail::NoMatch);
 	}
+	let closer = delim
+		.ch
+		.char()
+		.to_string()
+		.repeat(delim.ch.min_len(allowed));
+	if disabled(delim.start) || !input.contains(&closer) {
+		return Err(Fail::NoMatch);
+	}
+	Ok(Delim {
+		before_block: true,
+		..delim
+	})
 }

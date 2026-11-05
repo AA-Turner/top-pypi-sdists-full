@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: workos
-Version: 10.6.0
+Version: 10.7.0
 Summary: WorkOS Python Client
 Author: WorkOS
 Author-email: WorkOS <sdk@workos.com>
@@ -18,7 +18,6 @@ Description-Content-Type: text/markdown
 # WorkOS Python Library
 
 ![PyPI](https://img.shields.io/pypi/v/workos)
-[![Build Status](https://workos.semaphoreci.com/badges/workos-python/branches/main.svg?style=shields&key=9e4cb5bb-86a4-4938-9ec2-fc9f9fc512be)](https://workos.semaphoreci.com/projects/workos-python)
 
 The WorkOS library for Python provides convenient access to the WorkOS API from applications written in Python, [hosted on PyPI](https://pypi.org/project/workos/).
 

@@ -2,11 +2,12 @@ use crate::config::rest_parameters::QueryParameters;
 use crate::config::retry::{BackoffConfig, RetryPolicy};
 use crate::http::retry::{HttpContext, RetryState, execute_with_retry, execute_with_retry_state};
 use crate::rest::snowflake::{
-    AsyncPollResultNotFoundSnafu, HttpRetrySnafu, InvalidUrlSnafu, MissingQueryIdSnafu,
-    MissingResultUrlSnafu, OperationTimeoutSnafu, QUERY_REQUEST_PATH, QueryIds, QueryInput,
-    RestError, UrlJoinSnafu, apply_json_content_type, apply_query_headers, get_retry_params,
-    into_query_result, parse_external_session_header, query_failed_from_response, query_log_fields,
-    query_request, query_response, read_response_json, try_parse_gs_code,
+    AsyncPollResultNotFoundSnafu, DetachedContext, HttpRetrySnafu, InvalidUrlSnafu,
+    MissingQueryIdSnafu, MissingResultUrlSnafu, OperationTimeoutSnafu, QUERY_REQUEST_PATH,
+    QueryIds, QueryInput, RestError, UrlJoinSnafu, apply_json_content_type, apply_query_headers,
+    get_retry_params, into_query_result, parse_external_session_header, parse_service_name_header,
+    query_failed_from_response, query_log_fields, query_request, query_response,
+    read_response_json, try_parse_gs_code,
 };
 use reqwest::Method;
 use snafu::{OptionExt, ResultExt};
@@ -193,6 +194,7 @@ pub async fn submit_statement_async<'a>(
     );
     let request_body = build_async_query_request(query_input);
     let external_session_header = parse_external_session_header(params.external_session_id_str())?;
+    let service_name_header = parse_service_name_header(params.service_name.as_deref())?;
     let submit_request = |r: &RetryState| {
         let mut query_string_params = get_retry_params(r, params);
         query_string_params.push(("requestId", request_id.to_string()));
@@ -201,6 +203,7 @@ pub async fn submit_statement_async<'a>(
             &params.client_info,
             session_token,
             external_session_header.as_ref(),
+            service_name_header.as_ref(),
         ))
         .query(query_string_params.as_slice())
         .json(&request_body)
@@ -232,12 +235,14 @@ pub(super) async fn poll_query_status(
     let result_url = get_result_url.to_string();
     let external_session_header =
         parse_external_session_header(query_parameters.external_session_id_str())?;
+    let service_name_header = parse_service_name_header(query_parameters.service_name.as_deref())?;
     let poll_request = move || {
         apply_query_headers(
             client.get(result_url.clone()),
             &query_parameters.client_info,
             session_token,
             external_session_header.as_ref(),
+            service_name_header.as_ref(),
         )
     };
     let http_ctx = HttpContext::new(Method::GET, get_result_url.to_string());
@@ -336,7 +341,7 @@ pub(super) async fn execute_blocking_with_async<'a>(
     Ok(response)
 }
 
-fn extract_result_url_from_response(
+pub(crate) fn extract_result_url_from_response(
     server_url: &str,
     response: &query_response::Response,
 ) -> Result<Option<String>, RestError> {
@@ -526,21 +531,21 @@ pub(super) async fn poll_detached_query(
     client: &reqwest::Client,
     query_parameters: &QueryParameters,
     session_token: &str,
-    response: &query_response::Response,
+    detached_ctx: &DetachedContext,
     policy: &RetryPolicy,
-    ids: &QueryIds,
 ) -> Result<query_response::Response, RestError> {
-    let result_url = extract_result_url_from_response(&query_parameters.server_url, response)?
-        .with_context(|| MissingResultUrlSnafu { ids: ids.clone() })?;
-
     let mut metrics = AsyncExecutionMetrics::default();
+    let ids = QueryIds {
+        request_id: Some(detached_ctx.request_id),
+        query_id: detached_ctx.query_id.clone(),
+    };
     let result = poll_for_result(
         client,
         query_parameters,
         session_token,
-        &result_url,
+        detached_ctx.result_url.as_str(),
         policy,
-        ids,
+        &ids,
         &mut metrics,
     )
     .await;

@@ -10,16 +10,23 @@ class DescribePluginSummaryRequest(DaraModel):
         lang: str = None,
         plugin_name: str = None,
     ):
-        # The language of the content within the request and response.**** Valid values:
-        # 
-        # *   **zh** (default)
-        # *   **en**
+        # The language of the request and response. Default value: **zh**. Valid values:
+        # - **zh**: Chinese
+        # - **en**: English
         self.lang = lang
         # The name of the plug-in. Valid values:
         # 
-        # *   alinet: AliNet.
-        # *   alisecguard: client protection.
-        # *   alihips: AliHips.
+        # - alinet: AliNet.
+        # 
+        # - alisecguard: Self-protection.
+        # 
+        # - alihips: AliHips.
+        # 
+        # - alidetect: AliDetect.
+        # 
+        # - yundunmonitor: YundunMonitor.
+        # 
+        # > This parameter is required. If this parameter is not specified, the API returns HTTP 400 and the error code -101.
         self.plugin_name = plugin_name
 
     def validate(self):

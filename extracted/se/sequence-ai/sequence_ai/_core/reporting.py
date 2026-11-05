@@ -126,6 +126,9 @@ class CallMetrics:
     cc: Optional[str] = None
 
 
+    session: Optional[str] = None
+
+
     rid_echo: Optional[str] = None
     rid_mismatch: bool = False
 
@@ -175,6 +178,7 @@ class CallMetrics:
                 "tcp_ms": self.tcp_ms,
                 "tls_ms": self.tls_ms,
                 "cc": self.cc,
+                "session": self.session,
                 "rid_mismatch": self.rid_mismatch,
                 "frames": self.frames,
             },

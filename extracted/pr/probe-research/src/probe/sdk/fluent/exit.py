@@ -127,8 +127,8 @@ def note_exit(status: str, exc: BaseException | None = None) -> None:
 
     Not a signal handler itself. The SIGTERM handler `init` installs
     (:mod:`probe.sdk.run.launch.preempt`) runs AFTER a framework's own -- Lightning's
-    composes with it -- and a close on the way out of a SIGTERM is
-    ``failed`` whatever is noted here.
+    composes with it -- and a close on the way out of a SIGTERM takes that
+    handler's verdict (``canceled`` or ``failed``) whatever is noted here.
     """
     if status not in _EXIT_STATUSES:
         raise errors.ValidationError(

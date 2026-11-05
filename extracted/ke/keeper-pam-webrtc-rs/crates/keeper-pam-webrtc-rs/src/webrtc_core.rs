@@ -163,25 +163,40 @@ pub struct IsolatedWebRTCAPI {
     video_track: Option<Arc<TrackLocalStaticSample>>,
 }
 
+/// SettingEngine shared by every peer connection the gateway creates.
+///
+/// ICE timeouts are extended to give trickled candidates time to arrive (the defaults
+/// are 7 s disconnected / 25 s failed).
+///
+/// mDNS is disabled. Browsers hide their host addresses behind `<uuid>.local` names, and
+/// in webrtc-ice 0.14 each such remote candidate starts a resolver task that holds the
+/// agent until someone answers the query. A browser is practically never on the
+/// gateway's LAN, so nobody answers: the task re-sends the query every second for the
+/// life of the process and keeps the closed agent's UDP sockets (mDNS, host, relay)
+/// open. The browser's srflx and relay candidates, and peer-reflexive candidates from
+/// its connectivity checks, are what actually connect, so nothing is lost by
+/// discarding `.local` candidates.
+pub(crate) fn gateway_setting_engine() -> SettingEngine {
+    let mut setting_engine = SettingEngine::default();
+    setting_engine.set_ice_timeouts(
+        Some(Duration::from_secs(
+            crate::config::ICE_DISCONNECTED_TIMEOUT_SECS,
+        )),
+        Some(Duration::from_secs(crate::config::ICE_FAILED_TIMEOUT_SECS)),
+        Some(Duration::from_millis(
+            crate::config::ICE_KEEPALIVE_INTERVAL_MS,
+        )),
+    );
+    setting_engine.set_ice_multicast_dns_mode(webrtc::ice::mdns::MulticastDnsMode::Disabled);
+    setting_engine
+}
+
 impl IsolatedWebRTCAPI {
     /// Create completely isolated WebRTC API instance per tube
     /// PERFORMANCE: Only affects connection establishment, not frame processing
     pub fn new(tube_id: String, conversation_id: Option<String>) -> Self {
         // Configure SettingEngine with extended timeouts for trickle ICE
-        let mut setting_engine = SettingEngine::default();
-
-        // Increase ICE timeouts to allow time for trickle ICE candidates to arrive
-        // Default is 7 seconds for disconnected and 25 seconds for failed
-        // We extend these significantly to accommodate slow candidate trickling
-        setting_engine.set_ice_timeouts(
-            Some(Duration::from_secs(
-                crate::config::ICE_DISCONNECTED_TIMEOUT_SECS,
-            )),
-            Some(Duration::from_secs(crate::config::ICE_FAILED_TIMEOUT_SECS)),
-            Some(Duration::from_millis(
-                crate::config::ICE_KEEPALIVE_INTERVAL_MS,
-            )),
-        );
+        let setting_engine = gateway_setting_engine();
 
         debug!(
             "Configured ICE timeouts for tube {} (conversation_id: {}, disconnected: {}s, failed: {}s, keepalive: {}ms)",
@@ -216,16 +231,7 @@ impl IsolatedWebRTCAPI {
         tube_id: String,
         conversation_id: Option<String>,
     ) -> Result<Self, String> {
-        let mut setting_engine = SettingEngine::default();
-        setting_engine.set_ice_timeouts(
-            Some(Duration::from_secs(
-                crate::config::ICE_DISCONNECTED_TIMEOUT_SECS,
-            )),
-            Some(Duration::from_secs(crate::config::ICE_FAILED_TIMEOUT_SECS)),
-            Some(Duration::from_millis(
-                crate::config::ICE_KEEPALIVE_INTERVAL_MS,
-            )),
-        );
+        let setting_engine = gateway_setting_engine();
 
         let h264_codec = RTCRtpCodecParameters {
             capability: RTCRtpCodecCapability {

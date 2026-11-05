@@ -24,22 +24,18 @@ class AddCheckInstanceResultWhiteListRequest(DaraModel):
         # The ID of the check item.
         # > Call the [ListCheckResult](~~ListCheckResult~~) operation to obtain this parameter.
         self.check_id = check_id
-        # The client token that is used to ensure the idempotence of the request. Different requests should use different tokens. The token supports only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. Different requests must use different tokens. The token can contain only ASCII characters and cannot exceed 64 characters in length.
         self.client_token = client_token
-        # Specifies whether to perform only a dry run. Valid values:
-        # - true: performs only a dry run without executing the actual operation.
-        # - false: performs the actual operation.
-        # 
-        # Default value: false.
+        # Specifies whether to perform only a dry run. A value of true indicates that only a dry run is performed and the actual operation is not performed. A value of false indicates that the actual operation is performed. Default value: false.
         self.dry_run = dry_run
-        # The collection of asset instance IDs.
+        # The instance IDs of the assets.
         self.instance_ids = instance_ids
-        # The collection of asset instance information.
+        # The information about the asset instances.
         self.instance_list = instance_list
-        # The remarks. Maximum length: 65,535 bytes.
+        # The remarks. The value can be up to 65,535 bytes in length.
         self.remark = remark
-        # The rule type. Default value: **WHITE**. Valid values:
-        # - WHITE: whitelist
+        # The type of the rule. Default value: **WHITE**. Valid values:
+        # - WHITE: Adds the instances to the whitelist.
         self.rule_type = rule_type
 
     def validate(self):
@@ -118,8 +114,8 @@ class AddCheckInstanceResultWhiteListRequestInstanceList(DaraModel):
         instance_id: str = None,
         region_id: str = None,
     ):
-        # The asset instance ID.
-        # > Call the [ListCheckInstanceResult](~~ListCheckInstanceResult~~) operation to obtain this parameter.
+        # The instance ID of the asset.
+        # > Invoke the [ListCheckInstanceResult](~~ListCheckInstanceResult~~) operation to obtain this parameter.
         self.instance_id = instance_id
         # The region where the asset resides.
         # > Call the [ListCheckInstanceResult](~~ListCheckInstanceResult~~) operation to obtain this parameter.

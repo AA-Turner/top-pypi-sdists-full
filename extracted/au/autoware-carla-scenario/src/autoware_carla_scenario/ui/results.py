@@ -1,8 +1,10 @@
 """A session's results on its ODD, and sessions compared case by case.
 
 Each case of a session is read with what it left on disk (``ui.cases``): its
-verdict (``batch_results.json`` or ``{stem}_result.json``), the case it ran (a
-sweep's overrides; the ODD values and buckets it was drawn at, from
+verdict (a batch's entries, ``ui.cases.batch_entries``: its
+``batch_results.json``, or what a SLURM batch's tasks recorded while it is not
+collected yet or was resubmitted since; else ``{stem}_result.json``), the case
+it ran (a sweep's overrides; the ODD values and buckets it was drawn at, from
 ``{stem}_coverage.json``'s ``case``), its coverage document, and a few metrics
 of how the ego drove, read off its trajectory log (:func:`case_metrics`, which
 hands the ego's ticks to ``ui.drive_metrics``, the box geometry and metric
@@ -28,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .cases import CaseFiles, case_files, job_dir, session_dir
+from .cases import CaseFiles, batch_entries, case_files, job_dir, session_dir
 
 # The comparison of sessions, compiled by the library check; the names it
 # had here stay importable from here.
@@ -117,6 +119,8 @@ class CaseResult:
     files: CaseFiles | None
     coverage: dict[str, Any] | None
     metrics: dict[str, float] = field(default_factory=dict)
+    #: A SLURM batch's case without an outcome yet (``passed`` ``None``).
+    pending: bool = False
 
     @property
     def scenario(self) -> str:
@@ -205,7 +209,10 @@ def case_metrics(trajectory: Path) -> dict[str, float]:
     * ``stop_time_s`` -- when it first came to a stop (below 0.5 km/h after
       having moved), if it did.
 
-    Empty when the log has no ego. Kept until the log changes.
+    Empty when the log has no ego or cannot be read. A line that is not
+    JSON (a killed run's last tick, cut off mid-line) or a record that cannot
+    be used is skipped, as ``rerun_metrics.metric_records`` skips it: the
+    metrics of every good tick are kept. Kept until the log changes.
     """
     try:
         stamp = trajectory.stat().st_mtime
@@ -214,71 +221,95 @@ def case_metrics(trajectory: Path) -> dict[str, float]:
     cached = _metrics_cache.get(str(trajectory))
     if cached is not None and cached[0] == stamp:
         return cached[1]
-    extents: dict[int, tuple[float, float]] = {}
-    # Each box's offset from its actor's origin (none in older logs).
-    centers: dict[int, tuple[float, float]] = {}
-    ego: int | None = None
-    drive = DriveMetrics()
+    reader = _TrajectoryMetrics()
     try:
-        with trajectory.open(encoding="utf-8") as stream:
+        with trajectory.open(encoding="utf-8", errors="replace") as stream:
             for line in stream:
                 if '"tick"' not in line and '"actor"' not in line:
                     continue
-                record = json.loads(line)
-                if record.get("type") == "actor":
-                    extent = record.get("extent") or [0.0, 0.0]
-                    extents[int(record["id"])] = (float(extent[0]), float(extent[1]))
-                    center = record.get("center") or [0.0, 0.0]
-                    centers[int(record["id"])] = (float(center[0]), float(center[1]))
-                    if str(record.get("role", "")).lower() == "ego":
-                        ego = int(record["id"])
+                try:
+                    reader.read(json.loads(line))
+                except (ValueError, TypeError, IndexError, KeyError, AttributeError):
                     continue
-                # The text test above lets through any record whose label or
-                # role reads "tick" or "actor" (a spawn's, a despawn's, ...):
-                # only ticks carry poses.
-                if record.get("type") != "tick":
-                    continue
-                control = record.get("control") or {}
-                if ego is None and control:
-                    ego = int(next(iter(control)))
-                if ego is None:
-                    continue
-                states = {int(a[0]): a for a in record.get("actors") or []}
-                me = states.get(ego)
-                if me is None:
-                    continue
-                t = float(record["t"])
-                speed = math.hypot(float(me[7]), float(me[8])) * 3.6
-                ego_box = _box(
-                    me[1],
-                    me[2],
-                    me[6],
-                    extents.get(ego, (2.4, 1.0)),
-                    centers.get(ego, (0.0, 0.0)),
-                )
-                for other, state in states.items():
-                    # A road user parked under the map (hidden) is out of
-                    # the scene.
-                    if other == ego or float(state[3]) < _HIDDEN_BELOW_M:
-                        continue
-                    drive.gap(
-                        _box_distance(
-                            ego_box,
-                            _box(
-                                state[1],
-                                state[2],
-                                state[6],
-                                extents.get(other, (0.3, 0.3)),
-                                centers.get(other, (0.0, 0.0)),
-                            ),
-                        )
-                    )
-                drive.tick(t, float(me[1]), float(me[2]), speed)
-    except (OSError, ValueError, KeyError, IndexError, TypeError):
+    except OSError:
         return {}
-    metrics = drive.to_dict()
+    metrics = reader.drive.to_dict()
     _metrics_cache[str(trajectory)] = (stamp, metrics)
     return metrics
+
+
+class _TrajectoryMetrics:
+    """``case_metrics``'s pass over a trajectory log, a record at a time."""
+
+    def __init__(self) -> None:
+        self.extents: dict[int, tuple[float, float]] = {}
+        # Each box's offset from its actor's origin (none in older logs).
+        self.centers: dict[int, tuple[float, float]] = {}
+        self.ego: int | None = None
+        self.drive = DriveMetrics()
+
+    def read(self, record: Any) -> None:
+        """Take in one *record*; raises ``TypeError``, ``ValueError``,
+        ``IndexError``, ``KeyError`` or ``AttributeError`` for one it cannot
+        use, before changing anything."""
+        if record.get("type") == "actor":
+            extent = record.get("extent") or [0.0, 0.0]
+            center = record.get("center") or [0.0, 0.0]
+            actor = int(record["id"])
+            box = (float(extent[0]), float(extent[1]))
+            offset = (float(center[0]), float(center[1]))
+            self.extents[actor] = box
+            self.centers[actor] = offset
+            if str(record.get("role", "")).lower() == "ego":
+                self.ego = actor
+            return
+        # The text test in case_metrics lets through any record whose label
+        # or role reads "tick" or "actor" (a spawn's, a despawn's, ...): only
+        # ticks carry poses.
+        if record.get("type") != "tick":
+            return
+        ego = self.ego
+        control = record.get("control") or {}
+        if ego is None and control:
+            ego = int(next(iter(control)))
+            self.ego = ego
+        if ego is None:
+            return
+        states = {int(a[0]): a for a in record.get("actors") or []}
+        me = states.get(ego)
+        if me is None:
+            return
+        t = float(record["t"])
+        x, y = float(me[1]), float(me[2])
+        speed = math.hypot(float(me[7]), float(me[8])) * 3.6
+        ego_box = _box(
+            me[1],
+            me[2],
+            me[6],
+            self.extents.get(ego, (2.4, 1.0)),
+            self.centers.get(ego, (0.0, 0.0)),
+        )
+        # Every gap first, so a tick that breaks halfway adds none of them.
+        gaps: list[float] = []
+        for other, state in states.items():
+            # A road user parked under the map (hidden) is out of the scene.
+            if other == ego or float(state[3]) < _HIDDEN_BELOW_M:
+                continue
+            gaps.append(
+                _box_distance(
+                    ego_box,
+                    _box(
+                        state[1],
+                        state[2],
+                        state[6],
+                        self.extents.get(other, (0.3, 0.3)),
+                        self.centers.get(other, (0.0, 0.0)),
+                    ),
+                )
+            )
+        for gap in gaps:
+            self.drive.gap(gap)
+        self.drive.tick(t, x, y, speed)
 
 
 # ── A session's cases ───────────────────────────────────────────────────────
@@ -351,9 +382,12 @@ def load_results(
         return []
     out: list[CaseResult] = []
     if session_type == "batch":
-        entries = _read_json(directory / "batch_results.json")
-        if not isinstance(entries, list):
+        # Its summary, or a SLURM batch's cases recorded so far: the entries
+        # the session page and case_files() read.
+        found = batch_entries(directory)
+        if found is None:
             return []
+        entries = found[0]
         for index, entry in enumerate(entries):
             if not isinstance(entry, dict):
                 continue
@@ -372,6 +406,7 @@ def load_results(
                     overrides=_strings(entry.get("overrides")),
                     files=files,
                     coverage=_read_json(files.coverage) if files else None,
+                    pending=bool(entry.get("pending")),
                 )
             )
     else:
@@ -449,6 +484,12 @@ def cases_in_cell(
 # ── Comparing sessions ──────────────────────────────────────────────────────
 
 
+def pending_count(found: list[CaseResult]) -> int:
+    """How many of a session's cases are pending (a SLURM batch's cases
+    without an outcome yet), which :func:`compare` leaves out."""
+    return sum(1 for r in found if r.pending)
+
+
 def compare(
     sessions: list[tuple[str, list[CaseResult]]],
     *,
@@ -458,9 +499,20 @@ def compare(
     """Compare sessions (oldest first: the first is the baseline) case by case
     and ODD cell by cell, the cells along *x* and *y* (the attributes the
     cases were drawn over, :func:`default_axes` when not given): the checked
-    ``ui.comparison``'s, fed each case's :meth:`CaseResult.compared`."""
+    ``ui.comparison``'s, fed each case's :meth:`CaseResult.compared`.
+
+    A pending case (a SLURM batch's case without an outcome yet) is left out,
+    as if its session had not run it: it has no verdict to tally or to compare
+    with, and counting it as not passing would report a regression and lower
+    the pass rate before the case has finished. The compare page shows how
+    many cases of each session are pending (:func:`pending_count`) beside its
+    pass rate. A task that crashed recorded no outcome, so its case is pending
+    until the batch is collected."""
     return _compare(
-        [(name, [r.compared() for r in found]) for name, found in sessions],
+        [
+            (name, [r.compared() for r in found if not r.pending])
+            for name, found in sessions
+        ],
         x=x,
         y=y,
     )

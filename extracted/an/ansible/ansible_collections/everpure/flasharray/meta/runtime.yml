@@ -1,0 +1,90 @@
+---
+requires_ansible: ">=2.16.0"
+action_groups:
+  everpure.flasharray:
+    - purefa_ad
+    - purefa_admin
+    - purefa_alert
+    - purefa_apiclient
+    - purefa_arrayname
+    - purefa_audits
+    - purefa_banner
+    - purefa_cbsexpand
+    - purefa_certs
+    - purefa_connect
+    - purefa_console
+    - purefa_default_protection
+    - purefa_directory
+    - purefa_dirsnap
+    - purefa_dns
+    - purefa_ds
+    - purefa_dsrole
+    - purefa_dsrole_old
+    - purefa_endpoint
+    - purefa_eradication
+    - purefa_eula
+    - purefa_export
+    - purefa_file
+    - purefa_fleet
+    - purefa_fs
+    - purefa_hardware
+    - purefa_hg
+    - purefa_host
+    - purefa_info
+    - purefa_inventory
+    - purefa_kmip
+    - purefa_lds
+    - purefa_localgroup
+    - purefa_localuser
+    - purefa_logging
+    - purefa_maintenance
+    - purefa_messages
+    - purefa_metrics
+    - purefa_network
+    - purefa_network_access_policy
+    - purefa_ntp
+    - purefa_offload
+    - purefa_pg
+    - purefa_pgsched
+    - purefa_pgsnap
+    - purefa_phonehome
+    - purefa_pod
+    - purefa_pod_replica
+    - purefa_policy
+    - purefa_policy_management_access
+    - purefa_preset
+    - purefa_proxy
+    - purefa_qos_policy
+    - purefa_ra
+    - purefa_realm
+    - purefa_saml
+    - purefa_server
+    - purefa_sessions
+    - purefa_smis
+    - purefa_smtp
+    - purefa_snap
+    - purefa_snmp
+    - purefa_snmp_agent
+    - purefa_sso
+    - purefa_subnet
+    - purefa_syslog
+    - purefa_syslog_settings
+    - purefa_tags
+    - purefa_tgroup
+    - purefa_timeout
+    - purefa_tls_policy
+    - purefa_token
+    - purefa_user
+    - purefa_vg
+    - purefa_vlan
+    - purefa_vnc
+    - purefa_volume
+    - purefa_volume_tags
+    - purefa_workload
+    - purefa_zte
+plugin_routing:
+  modules:
+    purefa_sso:
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: purefa_sso will be removed in a future release of this collection. Use everpure.flasharray.purefa_admin instead.

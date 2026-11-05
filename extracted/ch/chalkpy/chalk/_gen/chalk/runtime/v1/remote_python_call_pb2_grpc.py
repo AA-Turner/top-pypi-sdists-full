@@ -97,6 +97,11 @@ class AsyncRemoteCallServiceStub(object):
             request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallRequest.SerializeToString,
             response_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallResponse.FromString,
         )
+        self.CancelRemoteCall = channel.unary_unary(
+            "/chalk.runtime.v1.AsyncRemoteCallService/CancelRemoteCall",
+            request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.CancelRemoteCallRequest.SerializeToString,
+            response_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.CancelRemoteCallResponse.FromString,
+        )
         self.StreamRemoteCallBatch = channel.stream_stream(
             "/chalk.runtime.v1.AsyncRemoteCallService/StreamRemoteCallBatch",
             request_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.StreamRemoteCallBatchRequest.SerializeToString,
@@ -122,6 +127,17 @@ class AsyncRemoteCallServiceServicer(object):
         """Poll for results. The caller passes a cursor to resume from the
         last position; the server returns any new result chunks plus an
         updated cursor.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CancelRemoteCall(self, request, context):
+        """Cancel a call without interrupting running code unless container termination
+        is requested. List queues return UNIMPLEMENTED. Late results cannot replace
+        cancellation, and cancellation never schedules another execution attempt.
+        Success commits cancellation and durably schedules any required termination;
+        it does not wait for the container to stop or collateral recovery to finish.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -153,6 +169,11 @@ def add_AsyncRemoteCallServiceServicer_to_server(servicer, server):
             servicer.PollRemoteCall,
             request_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallRequest.FromString,
             response_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallResponse.SerializeToString,
+        ),
+        "CancelRemoteCall": grpc.unary_unary_rpc_method_handler(
+            servicer.CancelRemoteCall,
+            request_deserializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.CancelRemoteCallRequest.FromString,
+            response_serializer=chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.CancelRemoteCallResponse.SerializeToString,
         ),
         "StreamRemoteCallBatch": grpc.stream_stream_rpc_method_handler(
             servicer.StreamRemoteCallBatch,
@@ -223,6 +244,35 @@ class AsyncRemoteCallService(object):
             "/chalk.runtime.v1.AsyncRemoteCallService/PollRemoteCall",
             chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallRequest.SerializeToString,
             chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.PollRemoteCallResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CancelRemoteCall(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.runtime.v1.AsyncRemoteCallService/CancelRemoteCall",
+            chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.CancelRemoteCallRequest.SerializeToString,
+            chalk_dot_runtime_dot_v1_dot_remote__python__call__pb2.CancelRemoteCallResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -66,10 +66,38 @@ struct WriteData {
     dirty: bool,
     /// The table directory this backing belongs to (see [`DirPin`]).
     pin: DirPin,
+    /// The column names on disk as of the last sync (backing creation,
+    /// flush, or out-of-band refresh) — NOT the live `wt` desc, which
+    /// `addcols` extends before the flush. Compared with a fresh parse of
+    /// `table.dat` when a later open reuses the backing, so a column
+    /// another writer added (python-casacore, dask-ms; issue #30) makes
+    /// the backing re-materialise instead of serving the stale schema —
+    /// and a *dirty* backing is refused rather than flushed over the
+    /// foreign column, which would rewrite `table.dat` without it.
+    disk_columns: Vec<String>,
     /// Set for a TaQL query result materialised under the temp dir: the
     /// directory is removed when the last handle on this backing drops.
     /// Declared LAST so `read`/`wt` are closed before it is removed.
     scratch: Option<ScratchDir>,
+}
+
+/// The column names in `table.dat` right now (`None` if unreadable — the
+/// directory no longer holds a table).
+fn disk_column_names(dir: &std::path::Path) -> Option<Vec<String>> {
+    let bytes = std::fs::read(dir.join("table.dat")).ok()?;
+    let dat = core::parse_table_dat(&bytes).ok()?;
+    Some(dat.desc.columns.iter().map(|c| c.name.clone()).collect())
+}
+
+/// Whether `table.dat`'s column set differs from `names` (the backing's
+/// last-synced view): another writer added, removed or renamed a column
+/// out of band (issue #30). Unreadable `table.dat` counts as changed (the
+/// callers re-materialise from disk or drop the entry anyway).
+fn disk_columns_differ(dir: &std::path::Path, names: &[String]) -> bool {
+    match disk_column_names(dir) {
+        Some(now) => now != names,
+        None => true,
+    }
 }
 
 /// A TaQL result table's temp directory, removed when dropped (casacore keeps
@@ -509,6 +537,14 @@ fn refresh_write(
     s.wt = wt;
     s.dirty = false;
     s.pin = DirPin::new(dir);
+    s.disk_columns = s
+        .read
+        .dat
+        .desc
+        .columns
+        .iter()
+        .map(|c| c.name.clone())
+        .collect();
     true
 }
 
@@ -518,11 +554,27 @@ fn refresh_write(
 /// table rewrite happens here (explicit `flush()`, on `close()`/context exit,
 /// or before a mutating taql statement reads the snapshot). A no-op when the
 /// store is clean, so repeated writes do not rewrite the whole table per call.
-fn flush_if_dirty(shared: &std::sync::Arc<std::sync::Mutex<WriteData>>) -> PyResult<()> {
+fn flush_if_dirty(
+    dir: &std::path::Path,
+    shared: &std::sync::Arc<std::sync::Mutex<WriteData>>,
+) -> PyResult<()> {
     let mut s = shared.lock().unwrap();
     if s.dirty {
-        let dir = s.wt.flush().map_err(err)?;
-        s.read = ::casacure::Table::open(&dir, false).map_err(err)?;
+        // Another writer changed the columns on disk since the last sync:
+        // flushing would rewrite `table.dat` from this backing's (now
+        // stale) desc and silently drop the foreign column (issue #30's
+        // write-over variant). Refuse instead — the caller surfaces it.
+        if disk_columns_differ(dir, &s.disk_columns) {
+            return Err(PyRuntimeError::new_err(format!(
+                "{}: the table's columns changed on disk (another writer's \
+                 addcols/removecols) while this handle holds unflushed \
+                 writes; the write would drop the foreign column",
+                dir.display()
+            )));
+        }
+        let flushed = s.wt.flush().map_err(err)?;
+        s.read = ::casacure::Table::open(&flushed, false).map_err(err)?;
+        s.disk_columns = s.wt.desc().columns.iter().map(|c| c.name.clone()).collect();
         s.dirty = false;
     }
     Ok(())
@@ -685,6 +737,43 @@ fn cell_shape_of(cells: &[RecordValue]) -> Vec<usize> {
             _ => None,
         })
         .unwrap_or_default()
+}
+
+/// The shape conflict that stops `cells` being stacked into one array, if any:
+/// the first defined shape seen, and the first cell whose shape differs from
+/// it. Empty (undefined) cells and non-array cells never take part (they read
+/// as defaults, issue #8). Kept pure — free of `PyErr`, whose construction
+/// needs a linked Python — so the decision table is unit-tested directly;
+/// `check_cells_conform` below only renders the verdict.
+fn first_shape_conflict(cells: &[RecordValue]) -> Option<(&[u32], &[u32])> {
+    let mut first: Option<&[u32]> = None;
+    for cell in cells {
+        let RecordValue::Array(a) = cell else {
+            continue;
+        };
+        if a.shape.is_empty() || a.shape.contains(&0) {
+            continue;
+        }
+        match first {
+            None => first = Some(&a.shape),
+            Some(shape) if shape != a.shape.as_slice() => return Some((shape, &a.shape)),
+            Some(_) => {}
+        }
+    }
+    None
+}
+
+/// One stacked array can only hold cells of one shape: refuse a variable-shape
+/// column whose rows differ, as casacore does, rather than cut every row to the
+/// first row's shape. Empty (undefined) cells stay exempt: they read as defaults.
+fn check_cells_conform(cells: &[RecordValue]) -> PyResult<()> {
+    match first_shape_conflict(cells) {
+        None => Ok(()),
+        Some((shape, other)) => Err(PyRuntimeError::new_err(format!(
+            "getcol: cells of shape {shape:?} and {other:?} cannot be stacked; \
+             use getvarcol for a column whose rows differ in shape"
+        ))),
+    }
 }
 
 /// A short human name for a `RecordValue` variant (for error messages).
@@ -1059,11 +1148,19 @@ user,usernoread,permanent,permanentwait"
             }
             let _ = wt.flush().map_err(err)?;
             let read = ::casacure::Table::open_with_lock(&dir, false, options).map_err(err)?;
+            let disk_columns = read
+                .dat
+                .desc
+                .columns
+                .iter()
+                .map(|c| c.name.clone())
+                .collect();
             let shared = std::sync::Arc::new(std::sync::Mutex::new(WriteData {
                 read,
                 wt,
                 dirty: false,
                 pin: DirPin::new(&dir),
+                disk_columns,
                 scratch: None,
             }));
             register_write(&dir, &shared);
@@ -1092,7 +1189,7 @@ user,usernoread,permanent,permanentwait"
             // the files: the last state the writer actually persisted.
             if let Some(shared) = find_write(&dir) {
                 if shared.lock().unwrap().dirty {
-                    let _ = flush_if_dirty(&shared);
+                    let _ = flush_if_dirty(&dir, &shared);
                 }
             }
             let read = ::casacure::Table::open_with_lock(&dir, true, options).map_err(err)?;
@@ -1113,16 +1210,35 @@ user,usernoread,permanent,permanentwait"
         // with another *process* holding the lock — fcntl locks do not
         // conflict within one process).
         if let Some(shared) = find_write(&dir) {
-            // The backing is stale if another process grew the table since
-            // this one's last flush (nothing pending here): adopt the
+            // The backing is stale if another process grew the table or
+            // changed its columns (addcols/removecols/rename; issue #30 —
+            // python-casacore and dask-ms 0.2.x create columns out of band)
+            // since this one's last sync (nothing pending here): adopt the
             // on-disk state, keeping the caller's locking options.
-            let stale = {
+            let (stale, schema_conflict) = {
                 let s = shared.lock().unwrap();
-                !s.dirty
-                    && ::casacure::lock_sync_nrrow(&dir)
-                        .filter(|&n| n != 0)
-                        .is_some_and(|n| n > s.wt.nrows())
+                let schema_changed = disk_columns_differ(&dir, &s.disk_columns);
+                let rows_grew = ::casacure::lock_sync_nrrow(&dir)
+                    .filter(|&n| n != 0)
+                    .is_some_and(|n| n > s.wt.nrows());
+                (
+                    !s.dirty && (rows_grew || schema_changed),
+                    s.dirty && schema_changed,
+                )
             };
+            // A schema change with pending writes must NOT be flushed over:
+            // the flush rewrites `table.dat` from this backing's stale desc
+            // and silently drops the foreign column. Refuse instead (the
+            // same message `flush()` itself raises via `flush_if_dirty`).
+            if schema_conflict {
+                return Err(PyRuntimeError::new_err(format!(
+                    "{}: the table's columns changed on disk (another \
+                     writer's addcols/removecols) while this handle holds \
+                     unflushed writes; the write would drop the foreign \
+                     column",
+                    dir.display()
+                )));
+            }
             if stale && !refresh_write(&dir, &shared, options) {
                 return Err(err(format!(
                     "{}: table changed on disk and could not be reloaded",
@@ -1159,6 +1275,13 @@ user,usernoread,permanent,permanentwait"
         let (read, wt) =
             core::WritableTable::open_for_update_with_lock(&dir, options).map_err(err)?;
         let shared = std::sync::Arc::new(std::sync::Mutex::new(WriteData {
+            disk_columns: read
+                .dat
+                .desc
+                .columns
+                .iter()
+                .map(|c| c.name.clone())
+                .collect(),
             read,
             wt,
             dirty: false,
@@ -1251,7 +1374,7 @@ user,usernoread,permanent,permanentwait"
                 // The on-disk state must include this handle's pending
                 // (unflushed) writes; `query()`/`sort()`/`select_run()`
                 // run against the files.
-                flush_if_dirty(shared)?;
+                flush_if_dirty(&self.dir_of(), shared)?;
                 std::sync::Arc::new(::casacure::Table::open(self.dir_of(), false).map_err(err)?)
             }
         })
@@ -1289,6 +1412,43 @@ user,usernoread,permanent,permanentwait"
                 s.wt.desc().clone()
             }
         }
+    }
+
+    /// Validate a normalized slice request against casacore's rules
+    /// (issue #38): the column must be an array column — every casacore
+    /// slice entry point refuses a scalar one, with any corners — and the
+    /// corners must not be empty: an `IPosition` of length 0 never matches
+    /// a cell's `ndim()`, so casacore raises its `Slicer` rank error where
+    /// casacure's core would read the empty slice as "the whole cell".
+    /// The whole-cell reading stays an *internal* idiom — the `-1` corner
+    /// conversion in `read_cellslice` feeds it and dask-ms's `(-1, ..)`
+    /// whole-cell idiom relies on it — only the Python-visible empty
+    /// corners are refused here.
+    fn check_slice_request(
+        &self,
+        name: &str,
+        column: &str,
+        col_idx: usize,
+        blc: &[i64],
+        trc: &[i64],
+    ) -> PyResult<()> {
+        let desc = self.desc();
+        if !matches!(
+            desc.columns[col_idx].kind,
+            core::tabledesc::ColumnKind::Array
+        ) {
+            return Err(PyRuntimeError::new_err(format!(
+                "{name}: column {column} is not an array column \
+                 (casacore: TableProxy::getColumnSlice: column {column} is not an array column)"
+            )));
+        }
+        if blc.is_empty() || trc.is_empty() {
+            return Err(PyRuntimeError::new_err(format!(
+                "{name}: empty blc/trc do not match the cell rank \
+                 (casacore: Slicer error: Shape IPosition-lengths differ from ndim())"
+            )));
+        }
+        Ok(())
     }
 
     fn row_count(&self) -> u64 {
@@ -1354,6 +1514,157 @@ fn zero_elements(dt: DataType, n: usize) -> core::record::ArrayData {
 
 #[pymethods]
 impl Table {
+    /// `putkeyword(name, value)`.
+    fn putkeyword(&self, py: Python<'_>, name: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        let rec = keyword_value(py, value)?;
+        {
+            let mut inner = self.inner.lock().unwrap();
+            match &mut *inner {
+                Inner::Write { shared, .. } => {
+                    let mut s = shared.lock().unwrap();
+                    s.wt.putkeyword(name, rec);
+                    s.dirty = true;
+                }
+                _ => return Err(not_writable(self.view)),
+            }
+        }
+        Ok(())
+    }
+
+    /// `putkeywords(dict)`.
+    fn putkeywords(&self, py: Python<'_>, dict: &Bound<'_, PyDict>) -> PyResult<()> {
+        for (k, v) in dict.iter() {
+            let name = k.extract::<String>()?;
+            self.putkeyword(py, &name, &v)?;
+        }
+        Ok(())
+    }
+
+    /// `removekeyword(name)`.
+    fn removekeyword(&self, name: &str) -> PyResult<()> {
+        {
+            let mut inner = self.inner.lock().unwrap();
+            match &mut *inner {
+                Inner::Write { shared, .. } => {
+                    let mut s = shared.lock().unwrap();
+                    s.wt.removekeyword(name);
+                    s.dirty = true;
+                }
+                _ => return Err(not_writable(self.view)),
+            }
+        }
+        Ok(())
+    }
+
+    /// `putcolkeyword(column, name, value)`.
+    fn putcolkeyword(
+        &self,
+        py: Python<'_>,
+        column: &str,
+        name: &str,
+        value: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let col_idx = self.col_index(column)?;
+        let rec = convert::pyobject_to_record(py, value)?;
+        {
+            let mut inner = self.inner.lock().unwrap();
+            match &mut *inner {
+                Inner::Write { shared, .. } => {
+                    let mut s = shared.lock().unwrap();
+                    s.wt.putcolkeyword(col_idx, name, rec).map_err(err)?;
+                    s.dirty = true;
+                }
+                _ => return Err(not_writable(self.view)),
+            }
+        }
+        Ok(())
+    }
+
+    /// `putcolkeywords(column, dict)`.
+    fn putcolkeywords(
+        &self,
+        py: Python<'_>,
+        column: &str,
+        dict: &Bound<'_, PyDict>,
+    ) -> PyResult<()> {
+        for (k, v) in dict.iter() {
+            let name = k.extract::<String>()?;
+            self.putcolkeyword(py, column, &name, &v)?;
+        }
+        Ok(())
+    }
+
+    /// `removecolkeyword(column, name)`.
+    fn removecolkeyword(&self, column: &str, name: &str) -> PyResult<()> {
+        let col_idx = self.col_index(column)?;
+        {
+            let mut inner = self.inner.lock().unwrap();
+            match &mut *inner {
+                Inner::Write { shared, .. } => {
+                    let mut s = shared.lock().unwrap();
+                    s.wt.removecolkeyword(col_idx, name).map_err(err)?;
+                    s.dirty = true;
+                }
+                _ => return Err(not_writable(self.view)),
+            }
+        }
+        Ok(())
+    }
+
+    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __exit__(
+        &self,
+        _ty: Option<Py<PyAny>>,
+        _value: Option<Py<PyAny>>,
+        _tb: Option<Py<PyAny>>,
+    ) -> PyResult<()> {
+        // python-casacore's `with table(...)` closes (flushing) on exit.
+        self.flush()?;
+        Ok(())
+    }
+
+    /// Private python-casacore `table._getdesc(actual=True)` — the full
+    /// table-description dict. dask-ms calls it for keyword reads.
+    #[pyo3(signature = (actual = true))]
+    fn _getdesc(&self, py: Python<'_>, actual: bool) -> PyResult<Py<PyAny>> {
+        let _ = actual;
+        let desc = self.desc();
+        let base = self.dir_of();
+        Ok(desc_to_pydict(py, &desc, Some(&base))?.into_any().unbind())
+    }
+
+    /// `t[key]` — python-casacore's `table.__getitem__`: an integer key is a
+    /// row number (returns the row's values as a dict `{colname: value}`);
+    /// a string key is a column name (returns the column as an array).
+    fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        // Column-name form: t["DATA"].
+        if let Ok(name) = key.extract::<String>() {
+            return self.getcol(py, &name, 0, -1, 1);
+        }
+        // Row form: t[0] -> {colname: value} for that row.
+        let row: i64 = key.extract().map_err(|_| {
+            PyTypeError::new_err("table key must be a column name (str) or a row number (int)")
+        })?;
+        let desc = self.desc();
+        let d = PyDict::new(py);
+        for (i, cd) in desc.columns.iter().enumerate() {
+            let v = self.read_cell(i, row.max(0) as u64)?;
+            let base = self.dir_of();
+            let v = convert::cell_to_py(py, &v)?;
+            let _ = &base;
+            d.set_item(&cd.name, v)?;
+        }
+        Ok(d.into_any().unbind())
+    }
+
+    /// `len(t)` — the number of rows (python-casacore's `table.__len__`).
+    fn __len__(&self) -> PyResult<usize> {
+        Ok(self.nrows()? as usize)
+    }
+
     #[getter]
     fn get_name(&self) -> PyResult<String> {
         Ok(self.path.clone())
@@ -1640,7 +1951,7 @@ impl Table {
                 // Descriptors may carry unflushed structural changes
                 // (addcols/removecols/keywords), so persist before reading
                 // the on-disk metadata snapshot.
-                flush_if_dirty(shared)?;
+                flush_if_dirty(&self.dir_of(), shared)?;
                 let s = shared.lock().unwrap();
                 let dir = PathBuf::from(s.read.name());
                 core::get_dminfo(&dir, &s.read.dat).map_err(err)?
@@ -2109,7 +2420,7 @@ impl Table {
     fn flush(&self) -> PyResult<()> {
         let mut inner = self.inner.lock().unwrap();
         if let Inner::Write { shared } = &mut *inner {
-            flush_if_dirty(shared)?;
+            flush_if_dirty(&self.dir_of(), shared)?;
         }
         Ok(())
     }
@@ -2425,20 +2736,25 @@ impl Table {
     /// `getcolslice(column, blc, trc, inc=[], startrow=0, nrow=-1, rowincr=1)`
     /// (python-casacore's signature). The legacy 5-argument casacure form
     /// `(column, blc, trc, startrow, nrow)` is also accepted (a positional
-    /// `inc` that is an integer means `startrow`).
+    /// `inc` that is an integer means `startrow`). `blc`/`trc` may be a
+    /// bare int, as in python-casacore: a length-1 `IPosition`, which
+    /// selects a whole 1-D cell and fails in the slicer (a `RuntimeError`)
+    /// on any other rank (issue #36).
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (column, blc, trc, inc = None, startrow = 0, nrow = -1, rowincr = 1))]
     fn getcolslice(
         &self,
         py: Python<'_>,
         column: &str,
-        blc: Vec<i64>,
-        trc: Vec<i64>,
+        blc: &Bound<'_, PyAny>,
+        trc: &Bound<'_, PyAny>,
         inc: Option<Bound<'_, PyAny>>,
         mut startrow: i64,
         mut nrow: i64,
         rowincr: i64,
     ) -> PyResult<Py<PyAny>> {
+        let blc = slice_arg(blc, "getcolslice blc")?;
+        let trc = slice_arg(trc, "getcolslice trc")?;
         let inc_v = split_inc_startrow_nrow(inc, &mut startrow, &mut nrow)?;
         let _ = rowincr;
         self.auto_tick()?;
@@ -2450,6 +2766,7 @@ impl Table {
             nrow as u64
         };
         let col_idx = self.col_index(column)?;
+        self.check_slice_request("getcolslice", column, col_idx, &blc, &trc)?;
         let cells =
             py.detach(|| self.read_colslice(col_idx, &blc, &trc, &inc_v, startrow, nrow))?;
         self.column_to_python(py, col_idx, &cells)
@@ -2459,6 +2776,7 @@ impl Table {
     /// rowincr=1)` (python-casacore's signature). The legacy 5-argument
     /// casacure form `(column, buf, blc, trc, startrow, nrow)` is also
     /// accepted (a positional `inc` that is an integer means `startrow`).
+    /// `blc`/`trc` may be a bare int, as in python-casacore (issue #36).
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (column, buf, blc, trc, inc = None, startrow = 0, nrow = -1, rowincr = 1))]
     fn getcolslicenp(
@@ -2466,13 +2784,15 @@ impl Table {
         py: Python<'_>,
         column: &str,
         buf: &Bound<'_, PyAny>,
-        blc: Vec<i64>,
-        trc: Vec<i64>,
+        blc: &Bound<'_, PyAny>,
+        trc: &Bound<'_, PyAny>,
         inc: Option<Bound<'_, PyAny>>,
         mut startrow: i64,
         mut nrow: i64,
         rowincr: i64,
     ) -> PyResult<()> {
+        let blc = slice_arg(blc, "getcolslicenp blc")?;
+        let trc = slice_arg(trc, "getcolslicenp trc")?;
         let inc_v = split_inc_startrow_nrow(inc, &mut startrow, &mut nrow)?;
         let _ = rowincr;
         self.auto_tick()?;
@@ -2484,6 +2804,7 @@ impl Table {
             nrow as u64
         };
         let col_idx = self.col_index(column)?;
+        self.check_slice_request("getcolslicenp", column, col_idx, &blc, &trc)?;
         // Whole-cell fast path (DDFacet's chunk reader lives here): a slice
         // that covers the fixed cell on a raw-supported column fills the
         // buffer straight from the data files, one memcpy per row.  The
@@ -2500,15 +2821,30 @@ impl Table {
         };
         if let Some(t) = &read_table {
             let desc = &t.dat.desc.columns[col_idx];
-            if slice_is_whole_cell(&blc, &trc, &inc_v, desc)
-                && t.raw_column_supported(col_idx)
-                && fill_numpy_raw(py, t, col_idx, startrow, nrow, buf)?
-            {
-                return Ok(());
+            if slice_is_whole_cell(&blc, &trc, &inc_v, desc) {
+                // A whole-cell slice fills (nrow, cell...) logical: pin the
+                // buffer to exactly that shape before the raw write
+                // (casacore's conformance, issue #38 — it raises for a
+                // buffer too big, too small, or with the wrong row count,
+                // where casacure used to fill whatever overlapped).
+                if let Some(s) = &desc.shape {
+                    let mut expected = vec![nrow as usize];
+                    expected.extend(s.iter().rev().map(|&d| d.max(0) as usize));
+                    check_buf_shape(buf, &expected, "getcolslicenp", column)?;
+                }
+                if t.raw_column_supported(col_idx)
+                    && fill_numpy_raw(py, t, col_idx, startrow, nrow, buf)?
+                {
+                    return Ok(());
+                }
             }
         }
         let cells =
             py.detach(|| self.read_colslice(col_idx, &blc, &trc, &inc_v, startrow, nrow))?;
+        // The same conformance for the per-cell path (issue #38).
+        let mut expected = vec![nrow as usize];
+        expected.extend(cell_shape_of(&cells));
+        check_buf_shape(buf, &expected, "getcolslicenp", column)?;
         let cell = cell_shape_of(&cells).iter().product::<usize>().max(1);
         convert::fill_buffer_by_dtype(py, buf, &cells, cell)
     }
@@ -2546,18 +2882,173 @@ impl Table {
         convert::cell_to_py(py, &v)
     }
 
+    /// `iscelldefined(column, rownr)` — whether the cell holds a value
+    /// (issue #32). A scalar or fixed-shape-array cell is defined in every
+    /// row; a variable-shape array cell is defined only when an array was
+    /// written to it (an undefined one reads as its default per issue #8,
+    /// and this is the only way to tell the two apart). A pending buffered
+    /// write counts as defined; a row added but never written reads as the
+    /// schema default, which for a variable-shape column is "no array".
+    fn iscelldefined(&self, column: &str, row: u64) -> PyResult<bool> {
+        self.auto_tick()?;
+        let col_idx = self.col_index(column)?;
+        let inner = self.inner.lock().unwrap();
+        match &*inner {
+            Inner::Read(t) => {
+                let n = t.nrows();
+                if row >= n {
+                    return Err(row_out_of_range(row, n));
+                }
+                t.is_cell_defined(col_idx, row).map_err(err)
+            }
+            Inner::Write { shared, .. } => {
+                let s = shared.lock().unwrap();
+                let n = s.wt.col_len(col_idx) as u64;
+                if row >= n {
+                    return Err(row_out_of_range(row, n));
+                }
+                if s.wt.pending_cell(col_idx, row).is_some() {
+                    return Ok(true);
+                }
+                let desc = &s.wt.desc().columns[col_idx];
+                let variable_array = matches!(desc.kind, core::tabledesc::ColumnKind::Array)
+                    && !desc.shape.as_deref().is_some_and(|sh| !sh.is_empty());
+                if row < s.read.nrows() {
+                    if let Some(di) = disk_col_index(&s, col_idx) {
+                        return s.read.is_cell_defined(di, row).map_err(err);
+                    }
+                }
+                // Not on disk and not pending: the schema default — a real
+                // value for a scalar or fixed-shape column, "no array" for
+                // a variable-shape one.
+                Ok(!variable_array)
+            }
+        }
+    }
+
+    /// `getcellslice(column, rownr, blc, trc, inc=[])` — python-casacore's
+    /// signature, `inc` included (issue #36: the 5th argument existed only
+    /// in python-casacore until now). `blc`/`trc`/`inc` may be bare ints,
+    /// as in python-casacore: length-1 `IPosition`s that work on a 1-D
+    /// cell and fail in the slicer (a `RuntimeError`) on any other rank.
+    /// There is no legacy form to disambiguate here, so an integer `inc`
+    /// is the stride, like casacore's.
+    #[pyo3(signature = (column, row, blc, trc, inc = None))]
     fn getcellslice(
         &self,
         py: Python<'_>,
         column: &str,
         row: u64,
-        blc: Vec<i64>,
-        trc: Vec<i64>,
+        blc: &Bound<'_, PyAny>,
+        trc: &Bound<'_, PyAny>,
+        inc: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Py<PyAny>> {
+        let blc = slice_arg(blc, "getcellslice blc")?;
+        let trc = slice_arg(trc, "getcellslice trc")?;
+        let inc_v = match inc {
+            Some(v) => slice_arg(&v, "getcellslice inc")?,
+            None => Vec::new(),
+        };
         self.auto_tick()?;
         let col_idx = self.col_index(column)?;
-        let v = self.read_cellslice(col_idx, row, &blc, &trc, &[])?;
+        self.check_slice_request("getcellslice", column, col_idx, &blc, &trc)?;
+        let v = self.read_cellslice(col_idx, row, &blc, &trc, &inc_v)?;
         convert::cell_to_py(py, &v)
+    }
+
+    /// `getcellslicenp(column, buf, rownr, blc, trc, inc=[])` —
+    /// python-casacore's signature (issue #37: it did not exist at all
+    /// until now): fill `buf` from one cell's slice and return `None`.
+    /// The buffer carries the *slice's* shape — no leading row axis, unlike
+    /// `getcolslicenp` — and must match it exactly (casacore's
+    /// `ArrayColumn::getSlice` conformance, issue #38) and be C-contiguous
+    /// (`ValueError`, as `getcolslicenp` already raises).  `blc`/`trc`/
+    /// `inc` take the scalar-corner rules of issue #36.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (column, buf, row, blc, trc, inc = None))]
+    fn getcellslicenp(
+        &self,
+        py: Python<'_>,
+        column: &str,
+        buf: &Bound<'_, PyAny>,
+        row: u64,
+        blc: &Bound<'_, PyAny>,
+        trc: &Bound<'_, PyAny>,
+        inc: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let blc = slice_arg(blc, "getcellslicenp blc")?;
+        let trc = slice_arg(trc, "getcellslicenp trc")?;
+        let inc_v = match inc {
+            Some(v) => slice_arg(&v, "getcellslicenp inc")?,
+            None => Vec::new(),
+        };
+        self.auto_tick()?;
+        let col_idx = self.col_index(column)?;
+        self.check_slice_request("getcellslicenp", column, col_idx, &blc, &trc)?;
+        // One cell's slice: the same read as getcellslice, so every corner
+        // rank/range refusal (and the -1 whole-cell idiom) comes with it.
+        let v = py.detach(|| self.read_cellslice(col_idx, row, &blc, &trc, &inc_v))?;
+        let expected: Vec<usize> = match &v {
+            // An array column always yields an array cell (even an
+            // undefined one reads as the default, issue #8); the shape is
+            // exactly what `getcellslice` would return, so the buffer
+            // contract and that method's output agree by construction.
+            RecordValue::Array(a) => a.shape.iter().map(|&d| d as usize).collect(),
+            _ => Vec::new(),
+        };
+        check_buf_shape(buf, &expected, "getcellslicenp", column)?;
+        let cell = expected.iter().product::<usize>().max(1);
+        convert::fill_buffer_by_dtype(py, buf, std::slice::from_ref(&v), cell)
+    }
+
+    /// `putcellslice(column, rownr, value, blc, trc, inc=[])` —
+    /// python-casacore's signature (issue #37: it did not exist at all
+    /// until now).  `value` must be exactly the cell's slice shape — no
+    /// leading row axis and no broadcast, which casacore's conformance
+    /// check enforces (issue #38) — and lands in one cell; an integer
+    /// `inc` is the stride, as in casacore (there is no legacy form to
+    /// disambiguate here, unlike `putcolslice`).
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (column, row, value, blc, trc, inc = None))]
+    fn putcellslice(
+        &self,
+        py: Python<'_>,
+        column: &str,
+        row: u64,
+        value: &Bound<'_, PyAny>,
+        blc: &Bound<'_, PyAny>,
+        trc: &Bound<'_, PyAny>,
+        inc: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let blc = slice_arg(blc, "putcellslice blc")?;
+        let trc = slice_arg(trc, "putcellslice trc")?;
+        let inc_v = match inc {
+            Some(v) => slice_arg(&v, "putcellslice inc")?,
+            None => Vec::new(),
+        };
+        let col_idx = self.col_index(column)?;
+        self.check_slice_request("putcellslice", column, col_idx, &blc, &trc)?;
+        // Promote to the `putcolslice` value layout — a leading axis of 1
+        // for this one row — the same trick `putcell` uses for `putcol`, so
+        // the shared overlay below is the single implementation of both.
+        let np = py.import("numpy")?;
+        let arr = np.getattr("asanyarray")?.call1((value,))?;
+        let shape: Vec<i64> = arr.getattr("shape")?.extract()?;
+        let mut promoted = vec![1i64];
+        promoted.extend(shape.iter().copied());
+        let promoted = arr.call_method1("reshape", (promoted,))?;
+        self.put_slice_overlay(
+            py,
+            column,
+            col_idx,
+            &promoted,
+            &blc,
+            &trc,
+            &inc_v,
+            row,
+            1,
+            "putcellslice",
+        )
     }
 
     /// `getvarcol(column, startrow=0, nrow=-1)` -> {"rN": array} dict.
@@ -2580,11 +3071,15 @@ impl Table {
         let d = PyDict::new(py);
         for r in 0..nrow {
             let v = self.read_cell(col_idx, startrow + r)?;
-            if let RecordValue::Array(_) = v {
-                d.set_item(format!("r{}", r + 1), convert::cell_to_py(py, &v)?)?;
-            } else {
-                d.set_item(format!("r{}", r + 1), convert::cell_to_py(py, &v)?)?;
-            }
+            // python-casacore numbers the keys from row 0 of the table
+            // (`getvarcol("V", 1, 2)` -> r2, r3), not from the window's
+            // start. (The dict-form putcol/putvarcol input is a different
+            // convention: dask-ms builds {"r%d" % i} keys 0-based —
+            // conftest.py — so its "rN" means row N.)
+            d.set_item(
+                format!("r{}", startrow + r + 1),
+                convert::cell_to_py(py, &v)?,
+            )?;
         }
         Ok(d.into_any().unbind())
     }
@@ -2609,7 +3104,53 @@ impl Table {
         value: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
         let col_idx = self.col_index(column)?;
-        let rec = keyword_value(py, value)?;
+        let is_array_col = matches!(
+            self.desc().columns[col_idx].kind,
+            core::tabledesc::ColumnKind::Array
+        );
+        let rec = if is_array_col {
+            // One cell of an array column: route through the shared putcol
+            // cell conversion (dtype coercion to the column's element type,
+            // numpy string arrays, string-array dicts) by promoting the cell
+            // to a single-row batch. putcell used to go through
+            // `keyword_value`, which cannot convert numeric or string
+            // ndarrays, so every array value except already-matching Python
+            // scalars-in-lists was rejected where python-casacore accepts
+            // them (issue #29: float, int64, short, complex, dcomplex —
+            // and numpy string arrays / nested lists).
+            let is_seq = value.cast::<PyList>().is_ok() || value.cast::<PyTuple>().is_ok();
+            let is_ndarray = !is_seq && value.getattr("dtype").is_ok();
+            if is_seq || is_ndarray {
+                let np = py.import("numpy")?;
+                let arr = if is_seq {
+                    np.getattr("asanyarray")?.call1((value,))?
+                } else {
+                    value.clone()
+                };
+                let shape: Vec<i64> = arr.getattr("shape")?.extract()?;
+                let mut promoted = vec![1i64];
+                promoted.extend(shape.iter().copied());
+                let promoted = arr.call_method1("reshape", (promoted,))?;
+                let mut cells = self.value_to_cells(py, col_idx, &promoted, 1, true, false)?;
+                cells.pop().unwrap_or(RecordValue::Int(0))
+            } else {
+                keyword_value(py, value)?
+            }
+        } else if matches!(
+            self.desc().columns[col_idx].kind,
+            core::tabledesc::ColumnKind::Scalar(_)
+        ) {
+            // A lone scalar, cast to the column's type like every putcol
+            // element is (a Python 42.0 into a float column stores as
+            // float32, not rejected).
+            let rec = keyword_value(py, value)?;
+            match self.desc().columns[col_idx].data_type {
+                core::record::DataType::Table | core::record::DataType::Record => rec,
+                dt => convert::cast_scalar_to(&dt, &rec),
+            }
+        } else {
+            keyword_value(py, value)?
+        };
         self.put_cell(col_idx, row, rec)?;
         Ok(())
     }
@@ -2697,12 +3238,21 @@ impl Table {
             for (i, (row_offset, v)) in rows.into_iter().enumerate() {
                 let row = startrow + row_offset;
                 let desc = self.desc();
-                let is_array_col = matches!(
-                    desc.columns[col_idx].kind,
-                    core::tabledesc::ColumnKind::Array
-                );
+                let cd = &desc.columns[col_idx];
+                let is_array_col = matches!(cd.kind, core::tabledesc::ColumnKind::Array);
                 let mut cells = self.value_to_cells(py, col_idx, &v, 1, is_array_col, true)?;
                 let rec = cells.pop().unwrap_or(RecordValue::Int(0));
+                // A lone scalar is cast to the column's type like every
+                // other putcol element (a plain 99.0 into a float column
+                // stores as float, not rejected).
+                let rec = if matches!(cd.kind, core::tabledesc::ColumnKind::Scalar(_)) {
+                    match cd.data_type {
+                        core::record::DataType::Table | core::record::DataType::Record => rec,
+                        dt => convert::cast_scalar_to(&dt, &rec),
+                    }
+                } else {
+                    rec
+                };
                 self.put_cell(col_idx, row, rec)?;
                 let _ = i;
             }
@@ -2785,60 +3335,1110 @@ impl Table {
         Ok(())
     }
 
-    /// `putcolslice(column, value, blc, trc, startrow, nrow)`.
+    /// `putcolslice(column, value, blc, trc, inc=[], startrow=0, nrow=-1,
+    /// rowincr=1)` — python-casacore's signature, `inc` and `rowincr`
+    /// included (issue #36). The legacy 6-argument casacure form
+    /// `(column, value, blc, trc, startrow, nrow)` keeps working: a
+    /// positional integer in the `inc` slot means `startrow`, exactly as
+    /// in `getcolslice` (`tests/test_subcell_tiles.py` uses it).
+    /// `blc`/`trc` may be bare ints, as in python-casacore. `rowincr` is
+    /// accepted but not honoured, like casacure's other slice methods.
+    /// Everything casacore refuses — a non-array column, empty corners, a
+    /// value whose rows or slice extent differ from what would be written
+    /// — is refused before a single cell changes (issues #37, #38).
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (column, value, blc, trc, startrow = 0, nrow = 0))]
+    #[pyo3(signature = (column, value, blc, trc, inc = None, startrow = 0, nrow = 0, rowincr = 1))]
     fn putcolslice(
         &self,
         py: Python<'_>,
         column: &str,
         value: &Bound<'_, PyAny>,
-        blc: Vec<i64>,
-        trc: Vec<i64>,
-        startrow: i64,
-        nrow: i64,
+        blc: &Bound<'_, PyAny>,
+        trc: &Bound<'_, PyAny>,
+        inc: Option<Bound<'_, PyAny>>,
+        mut startrow: i64,
+        mut nrow: i64,
+        rowincr: i64,
     ) -> PyResult<()> {
-        let _ = py;
+        let blc = slice_arg(blc, "putcolslice blc")?;
+        let trc = slice_arg(trc, "putcolslice trc")?;
+        let inc_v = split_inc_startrow_nrow(inc, &mut startrow, &mut nrow)?;
+        let _ = rowincr;
         let col_idx = self.col_index(column)?;
+        self.check_slice_request("putcolslice", column, col_idx, &blc, &trc)?;
         let startrow = startrow.max(0) as u64;
-        let nrow = if nrow <= 0 {
-            value.len()? as u64
+        self.put_slice_overlay(
+            py,
+            column,
+            col_idx,
+            value,
+            &blc,
+            &trc,
+            &inc_v,
+            startrow,
+            nrow,
+            "putcolslice",
+        )
+    }
+}
+
+/// One corner (`blc`, `trc`) or stride (`inc`) argument of the slice APIs.
+/// python-casacore's binding takes an `IPosition` and converts a bare
+/// integer to a length-1 one — which selects a whole 1-D cell and, on any
+/// other rank, fails inside the `Slicer` with a `RuntimeError`
+/// (`Shape IPosition-lengths differ from ndim()`), never a `TypeError`
+/// (issue #36: casacure used to reject the scalar before any slicing
+/// happened, which casacore callers catching `RuntimeError` never see).  A
+/// sequence is taken as-is; anything that is neither (float, str, None) is
+/// an argument error, as in casacore — whose `ArgumentError` subclasses
+/// `TypeError`.
+fn slice_arg(arg: &Bound<'_, PyAny>, name: &str) -> PyResult<Vec<i64>> {
+    if let Ok(seq) = arg.extract::<Vec<i64>>() {
+        return Ok(seq);
+    }
+    if let Ok(n) = arg.extract::<i64>() {
+        return Ok(vec![n]);
+    }
+    Err(PyTypeError::new_err(format!(
+        "{name} must be a sequence of ints or an int \
+         (python-casacore converts a bare int to a length-1 IPosition)"
+    )))
+}
+
+/// A caller's buffer must be exactly the shape casacore's conformance
+/// check asks for (issue #38): too big, too small and wrong-row buffers all
+/// raise `ArrayColumn::getColumn ... Table array conformance error` there,
+/// while casacure filled whatever overlapped — `fill_flat` is bounds-checked,
+/// so no memory was at risk, the caller just silently got partial data.
+fn check_buf_shape(
+    buf: &Bound<'_, PyAny>,
+    expected: &[usize],
+    name: &str,
+    column: &str,
+) -> PyResult<()> {
+    let shape: Vec<usize> = buf.getattr("shape")?.extract()?;
+    if shape != expected {
+        return Err(PyRuntimeError::new_err(format!(
+            "{name}: buffer shape {shape:?} does not match the slice shape {expected:?} \
+             (casacore: ArrayColumn::getColumn in column {column}: \
+             Table array conformance error)"
+        )));
+    }
+    Ok(())
+}
+
+/// Interpret the `inc` argument of `getcolslice`/`getcolslicenp`/
+/// `putcolslice`, which is either python-casacore's per-dimension step
+/// (`inc=[]`, a sequence of ints) or — in the legacy casacure form
+/// `(column, blc, trc, startrow, nrow)` — an integer that is really
+/// `startrow`. Returns the step sequence and, for the legacy form, shifts
+/// `startrow`/`nrow` into their python-casacore positions.
+fn split_inc_startrow_nrow(
+    inc: Option<Bound<'_, PyAny>>,
+    startrow: &mut i64,
+    nrow: &mut i64,
+) -> PyResult<Vec<i64>> {
+    let Some(v) = inc else {
+        return Ok(Vec::new());
+    };
+    if let Ok(seq) = v.extract::<Vec<i64>>() {
+        // python-casacore form: `inc` is a per-dimension step.
+        return Ok(seq);
+    }
+    if let Ok(n) = v.extract::<i64>() {
+        // Legacy form: this integer is `startrow`; the next positional is
+        // `nrow`. `*startrow` currently holds `nrow` (the 4th arg), so shift.
+        let legacy_nrow = *startrow;
+        *startrow = n;
+        *nrow = legacy_nrow;
+        return Ok(Vec::new());
+    }
+    Err(PyTypeError::new_err(
+        "slice inc must be a sequence of ints (python-casacore) or an int (legacy casacure startrow)",
+    ))
+}
+
+/// True when the `getcolslice`/`getcolslicenp` arguments select every element
+/// of the cell, so the read can go through the raw bulk path
+/// (`fill_numpy_raw`) instead of per-cell decoding.  Matches
+/// `Table::read_colslice`'s idiom: any negative `blc`/`trc` means the whole
+/// cell, an empty `blc`/`trc` pair too, and scalar columns ignore the slice.
+/// `desc.shape` is stored order, so compare against its reverse
+/// (python-casacore's logical order, as `fill_numpy_raw` also does).
+fn slice_is_whole_cell(
+    blc: &[i64],
+    trc: &[i64],
+    inc: &[i64],
+    desc: &core::tabledesc::ColumnDesc,
+) -> bool {
+    use core::tabledesc::ColumnKind;
+    if !matches!(desc.kind, ColumnKind::Array) {
+        return true; // scalar column: the slice is ignored by read_colslice
+    }
+    if (blc.is_empty() && trc.is_empty())
+        || blc.iter().any(|&b| b < 0)
+        || trc.iter().any(|&t| t < 0)
+    {
+        return true;
+    }
+    let Some(s) = &desc.shape else {
+        return false; // variable-shape array: no fixed whole to cover
+    };
+    if blc.len() != s.len() || trc.len() != s.len() {
+        return false;
+    }
+    blc.iter()
+        .zip(trc.iter())
+        .zip(s.iter().rev())
+        .enumerate()
+        .all(|(d, ((&b, &t), &stored))| {
+            let n = stored.max(0);
+            let step = inc.get(d).copied().unwrap_or(1).max(1);
+            b == 0 && step == 1 && t == n - 1
+        })
+}
+
+fn reshape_cell(shape: &[usize]) -> usize {
+    shape.iter().skip(1).product::<usize>().max(1)
+}
+
+fn ndarray_cells_typed<T: numpy::Element + Copy>(
+    arr: &numpy::PyReadonlyArrayDyn<'_, T>,
+    nrow: u64,
+    varcol: bool,
+    build: impl Fn(Vec<T>) -> ArrayData,
+) -> PyResult<Vec<RecordValue>> {
+    let shape: Vec<usize> = arr.as_array().shape().to_vec();
+    if shape.is_empty() {
+        return Ok(Vec::new());
+    }
+    // `putcol` arrays are (nrow, *cell) so the cell shape drops the first
+    // dim; `putvarcol` values are full per-row cells (keep the whole shape).
+    let cell_shape: &[usize] = if varcol { &shape } else { &shape[1..] };
+    let cell = cell_shape.iter().product::<usize>().max(1);
+    let view = arr.as_array();
+    // Row-major element order. A C-contiguous array (the usual numpy input)
+    // is borrowed as one slice; anything else is copied once into logical
+    // order. Rows are then plain sub-slices: re-walking the ndarray iterator
+    // from element 0 for every row (`iter().skip(start)`) made a putcol
+    // quadratic in the chunk size.
+    let owned: Vec<T>;
+    let flat: &[T] = match arr.as_slice() {
+        Ok(s) => s,
+        Err(_) => {
+            owned = view.iter().copied().collect();
+            &owned
+        }
+    };
+    let casa_shape: Vec<u32> = cell_shape.iter().map(|&s| s as u32).collect();
+    let mut out = Vec::with_capacity(nrow.min(flat.len() as u64) as usize);
+    for r in 0..nrow as usize {
+        let start = r * cell;
+        if start >= flat.len() {
+            break;
+        }
+        let stop = ((r + 1) * cell).min(flat.len());
+        // Build each row's typed element buffer directly from the borrowed
+        // numpy data (one copy, no intermediate per-element `RecordValue`).
+        let elems: Vec<T> = flat[start..stop].to_vec();
+        // Array columns always store `RecordValue::Array` cells, even for a
+        // 1-element cell (e.g. an ncorr=1 CORR_TYPE column in an MS): the
+        // storage managers and readers expect an Array value there.
+        out.push(RecordValue::Array(core::record::ArrayValue {
+            shape: casa_shape.clone(),
+            data: build(elems),
+        }));
+    }
+    Ok(out)
+}
+
+/// Build the python-casacore `getcoldesc` dict for a column.
+fn self_coldesc<'py>(
+    py: Python<'py>,
+    col: &core::tabledesc::ColumnDesc,
+    _base: Option<&std::path::Path>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = PyDict::new(py);
+    let vt = ::casacure::casa_value_type(col.data_type);
+    d.set_item("valueType", vt)?;
+    d.set_item("dataManagerType", &col.data_manager_type)?;
+    d.set_item("dataManagerGroup", &col.data_manager_group)?;
+    d.set_item("option", col.options)?;
+    d.set_item("maxlen", col.max_length)?;
+    d.set_item("comment", &col.comment)?;
+    if matches!(col.kind, core::tabledesc::ColumnKind::Array) {
+        d.set_item("ndim", col.ndim)?;
+        if let Some(shape) = &col.shape {
+            if !shape.is_empty() {
+                // Logical shape = reverse of stored.
+                let logical: Vec<i64> = shape.iter().rev().copied().collect();
+                d.set_item("shape", logical)?;
+            }
+        }
+        d.set_item("_c_order", true)?;
+    }
+    d.set_item(
+        "keywords",
+        convert::table_record_to_dict(py, &col.keywords)?,
+    )?;
+    Ok(d)
+}
+
+fn spec_to_dict(py: Python<'_>, spec: &core::DmSpec) -> PyResult<Py<PyAny>> {
+    let d = PyDict::new(py);
+    match spec {
+        core::DmSpec::StandardStMan {
+            max_cache_size,
+            bucket_size,
+            pers_cache_size,
+            index_length,
+        } => {
+            d.set_item("MaxCacheSize", max_cache_size)?;
+            d.set_item("BUCKETSIZE", bucket_size)?;
+            d.set_item("PERSCACHESIZE", pers_cache_size)?;
+            d.set_item("IndexLength", index_length)?;
+        }
+        core::DmSpec::IncrementalStMan {
+            max_cache_size,
+            bucket_size,
+            pers_cache_size,
+        } => {
+            d.set_item("MaxCacheSize", max_cache_size)?;
+            d.set_item("BUCKETSIZE", bucket_size)?;
+            d.set_item("PERSCACHESIZE", pers_cache_size)?;
+        }
+        core::DmSpec::TiledColumnStMan {
+            cube_shapes,
+            tile_shapes,
+            ..
+        } => {
+            if let Some(t) = tile_shapes.first() {
+                d.set_item("DEFAULTTILESHAPE", t.to_vec())?;
+            }
+            if let Some(c) = cube_shapes.first() {
+                d.set_item("DEFAULTCUBESHAPE", c.to_vec())?;
+            }
+        }
+        core::DmSpec::TiledShapeStMan {
+            default_tile_shape,
+            seqnr,
+            hypercubes,
+        } => {
+            d.set_item("MaxCacheSize", 0)?;
+            d.set_item("DEFAULTTILESHAPE", default_tile_shape.clone())?;
+            d.set_item("MAXIMUMCACHESIZE", 0)?;
+            let cubes = PyDict::new(py);
+            for (i, c) in hypercubes.iter().enumerate() {
+                let cd = PyDict::new(py);
+                cd.set_item("CubeShape", c.cube_shape.clone())?;
+                cd.set_item("TileShape", c.tile_shape.clone())?;
+                cd.set_item("CellShape", c.cell_shape.clone())?;
+                cd.set_item("BucketSize", c.bucket_size)?;
+                cd.set_item("ID", PyDict::new(py))?;
+                cubes.set_item(format!("*{}", i + 1), cd)?;
+            }
+            d.set_item("HYPERCUBES", cubes)?;
+            d.set_item("SEQNR", seqnr)?;
+            d.set_item("IndexSize", hypercubes.len())?;
+        }
+        core::DmSpec::Unsupported(s) => {
+            d.set_item("SPEC", s)?;
+        }
+    }
+    Ok(d.into_any().unbind())
+}
+
+/// Module-level `table(...)` factory.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+#[pyo3(signature = (name, tabledesc = None, nrow = 0, dminfo = None, readonly = false, _ack = true, lockoptions = None, *_args, **_kwargs))]
+pub fn table(
+    py: Python<'_>,
+    name: &Bound<'_, PyAny>,
+    tabledesc: Option<&Bound<'_, PyAny>>,
+    nrow: i64,
+    dminfo: Option<&Bound<'_, PyAny>>,
+    readonly: bool,
+    _ack: bool,
+    lockoptions: Option<&Bound<'_, PyAny>>,
+    _args: &Bound<'_, PyTuple>,
+    _kwargs: Option<&Bound<'_, PyDict>>,
+) -> PyResult<Table> {
+    let mut name = path_string(name)?;
+    // python-casacore's `_remove_prefix`: a `"Table: <path>"` keyword value
+    // passed to `table()` opens that path (see `casacore/tables/tablehelper.py`).
+    if let Some(rest) = name.strip_prefix("Table: ") {
+        name = rest.to_string();
+    }
+    let desc_json = match tabledesc {
+        Some(d) if !d.is_none() => {
+            if let Ok(dict) = d.cast::<PyDict>() {
+                let rec = convert::dict_to_table_record(py, dict)?;
+                Some(rec.to_json_string())
+            } else {
+                return Err(PyTypeError::new_err("tabledesc must be a dict"));
+            }
+        }
+        _ => None,
+    };
+    // python-casacore only consults `dminfo` when the tabledesc creates a
+    // new table; it is inert on an open.
+    let dminfo_rec = match (desc_json.as_deref(), dminfo) {
+        (Some(_), Some(dm)) if !dm.is_none() => Some(dminfo_record(py, dm)?),
+        _ => None,
+    };
+    // python-casacore's default: `lockoptions='default'` (AutoLocking).
+    let options = match lockoptions {
+        Some(lo) if !lo.is_none() => Table::parse_lockoptions(lo)?,
+        _ => core::lockfile::LockOptions::locking_default(),
+    };
+    // Opening acquires the mode's lock, which may wait on another process:
+    // do that without the GIL so other Python threads keep running.
+    py.detach(|| {
+        Table::open_or_create(
+            &name,
+            desc_json.as_deref(),
+            dminfo_rec.as_ref(),
+            nrow.max(0) as u64,
+            !readonly,
+            options,
+        )
+    })
+}
+
+/// Module-level `taql(query, tables=[], style=...)`.
+#[pyfunction]
+#[pyo3(signature = (query, tables = None, style = "Python", _readonly = None))]
+pub fn taql(
+    py: Python<'_>,
+    query: &str,
+    tables: Option<&Bound<'_, PyList>>,
+    style: &str,
+    _readonly: Option<bool>,
+) -> PyResult<Py<PyAny>> {
+    let _ = style;
+    // Collect the wrapped core tables from any `casacure.tables.table`
+    // arguments and hold every mutex guard for the whole call so the inner
+    // core tables stay borrowed. All statements (SELECT, UPDATE, DELETE,
+    // INSERT, ALTER, DROPTABLE, SHOW/HELP, CALC, COUNT, CREATE TABLE) may
+    // reference `$N` tables; CREATE TABLE takes only an on-disk path, so
+    // the `tables` list is optional for it.
+    let objects: Vec<PyRef<'_, Table>>;
+    let locks: Vec<std::sync::MutexGuard<'_, Inner>>;
+    let shared_guards: Vec<Option<std::sync::MutexGuard<'_, WriteData>>>;
+    let core_refs: Vec<&::casacure::Table>;
+    if let Some(ts) = tables {
+        // Persist any pending (unflushed) writes so the core snapshots below
+        // (and any statement) run against the current cell state; write ops
+        // buffer into the shared store and only flush on request.
+        for item in ts.iter() {
+            let obj = item
+                .extract::<PyRef<'_, Table>>()
+                .map_err(|_| PyValueError::new_err("taql: expected table objects"))?;
+            let inner = obj.inner.lock().unwrap();
+            if let Inner::Write { shared, .. } = &*inner {
+                flush_if_dirty(&obj.dir_of(), shared)?;
+            }
+        }
+        objects = ts
+            .iter()
+            .map(|item| {
+                item.extract::<PyRef<'_, Table>>()
+                    .map_err(|_| PyValueError::new_err("taql: expected table objects"))
+            })
+            .collect::<PyResult<_>>()?;
+        locks = objects.iter().map(|t| t.inner.lock().unwrap()).collect();
+        shared_guards = locks
+            .iter()
+            .map(|g| match &**g {
+                Inner::Write { shared, .. } => Some(shared.lock().unwrap()),
+                _ => None,
+            })
+            .collect();
+        core_refs = locks
+            .iter()
+            .zip(shared_guards.iter())
+            .map(|(g, sg)| match &**g {
+                Inner::Read(t) => t.as_ref(),
+                Inner::Write { .. } => &sg.as_ref().expect("write table has a shared guard").read,
+            })
+            .collect();
+    } else {
+        objects = Vec::new();
+        locks = Vec::new();
+        shared_guards = Vec::new();
+        core_refs = Vec::new();
+        // objects/locks/guards only exist to keep borrows alive.
+        let _ = (&objects, &locks, &shared_guards);
+    }
+    let mut touched: Vec<std::path::PathBuf> = Vec::new();
+    let result = core::taql::execute_into(query, &core_refs, &mut touched).map_err(err)?;
+    // A mutating statement (UPDATE/DELETE/INSERT/ALTER/DROPTABLE, CREATE,
+    // SELECT INTO) rewrote the on-disk tables; refresh any materialised
+    // writable state cached for those directories so live handles and the
+    // next open see the fresh files instead of a stale snapshot (a stale
+    // handle's `close()` would otherwise regenerate the old cells and
+    // clobber the change). A directory that no longer holds a table
+    // (`DROPTABLE`) drops its cached entry instead.
+    drop(shared_guards); // release the WriteData locks before refresh() re-locks them
+    if !touched.is_empty() {
+        let mut reg = write_registry().lock().unwrap();
+        for dir in &touched {
+            if let Some(shared) = reg.get(dir) {
+                // The taql path owns these tables' writes; keep their
+                // replacement backing lock-free as before.
+                if !refresh_write(dir, shared, core::lockfile::LockOptions::no_locking()) {
+                    reg.remove(dir);
+                }
+            }
+        }
+    }
+    Ok(match result {
+        core::taql::TaqlResult::Query(out) => taql_result_to_table(py, out)?
+            .into_pyobject(py)?
+            .into_any()
+            .unbind(),
+        core::taql::TaqlResult::Created(path) => {
+            // A TaQL-created scratch table: fresh directory, single handle,
+            // no locking (also keeps lock files out of temp dirs).
+            let t = Table::open_or_create(
+                &path.display().to_string(),
+                None,
+                None,
+                0,
+                true,
+                core::lockfile::LockOptions::no_locking(),
+            )?;
+            t.into_pyobject(py)?.into_any().unbind()
+        }
+    })
+}
+
+/// Materialise a TaQL result into a real table on disk (in a temp
+/// directory) and return a bound `table` over it, so `nrows`/`getcol`/
+/// `getcell`/... all work exactly as for a file table.
+fn taql_result_to_table(_py: Python<'_>, out: core::taql::TaqlTable) -> PyResult<Table> {
+    use core::record::DataType as DT;
+    use core::tabledesc::{ColumnDesc, ColumnKind, TableDesc};
+
+    let dir = std::env::temp_dir().join(format!(
+        "casacure-taql-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    sweep_stale_scratch();
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).map_err(err)?;
+    // from here on the directory is owned by this guard: an error below
+    // removes it again, and success hands it to the table's backing
+    let scratch = ScratchDir::new(dir.clone());
+
+    let nrows = out.nrows() as u64;
+    let mut desc = TableDesc {
+        name: String::new(),
+        version: String::new(),
+        comment: String::new(),
+        // The source table's keywords (python-casacore's reference-table
+        // semantics: `t.query(...).getkeyword('ANTENNA')` returns the source
+        // table's keyword).
+        keywords: out.source_keywords.clone(),
+        private_keywords: TableRecord {
+            desc: Default::default(),
+            record_type: 0,
+            values: Vec::new(),
+        },
+        columns: Vec::new(),
+    };
+    let mut all: Vec<Vec<RecordValue>> = Vec::with_capacity(out.columns.len());
+    for (i, name) in out.colnames.iter().enumerate() {
+        let cells = &out.columns[i];
+        let first = cells.first().cloned().unwrap_or(RecordValue::Int(0));
+        let array = matches!(first, RecordValue::Array(_));
+        let element_dt: DT = match convert::record_data_type(&first) {
+            Some(DT::ArrayBool) | Some(DT::Bool) => DT::Bool,
+            Some(DT::ArrayUChar) | Some(DT::UChar) => DT::UChar,
+            Some(DT::ArrayShort) | Some(DT::Short) => DT::Short,
+            Some(DT::ArrayUShort) | Some(DT::UShort) => DT::UShort,
+            Some(DT::ArrayInt) | Some(DT::Int) => DT::Int,
+            Some(DT::ArrayUInt) | Some(DT::UInt) => DT::UInt,
+            Some(DT::ArrayInt64) | Some(DT::Int64) => DT::Int64,
+            Some(DT::ArrayFloat) | Some(DT::Float) => DT::Float,
+            Some(DT::ArrayDouble) | Some(DT::Double) => DT::Double,
+            Some(DT::ArrayComplex) | Some(DT::Complex) => DT::Complex,
+            Some(DT::ArrayDComplex) | Some(DT::DComplex) => DT::DComplex,
+            Some(DT::ArrayString) | Some(DT::String) => DT::String,
+            _ => DT::Double,
+        };
+        let (kind, shape) = if array {
+            let shp: Vec<i64> = match &first {
+                RecordValue::Array(a) => a.shape.iter().map(|&d| i64::from(d)).collect(),
+                _ => Vec::new(),
+            };
+            (ColumnKind::Array, Some(shp))
+        } else {
+            (ColumnKind::Scalar(zero_record(&element_dt)), None)
+        };
+        desc.columns.push(ColumnDesc {
+            name: name.clone(),
+            comment: String::new(),
+            data_type: element_dt,
+            data_manager_type: "StandardStMan".to_string(),
+            data_manager_group: "StandardStMan".to_string(),
+            options: 0,
+            ndim: shape.as_ref().map_or(-1, |s| s.len() as i32),
+            shape,
+            max_length: 0,
+            keywords: TableRecord {
+                desc: Default::default(),
+                record_type: 0,
+                values: Vec::new(),
+            },
+            kind,
+            tile_shape: None,
+        });
+        all.push(cells.clone());
+    }
+
+    let mut wt = core::WritableTable::create(&dir, desc);
+    if nrows > 0 {
+        wt.addrows(nrows);
+    }
+    for (col_idx, cells) in all.iter().enumerate() {
+        for (r, v) in cells.iter().enumerate() {
+            wt.putcell(col_idx, r as u64, v.clone()).map_err(err)?;
+        }
+    }
+    let _ = wt.flush().map_err(err)?;
+    let read = ::casacure::Table::open(&dir, false).map_err(err)?;
+    let disk_columns = read
+        .dat
+        .desc
+        .columns
+        .iter()
+        .map(|c| c.name.clone())
+        .collect();
+    let shared = std::sync::Arc::new(std::sync::Mutex::new(WriteData {
+        read,
+        wt,
+        dirty: false,
+        pin: DirPin::new(&dir),
+        disk_columns,
+        scratch: Some(scratch),
+    }));
+    register_write(&dir, &shared);
+    Ok(Table {
+        path: dir.display().to_string(),
+        writable: true,
+        inner: Mutex::new(Inner::Write { shared }),
+        // TaQL result tables are fresh temp-dir tables with one handle.
+        lock_options: core::lockfile::LockOptions::no_locking(),
+        auto_state: Mutex::new(AutoLockState::default()),
+        view: false,
+    })
+}
+
+fn zero_record(dt: &core::record::DataType) -> RecordValue {
+    use core::record::RecordValue as RV;
+    match dt {
+        DataType::Bool => RV::Bool(false),
+        DataType::UChar => RV::UChar(0),
+        DataType::Short => RV::Short(0),
+        DataType::UShort => RV::UShort(0),
+        DataType::Int => RV::Int(0),
+        DataType::UInt => RV::UInt(0),
+        DataType::Int64 => RV::Int64(0),
+        DataType::Float => RV::Float(0.0),
+        DataType::Double => RV::Double(0.0),
+        DataType::Complex => RV::Complex(0.0, 0.0),
+        DataType::DComplex => RV::DComplex(0.0, 0.0),
+        _ => RV::String(String::new()),
+    }
+}
+
+/// The full python-casacore table-desc dict for a `TableDesc` (columns +
+/// `_keywords_`/`_private_keywords_`/`_define_hypercolumn_`).
+pub(crate) fn desc_to_pydict<'py>(
+    py: Python<'py>,
+    desc: &core::tabledesc::TableDesc,
+    base: Option<&std::path::Path>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = PyDict::new(py);
+    for col in &desc.columns {
+        d.set_item(&col.name, self_coldesc(py, col, base)?.into_any())?;
+    }
+    d.set_item(
+        "_keywords_",
+        convert::table_record_to_dict_ctx(py, &desc.keywords, base)?,
+    )?;
+    d.set_item(
+        "_private_keywords_",
+        convert::table_record_to_dict_ctx(py, &desc.private_keywords, base)?,
+    )?;
+    let empty = PyDict::new(py);
+    d.set_item("_define_hypercolumn_", empty)?;
+    Ok(d)
+}
+
+#[cfg(test)]
+mod subtable_resolve_tests {
+    use super::resolve_stored_subtable;
+
+    const TABLE_DIR: &str = "/data/ms_cure.ms";
+    const BASE: &str = "/data";
+
+    #[test]
+    fn casacore_dot_form_resolves_against_parent() {
+        // One `./` is casacore's sibling form: stored `./SUB.tab` by a table
+        // at <dir>/P.tab resolves to <dir>/SUB.tab (the containing
+        // directory) — a real casacore fixture and casacore's
+        // `Path::addDirectory` agree.
+        assert_eq!(
+            resolve_stored_subtable("./ANTENNA", TABLE_DIR.as_ref(), BASE.as_ref()),
+            "/data/ANTENNA"
+        );
+    }
+
+    #[test]
+    fn casacore_double_dot_form_resolves_against_table_dir() {
+        // Two (or more) `./` is casacore's in-table-dir form: a real MS
+        // stores its SPECTRAL_WINDOW link as `././SPECTRAL_WINDOW` and
+        // casacore's getsubtables() returns `<table_dir>/SPECTRAL_WINDOW`.
+        assert_eq!(
+            resolve_stored_subtable("././SPECTRAL_WINDOW", TABLE_DIR.as_ref(), BASE.as_ref()),
+            "/data/ms_cure.ms/SPECTRAL_WINDOW"
+        );
+    }
+
+    #[test]
+    fn absolute_stored_path_is_kept() {
+        assert_eq!(
+            resolve_stored_subtable("/other/ms/SOURCE", TABLE_DIR.as_ref(), BASE.as_ref()),
+            "/other/ms/SOURCE"
+        );
+    }
+
+    #[test]
+    fn legacy_dot_absolute_form_uses_absolute_tail() {
+        // Written by a relativisation against a relative table directory.
+        assert_eq!(
+            resolve_stored_subtable(
+                ".//data/ms_cure.ms/SOURCE",
+                TABLE_DIR.as_ref(),
+                BASE.as_ref()
+            ),
+            "/data/ms_cure.ms/SOURCE"
+        );
+    }
+
+    #[test]
+    fn legacy_bare_parent_relative_form_does_not_double() {
+        // Written by a default_ms given a relative MS path.
+        assert_eq!(
+            resolve_stored_subtable("ms_cure.ms/ANTENNA", TABLE_DIR.as_ref(), BASE.as_ref()),
+            "/data/ms_cure.ms/ANTENNA"
+        );
+    }
+
+    #[test]
+    fn other_bare_names_are_table_dir_relative() {
+        assert_eq!(
+            resolve_stored_subtable("SUB", TABLE_DIR.as_ref(), BASE.as_ref()),
+            "/data/ms_cure.ms/SUB"
+        );
+    }
+}
+
+/// Unit tests for the `getcol` stacking check (issue #25): one stacked array
+/// holds one shape, and empty (undefined) cells stay exempt because they read
+/// as defaults (issue #8).  The user-visible refusal — `getcol` raising
+/// instead of cutting every row to the first row's shape, with the hint to use
+/// `getvarcol` — is exercised end to end in `tests/test_core_tables_e2e.py`
+/// (the refusal itself needs a linked Python to build its `PyErr`); this pins
+/// the decision table itself, including the corners a table rarely produces.
+#[cfg(test)]
+mod getcol_conform_tests {
+    use super::first_shape_conflict;
+    use ::casacure::record::{ArrayData, ArrayValue, RecordValue};
+
+    /// A double array cell whose element count follows from `shape`.
+    fn array(shape: &[u32]) -> RecordValue {
+        let n = shape.iter().map(|&d| d as usize).product();
+        RecordValue::Array(ArrayValue {
+            shape: shape.to_vec(),
+            data: ArrayData::Double(vec![0.0; n]),
+        })
+    }
+
+    #[test]
+    fn rows_of_one_shape_stack() {
+        assert!(first_shape_conflict(&[array(&[2]), array(&[2]), array(&[2])]).is_none());
+    }
+
+    #[test]
+    fn a_single_row_or_no_rows_always_stacks() {
+        assert!(first_shape_conflict(&[array(&[3])]).is_none());
+        assert!(first_shape_conflict(&[]).is_none());
+    }
+
+    #[test]
+    fn rows_of_different_shapes_report_both_shapes() {
+        // The issue #25 shape: getcol must refuse, not cut every row to the
+        // first row's shape. The verdict carries the two shapes, which is
+        // exactly what the error message renders.
+        let cells = [array(&[1]), array(&[2]), array(&[3])];
+        assert_eq!(
+            first_shape_conflict(&cells),
+            Some((&[1u32][..], &[2u32][..]))
+        );
+        // Where the difference appears does not matter: a divergent second
+        // row or a divergent last one, either way.
+        let late = [array(&[2]), array(&[2]), array(&[3])];
+        assert_eq!(
+            first_shape_conflict(&late),
+            Some((&[2u32][..], &[3u32][..]))
+        );
+        let reversed = [array(&[3]), array(&[2])];
+        assert_eq!(
+            first_shape_conflict(&reversed),
+            Some((&[3u32][..], &[2u32][..]))
+        );
+    }
+
+    #[test]
+    fn undefined_and_empty_cells_stay_exempt() {
+        // #8: a never-written cell reads as the default.  It must not make
+        // the column ragged next to the one real shape.
+        let cells = vec![
+            array(&[2]),
+            array(&[]),               // no shape at all: never written
+            array(&[0]),              // a zero dimension: zero elements
+            RecordValue::Double(0.0), // a scalar among arrays is skipped
+            array(&[2]),
+        ];
+        assert!(first_shape_conflict(&cells).is_none());
+    }
+
+    #[test]
+    fn all_undefined_cells_stack_as_defaults() {
+        assert!(first_shape_conflict(&[array(&[]), array(&[0]), RecordValue::Int(0)]).is_none());
+    }
+
+    #[test]
+    fn exempt_cells_do_not_hide_a_real_difference() {
+        // The exemption covers exempt cells only: two real, different shapes
+        // still refuse with undefined rows interleaved between them.
+        assert_eq!(
+            first_shape_conflict(&[array(&[]), array(&[2]), array(&[3])]),
+            Some((&[2u32][..], &[3u32][..]))
+        );
+        assert_eq!(
+            first_shape_conflict(&[array(&[2]), array(&[0]), array(&[3])]),
+            Some((&[2u32][..], &[3u32][..]))
+        );
+    }
+}
+
+/// Unit tests for the out-of-band schema check (issue #30): a later open
+/// reusing this process's live backing must notice that another writer
+/// added, removed or replaced `table.dat` — or that it became unreadable —
+/// instead of serving the stale schema. The end-to-end scenarios (a column
+/// python-casacore/dask-ms added, an external `removecols`, a dirty backing
+/// refusing to flush over a foreign column) are pinned in
+/// `tests/test_cross_writer_visibility.py`; this covers the decision
+/// itself, including the unreadable-file corner no table produces on
+/// purpose.
+#[cfg(test)]
+mod cross_writer_column_tests {
+    use super::{disk_column_names, disk_columns_differ};
+    use ::casacure::record::{DataType, RecordValue, TableRecord};
+    use ::casacure::{create_table, ColumnDesc, ColumnKind, TableDesc};
+    use std::path::PathBuf;
+
+    /// `<temp>/<name>`, removed first and again on drop.
+    struct Scratch(PathBuf);
+
+    impl Scratch {
+        fn new(tag: &str) -> Scratch {
+            let p = std::env::temp_dir()
+                .join(format!("casacure-py-diskcols-{tag}-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&p);
+            std::fs::create_dir_all(&p).unwrap();
+            Scratch(p)
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn empty_record() -> TableRecord {
+        TableRecord {
+            desc: Default::default(),
+            record_type: 0,
+            values: Vec::new(),
+        }
+    }
+
+    /// One scalar double column per name — enough to shape `table.dat`'s
+    /// column list, which is all the check reads.
+    fn desc_with(names: &[&str]) -> TableDesc {
+        TableDesc {
+            name: String::new(),
+            version: String::new(),
+            comment: String::new(),
+            keywords: empty_record(),
+            private_keywords: empty_record(),
+            columns: names
+                .iter()
+                .map(|n| ColumnDesc {
+                    name: (*n).into(),
+                    comment: String::new(),
+                    data_type: DataType::Double,
+                    data_manager_type: "StandardStMan".into(),
+                    data_manager_group: "SSM".into(),
+                    options: 0,
+                    ndim: -1,
+                    shape: None,
+                    max_length: 0,
+                    keywords: empty_record(),
+                    kind: ColumnKind::Scalar(RecordValue::Double(0.0)),
+                    tile_shape: None,
+                })
+                .collect(),
+        }
+    }
+
+    /// A real table directory holding exactly `names`, in order.
+    fn table_with(tag: &str, names: &[&str]) -> Scratch {
+        let dir = Scratch::new(tag);
+        let values: Vec<Vec<RecordValue>> = names
+            .iter()
+            .map(|_| vec![RecordValue::Double(1.0)])
+            .collect();
+        create_table(dir.0.as_path(), &desc_with(names), &values).unwrap();
+        dir
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    #[test]
+    fn the_backing_owners_own_column_set_is_not_a_change() {
+        let dir = table_with("same", &["VALUE"]);
+        assert_eq!(disk_column_names(&dir.0), Some(names(&["VALUE"])));
+        assert!(!disk_columns_differ(&dir.0, &names(&["VALUE"])));
+    }
+
+    #[test]
+    fn a_column_added_out_of_band_is_a_change() {
+        // What a foreign writer's addcols leaves behind: the disk column
+        // list holds a column this backing never synced (issue #30's
+        // dask-ms case).
+        let dir = table_with("added", &["VALUE", "EXTRA"]);
+        assert_eq!(disk_column_names(&dir.0), Some(names(&["VALUE", "EXTRA"])));
+        assert!(disk_columns_differ(&dir.0, &names(&["VALUE"])));
+    }
+
+    #[test]
+    fn a_column_removed_out_of_band_is_a_change() {
+        // The backing still believes EXTRA exists; disk says otherwise.
+        let dir = table_with("removed", &["VALUE"]);
+        assert!(disk_columns_differ(&dir.0, &names(&["VALUE", "EXTRA"])));
+    }
+
+    #[test]
+    fn an_unreadable_table_dat_counts_as_changed() {
+        // The callers re-materialise from disk or drop the entry when this
+        // reports "changed", so a directory that is no longer a table must
+        // not be served from the stale backing either.
+        let dir = Scratch::new("nodat");
+        assert_eq!(disk_column_names(&dir.0), None);
+        assert!(disk_columns_differ(&dir.0, &names(&["VALUE"])));
+
+        let dir = table_with("corrupt", &["VALUE"]);
+        std::fs::write(dir.0.join("table.dat"), b"not a table").unwrap();
+        assert_eq!(disk_column_names(&dir.0), None);
+        assert!(disk_columns_differ(&dir.0, &names(&["VALUE"])));
+    }
+}
+
+impl Table {
+    /// The shared write half of `putcolslice`/`putcellslice` (issues #36,
+    /// #37, #38): overlay `value`, shaped `(nrow, sub...)`, into each row's
+    /// cell at logical `blc..trc` stepping `inc`. Every mismatch casacore
+    /// refuses is refused first — before a single cell is written, so a
+    /// refusal never leaves a half-written window behind: the value's row
+    /// count against the rows actually written, a window past the last row,
+    /// the corner ranks (pair, cell, value), and the value's per-dimension
+    /// extent against the slice.
+    #[allow(clippy::too_many_arguments)]
+    fn put_slice_overlay(
+        &self,
+        py: Python<'_>,
+        column: &str,
+        col_idx: usize,
+        value: &Bound<'_, PyAny>,
+        blc: &[i64],
+        trc: &[i64],
+        inc_v: &[i64],
+        startrow: u64,
+        nrow: i64,
+        name: &str,
+    ) -> PyResult<()> {
+        // casacore resolves its nrow=-1 to the rest of the column and the
+        // value must carry exactly those rows: casacure's old value-driven
+        // default silently wrote a prefix (issue #38).
+        let total = self.row_count();
+        let resolved = if nrow <= 0 {
+            total.saturating_sub(startrow)
         } else {
             nrow as u64
         };
-        // Full-cell slice (blc=0.., trc=-1) -> plain putcol.
-        let full =
-            blc.iter().all(|&b| b <= 0) && trc.len() == blc.len() && trc.iter().all(|&t| t < 0);
-        if full {
-            return self.putcol(py, column, value, startrow as i64, nrow as i64);
-        }
         // Overlay `value[nrow, sub...]` into each fixed cell at logical
-        // blc..trc. The numpy array is `(nrow, s0, s1, ...)` in C order.
+        // blc..trc stepping inc. The numpy array is `(nrow, s0, s1, ...)` in
+        // C order.
         let flat = convert::numpy_to_record_flat(value)
-            .ok_or_else(|| PyTypeError::new_err("putcolslice: unsupported element type"))??;
+            .ok_or_else(|| PyTypeError::new_err(format!("{name}: unsupported element type")))??;
         let shape_obj = value.getattr("shape")?;
         let shape: Vec<usize> = shape_obj.extract()?;
         if shape.is_empty() {
-            return Err(PyValueError::new_err("putcolslice: empty value"));
+            return Err(PyValueError::new_err(format!("{name}: empty value")));
         }
         let sub: Vec<usize> = shape[1..].to_vec();
+        // Exactly the rows to write (#38): casacore's putColumnCells
+        // conformance.
+        let rows = value.len()? as u64;
+        if rows != resolved {
+            return Err(PyRuntimeError::new_err(format!(
+                "{name}: value has {rows} rows but {resolved} start at row {startrow} \
+                 (casacore: ArrayColumn::putColumnCells: Table array conformance error)"
+            )));
+        }
+        if startrow >= total || startrow + resolved > total {
+            let bad = startrow.max(total);
+            return Err(row_out_of_range(bad, total));
+        }
+        // casacore's Slicer refuses corners whose ranks differ from each
+        // other or from the cell ("Shape IPosition-lengths differ from
+        // ndim()").  Without this the starts[k]/ends[k] indexing below
+        // panics across the FFI boundary when the value carries more
+        // dimensions than the corners — a wrong-rank putcolslice was a
+        // `PanicException`, not an error (issue #36).
+        if blc.len() != trc.len() {
+            return Err(PyRuntimeError::new_err(format!(
+                "{name}: blc {blc:?} and trc {trc:?} lengths differ \
+                 (casacore: Slicer error: IPosition-lengths differ)"
+            )));
+        }
+        // Fixed cells pin the corner rank and bounds (#38): casacore's
+        // Slicer compares the IPositions against ndim(), and a corner past
+        // the cell fails the way a read slice fails.
+        let cell_dims: Option<Vec<i64>> = {
+            let desc = self.desc();
+            desc.columns[col_idx]
+                .shape
+                .as_ref()
+                .map(|s| s.iter().rev().map(|&d| d.max(0)).collect())
+        };
+        if let Some(logical) = &cell_dims {
+            if blc.len() != logical.len() {
+                return Err(PyRuntimeError::new_err(format!(
+                    "{name}: corner rank {} does not match the cell rank {} \
+                     (casacore: Slicer error: Shape IPosition-lengths differ from ndim())",
+                    blc.len(),
+                    logical.len()
+                )));
+            }
+            for k in 0..blc.len() {
+                let start = blc[k].max(0);
+                let end = trc[k];
+                if start >= logical[k] || (end >= 0 && end >= logical[k]) {
+                    return Err(PyRuntimeError::new_err(format!(
+                        "{name}: slice {blc:?}..{trc:?} does not fit the cell shape {logical:?}"
+                    )));
+                }
+            }
+        }
+        // Full-cell slice (blc<=0.., trc<0, unit stride) -> plain putcol.
+        let full = blc.iter().all(|&b| b <= 0)
+            && trc.iter().all(|&t| t < 0)
+            && (inc_v.is_empty() || inc_v.iter().all(|&s| s == 1));
+        if full {
+            return self.putcol(py, column, value, startrow as i64, resolved as i64);
+        }
+        if sub.len() != blc.len() {
+            return Err(PyRuntimeError::new_err(format!(
+                "{name}: value slice rank {} does not fit the corner rank {} \
+                 (casacore: Slicer error: Shape IPosition-lengths differ from ndim())",
+                sub.len(),
+                blc.len()
+            )));
+        }
+        if !inc_v.is_empty() && inc_v.len() != blc.len() {
+            return Err(PyRuntimeError::new_err(format!(
+                "{name}: inc {inc_v:?} and blc {blc:?} lengths differ \
+                 (casacore: Slicer error: IPosition-lengths differ)"
+            )));
+        }
+        // Per-dimension stride: empty inc means 1 everywhere, as in
+        // python-casacore. Indexed by the value's sub-rank, which the
+        // checks above bind to the corner rank.
+        let steps: Vec<usize> = (0..sub.len())
+            .map(|k| inc_v.get(k).map(|&s| s.max(1) as usize).unwrap_or(1))
+            .collect();
         let sub_cell = sub.iter().product::<usize>().max(1);
         let starts: Vec<usize> = blc.iter().map(|&b| b.max(0) as usize).collect();
-        // inclusive full-cell ends; -1 means "to the end of the sub-slice".
+        // inclusive ends reached by stepping from the start; a negative trc
+        // means "to the end of the sub-slice" (the extent check below has
+        // already pinned that length against the cell where the cell shape
+        // is known).
         let ends: Vec<usize> = trc
             .iter()
             .zip(starts.iter())
             .zip(sub.iter())
-            .map(|((&t, &s), &subd)| {
+            .zip(steps.iter())
+            .map(|(((&t, &s), &subd), &step)| {
                 if t < 0 {
-                    s + subd - 1
+                    s + (subd - 1) * step
                 } else {
                     t.max(0) as usize
                 }
             })
             .collect();
+        // Exactly the slice's elements (#38): casacore's putSlice /
+        // putColumn(slicer) conformance, per dimension. A fixed cell's own
+        // end resolves a negative trc; variable-shape cells cannot be
+        // resolved before the cell is read and stay value-driven.
+        for k in 0..sub.len() {
+            let end = if trc[k] >= 0 {
+                Some(trc[k])
+            } else {
+                cell_dims.as_ref().map(|l| l[k] - 1)
+            };
+            let Some(e) = end else { continue };
+            let start = blc[k].max(0);
+            if e < start {
+                return Err(PyRuntimeError::new_err(format!(
+                    "{name}: slice {blc:?}..{trc:?} is not ascending"
+                )));
+            }
+            let extent = (e - start) / steps[k] as i64 + 1;
+            if sub[k] != extent as usize {
+                return Err(PyRuntimeError::new_err(format!(
+                    "{name}: value has {} elements in dimension {k}, the slice has {extent} \
+                     (casacore: Table array conformance error (shape=[{}], expected [{extent}]))",
+                    sub[k], sub[k]
+                )));
+            }
+        }
 
-        for r in 0..nrow as usize {
+        for r in 0..resolved as usize {
             let row = startrow + r as u64;
             let mut cell = match self.read_cell(col_idx, row) {
                 Ok(c) => c,
@@ -2872,11 +4472,12 @@ impl Table {
                 let mut loc = vec![0usize; coords.len()];
                 for k in 0..coords.len() {
                     let s = starts[k];
-                    let span = ends[k].saturating_sub(s) + 1;
+                    let step = steps[k];
+                    let span = ends[k].saturating_sub(s) / step + 1;
                     if coords[k] >= span {
                         continue;
                     }
-                    loc[k] = s + coords[k];
+                    loc[k] = s + coords[k] * step;
                 }
                 let lf = convert::flatten_coords(&loc, &cshape);
                 if lf < grid.len() && base + idx < flat.len() {
@@ -2888,168 +4489,68 @@ impl Table {
         }
         Ok(())
     }
+}
 
-    /// `putkeyword(name, value)`.
-    fn putkeyword(&self, py: Python<'_>, name: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
-        let rec = keyword_value(py, value)?;
-        {
-            let mut inner = self.inner.lock().unwrap();
-            match &mut *inner {
-                Inner::Write { shared, .. } => {
-                    let mut s = shared.lock().unwrap();
-                    s.wt.putkeyword(name, rec);
-                    s.dirty = true;
-                }
-                _ => return Err(not_writable(self.view)),
-            }
-        }
-        Ok(())
+impl Table {
+    fn put_cell(&self, col_idx: usize, row: u64, value: RecordValue) -> PyResult<()> {
+        self.put_cells(col_idx, row, std::iter::once(value))
     }
 
-    /// `putkeywords(dict)`.
-    fn putkeywords(&self, py: Python<'_>, dict: &Bound<'_, PyDict>) -> PyResult<()> {
-        for (k, v) in dict.iter() {
-            let name = k.extract::<String>()?;
-            self.putkeyword(py, &name, &v)?;
-        }
-        Ok(())
-    }
-
-    /// `removekeyword(name)`.
-    fn removekeyword(&self, name: &str) -> PyResult<()> {
-        {
-            let mut inner = self.inner.lock().unwrap();
-            match &mut *inner {
-                Inner::Write { shared, .. } => {
-                    let mut s = shared.lock().unwrap();
-                    s.wt.removekeyword(name);
-                    s.dirty = true;
-                }
-                _ => return Err(not_writable(self.view)),
-            }
-        }
-        Ok(())
-    }
-
-    /// `putcolkeyword(column, name, value)`.
-    fn putcolkeyword(
+    /// Write consecutive cells from `startrow`, taking the handle and store
+    /// locks once for the whole batch (a `putcol` chunk), not per cell.
+    fn put_cells(
         &self,
-        py: Python<'_>,
-        column: &str,
-        name: &str,
-        value: &Bound<'_, PyAny>,
+        col_idx: usize,
+        startrow: u64,
+        values: impl IntoIterator<Item = RecordValue>,
     ) -> PyResult<()> {
-        let col_idx = self.col_index(column)?;
-        let rec = convert::pyobject_to_record(py, value)?;
-        {
-            let mut inner = self.inner.lock().unwrap();
-            match &mut *inner {
-                Inner::Write { shared, .. } => {
-                    let mut s = shared.lock().unwrap();
-                    s.wt.putcolkeyword(col_idx, name, rec).map_err(err)?;
-                    s.dirty = true;
+        let mut inner = self.inner.lock().unwrap();
+        let Inner::Write { shared, .. } = &mut *inner else {
+            return Err(not_writable(self.view));
+        };
+        let mut s = shared.lock().unwrap();
+        for (row, value) in (startrow..).zip(values) {
+            // Validate before writing: the putcol coercion has already
+            // produced the column's exact type, so a mismatch here is an
+            // incompatible write (e.g. a string into a double column) that
+            // casacore rejects rather than silently storing — and a
+            // fixed-shape array column must receive exactly its declared
+            // cell shape. The desc is borrowed inside the shared lock (no
+            // per-cell clone on the hot putcol path).
+            if let Some(col) = s.wt.desc().columns.get(col_idx) {
+                if !record_fits_column(col, &value) {
+                    return Err(PyTypeError::new_err(format!(
+                        "putcol/putcell: {} cannot be stored in column {} (valueType {})",
+                        value_name(&value),
+                        col.name,
+                        ::casacure::casa_value_type(col.data_type)
+                    )));
                 }
-                _ => return Err(not_writable(self.view)),
-            }
-        }
-        Ok(())
-    }
-
-    /// `putcolkeywords(column, dict)`.
-    fn putcolkeywords(
-        &self,
-        py: Python<'_>,
-        column: &str,
-        dict: &Bound<'_, PyDict>,
-    ) -> PyResult<()> {
-        for (k, v) in dict.iter() {
-            let name = k.extract::<String>()?;
-            self.putcolkeyword(py, column, &name, &v)?;
-        }
-        Ok(())
-    }
-
-    /// `removecolkeyword(column, name)`.
-    fn removecolkeyword(&self, column: &str, name: &str) -> PyResult<()> {
-        let col_idx = self.col_index(column)?;
-        {
-            let mut inner = self.inner.lock().unwrap();
-            match &mut *inner {
-                Inner::Write { shared, .. } => {
-                    let mut s = shared.lock().unwrap();
-                    s.wt.removecolkeyword(col_idx, name).map_err(err)?;
-                    s.dirty = true;
+                if let (Some(fixed), RecordValue::Array(a)) = (&col.shape, &value) {
+                    // Logical cell shape = the reversed stored shape.
+                    let matches = a.shape.len() == fixed.len()
+                        && a.shape
+                            .iter()
+                            .zip(fixed.iter().rev())
+                            .all(|(&got, &want)| got == want.max(0) as u32);
+                    if !fixed.is_empty() && !matches {
+                        let logical: Vec<u32> =
+                            fixed.iter().rev().map(|&d| d.max(0) as u32).collect();
+                        return Err(PyValueError::new_err(format!(
+                            "putcol: cell shape {:?} does not match column {} fixed shape {:?}",
+                            a.shape, col.name, logical
+                        )));
+                    }
                 }
-                _ => return Err(not_writable(self.view)),
             }
+            s.wt.putcell(col_idx, row, value).map_err(err)?;
+            s.dirty = true;
         }
         Ok(())
-    }
-
-    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-
-    fn __exit__(
-        &self,
-        _ty: Option<Py<PyAny>>,
-        _value: Option<Py<PyAny>>,
-        _tb: Option<Py<PyAny>>,
-    ) -> PyResult<()> {
-        // python-casacore's `with table(...)` closes (flushing) on exit.
-        self.flush()?;
-        Ok(())
-    }
-
-    /// Private python-casacore `table._getdesc(actual=True)` — the full
-    /// table-description dict. dask-ms calls it for keyword reads.
-    #[pyo3(signature = (actual = true))]
-    fn _getdesc(&self, py: Python<'_>, actual: bool) -> PyResult<Py<PyAny>> {
-        let _ = actual;
-        let desc = self.desc();
-        let base = self.dir_of();
-        Ok(desc_to_pydict(py, &desc, Some(&base))?.into_any().unbind())
-    }
-
-    /// `t[key]` — python-casacore's `table.__getitem__`: an integer key is a
-    /// row number (returns the row's values as a dict `{colname: value}`);
-    /// a string key is a column name (returns the column as an array).
-    fn __getitem__(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        // Column-name form: t["DATA"].
-        if let Ok(name) = key.extract::<String>() {
-            return self.getcol(py, &name, 0, -1, 1);
-        }
-        // Row form: t[0] -> {colname: value} for that row.
-        let row: i64 = key.extract().map_err(|_| {
-            PyTypeError::new_err("table key must be a column name (str) or a row number (int)")
-        })?;
-        let desc = self.desc();
-        let d = PyDict::new(py);
-        for (i, cd) in desc.columns.iter().enumerate() {
-            let v = self.read_cell(i, row.max(0) as u64)?;
-            let base = self.dir_of();
-            let v = convert::cell_to_py(py, &v)?;
-            let _ = &base;
-            d.set_item(&cd.name, v)?;
-        }
-        Ok(d.into_any().unbind())
-    }
-
-    /// `len(t)` — the number of rows (python-casacore's `table.__len__`).
-    fn __len__(&self) -> PyResult<usize> {
-        Ok(self.nrows()? as usize)
     }
 }
 
 impl Table {
-    fn col_index(&self, name: &str) -> PyResult<usize> {
-        let desc = self.desc();
-        desc.columns
-            .iter()
-            .position(|c| c.name == name)
-            .ok_or_else(|| PyKeyError::new_err(format!("no such column: {name}")))
-    }
-
     fn read_cell(&self, col_idx: usize, row: u64) -> PyResult<RecordValue> {
         let inner = self.inner.lock().unwrap();
         match &*inner {
@@ -3142,64 +4643,9 @@ impl Table {
             }
         }
     }
+}
 
-    fn put_cell(&self, col_idx: usize, row: u64, value: RecordValue) -> PyResult<()> {
-        self.put_cells(col_idx, row, std::iter::once(value))
-    }
-
-    /// Write consecutive cells from `startrow`, taking the handle and store
-    /// locks once for the whole batch (a `putcol` chunk), not per cell.
-    fn put_cells(
-        &self,
-        col_idx: usize,
-        startrow: u64,
-        values: impl IntoIterator<Item = RecordValue>,
-    ) -> PyResult<()> {
-        let mut inner = self.inner.lock().unwrap();
-        let Inner::Write { shared, .. } = &mut *inner else {
-            return Err(not_writable(self.view));
-        };
-        let mut s = shared.lock().unwrap();
-        for (row, value) in (startrow..).zip(values) {
-            // Validate before writing: the putcol coercion has already
-            // produced the column's exact type, so a mismatch here is an
-            // incompatible write (e.g. a string into a double column) that
-            // casacore rejects rather than silently storing — and a
-            // fixed-shape array column must receive exactly its declared
-            // cell shape. The desc is borrowed inside the shared lock (no
-            // per-cell clone on the hot putcol path).
-            if let Some(col) = s.wt.desc().columns.get(col_idx) {
-                if !record_fits_column(col, &value) {
-                    return Err(PyTypeError::new_err(format!(
-                        "putcol/putcell: {} cannot be stored in column {} (valueType {})",
-                        value_name(&value),
-                        col.name,
-                        ::casacure::casa_value_type(col.data_type)
-                    )));
-                }
-                if let (Some(fixed), RecordValue::Array(a)) = (&col.shape, &value) {
-                    // Logical cell shape = the reversed stored shape.
-                    let matches = a.shape.len() == fixed.len()
-                        && a.shape
-                            .iter()
-                            .zip(fixed.iter().rev())
-                            .all(|(&got, &want)| got == want.max(0) as u32);
-                    if !fixed.is_empty() && !matches {
-                        let logical: Vec<u32> =
-                            fixed.iter().rev().map(|&d| d.max(0) as u32).collect();
-                        return Err(PyValueError::new_err(format!(
-                            "putcol: cell shape {:?} does not match column {} fixed shape {:?}",
-                            a.shape, col.name, logical
-                        )));
-                    }
-                }
-            }
-            s.wt.putcell(col_idx, row, value).map_err(err)?;
-            s.dirty = true;
-        }
-        Ok(())
-    }
-
+impl Table {
     /// Store a whole `putcol` batch of cells (one `RecordValue` per row).
     ///
     /// Like [`Table::put_cells`]: the shared-store lock is taken once for the
@@ -3483,7 +4929,7 @@ impl Table {
             }
             return Err(PyTypeError::new_err(format!(
                 "putcol: unsupported array data {}",
-                value.getattr("dtype")?.str()?.to_str()?
+                value.getattr("dtype")?.str()?.to_cow()?
             )));
         }
         // Scalar column: 1-D array (or list/tuple) of scalars. Each element
@@ -3575,623 +5021,18 @@ impl Table {
             }
             return convert::scalars_cells_to_array(py, cells);
         }
+        check_cells_conform(cells)?;
         let cell_shape = cell_shape_of(cells);
         convert::arrays_to_ndarray_getcol(py, cells, &cell_shape)
     }
 }
 
-/// Interpret the `inc` argument of `getcolslice`/`getcolslicenp`, which is
-/// either python-casacore's per-dimension step (`inc=[]`, a sequence of
-/// ints) or — in the legacy 5-argument casacure form
-/// `(column, blc, trc, startrow, nrow)` — an integer that is really
-/// `startrow`. Returns the step sequence and, for the legacy form, shifts
-/// `startrow`/`nrow` into their python-casacore positions.
-fn split_inc_startrow_nrow(
-    inc: Option<Bound<'_, PyAny>>,
-    startrow: &mut i64,
-    nrow: &mut i64,
-) -> PyResult<Vec<i64>> {
-    let Some(v) = inc else {
-        return Ok(Vec::new());
-    };
-    if let Ok(seq) = v.extract::<Vec<i64>>() {
-        // python-casacore form: `inc` is a per-dimension step.
-        return Ok(seq);
-    }
-    if let Ok(n) = v.extract::<i64>() {
-        // Legacy form: this integer is `startrow`; the next positional is
-        // `nrow`. `*startrow` currently holds `nrow` (the 4th arg), so shift.
-        let legacy_nrow = *startrow;
-        *startrow = n;
-        *nrow = legacy_nrow;
-        return Ok(Vec::new());
-    }
-    Err(PyTypeError::new_err(
-        "getcolslice/getcolslicenp inc must be a sequence of ints (python-casacore) or an int (legacy casacure startrow)",
-    ))
-}
-
-/// True when the `getcolslice`/`getcolslicenp` arguments select every element
-/// of the cell, so the read can go through the raw bulk path
-/// (`fill_numpy_raw`) instead of per-cell decoding.  Matches
-/// `Table::read_colslice`'s idiom: any negative `blc`/`trc` means the whole
-/// cell, an empty `blc`/`trc` pair too, and scalar columns ignore the slice.
-/// `desc.shape` is stored order, so compare against its reverse
-/// (python-casacore's logical order, as `fill_numpy_raw` also does).
-fn slice_is_whole_cell(
-    blc: &[i64],
-    trc: &[i64],
-    inc: &[i64],
-    desc: &core::tabledesc::ColumnDesc,
-) -> bool {
-    use core::tabledesc::ColumnKind;
-    if !matches!(desc.kind, ColumnKind::Array) {
-        return true; // scalar column: the slice is ignored by read_colslice
-    }
-    if (blc.is_empty() && trc.is_empty())
-        || blc.iter().any(|&b| b < 0)
-        || trc.iter().any(|&t| t < 0)
-    {
-        return true;
-    }
-    let Some(s) = &desc.shape else {
-        return false; // variable-shape array: no fixed whole to cover
-    };
-    if blc.len() != s.len() || trc.len() != s.len() {
-        return false;
-    }
-    blc.iter()
-        .zip(trc.iter())
-        .zip(s.iter().rev())
-        .enumerate()
-        .all(|(d, ((&b, &t), &stored))| {
-            let n = stored.max(0);
-            let step = inc.get(d).copied().unwrap_or(1).max(1);
-            b == 0 && step == 1 && t == n - 1
-        })
-}
-
-fn reshape_cell(shape: &[usize]) -> usize {
-    shape.iter().skip(1).product::<usize>().max(1)
-}
-
-fn ndarray_cells_typed<T: numpy::Element + Copy>(
-    arr: &numpy::PyReadonlyArrayDyn<'_, T>,
-    nrow: u64,
-    varcol: bool,
-    build: impl Fn(Vec<T>) -> ArrayData,
-) -> PyResult<Vec<RecordValue>> {
-    let shape: Vec<usize> = arr.as_array().shape().to_vec();
-    if shape.is_empty() {
-        return Ok(Vec::new());
-    }
-    // `putcol` arrays are (nrow, *cell) so the cell shape drops the first
-    // dim; `putvarcol` values are full per-row cells (keep the whole shape).
-    let cell_shape: &[usize] = if varcol { &shape } else { &shape[1..] };
-    let cell = cell_shape.iter().product::<usize>().max(1);
-    let view = arr.as_array();
-    // Row-major element order. A C-contiguous array (the usual numpy input)
-    // is borrowed as one slice; anything else is copied once into logical
-    // order. Rows are then plain sub-slices: re-walking the ndarray iterator
-    // from element 0 for every row (`iter().skip(start)`) made a putcol
-    // quadratic in the chunk size.
-    let owned: Vec<T>;
-    let flat: &[T] = match arr.as_slice() {
-        Ok(s) => s,
-        Err(_) => {
-            owned = view.iter().copied().collect();
-            &owned
-        }
-    };
-    let casa_shape: Vec<u32> = cell_shape.iter().map(|&s| s as u32).collect();
-    let mut out = Vec::with_capacity(nrow.min(flat.len() as u64) as usize);
-    for r in 0..nrow as usize {
-        let start = r * cell;
-        if start >= flat.len() {
-            break;
-        }
-        let stop = ((r + 1) * cell).min(flat.len());
-        // Build each row's typed element buffer directly from the borrowed
-        // numpy data (one copy, no intermediate per-element `RecordValue`).
-        let elems: Vec<T> = flat[start..stop].to_vec();
-        // Array columns always store `RecordValue::Array` cells, even for a
-        // 1-element cell (e.g. an ncorr=1 CORR_TYPE column in an MS): the
-        // storage managers and readers expect an Array value there.
-        out.push(RecordValue::Array(core::record::ArrayValue {
-            shape: casa_shape.clone(),
-            data: build(elems),
-        }));
-    }
-    Ok(out)
-}
-
-/// Build the python-casacore `getcoldesc` dict for a column.
-fn self_coldesc<'py>(
-    py: Python<'py>,
-    col: &core::tabledesc::ColumnDesc,
-    _base: Option<&std::path::Path>,
-) -> PyResult<Bound<'py, PyDict>> {
-    let d = PyDict::new(py);
-    let vt = ::casacure::casa_value_type(col.data_type);
-    d.set_item("valueType", vt)?;
-    d.set_item("dataManagerType", &col.data_manager_type)?;
-    d.set_item("dataManagerGroup", &col.data_manager_group)?;
-    d.set_item("option", col.options)?;
-    d.set_item("maxlen", col.max_length)?;
-    d.set_item("comment", &col.comment)?;
-    if matches!(col.kind, core::tabledesc::ColumnKind::Array) {
-        d.set_item("ndim", col.ndim)?;
-        if let Some(shape) = &col.shape {
-            if !shape.is_empty() {
-                // Logical shape = reverse of stored.
-                let logical: Vec<i64> = shape.iter().rev().copied().collect();
-                d.set_item("shape", logical)?;
-            }
-        }
-        d.set_item("_c_order", true)?;
-    }
-    d.set_item(
-        "keywords",
-        convert::table_record_to_dict(py, &col.keywords)?,
-    )?;
-    Ok(d)
-}
-
-fn spec_to_dict(py: Python<'_>, spec: &core::DmSpec) -> PyResult<Py<PyAny>> {
-    let d = PyDict::new(py);
-    match spec {
-        core::DmSpec::StandardStMan {
-            max_cache_size,
-            bucket_size,
-            pers_cache_size,
-            index_length,
-        } => {
-            d.set_item("MaxCacheSize", max_cache_size)?;
-            d.set_item("BUCKETSIZE", bucket_size)?;
-            d.set_item("PERSCACHESIZE", pers_cache_size)?;
-            d.set_item("IndexLength", index_length)?;
-        }
-        core::DmSpec::IncrementalStMan {
-            max_cache_size,
-            bucket_size,
-            pers_cache_size,
-        } => {
-            d.set_item("MaxCacheSize", max_cache_size)?;
-            d.set_item("BUCKETSIZE", bucket_size)?;
-            d.set_item("PERSCACHESIZE", pers_cache_size)?;
-        }
-        core::DmSpec::TiledColumnStMan {
-            cube_shapes,
-            tile_shapes,
-            ..
-        } => {
-            if let Some(t) = tile_shapes.first() {
-                d.set_item("DEFAULTTILESHAPE", t.to_vec())?;
-            }
-            if let Some(c) = cube_shapes.first() {
-                d.set_item("DEFAULTCUBESHAPE", c.to_vec())?;
-            }
-        }
-        core::DmSpec::TiledShapeStMan {
-            default_tile_shape,
-            seqnr,
-            hypercubes,
-        } => {
-            d.set_item("MaxCacheSize", 0)?;
-            d.set_item("DEFAULTTILESHAPE", default_tile_shape.clone())?;
-            d.set_item("MAXIMUMCACHESIZE", 0)?;
-            let cubes = PyDict::new(py);
-            for (i, c) in hypercubes.iter().enumerate() {
-                let cd = PyDict::new(py);
-                cd.set_item("CubeShape", c.cube_shape.clone())?;
-                cd.set_item("TileShape", c.tile_shape.clone())?;
-                cd.set_item("CellShape", c.cell_shape.clone())?;
-                cd.set_item("BucketSize", c.bucket_size)?;
-                cd.set_item("ID", PyDict::new(py))?;
-                cubes.set_item(format!("*{}", i + 1), cd)?;
-            }
-            d.set_item("HYPERCUBES", cubes)?;
-            d.set_item("SEQNR", seqnr)?;
-            d.set_item("IndexSize", hypercubes.len())?;
-        }
-        core::DmSpec::Unsupported(s) => {
-            d.set_item("SPEC", s)?;
-        }
-    }
-    Ok(d.into_any().unbind())
-}
-
-/// Module-level `table(...)` factory.
-#[pyfunction]
-#[allow(clippy::too_many_arguments)]
-#[pyo3(signature = (name, tabledesc = None, nrow = 0, dminfo = None, readonly = false, _ack = true, lockoptions = None, *_args, **_kwargs))]
-pub fn table(
-    py: Python<'_>,
-    name: &Bound<'_, PyAny>,
-    tabledesc: Option<&Bound<'_, PyAny>>,
-    nrow: i64,
-    dminfo: Option<&Bound<'_, PyAny>>,
-    readonly: bool,
-    _ack: bool,
-    lockoptions: Option<&Bound<'_, PyAny>>,
-    _args: &Bound<'_, PyTuple>,
-    _kwargs: Option<&Bound<'_, PyDict>>,
-) -> PyResult<Table> {
-    let mut name = path_string(name)?;
-    // python-casacore's `_remove_prefix`: a `"Table: <path>"` keyword value
-    // passed to `table()` opens that path (see `casacore/tables/tablehelper.py`).
-    if let Some(rest) = name.strip_prefix("Table: ") {
-        name = rest.to_string();
-    }
-    let desc_json = match tabledesc {
-        Some(d) if !d.is_none() => {
-            if let Ok(dict) = d.cast::<PyDict>() {
-                let rec = convert::dict_to_table_record(py, dict)?;
-                Some(rec.to_json_string())
-            } else {
-                return Err(PyTypeError::new_err("tabledesc must be a dict"));
-            }
-        }
-        _ => None,
-    };
-    // python-casacore only consults `dminfo` when the tabledesc creates a
-    // new table; it is inert on an open.
-    let dminfo_rec = match (desc_json.as_deref(), dminfo) {
-        (Some(_), Some(dm)) if !dm.is_none() => Some(dminfo_record(py, dm)?),
-        _ => None,
-    };
-    // python-casacore's default: `lockoptions='default'` (AutoLocking).
-    let options = match lockoptions {
-        Some(lo) if !lo.is_none() => Table::parse_lockoptions(lo)?,
-        _ => core::lockfile::LockOptions::locking_default(),
-    };
-    // Opening acquires the mode's lock, which may wait on another process:
-    // do that without the GIL so other Python threads keep running.
-    py.detach(|| {
-        Table::open_or_create(
-            &name,
-            desc_json.as_deref(),
-            dminfo_rec.as_ref(),
-            nrow.max(0) as u64,
-            !readonly,
-            options,
-        )
-    })
-}
-
-/// Module-level `taql(query, tables=[], style=...)`.
-#[pyfunction]
-#[pyo3(signature = (query, tables = None, style = "Python", _readonly = None))]
-pub fn taql(
-    py: Python<'_>,
-    query: &str,
-    tables: Option<&Bound<'_, PyList>>,
-    style: &str,
-    _readonly: Option<bool>,
-) -> PyResult<Py<PyAny>> {
-    let _ = style;
-    // Collect the wrapped core tables from any `casacure.tables.table`
-    // arguments and hold every mutex guard for the whole call so the inner
-    // core tables stay borrowed. All statements (SELECT, UPDATE, DELETE,
-    // INSERT, ALTER, DROPTABLE, SHOW/HELP, CALC, COUNT, CREATE TABLE) may
-    // reference `$N` tables; CREATE TABLE takes only an on-disk path, so
-    // the `tables` list is optional for it.
-    let objects: Vec<PyRef<'_, Table>>;
-    let locks: Vec<std::sync::MutexGuard<'_, Inner>>;
-    let shared_guards: Vec<Option<std::sync::MutexGuard<'_, WriteData>>>;
-    let core_refs: Vec<&::casacure::Table>;
-    if let Some(ts) = tables {
-        // Persist any pending (unflushed) writes so the core snapshots below
-        // (and any statement) run against the current cell state; write ops
-        // buffer into the shared store and only flush on request.
-        for item in ts.iter() {
-            let obj = item
-                .extract::<PyRef<'_, Table>>()
-                .map_err(|_| PyValueError::new_err("taql: expected table objects"))?;
-            let inner = obj.inner.lock().unwrap();
-            if let Inner::Write { shared, .. } = &*inner {
-                flush_if_dirty(shared)?;
-            }
-        }
-        objects = ts
+impl Table {
+    fn col_index(&self, name: &str) -> PyResult<usize> {
+        let desc = self.desc();
+        desc.columns
             .iter()
-            .map(|item| {
-                item.extract::<PyRef<'_, Table>>()
-                    .map_err(|_| PyValueError::new_err("taql: expected table objects"))
-            })
-            .collect::<PyResult<_>>()?;
-        locks = objects.iter().map(|t| t.inner.lock().unwrap()).collect();
-        shared_guards = locks
-            .iter()
-            .map(|g| match &**g {
-                Inner::Write { shared, .. } => Some(shared.lock().unwrap()),
-                _ => None,
-            })
-            .collect();
-        core_refs = locks
-            .iter()
-            .zip(shared_guards.iter())
-            .map(|(g, sg)| match &**g {
-                Inner::Read(t) => t.as_ref(),
-                Inner::Write { .. } => &sg.as_ref().expect("write table has a shared guard").read,
-            })
-            .collect();
-    } else {
-        objects = Vec::new();
-        locks = Vec::new();
-        shared_guards = Vec::new();
-        core_refs = Vec::new();
-        // objects/locks/guards only exist to keep borrows alive.
-        let _ = (&objects, &locks, &shared_guards);
-    }
-    let mut touched: Vec<std::path::PathBuf> = Vec::new();
-    let result = core::taql::execute_into(query, &core_refs, &mut touched).map_err(err)?;
-    // A mutating statement (UPDATE/DELETE/INSERT/ALTER/DROPTABLE, CREATE,
-    // SELECT INTO) rewrote the on-disk tables; refresh any materialised
-    // writable state cached for those directories so live handles and the
-    // next open see the fresh files instead of a stale snapshot (a stale
-    // handle's `close()` would otherwise regenerate the old cells and
-    // clobber the change). A directory that no longer holds a table
-    // (`DROPTABLE`) drops its cached entry instead.
-    drop(shared_guards); // release the WriteData locks before refresh() re-locks them
-    if !touched.is_empty() {
-        let mut reg = write_registry().lock().unwrap();
-        for dir in &touched {
-            if let Some(shared) = reg.get(dir) {
-                // The taql path owns these tables' writes; keep their
-                // replacement backing lock-free as before.
-                if !refresh_write(dir, shared, core::lockfile::LockOptions::no_locking()) {
-                    reg.remove(dir);
-                }
-            }
-        }
-    }
-    Ok(match result {
-        core::taql::TaqlResult::Query(out) => taql_result_to_table(py, out)?
-            .into_pyobject(py)?
-            .into_any()
-            .unbind(),
-        core::taql::TaqlResult::Created(path) => {
-            // A TaQL-created scratch table: fresh directory, single handle,
-            // no locking (also keeps lock files out of temp dirs).
-            let t = Table::open_or_create(
-                &path.display().to_string(),
-                None,
-                None,
-                0,
-                true,
-                core::lockfile::LockOptions::no_locking(),
-            )?;
-            t.into_pyobject(py)?.into_any().unbind()
-        }
-    })
-}
-
-/// Materialise a TaQL result into a real table on disk (in a temp
-/// directory) and return a bound `table` over it, so `nrows`/`getcol`/
-/// `getcell`/... all work exactly as for a file table.
-fn taql_result_to_table(_py: Python<'_>, out: core::taql::TaqlTable) -> PyResult<Table> {
-    use core::record::DataType as DT;
-    use core::tabledesc::{ColumnDesc, ColumnKind, TableDesc};
-
-    let dir = std::env::temp_dir().join(format!(
-        "casacure-taql-{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
-    ));
-    sweep_stale_scratch();
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).map_err(err)?;
-    // from here on the directory is owned by this guard: an error below
-    // removes it again, and success hands it to the table's backing
-    let scratch = ScratchDir::new(dir.clone());
-
-    let nrows = out.nrows() as u64;
-    let mut desc = TableDesc {
-        name: String::new(),
-        version: String::new(),
-        comment: String::new(),
-        // The source table's keywords (python-casacore's reference-table
-        // semantics: `t.query(...).getkeyword('ANTENNA')` returns the source
-        // table's keyword).
-        keywords: out.source_keywords.clone(),
-        private_keywords: TableRecord {
-            desc: Default::default(),
-            record_type: 0,
-            values: Vec::new(),
-        },
-        columns: Vec::new(),
-    };
-    let mut all: Vec<Vec<RecordValue>> = Vec::with_capacity(out.columns.len());
-    for (i, name) in out.colnames.iter().enumerate() {
-        let cells = &out.columns[i];
-        let first = cells.first().cloned().unwrap_or(RecordValue::Int(0));
-        let array = matches!(first, RecordValue::Array(_));
-        let element_dt: DT = match convert::record_data_type(&first) {
-            Some(DT::ArrayBool) | Some(DT::Bool) => DT::Bool,
-            Some(DT::ArrayUChar) | Some(DT::UChar) => DT::UChar,
-            Some(DT::ArrayShort) | Some(DT::Short) => DT::Short,
-            Some(DT::ArrayUShort) | Some(DT::UShort) => DT::UShort,
-            Some(DT::ArrayInt) | Some(DT::Int) => DT::Int,
-            Some(DT::ArrayUInt) | Some(DT::UInt) => DT::UInt,
-            Some(DT::ArrayInt64) | Some(DT::Int64) => DT::Int64,
-            Some(DT::ArrayFloat) | Some(DT::Float) => DT::Float,
-            Some(DT::ArrayDouble) | Some(DT::Double) => DT::Double,
-            Some(DT::ArrayComplex) | Some(DT::Complex) => DT::Complex,
-            Some(DT::ArrayDComplex) | Some(DT::DComplex) => DT::DComplex,
-            Some(DT::ArrayString) | Some(DT::String) => DT::String,
-            _ => DT::Double,
-        };
-        let (kind, shape) = if array {
-            let shp: Vec<i64> = match &first {
-                RecordValue::Array(a) => a.shape.iter().map(|&d| i64::from(d)).collect(),
-                _ => Vec::new(),
-            };
-            (ColumnKind::Array, Some(shp))
-        } else {
-            (ColumnKind::Scalar(zero_record(&element_dt)), None)
-        };
-        desc.columns.push(ColumnDesc {
-            name: name.clone(),
-            comment: String::new(),
-            data_type: element_dt,
-            data_manager_type: "StandardStMan".to_string(),
-            data_manager_group: "StandardStMan".to_string(),
-            options: 0,
-            ndim: shape.as_ref().map_or(-1, |s| s.len() as i32),
-            shape,
-            max_length: 0,
-            keywords: TableRecord {
-                desc: Default::default(),
-                record_type: 0,
-                values: Vec::new(),
-            },
-            kind,
-            tile_shape: None,
-        });
-        all.push(cells.clone());
-    }
-
-    let mut wt = core::WritableTable::create(&dir, desc);
-    if nrows > 0 {
-        wt.addrows(nrows);
-    }
-    for (col_idx, cells) in all.iter().enumerate() {
-        for (r, v) in cells.iter().enumerate() {
-            wt.putcell(col_idx, r as u64, v.clone()).map_err(err)?;
-        }
-    }
-    let _ = wt.flush().map_err(err)?;
-    let read = ::casacure::Table::open(&dir, false).map_err(err)?;
-    let shared = std::sync::Arc::new(std::sync::Mutex::new(WriteData {
-        read,
-        wt,
-        dirty: false,
-        pin: DirPin::new(&dir),
-        scratch: Some(scratch),
-    }));
-    register_write(&dir, &shared);
-    Ok(Table {
-        path: dir.display().to_string(),
-        writable: true,
-        inner: Mutex::new(Inner::Write { shared }),
-        // TaQL result tables are fresh temp-dir tables with one handle.
-        lock_options: core::lockfile::LockOptions::no_locking(),
-        auto_state: Mutex::new(AutoLockState::default()),
-        view: false,
-    })
-}
-
-fn zero_record(dt: &core::record::DataType) -> RecordValue {
-    use core::record::RecordValue as RV;
-    match dt {
-        DataType::Bool => RV::Bool(false),
-        DataType::UChar => RV::UChar(0),
-        DataType::Short => RV::Short(0),
-        DataType::UShort => RV::UShort(0),
-        DataType::Int => RV::Int(0),
-        DataType::UInt => RV::UInt(0),
-        DataType::Int64 => RV::Int64(0),
-        DataType::Float => RV::Float(0.0),
-        DataType::Double => RV::Double(0.0),
-        DataType::Complex => RV::Complex(0.0, 0.0),
-        DataType::DComplex => RV::DComplex(0.0, 0.0),
-        _ => RV::String(String::new()),
-    }
-}
-
-/// The full python-casacore table-desc dict for a `TableDesc` (columns +
-/// `_keywords_`/`_private_keywords_`/`_define_hypercolumn_`).
-pub(crate) fn desc_to_pydict<'py>(
-    py: Python<'py>,
-    desc: &core::tabledesc::TableDesc,
-    base: Option<&std::path::Path>,
-) -> PyResult<Bound<'py, PyDict>> {
-    let d = PyDict::new(py);
-    for col in &desc.columns {
-        d.set_item(&col.name, self_coldesc(py, col, base)?.into_any())?;
-    }
-    d.set_item(
-        "_keywords_",
-        convert::table_record_to_dict_ctx(py, &desc.keywords, base)?,
-    )?;
-    d.set_item(
-        "_private_keywords_",
-        convert::table_record_to_dict_ctx(py, &desc.private_keywords, base)?,
-    )?;
-    let empty = PyDict::new(py);
-    d.set_item("_define_hypercolumn_", empty)?;
-    Ok(d)
-}
-
-#[cfg(test)]
-mod subtable_resolve_tests {
-    use super::resolve_stored_subtable;
-
-    const TABLE_DIR: &str = "/data/ms_cure.ms";
-    const BASE: &str = "/data";
-
-    #[test]
-    fn casacore_dot_form_resolves_against_parent() {
-        // One `./` is casacore's sibling form: stored `./SUB.tab` by a table
-        // at <dir>/P.tab resolves to <dir>/SUB.tab (the containing
-        // directory) — a real casacore fixture and casacore's
-        // `Path::addDirectory` agree.
-        assert_eq!(
-            resolve_stored_subtable("./ANTENNA", TABLE_DIR.as_ref(), BASE.as_ref()),
-            "/data/ANTENNA"
-        );
-    }
-
-    #[test]
-    fn casacore_double_dot_form_resolves_against_table_dir() {
-        // Two (or more) `./` is casacore's in-table-dir form: a real MS
-        // stores its SPECTRAL_WINDOW link as `././SPECTRAL_WINDOW` and
-        // casacore's getsubtables() returns `<table_dir>/SPECTRAL_WINDOW`.
-        assert_eq!(
-            resolve_stored_subtable("././SPECTRAL_WINDOW", TABLE_DIR.as_ref(), BASE.as_ref()),
-            "/data/ms_cure.ms/SPECTRAL_WINDOW"
-        );
-    }
-
-    #[test]
-    fn absolute_stored_path_is_kept() {
-        assert_eq!(
-            resolve_stored_subtable("/other/ms/SOURCE", TABLE_DIR.as_ref(), BASE.as_ref()),
-            "/other/ms/SOURCE"
-        );
-    }
-
-    #[test]
-    fn legacy_dot_absolute_form_uses_absolute_tail() {
-        // Written by a relativisation against a relative table directory.
-        assert_eq!(
-            resolve_stored_subtable(
-                ".//data/ms_cure.ms/SOURCE",
-                TABLE_DIR.as_ref(),
-                BASE.as_ref()
-            ),
-            "/data/ms_cure.ms/SOURCE"
-        );
-    }
-
-    #[test]
-    fn legacy_bare_parent_relative_form_does_not_double() {
-        // Written by a default_ms given a relative MS path.
-        assert_eq!(
-            resolve_stored_subtable("ms_cure.ms/ANTENNA", TABLE_DIR.as_ref(), BASE.as_ref()),
-            "/data/ms_cure.ms/ANTENNA"
-        );
-    }
-
-    #[test]
-    fn other_bare_names_are_table_dir_relative() {
-        assert_eq!(
-            resolve_stored_subtable("SUB", TABLE_DIR.as_ref(), BASE.as_ref()),
-            "/data/ms_cure.ms/SUB"
-        );
+            .position(|c| c.name == name)
+            .ok_or_else(|| PyKeyError::new_err(format!("no such column: {name}")))
     }
 }

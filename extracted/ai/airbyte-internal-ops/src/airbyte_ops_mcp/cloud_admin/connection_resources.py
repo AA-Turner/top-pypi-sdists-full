@@ -502,7 +502,7 @@ def set_connection_resource_requirements(
     updated = _requirements_from_connection(
         make_config_api_request(
             path="/connections/update",
-            json=payload,
+            json=payload,  # ty: ignore[invalid-argument-type]
             operation="update connection resource requirements",
             extra_context={"connection_id": connection_id},
             client_id=auth.client_id,

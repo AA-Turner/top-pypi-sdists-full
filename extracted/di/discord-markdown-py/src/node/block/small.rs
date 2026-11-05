@@ -1,16 +1,13 @@
-use nom::{Parser, bytes::complete::tag, character::complete::space1, combinator::map};
-
 use derive_where::derive_where;
 
 use crate::{
 	Input,
 	context::Context,
-	error::ParseError,
+	error::PResult,
 	lossless::TokenKind,
-	node::{Element, Inlines, Sequence, block::inline_block},
+	node::{Element, Sequence, block::inline_block},
 	scope::Scope,
-	span::{Span, Syntax, WithToken},
-	unparse::Unparse,
+	span::{Span, Syntax},
 };
 
 pub const PREFIX: &str = "-#";
@@ -29,54 +26,28 @@ pub struct Small<S: Span, N> {
 	pub content: Sequence<S, N>,
 }
 
-impl<S, N> Unparse for Small<S, N>
-where
-	S: Span,
-	N: Unparse,
-{
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		Unparse::fmt(&self.content, f)
-	}
-}
-
-/// Unparse small content back to markdown.
+/// Parse small content.
 ///
 /// # Errors
-/// If formatting fails
-pub fn unparse<S: Span>(content: &Inlines<S>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-	write!(f, "{} {}", PREFIX, content.unparse())
-}
-
-/// Parse small content.
-pub fn small<'data, S, E>(
-	context: Context,
-) -> impl Parser<Input<'data>, Output = Small<S, Element<'data, S>>, Error = E>
-where
-	S: Span,
-	E: ParseError<'data>,
-{
-	map(
-		(
-			tag(PREFIX).token::<S>(TokenKind::SmallMarker),
-			space1.token::<S>(TokenKind::Whitespace),
-			inline_block(context.with_scope(Scope::Block)),
-		),
-		|(marker, space, mut content): (_, _, Sequence<S, _>)| {
-			content.span.attach(marker.join(space));
-			Small { content }
-		},
-	)
+/// If the data does not begin with small content.
+pub fn small<'data, S: Span>(
+	input: &mut Input<'data>,
+	context: &Context,
+) -> PResult<Small<S, Element<'data, S>>> {
+	let marker = input.token::<S, _>(TokenKind::SmallMarker, |input| input.tag(PREFIX))?;
+	let space = input.token::<S, _>(TokenKind::Whitespace, Input::space1)?;
+	let mut text = inline_block::<S>(input, &context.clone().with_scope(Scope::Block))?;
+	text.span.attach(marker.join(space));
+	Ok(Small { content: text })
 }
 
 #[cfg(test)]
 mod test {
-	use nom::{Finish, Parser};
-
 	use crate::{
 		context::Context,
 		node::{Block, Element},
 		spanned_vec,
-		test_utils::{handle_nom_err, resolved_block},
+		test_utils::{resolved_block, run},
 		text,
 	};
 
@@ -85,11 +56,8 @@ mod test {
 	#[test]
 	fn basic_small() {
 		let s = "-# foo";
-		let (rem, res) = small::<(), _>(Context::default())
-			.parse_complete(s.into())
-			.finish()
-			.map_err(handle_nom_err(s))
-			.expect("unable to parse");
+		let (rem, res) =
+			run(s, |input| small::<()>(input, &Context::default())).expect("unable to parse");
 
 		assert_eq!(rem, "");
 		assert_eq!(

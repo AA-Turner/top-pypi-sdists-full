@@ -167,9 +167,9 @@ def mask_message_model(message: AirbyteMessage, *, key: bytes) -> AirbyteMessage
     if not message.record or not message.record.data:
         return message
 
-    message_dict = message.dict()
+    message_dict = message.dict()  # ty: ignore[deprecated]
     message_dict["record"]["data"] = mask_all_values(message.record.data, key=key)
-    return AirbyteMessage.parse_obj(message_dict)
+    return AirbyteMessage.parse_obj(message_dict)  # ty: ignore[deprecated]
 
 
 def mask_message_models(

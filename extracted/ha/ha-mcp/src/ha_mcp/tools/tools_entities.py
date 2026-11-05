@@ -32,6 +32,7 @@ from .component_api import (
     is_unknown_command,
 )
 from .config_helpers.registry import validate_registry_ids
+from .entity_expose_batch import apply_bulk_expose, changed_entity_ids
 from .entity_param_parsing import (
     _parse_aliases_param,
     _parse_categories_param,
@@ -39,7 +40,7 @@ from .entity_param_parsing import (
     _parse_options_param,
     _parse_string_list_field,
 )
-from .entity_removal import remove_registry_entry
+from .entity_removal import remove_registry_entries, remove_registry_entry
 from .entity_update_fields import (
     build_name_visibility_fields,
     build_state_tag_fields,
@@ -173,7 +174,7 @@ async def fetch_entity_enrichment_via_component(
             logger.warning("%s failed; skipped enrichment: %r", WS_ENTITY_ENRICH, exc)
         return None
     except Exception as exc:  # noqa: BLE001
-        # HomeAssistantConnectionError / plain establish Exception → skip
+        # HomeAssistantConnectionError or any other error → skip
         # enrichment (strictly additive; no legacy fetch dies here).
         logger.warning(
             "%s connection error; skipped enrichment: %r", WS_ENTITY_ENRICH, exc
@@ -255,6 +256,13 @@ def _format_entity_entry(entry: dict[str, Any]) -> dict[str, Any]:
         "original_device_class": entry.get("original_device_class"),
         "options": entry.get("options", {}),
     }
+
+
+def _expose_update(parsed_expose_to: dict[str, bool], unchanged: bool) -> str:
+    """The updates entry for expose_to; Core 2026.11+ says when nothing changed."""
+    if unchanged:
+        return f"expose_to={parsed_expose_to} (already set, nothing changed)"
+    return f"expose_to={parsed_expose_to}"
 
 
 def _extract_ws_error(result: dict[str, Any]) -> str:
@@ -350,7 +358,7 @@ def _validate_enabled_constraint(
     state machine entirely, making it invisible in the UI and
     unqueryable via state APIs until re-enabled AND the integration is
     reloaded.  For automations, use
-    ha_config_set_automation(identifier=..., enabled=...) to control their
+    ha_config_set_automation(entity_id=..., enabled=...) to control their
     runtime enabled state.  For scripts,
     ha_config_set_script(script_id=..., run="stop") only stops a currently
     running execution; it does not disable the script, and Home Assistant
@@ -383,13 +391,13 @@ def _validate_enabled_constraint(
                     "ha_set_entity(enabled=False). This removes the entity from the "
                     "state machine and hides it from the UI until it is re-enabled "
                     f"AND the {_domain}s are reloaded. Use "
-                    f"ha_config_set_automation(identifier='{blocked[0]}', "
+                    f"ha_config_set_automation(entity_id='{blocked[0]}', "
                     "enabled=False) instead to disable it without removing it."
                 )
                 suggestions = [
-                    "Use ha_config_set_automation(identifier=..., enabled=...) to "
+                    "Use ha_config_set_automation(entity_id=..., enabled=...) to "
                     + "disable the automation (keeps it visible and manageable)",
-                    "Use ha_config_set_automation(identifier=..., enabled=True) to "
+                    "Use ha_config_set_automation(entity_id=..., enabled=True) to "
                     + "re-enable it later",
                     "ha_set_entity(enabled=False) is for registry-level disable — it fully hides the entity",
                 ]
@@ -767,15 +775,18 @@ class EntityTools:
         has_registry_updates: bool,
         options_succeeded: dict[str, dict[str, Any]],
         device_rename_result: dict[str, Any] | None,
-    ) -> tuple[dict[str, bool] | None, dict[str, Any]]:
-        """Apply expose_to changes via separate WebSocket API. Returns (exposure_result, entity_entry)."""
-        if not parsed_expose_to:
-            return None, entity_entry
+    ) -> tuple[dict[str, bool] | None, dict[str, Any], bool]:
+        """Apply expose_to changes; returns (exposure_result, entity_entry, unchanged)."""
+        if parsed_expose_to is None:
+            return None, entity_entry, False
+        if not parsed_expose_to and entity_entry:
+            return None, entity_entry, True
 
         # Group by should_expose value for efficient API calls
         expose_true = [a for a, v in parsed_expose_to.items() if v]
         expose_false = [a for a, v in parsed_expose_to.items() if not v]
         succeeded: dict[str, bool] = {}
+        changed: set[str] | None = set()
 
         for assistants, should_expose in [(expose_true, True), (expose_false, False)]:
             if not assistants:
@@ -819,13 +830,17 @@ class EntityTools:
             # Track successful exposures
             for a in assistants:
                 succeeded[a] = should_expose
+            reported = changed_entity_ids(expose_result)
+            changed = (
+                None if reported is None or changed is None else changed | reported
+            )
 
         exposure_result: dict[str, bool] | None = succeeded if succeeded else None
+        unchanged = changed is not None and entity_id not in changed
 
         # Exposure mutates the registry entry's options, so refetch to return the
-        # post-exposure state. This is unconditional: the method returns early on
-        # an empty expose_to (line 695) and any exposure failure already raised
-        # above, so reaching here always means at least one exposure was applied.
+        # post-exposure state. An empty expose_to applies nothing and lands
+        # here only when no earlier phase read the entry.
         get_msg: dict[str, Any] = {
             "type": "config/entity_registry/get",
             "entity_id": entity_id,
@@ -862,7 +877,7 @@ class EntityTools:
                 )
             )
 
-        return exposure_result, entity_entry
+        return exposure_result, entity_entry, unchanged
 
     def _build_entity_response(
         self,
@@ -1061,7 +1076,7 @@ class EntityTools:
                 updates_made.append(f"device_name -> {new_device_name}")
 
             # Phase 6: Expose to assistants
-            exposure_result, entity_entry = await self._apply_expose_to(
+            exposure_result, entity_entry, unchanged = await self._apply_expose_to(
                 entity_id,
                 parsed_expose_to,
                 entity_entry,
@@ -1070,7 +1085,7 @@ class EntityTools:
                 device_rename_result,
             )
             if parsed_expose_to is not None:
-                updates_made.append(f"expose_to={parsed_expose_to}")
+                updates_made.append(_expose_update(parsed_expose_to, unchanged))
 
         # Phase 7: Build response
         return self._build_entity_response(
@@ -1083,52 +1098,6 @@ class EntityTools:
             device_rename_result,
             device_name_warning,
         )
-
-    async def _bulk_apply_expose(
-        self,
-        entity_ids: list[str],
-        parsed_expose_to: dict[str, bool],
-    ) -> str | None:
-        """Expose/hide many entities in one homeassistant/expose_entity call per set.
-
-        The command's schema accepts the full entity_ids list, so bulk exposure
-        needs at most two WS calls (one for the assistants being turned on, one
-        for those being turned off) regardless of entity count — not one per
-        entity. Returns None on success, or the error message on the first
-        failing set. A failure is batch-level: it applies to every id in the
-        list, so the caller maps the returned message onto all of them.
-        """
-        expose_true = [a for a, v in parsed_expose_to.items() if v]
-        expose_false = [a for a, v in parsed_expose_to.items() if not v]
-        applied: list[str] = []
-        for assistants, should_expose in [(expose_true, True), (expose_false, False)]:
-            if not assistants:
-                continue
-            logger.info(
-                f"{'Exposing' if should_expose else 'Hiding'} {len(entity_ids)} "
-                f"entities {'to' if should_expose else 'from'} {assistants}"
-            )
-            result = await self._client.send_websocket_message(
-                {
-                    "type": "homeassistant/expose_entity",
-                    "assistants": assistants,
-                    "entity_ids": entity_ids,
-                    "should_expose": should_expose,
-                }
-            )
-            if not result.get("success"):
-                error = _extract_ws_error(result)
-                if applied:
-                    # The earlier assistant group already changed — say so, or
-                    # the all-failed report implies no exposure was touched.
-                    error = (
-                        f"{error} (note: expose changes for "
-                        f"{', '.join(applied)} were already applied before "
-                        "this failure)"
-                    )
-                return error
-            applied.extend(assistants)
-        return None
 
     async def _bulk_registry_phase(
         self,
@@ -1214,7 +1183,9 @@ class EntityTools:
         entity_entry; a refetch failure keeps the pre-exposure snapshot since
         the exposure already committed.
         """
-        expose_error = await self._bulk_apply_expose(eligible_ids, parsed_expose_to)
+        expose_error, changed = await apply_bulk_expose(
+            self._client, eligible_ids, parsed_expose_to, _extract_ws_error
+        )
         if expose_error is not None:
             failed = [
                 {"entity_id": eid, "error": f"Exposure failed: {expose_error}"}
@@ -1223,7 +1194,8 @@ class EntityTools:
             return [], failed
 
         for eid in eligible_ids:
-            updates_by_id[eid].append(f"expose_to={parsed_expose_to}")
+            unchanged = changed is not None and eid not in changed
+            updates_by_id[eid].append(_expose_update(parsed_expose_to, unchanged))
         refetched_raw, refetch_errors = await self._get_entries_raw(eligible_ids)
         for eid in eligible_ids:
             if eid in refetched_raw:
@@ -1708,7 +1680,7 @@ class EntityTools:
         NOT the same as "turning off" an entity.
 
         For automations and scripts, enabled=False is blocked. For automations,
-        use ha_config_set_automation(identifier="automation.xxx", enabled=False)
+        use ha_config_set_automation(entity_id="automation.xxx", enabled=False)
         (or enabled=True to re-enable).
         For scripts, ha_config_set_script(script_id="script.xxx", run="stop")
         only stops a currently running execution; it does not disable the script.
@@ -2032,13 +2004,8 @@ class EntityTools:
         return response
 
     async def _bulk_remove_entities(self, entity_ids: list[str]) -> dict[str, Any]:
-        """Remove many entities sequentially, classifying each outcome.
-
-        Registry writes are NOT parallelized (per the removal WS command's
-        write semantics). Each id lands in exactly one bucket: ``removed``,
-        ``skipped`` (not-found is idempotent success, not an error), or
-        ``errors`` (any other failure, carrying code + message).
-        """
+        """Validate the id list, then remove the ids one at a time; registry
+        writes are not parallelized (see ``remove_registry_entries``)."""
         if not isinstance(entity_ids, list):
             raise_tool_error(
                 create_error_response(
@@ -2077,37 +2044,9 @@ class EntityTools:
             )
 
         logger.info(f"Bulk removing {len(entity_ids)} entities")
-        removed: list[str] = []
-        skipped: list[str] = []
-        errors: list[dict[str, str]] = []
-        for eid in entity_ids:
-            result = await self._client.send_websocket_message(
-                {"type": "config/entity_registry/remove", "entity_id": eid}
-            )
-            if result.get("success"):
-                removed.append(eid)
-                continue
-            error_msg = _extract_ws_error(result)
-            # Same not-found detection as the single path — HA surfaces the
-            # error as a plain string; already-absent is idempotent success.
-            if "not found" in error_msg.lower():
-                skipped.append(eid)
-            else:
-                errors.append(
-                    {
-                        "entity_id": eid,
-                        "code": ErrorCode.SERVICE_CALL_FAILED.value,
-                        "message": error_msg,
-                    }
-                )
-
-        return {
-            "success": len(errors) == 0,
-            "total": len(entity_ids),
-            "removed": removed,
-            "skipped": skipped,
-            "errors": errors,
-        }
+        return await remove_registry_entries(
+            self._client, entity_ids, _extract_ws_error
+        )
 
     @tool(
         name="ha_remove_entity",
@@ -2148,8 +2087,9 @@ class EntityTools:
         clearing the restored=true orphans an integration leaves behind after
         its filters change. Removals run sequentially and return:
           {removed: [...], skipped: [...], errors: [{entity_id, code, message}]}
-        where skipped = ids already absent (not-found is idempotent, not an
-        error). Only single-id removal is auto-backed-up.
+        where skipped = ids already absent (not-found is idempotent). A lost connection
+        stops the run; not_attempted lists the ids never sent (the failing one too if
+        it never left), safe to retry. Only single-id removal is auto-backed-up.
 
         EXAMPLES:
         - Remove orphaned sensor: ha_remove_entity("sensor.old_temperature")
@@ -2175,7 +2115,7 @@ class EntityTools:
 
             if not result.get("success"):
                 error_msg = _extract_ws_error(result)
-                if "not found" in error_msg.lower():
+                if result.get("error_code") == "not_found":
                     raise_tool_error(
                         create_error_response(
                             ErrorCode.ENTITY_NOT_FOUND,

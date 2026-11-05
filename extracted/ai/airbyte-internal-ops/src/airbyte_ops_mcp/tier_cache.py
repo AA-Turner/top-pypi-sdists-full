@@ -618,7 +618,9 @@ def _validate_tier_export(
 
     if row_count < TIER_EXPORT_MIN_ORGANIZATION_ROWS:
         error = TierExportTooSmallError(
-            row_count, TIER_EXPORT_MIN_ORGANIZATION_ROWS, age_seconds
+            row_count,
+            TIER_EXPORT_MIN_ORGANIZATION_ROWS,  # ty: ignore[invalid-argument-type]
+            age_seconds,
         )
         if not bypass_guards:
             raise error

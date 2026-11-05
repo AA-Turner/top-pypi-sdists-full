@@ -43,7 +43,7 @@ from dreamscale_transport.errors import (
 
 from dreamscale import errors
 from dreamscale.libero import LiberoObservation
-from dreamscale.model_names import internal_model, public_model
+from dreamscale.model_names import aresolve_model, internal_model, public_model
 from dreamscale.policy.connection import (
     CLASSIFY_TIMEOUT_S,
     CREATE_FLOOR_S,
@@ -2036,8 +2036,9 @@ async def aconnect(
     from dreamscale.policy.remote import _aconnect
 
     _check_legacy_kwargs(legacy)
-    # A public name (pi0.5-bimanualyam) or the internal id; the SDK keys on the latter.
-    model = internal_model(model)
+    # A public name (pi0.5-bimanualyam), one only the control plane lists, or the internal
+    # id; the SDK keys on the latter.
+    model = await aresolve_model(model, api_key=api_key)
     progress = _resolve_progress(on_progress)
     startup_timeout = legacy.get("startup_timeout")
 

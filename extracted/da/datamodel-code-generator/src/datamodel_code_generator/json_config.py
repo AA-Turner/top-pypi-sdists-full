@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Literal, TypeAlias, cast
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel, ValidationError
 
-from datamodel_code_generator._config_fields import DEFAULT_ENCODING
+from datamodel_code_generator._config_fields import DEFAULT_ENCODING, json_file
 from datamodel_code_generator._json_config_fields import JsonConfigFieldName as _JsonConfigFieldName
 from datamodel_code_generator._json_limits import CLIENT_PROTOCOLS_MAX_DEPTH
 from datamodel_code_generator._json_output import (
@@ -20,6 +20,7 @@ from datamodel_code_generator._json_output import (
     schema_document,
 )
 from datamodel_code_generator.deprecations import warn_deprecated
+from datamodel_code_generator.python_literal import stable_repr
 from datamodel_code_generator.validators import ValidatorsConfig, format_validation_error
 
 _JSON_STRING_OR_BRACKET = re.compile(r'"[^"\\]*(?:\\.[^"\\]*)*"?|[\[\]{}]')
@@ -199,18 +200,6 @@ def _invalid_json_message(option_name: str, error: object, load_error_name: str 
     return f"Invalid JSON: {error}"
 
 
-def _path_is_file(path: Path) -> bool:
-    try:
-        return path.is_file()
-    except OSError:
-        return False
-
-
-def _json_file(value: str | Path) -> Path | None:
-    """Return the file a JSON option value names, or None for inline JSON."""
-    return path if _path_is_file(path := Path(value).expanduser()) else None
-
-
 def document_base(value: Any, directory: Path, fallback: Path) -> Path:
     """Return the directory that the documents a JSON option value names resolve against.
 
@@ -218,19 +207,19 @@ def document_base(value: Any, directory: Path, fallback: Path) -> Path:
     file is given through one; a relative file is joined to ``directory``. Inline JSON, a table and no value resolve
     against ``fallback``.
     """
-    if isinstance(value, str | Path) and (file := _json_file(value)) is not None:
+    if isinstance(value, str | Path) and (file := json_file(value)) is not None:
         return (directory / file).parent
     return fallback
 
 
 def _read_json_or_inline(value: str) -> str:
-    if (path := _json_file(value)) is None:
+    if (path := json_file(value)) is None:
         return value
 
     try:
         return path.read_text(encoding=DEFAULT_ENCODING)
     except (OSError, UnicodeDecodeError) as e:
-        msg = f"Unable to read JSON file {value!r}: {e}"
+        msg = f"Unable to read JSON file {stable_repr(value)}: {e}"
         raise JsonConfigError(msg) from e
 
 
@@ -276,7 +265,9 @@ def _load_json_source(
             return value
         case TextIOBase() as data:
             with data:
-                return _loads_json(data.read(), option_name=option_name, load_error_name=load_error_name)
+                return _loads_json(
+                    data.read(), option_name=option_name, load_error_name=load_error_name, max_depth=max_depth
+                )
 
     text = _read_json_or_inline(str(value))
     return _loads_json(text, option_name=option_name, load_error_name=load_error_name, max_depth=max_depth)

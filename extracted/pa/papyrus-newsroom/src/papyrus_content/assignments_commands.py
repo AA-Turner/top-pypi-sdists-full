@@ -64,6 +64,44 @@ def assignments_list(flags: list[str]) -> None:
         )
 
 
+def assignments_show(flags: list[str]) -> None:
+    """papyrus assignments show --assignment <id>
+
+    Read only. The Assignment's status, type, section, Story and who holds it, its direction (what it asks for, whole), then its events,
+    newest last. `assignments list` prints the ids.
+
+    The direction is the text the editor wrote when assigning the work. It lives in the Assignment's metadata attachment, which this
+    reads. Output is tab separated, one row per line, so a multi-line direction prints one `direction` row per line, in order, a blank
+    line as an empty value and a tab inside a line as a space so the columns hold; drop the first four columns of each `direction` row and join them to get the text back."""
+    options = parse_options(flags)
+    assignment_id = normalize_string(options.get("assignment"))
+    if not assignment_id:
+        raise ValueError("assignments show requires --assignment <id>. `papyrus assignments list` prints the ids.")
+    client, _ = create_authoring_client()
+    assignment = client.get_record("Assignment", assignment_id)
+    if not assignment:
+        raise ValueError(f"Assignment not found: {assignment_id}")
+    from .assignments_workflow import assignment_section_key, list_assignment_events
+
+    fields = (
+        ("status", assignment.get("status")), ("type", assignment.get("assignmentTypeKey")), ("title", assignment.get("title")),
+        ("queue", assignment.get("queueKey")), ("section", assignment_section_key(assignment)),
+        ("story", assignment.get("contentItemLineageId") or assignment.get("itemLineageId")), ("priority", assignment.get("priority")),
+        ("held by", assignment.get("assigneeKey")),
+        ("created", assignment.get("createdAt")), ("updated", assignment.get("updatedAt")),
+    )
+    for label, value in fields:
+        if value not in (None, ""):
+            print(f"assignments\tshow\t{assignment_id}\t{label}\t{value}")
+    from .assignments import assignment_metadata
+
+    direction = assignment_metadata(client, assignment).get("direction")
+    if isinstance(direction, str) and direction.strip():
+        for line in direction.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+            print(f"assignments\tshow\t{assignment_id}\tdirection\t{line.rstrip().replace(chr(9), ' ')}")
+    list_assignment_events(client, {"assignment": assignment_id})
+
+
 def assignments_create_research(flags: list[str]) -> None:
     options = parse_options(flags)
     client, _ = create_authoring_client()

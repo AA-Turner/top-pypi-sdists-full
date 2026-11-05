@@ -24,6 +24,7 @@ from bitfab.constants import (
     _replay_context,
     _seed_context,
 )
+from bitfab.error_chain import describe_error, serialize_error
 from bitfab.git_command import run_git
 from bitfab.integration_fixture import extract_integration_fixtures
 from bitfab.mock_matching import MATCHER
@@ -580,17 +581,14 @@ def report_replay_progress(
 
 def _replay_json_default(value: Any) -> Any:
     if isinstance(value, BaseException):
-        serialized = {
-            "type": type(value).__name__,
-            "message": str(value),
-        }
-        if isinstance(value, DbBranchReplayError):
-            serialized["code"] = value.code
-            serialized["original_trace_id"] = value.original_trace_id
-            if value.cause is not None:
-                serialized["cause"] = value.cause
-        return serialized
+        return serialize_error(value, _replay_error_fields)
     return str(value)
+
+
+def _replay_error_fields(error: BaseException) -> dict[str, Any]:
+    if isinstance(error, DbBranchReplayError):
+        return {"original_trace_id": error.original_trace_id}
+    return {}
 
 
 def serialize_replay_result(result: ReplayResult) -> str:
@@ -653,7 +651,7 @@ def _replay_item_error_message(error: BaseException) -> str:
             "replaying it against the live database would produce a result that "
             "looks valid but did not use the historical data you asked for."
         )
-    return str(error)
+    return describe_error(error)
 
 
 class AdaptContext(TypedDict):
@@ -3041,7 +3039,7 @@ async def _execute_item_async(
         input=reported_input,
         result=fn_result,
         original_output=item.get("output"),
-        error=str(item_error) if item_error is not None else None,
+        error=describe_error(item_error) if item_error is not None else None,
         trace_error=fn_error,
         replay_error=replay_error,
         duration_ms=replay_duration_ms,

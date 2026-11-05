@@ -11,8 +11,8 @@ from pydantic import Field
 from ha_mcp._vendor.fastmcp import Context
 from ha_mcp._vendor.fastmcp.tools import tool
 
-from ..config import get_global_settings
 from ..errors import create_validation_error
+from ..tool_catalog import tool_search_active
 from ..transforms.categorized_search import DEFAULT_PINNED_TOOLS
 from .coercion import JSON_STRING_COERCION, parse_string_list_param
 from .component_api import (
@@ -37,6 +37,7 @@ from .search.overview import (
 )
 from .search.response import (
     _compute_eligibility,
+    _omit_empty_warnings,
     _ResolvedSearch,
     _validate_search_types,
 )
@@ -417,9 +418,9 @@ class SearchTools(ComponentSearchMixin, OverviewMixin, StateMixin):
                         req, ctx, visibility=visibility, caps=caps
                     )
                     if component_response is not None:
-                        return component_response
+                        return _omit_empty_warnings(component_response)
 
-        return await self._legacy_ha_search(req, ctx)
+        return _omit_empty_warnings(await self._legacy_ha_search(req, ctx))
 
     @tool(
         name="ha_get_overview",
@@ -522,14 +523,15 @@ class SearchTools(ComponentSearchMixin, OverviewMixin, StateMixin):
                     "service_availability, system_info, notification_count, notifications, "
                     "repair_count, dismissed_repair_count, repairs, repairs_error, "
                     "tool_discovery, settings_url, settings_url_hint, read_only_mode, "
-                    "read_only_mode_hint, ha_mcp_update. Note: ``settings_url`` (stdio "
+                    "read_only_mode_hint, ha_mcp_update, mcp_client. Note: ``settings_url`` (stdio "
                     "mode), ``settings_url_hint`` (standalone HTTP/Docker mode), the "
                     "``read_only_mode`` / ``read_only_mode_hint`` pair (only while Read "
-                    "Only Mode is on), and ``ha_mcp_update`` (when an update check applies)"
-                    " are emitted regardless of ``fields=`` projection."
+                    "Only Mode is on), ``ha_mcp_update`` (when an update check applies)"
+                    " and ``mcp_client`` are emitted regardless of ``fields=`` projection."
                 ),
             ),
         ] = None,
+        ctx: Context | None = None,
     ) -> dict[str, Any]:
         """Get AI-friendly system overview with intelligent categorization.
 
@@ -562,6 +564,11 @@ class SearchTools(ComponentSearchMixin, OverviewMixin, StateMixin):
         app) — proactively tell the user when ``update_available`` is true.
         Omitted for the ``unknown`` version, when ``HA_MCP_DISABLE_UPDATE_CHECK``
         is set, or when the update check itself failed.
+
+        ``mcp_client`` reports the MCP protocol version, client info and
+        client capabilities this call arrived with, for diagnosing
+        client-specific behaviour. ``capabilities: null`` means the request
+        carried none to read, not that the client declared none.
         """
         # Validate fields= early so a malformed value returns VALIDATION_FAILED
         # with parameter="fields".
@@ -613,11 +620,10 @@ class SearchTools(ComponentSearchMixin, OverviewMixin, StateMixin):
                 )
             )
 
-        settings = get_global_settings()
-        if settings.enable_tool_search:
+        if tool_search_active():
             result["tool_discovery"] = {
                 "hint": (
-                    "This server uses search-based tool discovery. "
+                    "This connection uses search-based tool discovery. "
                     "Use ha_search_tools(query='...') to find tools, "
                     "ha_search_tools(tools=['<name>']) for the full input "
                     "schema of the one you will call, then "
@@ -640,17 +646,17 @@ class SearchTools(ComponentSearchMixin, OverviewMixin, StateMixin):
                 ),
             }
 
-        # Surface the stdio settings UI sidecar URL when a URL file is present.
+        # Surface the stdio settings UI sidecar URL while a sidecar serves it.
         # Added *after* ``project_fields`` so it survives every ``fields=`` projection
         # (issue #863).
-        from ..stdio_settings_sidecar import read_sidecar_url
+        from ..stdio_settings_sidecar import live_sidecar_url
 
         projected = project_fields(
             result,
             parsed_fields,
             available_fields=_OVERVIEW_AVAILABLE_FIELDS,
         )
-        sidecar_url = read_sidecar_url()
+        sidecar_url = live_sidecar_url()
         if sidecar_url:
             projected["settings_url"] = sidecar_url
         else:
@@ -692,6 +698,9 @@ class SearchTools(ComponentSearchMixin, OverviewMixin, StateMixin):
         if mcp_update is not None:
             projected["ha_mcp_update"] = mcp_update
 
+        from ..mcp_client_context import describe_mcp_client
+
+        projected["mcp_client"] = describe_mcp_client(ctx)
         return projected
 
     @tool(
@@ -750,10 +759,9 @@ class SearchTools(ComponentSearchMixin, OverviewMixin, StateMixin):
         preserved. `attribute_keys=` further narrows the `attributes` sub-dict
         and is only applied when `"attributes"` is in `fields=` (or
         `fields=None`); otherwise it is a no-op and a `warnings` list is emitted
-        outside the projected record(s) — at the response wrapper level in bulk
-        mode, at the top-level result (sibling of `data`/`metadata`) in
-        single-entity mode — so `fields=["state"]` still returns a record with
-        only `state`.
+        at the top level of the result (sibling of `data`/`metadata`), outside
+        the projected record(s), so `fields=["state"]` still returns a record
+        with only `state`.
 
         EXAMPLES:
         - Single: ha_get_state("light.kitchen")

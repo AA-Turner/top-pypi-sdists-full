@@ -1,4 +1,6 @@
-"""SIGTERM: deliver what is queued, close every open run ``failed``/``preempted``, then die of SIGTERM.
+"""SIGTERM: deliver what is queued, close every open run, then die of SIGTERM. The close is
+``canceled`` when another process of this user on this machine sent it (`signal_sender`), else
+``failed``/``preempted``.
 
 Managed jobs (SageMaker, Vertex, k8s, spot reclaim, ``docker stop``) SIGTERM then destroy the
 container ~30 s later; Python's default ends the process with no ``finally``/atexit. Budget:
@@ -17,8 +19,10 @@ import sys
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
+
+from . import signal_sender as _sender
 
 
 ENV = "PROBE_SIGTERM_FLUSH_SECONDS"
@@ -27,6 +31,11 @@ DEFAULT_SECONDS = 20.0
 #: which the kernel will not kill with a default-action signal -- exits with.
 EXIT_CODE = 128 + int(signal.SIGTERM)
 REASON = "preempted"
+#: The reason a SIGTERM another local process of this user sent records.
+STOPPED_REASON = "stopped"
+#: Set by `probe exec` in its child: a folder where this process notes its verdict for the
+#: launcher, which sees only the exit code (`read_exit_note`).
+EXIT_NOTE_ENV = "PROBE_EXIT_NOTE"
 #: The least a close that starts after the budget is spent still gets (the
 #: late close of a chained handler that raised), so its status write can go.
 LATE_CLOSE_FLOOR_SECONDS = 2.0
@@ -67,10 +76,32 @@ class Ending:
     #: 143 when this module ends the process; None while the process ends its
     #: own way (another handler raised, or is making its own stop).
     exit_code: int | None
+    #: Who sent it, when the recorder was in front of the handler (`signal_sender`).
+    sent: _sender.Sent | None = None
+    #: The coding-agent session the sender ran in; recorded, never decides the status.
+    session: str | None = None
+
+    @property
+    def is_stopped_on_purpose(self) -> bool:
+        """Another process of this user on this machine sent it
+        (`Sent.is_another_local_process`)."""
+        return self.sent is not None and self.sent.is_another_local_process()
+
+    def get_status(self) -> str:
+        """The run's verdict: ``canceled`` when stopped on purpose, else ``failed``."""
+        return "canceled" if self.is_stopped_on_purpose else "failed"
 
     def facts(self) -> dict[str, Any]:
         """What the close records on the run (``probe_finish``)."""
         facts: dict[str, Any] = {"reason": REASON, "signal": _signal_name(self.signum)}
+        if self.is_stopped_on_purpose:
+            facts = {
+                "reason": STOPPED_REASON,
+                "signal": _signal_name(self.signum),
+                "sender_pid": self.sent.pid,
+            }
+            if self.session:
+                facts["session"] = self.session
         if self.exit_code is not None:
             facts["exit_code"] = self.exit_code
         return facts
@@ -114,6 +145,8 @@ class _State:
         self.ctx: contextvars.Context | None = None
         self.done = threading.Event()
         self.close_finished = False
+        #: A heartbeat asked for the sender recorder to be put back (`install_sender`).
+        self.is_sender_stale = False
 
 
 _state = _State()
@@ -208,7 +241,36 @@ def _install() -> bool:
         st.worker.start()
     if current is not _on_sigterm:
         signal.signal(signal.SIGTERM, _on_sigterm)
+    install_sender()
     return True
+
+
+def install_sender() -> None:
+    """Put the sender recorder back in front of SIGTERM: a later ``signal.signal`` (Lightning's
+    ``fit()``) puts CPython's own handler back over it. Main thread only, where every
+    ``signal.signal`` runs: from another thread it races one setting SIG_DFL, and CPython then
+    drops SIGTERM. At install, and on the first `run_first` after each heartbeat marked it
+    stale. Never raises."""
+    try:
+        st = _state
+        if threading.get_ident() != threading.main_thread().ident:
+            return
+        st.is_sender_stale = False
+        if st.pid != os.getpid() or st.phase != _IDLE:
+            return
+        if not callable(signal.getsignal(signal.SIGTERM)):
+            return
+        recorder = _sender.load_sender()
+        if recorder is not None:
+            recorder.install(signal.SIGTERM)
+    except Exception:  # noqa: BLE001 -- the sender is evidence, never a reason a run fails
+        pass
+
+
+def mark_sender_stale() -> None:
+    """From the heartbeat (any thread): the recorder may have been displaced since; the next
+    `run_first` on the main thread puts it back."""
+    _state.is_sender_stale = True
 
 
 def uninstall() -> None:
@@ -252,6 +314,8 @@ def run_first() -> None:
     nothing composed it. Main thread only (a handler runs there, so the list
     is never reordered under it); never raises."""
     try:
+        if _state.is_sender_stale:
+            install_sender()
         current = signal.getsignal(signal.SIGTERM)
         if current is _on_sigterm or current is None:
             return
@@ -283,6 +347,7 @@ def _prepare() -> None:
     handler, or at interpreter exit, is where the #2083 regression came from."""
     from ... import diagnostics, fluent, run  # noqa: F401
     from . import ephemeral  # noqa: F401
+    from ... import agent_session  # noqa: F401 -- `read_session` runs inside the handler
     from ...delivery import transport  # noqa: F401
     from ....foundation.safe_warn import safe_warn  # noqa: F401
 
@@ -334,13 +399,14 @@ def _on_sigterm(signum: int, frame: Any) -> None:
         _as_before(signum, frame, composed)
         return
     deadline = time.monotonic() + st.budget
+    sent, session = _read_sender()
     if callable(st.previous) or composed:
         # Theirs has a stop of its own to make: the one we chain (about to
         # run), or the one that composed ours (it ran, or runs after ours).
         # Mark the run preempted and give that stop until our reserve --
         # armed BEFORE theirs runs, so a handler of theirs that never returns
         # (stuck in a C call) still ends in our close (`_close_unanswered`).
-        _grace(signum, deadline)
+        _grace(signum, deadline, sent, session)
         if callable(st.previous):
             try:
                 _call_previous(signum, frame)
@@ -350,13 +416,83 @@ def _on_sigterm(signum: int, frame: Any) -> None:
                 st.phase = _UNWINDING
                 raise
         return
-    st.ending = Ending(signum, deadline, EXIT_CODE)
+    st.ending = Ending(signum, deadline, EXIT_CODE, sent, session)
+    _write_exit_note(st.ending)
     _close_now(frame)
 
 
-def _grace(signum: int, deadline: float) -> None:
+def _read_sender() -> tuple[_sender.Sent | None, str | None]:
+    """Who sent the SIGTERM being handled, and the agent session it ran in. Read once, when the
+    ending is decided: the worker's own re-signals later name this process. Never raises."""
+    try:
+        recorder = _sender.load_sender()
+        sent = recorder.read_last(signal.SIGTERM) if recorder is not None else None
+        if sent is None or not sent.is_another_local_process():
+            return sent, None
+        return sent, _sender.read_session(sent.pid)
+    except Exception:  # noqa: BLE001 -- an unknown sender is today's behaviour
+        return None, None
+
+
+def _write_exit_note(ending_: Ending) -> None:
+    """Tell a `probe exec` launcher (`EXIT_NOTE_ENV`) this process's verdict: it sees only -15.
+    One file per process, named by pid, so a grandchild never overwrites its parent's. Only into
+    a folder that is this user's alone, never through a link: a process that outlived its
+    launcher may find the name taken by someone else. Plain syscalls (the handler's frame may
+    hold any lock); never raises."""
+    folder = os.environ.get(EXIT_NOTE_ENV)
+    if not folder:
+        return
+    try:
+        data = f"{os.getppid()} {ending_.get_status()}\n".encode()
+        folder_fd = os.open(folder, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            info = os.fstat(folder_fd)
+            if info.st_uid != os.geteuid() or info.st_mode & 0o077:
+                return
+            flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW
+            fd = os.open(f"{os.getpid()}.note", flags, 0o600, dir_fd=folder_fd)
+            try:
+                os.write(fd, data)
+            finally:
+                os.close(fd)
+        finally:
+            os.close(folder_fd)
+    except Exception:  # noqa: BLE001 -- without a note the launcher keeps `failed`
+        pass
+
+
+def read_exit_note(folder: str) -> str | None:
+    """The verdict this launcher's direct child noted in ``folder`` (`_write_exit_note`): the note
+    whose writer's parent is this process."""
+    try:
+        names = os.listdir(folder)
+    except Exception:  # noqa: BLE001 -- no folder is no note
+        return None
+    for name in names:
+        pid, _, suffix = name.partition(".")
+        if suffix != "note" or not pid.isdigit():
+            continue
+        try:
+            fd = os.open(os.path.join(folder, name), os.O_RDONLY | os.O_NOFOLLOW)
+            try:
+                text = os.read(fd, 256).decode("ascii")
+            finally:
+                os.close(fd)
+            parent, _, status = text.strip().partition(" ")
+        except Exception:  # noqa: BLE001 -- an unreadable note is no note
+            continue
+        if parent == str(os.getpid()) and status in ("canceled", "failed"):
+            return status
+    return None
+
+
+def _grace(
+    signum: int, deadline: float, sent: _sender.Sent | None = None, session: str | None = None
+) -> None:
     st = _state
-    st.ending = Ending(signum, deadline, None)
+    st.ending = Ending(signum, deadline, None, sent, session)
+    _write_exit_note(st.ending)
     st.phase = _GRACE
     st.grace_handler = signal.getsignal(signal.SIGTERM)
     # This thread's context, for a close the worker makes without it.
@@ -396,7 +532,7 @@ def _close_now(frame: Any) -> None:
         st.ending = Ending(signal.SIGTERM, time.monotonic() + st.budget, EXIT_CODE)
     elif st.ending.exit_code is None:
         # The grace ran out: from here this module ends the process.
-        st.ending = Ending(st.ending.signum, st.ending.deadline, EXIT_CODE)
+        st.ending = replace(st.ending, exit_code=EXIT_CODE)
     boundary, closing = _sdk_boundary(frame)
     if boundary is not None:
         _defer(boundary, closing)
@@ -573,7 +709,7 @@ def _close_unanswered() -> None:
     st.forced = False
     ending_ = st.ending
     if ending_ is not None and ending_.exit_code is None:
-        st.ending = Ending(ending_.signum, ending_.deadline, EXIT_CODE)
+        st.ending = replace(ending_, exit_code=EXIT_CODE)
     deadline = st.ending.deadline if st.ending is not None else time.monotonic() + _DIE_FLUSH_SECONDS
     # No thread to be had: no close, rather than one that may block the only thread that can
     # end the process (the run is left to the outbox and the server's reaper).

@@ -36,7 +36,7 @@ class FakeBroker:
         if self._sock is None:
             raise ValueError('Socket is not open')
 
-        (conn, address) = self._sock.accept()
+        (conn, _address) = self._sock.accept()
         conn.settimeout(5)
         self._conn = conn
 
@@ -59,8 +59,10 @@ class FakeBroker:
         if self._conn is None:
             raise ValueError('Connection is not open')
 
-        packet_in = self._conn.recv(num_bytes)
-        return packet_in
+        try:
+            return self._conn.recv(num_bytes)
+        except ConnectionResetError:
+            return b""
 
     def send_packet(self, packet_out):
         if self._conn is None:
@@ -69,11 +71,11 @@ class FakeBroker:
         count = self._conn.send(packet_out)
         return count
 
-    def expect_packet(self, name, packet):
+    def expect_packet(self, name, packet, is_mqtt5: bool = False):
         if self._conn is None:
             raise ValueError('Connection is not open')
 
-        paho_test.expect_packet(self._conn, name, packet)
+        paho_test.expect_packet(self._conn, name, packet, is_mqtt5=is_mqtt5)
 
 
 @pytest.fixture(params=["tcp"] + (["unix"] if hasattr(socket, 'AF_UNIX') else []))

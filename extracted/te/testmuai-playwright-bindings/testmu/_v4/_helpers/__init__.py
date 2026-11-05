@@ -2,7 +2,8 @@
 
 Stubs are split into:
 - Always-available: work regardless of smart mode (execute_js, execute_api, etc.)
-- Smart-gated: only work when TESTMU_SMART=1 (vision, heal, SmartUI, etc.)
+- Smart-gated: only work when TESTMU_SMART=1 (vision, heal, etc.)
+- Server-gated: SmartUI captures only when a SmartUI server answers its health check
 """
 import logging
 from testmu import _config
@@ -79,5 +80,5 @@ from testmu._v4._helpers.cookies import get_cookies
 # Vision-agent verb (no selector) — smart-gated at call time
 from testmu._v4._helpers.scroll_until import scroll_until_element
 
-# Driver-scoped JS-dialog handling (V3) — persistent accept/dismiss policy
+# JS dialogs: one-shot answers armed before the trigger, events read after
 from testmu._v4._helpers.dialog import prime_dialog

@@ -37,6 +37,7 @@ dependencies = [
 
 [project.optional-dependencies]
 shapely = ["Shapely>=1.7"]
+wkb-wkt-converter = ["wkb-wkt-converter>=0.6.3"]
 
 [project.urls]
 Homepage = "https://geoalchemy-2.readthedocs.io/en/stable/"
@@ -110,8 +111,11 @@ testpaths = [
 module = [
     "importlib.*",
     "psycopg2cffi",
+    "pymysql",
     "rasterio",
     "shapely",
-    "shapely.*"
+    "shapely.*",
+    "wkb_wkt_converter",
+    "wkb_wkt_converter.*",
 ]
 ignore_missing_imports = true

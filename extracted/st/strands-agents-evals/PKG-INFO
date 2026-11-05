@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents-evals
-Version: 1.8.0
+Version: 1.9.0
 Summary: Evaluation framework for Strands
 Author-email: AWS <opensource@amazon.com>
 License: Apache-2.0
@@ -185,6 +185,11 @@ strands-evals validate experiments/customer_service.json
 strands-evals run experiments/customer_service.json \
   --agent my_pkg.agents:build_agent \
   --display
+
+# Run a single case (by name or 0-based index) against all of the experiment's evaluators
+strands-evals run experiments/customer_service.json \
+  --agent my_pkg.agents:build_agent \
+  --case refund_request
 
 # One-off ad-hoc run with no experiment file
 strands-evals run \

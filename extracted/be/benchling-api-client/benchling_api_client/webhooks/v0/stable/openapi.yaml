@@ -653,18 +653,6 @@ components:
         required:
         - type
         type: object
-    RunCreatedWebhookV3:
-      allOf:
-      - $ref: '#/components/schemas/V3EventBase'
-      - properties:
-          type:
-            enum:
-            - v3.run.created
-            nullable: false
-            type: string
-        required:
-        - type
-        type: object
     UpdateEventBaseWebhookV2:
       allOf:
       - $ref: '#/components/schemas/EventBaseWebhookV2Schematized'
@@ -1091,7 +1079,6 @@ components:
           v3.rnaOligo.updated: '#/components/schemas/RnaOligoUpdatedWebhookV3'
           v3.rnaSequence.created: '#/components/schemas/RnaSequenceCreatedWebhookV3'
           v3.rnaSequence.updated: '#/components/schemas/RnaSequenceUpdatedWebhookV3'
-          v3.run.created: '#/components/schemas/RunCreatedWebhookV3'
         propertyName: type
       oneOf:
       - $ref: '#/components/schemas/LifecycleConfigurationUpdateWebhookV2Beta'
@@ -1143,7 +1130,6 @@ components:
       - $ref: '#/components/schemas/RnaOligoUpdatedWebhookV3'
       - $ref: '#/components/schemas/RnaSequenceCreatedWebhookV3'
       - $ref: '#/components/schemas/RnaSequenceUpdatedWebhookV3'
-      - $ref: '#/components/schemas/RunCreatedWebhookV3'
     WorkflowOutputCreatedWebhookV2:
       allOf:
       - $ref: '#/components/schemas/EventBaseWebhookV2Schematized'

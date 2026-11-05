@@ -10,16 +10,26 @@ import time
 from .env import (
     BASE_URL_ENV,
     CONTEXT_ENV,
+    CREDENTIAL_ENV,
     HOOK_EVENT_ID_LEN,
     HOOK_LANES,
+    HOOK_PROXY_V,
+    HOOK_PROXY_V2,
+    HOOK_REPLY_ACTIONS,
+    HOOK_ROUTES_SERVICE,
+    HOOK_RUN_OPTIONS,
+    HOOK_RUN_ROOT_ENVS,
+    HOOK_RUN_WAITS,
     HOOK_WAIT_MS,
     MAX_CONTEXT_VALUE,
+    MAX_HOOK_EVENT_NAME,
     MAX_HOOK_ENV,
     MAX_HOOK_ENV_VALUE,
     MAX_HOOK_PATH,
     MAX_HOOK_QUEUE_ENV,
     MAX_HOOK_QUEUE_ITEM,
     MAX_HOOK_WAIT_MS,
+    MAX_STATUSLINE_PAYLOAD,
     MAX_TELEMETRY_ENTRIES,
     hook_queue_env,
     runtime_env_name,
@@ -192,6 +202,17 @@ def need_hook_run(params: dict) -> dict:
         env          the session's environment (at most MAX_HOOK_ENV strings)
         cwd          the session's folder (absolute)
         timeout_ms   how long the caller waits (default HOOK_WAIT_MS)
+        harness      optional: the harness registry id of the hook that sent it (a dispatcher a
+                     harness ran itself, service-only task 13): the service checks the caller
+                     is that harness's hook, then serves every lane
+        options      optional: what follows the lane (HOOK_RUN_OPTIONS)
+        root_env     optional, with `harness`: the variable its routes read the folder from
+                     (HOOK_RUN_ROOT_ENVS; default Claude Code's)
+        event_id     optional, with `harness`: the event's id (32 lowercase hex), the same one a
+                     client that got no answer spools it under: whichever runs it first claims it
+                     (`<queue>/<event_id>.claim`), so it runs once
+        wait         optional, with `harness`, on the stop lane: a held wait (HOOK_RUN_WAITS), run
+                     as a slice until just before the caller stops waiting
     """
     root = _need_path(params, "plugin_root")
     lane = params.get("lane")
@@ -201,16 +222,24 @@ def need_hook_run(params: dict) -> dict:
     payload = params.get("payload")
     if not isinstance(payload, dict):
         raise invalid_params("payload must be a JSON object")
+    harness = params.get("harness")
+    if harness is not None and not is_agent_id(harness):
+        raise invalid_params("harness must be a harness registry id")
     named = payload.get("hook_event_name")
-    if named is not None and named != event:
-        raise invalid_params(f"payload.hook_event_name must be {event!r} on lane {lane!r}")
-    payload = {**payload, "hook_event_name": event}
+    # A harness's own hook keeps the name its adapter gave (Kimi's typed skill on turn-started is a prompt).
+    if harness is None or not isinstance(named, str):
+        if named is not None and named != event:
+            raise invalid_params(f"payload.hook_event_name must be {event!r} on lane {lane!r}")
+        payload = {**payload, "hook_event_name": event}
     env = need_env(params)
     cwd = _need_path(params, "cwd")
     timeout = params.get("timeout_ms", HOOK_WAIT_MS)
     if not isinstance(timeout, int) or isinstance(timeout, bool) or not 1 <= timeout <= MAX_HOOK_WAIT_MS:
         raise invalid_params(f"timeout_ms must be an integer from 1 to {MAX_HOOK_WAIT_MS}")
-    return {
+    options = params.get("options", [])
+    if not isinstance(options, list) or not all(option in HOOK_RUN_OPTIONS for option in options):
+        raise invalid_params(f"options must be a list of {sorted(HOOK_RUN_OPTIONS)}")
+    request = {
         "root": root,
         "lane": lane,
         "event": event,
@@ -219,7 +248,188 @@ def need_hook_run(params: dict) -> dict:
         "env": dict(env),
         "cwd": cwd,
         "timeout_s": timeout / 1000.0,
+        "harness": harness,
     }
+    if options:
+        request["argv"] = [lane, *options]
+    root_env = params.get("root_env")
+    if root_env is not None:
+        if harness is None or root_env not in HOOK_RUN_ROOT_ENVS:
+            raise invalid_params(f"root_env must be one of {sorted(HOOK_RUN_ROOT_ENVS)}, with a harness")
+        request["root_env"] = root_env
+    event_id = params.get("event_id")
+    if event_id is not None:
+        if harness is None or not _is_event_id(event_id):
+            raise invalid_params(f"event_id must be {HOOK_EVENT_ID_LEN} lowercase hex digits, with a harness")
+        request["event_id"] = event_id
+    wait = params.get("wait")
+    if wait is not None:
+        if harness is None or wait not in HOOK_RUN_WAITS or lane != "stop":
+            raise invalid_params(f"wait must be one of {sorted(HOOK_RUN_WAITS)}, with a harness, on the stop lane")
+        request["wait"] = wait
+    return request
+
+
+def need_statusline_render(values: dict) -> dict:
+    """`statusline.render`'s params, checked: `{payload (str), env}`.
+
+        payload  the status-line command's stdin, as it read it (a string; empty when a chain
+                 before it drained the pipe); parsed here, never by the command
+        env      the few variables the renderer reads (`jobs/statusline_render.py`)
+    """
+    raw = values.get("payload", "")
+    if not isinstance(raw, str) or len(raw) > MAX_STATUSLINE_PAYLOAD:
+        raise invalid_params(f"payload must be a string of at most {MAX_STATUSLINE_PAYLOAD} characters")
+    try:
+        payload = json.loads(raw) if raw.strip() else {}
+    except ValueError:
+        payload = {}
+    return {"payload": payload if isinstance(payload, dict) else {}, "env": need_env(values)}
+
+
+def _need_proxy_fields(values: dict) -> dict:
+    """The fields a proxied event (`hooks.run {routes: "service"}`) and a shim's
+    queue file share: `{harness, event, payload (str), env, cwd}` checked. The
+    payload is the hook's stdin as the harness wrote it, a string the service
+    parses (it must be a JSON object), so the shim never parses it itself."""
+    if values.get("routes") != HOOK_ROUTES_SERVICE:
+        raise invalid_params(f"routes must be {HOOK_ROUTES_SERVICE!r}")
+    version = values.get("v", HOOK_PROXY_V)
+    if version != HOOK_PROXY_V or isinstance(version, bool):
+        raise invalid_params(f"v must be {HOOK_PROXY_V}")
+    harness = values.get("harness")
+    if not is_agent_id(harness):
+        raise invalid_params("harness must be a harness registry id")
+    event = values.get("event")
+    if not isinstance(event, str) or not 0 < len(event) <= MAX_HOOK_EVENT_NAME or not event.isascii() or not event.isalpha():
+        raise invalid_params(f"event must be the harness's hook event name (letters, at most {MAX_HOOK_EVENT_NAME})")
+    payload = values.get("payload")
+    if not isinstance(payload, str) or len(payload.encode("utf-8", "surrogatepass")) > MAX_HOOK_QUEUE_ITEM:
+        raise invalid_params(f"payload must be the hook's stdin as a string of at most {MAX_HOOK_QUEUE_ITEM} bytes")
+    try:
+        parsed = json.loads(payload)
+    except ValueError:
+        parsed = None
+    if not isinstance(parsed, dict):
+        raise invalid_params("payload must hold a JSON object")
+    named = parsed.get("hook_event_name")
+    if named is not None and named != event:
+        raise invalid_params(f"payload.hook_event_name must be {event!r}")
+    return {"harness": harness, "event": event, "payload": parsed, "cwd": _need_path(values, "cwd")}
+
+
+def need_hook_proxy(values: dict) -> dict:
+    """`hooks.run {routes: "service"}`'s values, checked (v1, frozen with the
+    hook shim: `service/hooks/proxy/DESIGN.md`):
+
+        routes      "service"
+        v           1 (optional)
+        harness     the harness registry id the shim was written for
+        event       the harness's hook event name (`SessionStart`, `SubagentStart`, ...)
+        payload     the hook's stdin, as a string holding a JSON object
+        env         the session's environment (at most MAX_HOOK_ENV strings)
+        cwd         the session's folder (absolute)
+        timeout_ms  how long the caller waits (default HOOK_WAIT_MS)
+
+    -> `{harness, event, payload (dict), env, cwd, timeout_s}`."""
+    request = _need_proxy_fields(values)
+    timeout = values.get("timeout_ms", HOOK_WAIT_MS)
+    if not isinstance(timeout, int) or isinstance(timeout, bool) or not 1 <= timeout <= MAX_HOOK_WAIT_MS:
+        raise invalid_params(f"timeout_ms must be an integer from 1 to {MAX_HOOK_WAIT_MS}")
+    return {**request, "env": need_env(values), "timeout_s": timeout / 1000.0}
+
+
+def need_hook_proxy_v2(values: dict) -> dict:
+    """`hooks.run {routes: "service", v: 2}`'s values, checked (pi's extension,
+    `service/hooks/proxy/DESIGN.md` §6). As v1, but `event` is the extension's
+    own name (lowercase and `_`: `tool_call`), `event_id` (32 lowercase hex)
+    names it for a delivery receipt, and `reply` must be `actions`
+    (HOOK_REPLY_ACTIONS): the answer carries what to do with it.
+
+    -> `{harness, event, payload (dict), env, cwd, timeout_s, event_id, v}`."""
+    if values.get("reply") != HOOK_REPLY_ACTIONS:
+        raise invalid_params(f"reply must be {HOOK_REPLY_ACTIONS!r}")
+    request = _need_extension_fields(values)
+    event_id = values.get("event_id")
+    if event_id is not None and not _is_event_id(event_id):
+        raise invalid_params(f"event_id must be {HOOK_EVENT_ID_LEN} lowercase hex digits")
+    timeout = values.get("timeout_ms", HOOK_WAIT_MS)
+    if not isinstance(timeout, int) or isinstance(timeout, bool) or not 1 <= timeout <= MAX_HOOK_WAIT_MS:
+        raise invalid_params(f"timeout_ms must be an integer from 1 to {MAX_HOOK_WAIT_MS}")
+    return {**request, "env": need_env(values), "timeout_s": timeout / 1000.0, "event_id": event_id}
+
+
+def _need_extension_fields(values: dict) -> dict:
+    """The fields a v2 request and a v2 queue file share: `{v, harness, event, payload (dict), cwd}`."""
+    if values.get("routes") != HOOK_ROUTES_SERVICE:
+        raise invalid_params(f"routes must be {HOOK_ROUTES_SERVICE!r}")
+    if values.get("v") != HOOK_PROXY_V2 or isinstance(values.get("v"), bool):
+        raise invalid_params(f"v must be {HOOK_PROXY_V2}")
+    harness = values.get("harness")
+    if not is_agent_id(harness):
+        raise invalid_params("harness must be a harness registry id")
+    event = values.get("event")
+    if (not isinstance(event, str) or not 0 < len(event) <= MAX_HOOK_EVENT_NAME or not event.isascii()
+            or not event[0].isalpha() or not all(c.islower() or c == "_" for c in event)):
+        raise invalid_params(f"event must be the extension's event name (lowercase and _, at most {MAX_HOOK_EVENT_NAME})")
+    payload = values.get("payload")
+    if not isinstance(payload, str) or len(payload.encode("utf-8", "surrogatepass")) > MAX_HOOK_QUEUE_ITEM:
+        raise invalid_params(f"payload must be the event as a JSON string of at most {MAX_HOOK_QUEUE_ITEM} bytes")
+    try:
+        parsed = json.loads(payload)
+    except ValueError:
+        parsed = None
+    if not isinstance(parsed, dict):
+        raise invalid_params("payload must hold a JSON object")
+    return {"v": HOOK_PROXY_V2, "harness": harness, "event": event, "payload": parsed, "cwd": _need_path(values, "cwd")}
+
+
+def need_hook_ack(values: dict) -> dict:
+    """`hooks.ack`'s values: `{receipt, shown}` -- the extension applied (or could
+    not apply) an answer whose `receipt` action named this id. -> the same, checked."""
+    receipt = values.get("receipt")
+    if not _is_event_id(receipt):
+        raise invalid_params(f"receipt must be {HOOK_EVENT_ID_LEN} lowercase hex digits")
+    shown = values.get("shown")
+    if not isinstance(shown, bool):
+        raise invalid_params("shown must be true or false")
+    return {"receipt": receipt, "shown": shown}
+
+
+def _is_event_id(value: object) -> bool:
+    return isinstance(value, str) and len(value) == HOOK_EVENT_ID_LEN and all(c in "0123456789abcdef" for c in value)
+
+
+def need_hook_proxy_queue(values: dict) -> dict:
+    """A hook shim's queue file (v1, `service/hooks/proxy/DESIGN.md`): the shim
+    found no service to ask and wrote the event into `paths.hook_queue_dir()`
+    for the next one: `{v, id, routes: "service", harness, event, payload, env,
+    cwd, at}` -> `{id, harness, event, payload (dict), env, cwd, at}`. Its env
+    keeps only `hook_queue_env`'s names, as a dispatcher's queued event."""
+    event_id = values.get("id")
+    if (
+        not isinstance(event_id, str)
+        or len(event_id) != HOOK_EVENT_ID_LEN
+        or any(c not in "0123456789abcdef" for c in event_id)
+    ):
+        raise invalid_params(f"id must be {HOOK_EVENT_ID_LEN} lowercase hex digits")
+    # A v2 file is an extension's (pi's) event, written when no service took it (DESIGN.md §7).
+    request = _need_extension_fields(values) if values.get("v") == HOOK_PROXY_V2 else _need_proxy_fields(values)
+    env = values.get("env")
+    if not isinstance(env, dict) or len(env) > MAX_HOOK_QUEUE_ENV or not all(
+        isinstance(k, str) and k and "=" not in k and "\0" not in k and isinstance(v, str) and "\0" not in v
+        for k, v in env.items()
+    ):
+        raise invalid_params(f"env must be an object of at most {MAX_HOOK_QUEUE_ENV} string variables")
+    at = values.get("at")
+    if not isinstance(at, (int, float)) or isinstance(at, bool) or at != at or at in (float("inf"), float("-inf")):
+        raise invalid_params("at must be a number (epoch seconds)")
+    return {**request, "id": event_id, "env": hook_queue_env(env), "at": float(at)}
+
+
+def is_proxy_queue_item(item: object) -> bool:
+    """Is this queue file's object a hook shim's (`routes: "service"`), not a dispatcher's?"""
+    return isinstance(item, dict) and item.get("routes") == HOOK_ROUTES_SERVICE
 
 
 def need_hook_queue(params: dict) -> dict:
@@ -237,6 +447,9 @@ def need_hook_queue(params: dict) -> dict:
         cwd          the event's working folder (absolute)
         at           when it happened (epoch seconds; optional): the queue
                      runs events oldest first
+        sent         optional: true when the event was first sent as `hooks.run` under this id
+                     (a harness's run of the dispatcher, `hooks/_hook_forward.py`): the queue runs
+                     it only if it can still claim the id, so one the service ran never runs twice
 
     The whole item is at most MAX_HOOK_QUEUE_ITEM bytes as JSON."""
     event_id = params.get("id")
@@ -271,6 +484,8 @@ def need_hook_queue(params: dict) -> dict:
         raise invalid_params("at must be a number (epoch seconds)")
     item = {"id": event_id, "plugin_root": root, "lane": lane, "payload": payload, "env": hook_queue_env(env),
             "cwd": cwd, "at": float(at)}
+    if params.get("sent") is True:
+        item["sent"] = True
     if len(json.dumps(item).encode("utf-8")) > MAX_HOOK_QUEUE_ITEM:
         raise invalid_params(f"a queued event must be at most {MAX_HOOK_QUEUE_ITEM} bytes as JSON")
     return item
@@ -373,6 +588,41 @@ def need_mailbox_claim(params: dict) -> dict:
     return out
 
 
+#: What of the caller's environment `probe session initialize` reads, run by the service for pi
+#: (pi's `trackingChildEnv`): where its state and config are, its settings' overrides, where pi and its
+#: capture live. Never what names code to run (PATH: the child's commands are the service's own).
+SESSION_INITIALIZE_ENV = frozenset({
+    "XDG_STATE_HOME", "XDG_CONFIG_HOME", "PROBE_CONFIG_PATH", "PROBE_SESSION_TRACKING",
+    "PROBE_SESSION_STATE", "PI_CODING_AGENT_DIR", "PROBE_PI_TAP_PLUGIN_DIR",
+})
+#: An inbox message's id in pi's shown log (`mailbox.INBOX_ID_PREFIX` then 32 hex), at most this many at once.
+INBOX_MESSAGE_ID = re.compile(r"s[0-9a-f]{32}")
+MAX_DELIVERED = 64
+
+
+def need_session_initialize(values: dict) -> dict:
+    """`session.initialize`: `{sid, cwd, agent, env}`: the session, its start folder (absolute), the
+    agent calling (a harness id; pi's by default) and the part of its environment the command reads
+    (SESSION_INITIALIZE_ENV: anything else is dropped)."""
+    agent = values.get("agent", "pi")  # harness-literal-ok: the one extension that calls it
+    if not is_agent_id(agent):
+        raise invalid_params("agent must be a harness registry id")
+    env = need_env(values)
+    return {"sid": need_sid(values), "cwd": _need_path(values, "cwd"), "agent": agent,
+            "env": {k: v for k, v in env.items() if k in SESSION_INITIALIZE_ENV}}
+
+
+def need_mailbox_delivered(values: dict) -> dict:
+    """`mailbox.delivered`: `{sid, message_ids, env}`: the inbox messages (INBOX_MESSAGE_ID, at most
+    MAX_DELIVERED) the caller showed its agent, and its environment (the daemon's key and the
+    Probe API travel with it, D11)."""
+    ids = values.get("message_ids")
+    if (not isinstance(ids, list) or not ids or len(ids) > MAX_DELIVERED
+            or not all(isinstance(i, str) and INBOX_MESSAGE_ID.fullmatch(i) for i in ids)):
+        raise invalid_params(f"message_ids must be 1 to {MAX_DELIVERED} inbox message ids")
+    return {"sid": need_sid(values), "message_ids": list(dict.fromkeys(ids)), "env": need_env(values)}
+
+
 def need_mailbox_answer(params: dict) -> dict:
     """`mailbox.answer`: `{state_dir, deadline}`, `id` (the held question's),
     `choice` (the researcher's pick, as the question tool reported it: the yes
@@ -412,23 +662,27 @@ def need_background(params: dict, *, directory: bool) -> dict:
     `{dir, python, cwd, env}`.
 
         dir     the outbox journal folder to drain (absolute; `outbox.drain` only)
-        python  the interpreter the child runs on: the caller's own (absolute)
+        python  `box.watch`'s child interpreter: the caller's own (absolute); an
+                `outbox.drain` child runs on the service's own (plan D8), so
+                its `python` is optional and unused
         cwd     the caller's working folder, the child's too (absolute; optional)
         env     the caller's environment, by `runtime_env_name` (at most
-                MAX_HOOK_ENV strings); a credential's name is refused.
+                MAX_HOOK_ENV strings), and its credentials (`CREDENTIAL_ENV`,
+                plan D11): that child's environment only, never stored.
                 `box.watch` needs its registry folder, PROBE_BOX_DIR, in it.
     """
     found = {
         "dir": _need_path(params, "dir") if directory else None,
-        "python": _need_path(params, "python"),
+        "python": _need_path(params, "python") if not directory or params.get("python") is not None else None,
         "cwd": _need_path(params, "cwd") if params.get("cwd") is not None else None,
     }
     env = params.get("env", {})
     if not isinstance(env, dict) or len(env) > MAX_HOOK_ENV:
         raise invalid_params(f"env must be an object of at most {MAX_HOOK_ENV} variables")
     for name, value in env.items():
-        if not isinstance(name, str) or "\0" in name or "=" in name or not runtime_env_name(name):
-            raise invalid_params(f"env may not set {name!r}: never a credential, only what the drainer reads")
+        allowed = isinstance(name, str) and (runtime_env_name(name) or name in CREDENTIAL_ENV)
+        if not allowed or "\0" in name or "=" in name:
+            raise invalid_params(f"env may not set {name!r}: only what the drainer reads")
         if not isinstance(value, str) or len(value) > MAX_HOOK_ENV_VALUE or "\0" in value:
             raise invalid_params(f"env.{name} must be a string of at most {MAX_HOOK_ENV_VALUE} characters")
     if not directory and not str(env.get("PROBE_BOX_DIR") or "").startswith("/"):

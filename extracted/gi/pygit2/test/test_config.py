@@ -28,7 +28,15 @@ from pathlib import Path
 
 import pytest
 
-from pygit2 import Config, Repository, Settings
+from pygit2 import (
+    Config,
+    DefaultConfig,
+    GitError,
+    Repository,
+    RepositoryConfig,
+    Settings,
+)
+from pygit2.config import ConfigEntry
 
 from . import utils
 
@@ -39,7 +47,7 @@ def config_path(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def config(testrepo: Repository) -> Generator[Config, None, None]:
+def config(testrepo: Repository) -> Generator[RepositoryConfig, None, None]:
     yield testrepo.config
 
 
@@ -50,7 +58,7 @@ def test_config(config: Config) -> None:
 def test_global_config() -> None:
     try:
         assert Config.get_global_config() is not None
-    except IOError as e:
+    except OSError as e:
         settings = Settings()
         pytest.skip(f'Unavailable for testing with home dir = {settings.homedir}: {e}')
 
@@ -58,8 +66,14 @@ def test_global_config() -> None:
 def test_system_config() -> None:
     try:
         assert Config.get_system_config() is not None
-    except IOError as e:
+    except OSError as e:
         pytest.skip(f'Unavailable for testing: {e}')
+
+
+def test_default_config() -> None:
+    # this shouldn't throw, even if get_global_config and git_system_config don't find configs
+    config = DefaultConfig()
+    assert 'pygit2.test.default.config' not in config
 
 
 def test_new(config_path: Path) -> None:
@@ -79,17 +93,35 @@ def test_new(config_path: Path) -> None:
     assert config_read['core.editor'] == 'ed'
 
 
-def test_add(config_path: Path) -> None:
+def test_add(
+    config_path: Path,
+    config: RepositoryConfig,
+) -> None:
     with open(config_path, 'w') as new_file:
         new_file.write('[this]\n\tthat = true\n')
         new_file.write('[something "other"]\n\there = false')
 
-    config = Config()
-    config.add_file(config_path, 0)
-    assert 'this.that' in config
-    assert config.get_bool('this.that')
-    assert 'something.other.here' in config
-    assert not config.get_bool('something.other.here')
+    local_config = Config()
+    local_config.add_file(config_path, 0)
+    assert 'this.that' in local_config
+    assert local_config.get_bool('this.that')
+    assert 'something.other.here' in local_config
+    assert not local_config.get_bool('something.other.here')
+
+    utils.assertRaisesWithArg(
+        TypeError,
+        'The local repository configuration does not support adding files.',
+        config.add_file,
+        config_path,
+    )
+
+    default_config = DefaultConfig()
+    utils.assertRaisesWithArg(
+        TypeError,
+        'The default configuration does not support adding files.',
+        default_config.add_file,
+        config_path,
+    )
 
 
 def test_add_aspath(config_path: Path) -> None:
@@ -156,7 +188,28 @@ def test_multivar(config_path: Path) -> None:
 
     assert ['foobar', 'foobeer'] == list(config.get_multivar('this.that'))
     assert ['foobar'] == list(config.get_multivar('this.that', 'bar'))
-    assert ['foobar', 'foobeer'] == list(config.get_multivar('this.that', 'foo.*'))
+
+    multivar_list = list(config.get_multivar('this.that', 'foo.*'))
+    assert ['foobar', 'foobeer'] == multivar_list
+    multivar_iter1 = config.get_multivar('this.that', 'foo.*')
+    multivar_iter2 = config.get_multivar('this.that', 'foo.*')
+
+    previous_list_value: str | None = None
+    previous_iter1_value: str | None = None
+    previous_iter2_value: str | None = None
+
+    for value in multivar_list:
+        assert value != previous_list_value
+        iter1_value = next(multivar_iter1)
+        assert iter1_value == value
+        assert iter1_value != previous_iter1_value
+        iter2_value = next(multivar_iter2)
+        assert iter2_value == value
+        assert iter2_value != previous_iter2_value
+
+        previous_list_value = value
+        previous_iter1_value = iter1_value
+        previous_iter2_value = iter2_value
 
     config.set_multivar('this.that', '^.*beer', 'fool')
     assert ['fool'] == list(config.get_multivar('this.that', 'fool'))
@@ -181,6 +234,27 @@ def test_iterator(config: Config) -> None:
 
     assert 'core.bare' in lst
     assert lst['core.bare']
+
+    config_list = list(config)
+    config_iter1 = iter(config)
+    config_iter2 = iter(config)
+
+    previous_list_entry: ConfigEntry | None = None
+    previous_iter1_entry: ConfigEntry | None = None
+    previous_iter2_entry: ConfigEntry | None = None
+
+    for entry in config_list:
+        assert entry != previous_list_entry
+        iter1_entry = next(config_iter1)
+        assert iter1_entry == entry
+        assert iter1_entry != previous_iter1_entry
+        iter2_entry = next(config_iter2)
+        assert iter2_entry == entry
+        assert iter2_entry != previous_iter2_entry
+
+        previous_list_entry = entry
+        previous_iter1_entry = iter1_entry
+        previous_iter2_entry = iter2_entry
 
 
 def test_valueless_key_iteration(config_path: Path) -> None:
@@ -213,14 +287,43 @@ def test_valueless_key_value(config_path: Path) -> None:
 
 
 def test_parsing() -> None:
+    assert Config.parse_bool(None)
+    assert Config.parse_bool('true')
     assert Config.parse_bool('on')
+    assert Config.parse_bool('yes')
     assert Config.parse_bool('1')
+    assert Config.parse_bool('2')
+    assert Config.parse_bool('3')
+    assert Config.parse_bool('1234567890')
+    assert Config.parse_bool('-42')
 
+    assert not Config.parse_bool('')
+    assert not Config.parse_bool('false')
+    assert not Config.parse_bool('off')
+    assert not Config.parse_bool('no')
+    assert not Config.parse_bool('0')
+
+    with pytest.raises(ValueError):
+        Config.parse_bool('anything else')
+
+    assert -1 == Config.parse_int('-1')
     assert 5 == Config.parse_int('5')
     assert 1024 == Config.parse_int('1k')
+    assert 158720 == Config.parse_int('155k')
+    assert 22020096 == Config.parse_int('21m')
+    assert 45097156608 == Config.parse_int('42G')
+    assert 1234567890 == Config.parse_int('1234567890')
+
+    with pytest.raises(ValueError):
+        Config.parse_int(None)
+    with pytest.raises(ValueError):
+        Config.parse_int('')
+    with pytest.raises(ValueError):
+        Config.parse_int('not a number')
 
 
-def test_repository_config_snapshot(config: Config) -> None:
+def test_repository_config_snapshot(config: RepositoryConfig) -> None:
+    assert not config.is_snapshot
     assert 'core.bare' in config
     assert not config.get_bool('core.bare')
     assert 'core.editor' in config
@@ -229,12 +332,27 @@ def test_repository_config_snapshot(config: Config) -> None:
     assert config.get_int('core.repositoryformatversion') == 0
 
     snapshot = config.snapshot()
+    assert not config.is_snapshot
+    assert snapshot.is_snapshot
     assert 'core.bare' in snapshot
     assert not snapshot.get_bool('core.bare')
     assert 'core.editor' in snapshot
     assert snapshot['core.editor'] == 'ed'
     assert 'core.repositoryformatversion' in snapshot
     assert snapshot.get_int('core.repositoryformatversion') == 0
+    utils.assertRaisesWithArg(
+        GitError,
+        "cannot set 'something.other.changed': the configuration is read-only",
+        snapshot.set_multivar,
+        'something.other.changed',
+        '^$',
+        'foo',
+    )
+    utils.assertRaisesWithArg(
+        TypeError,
+        'This repository config is already a snapshot.',
+        snapshot.snapshot,
+    )
 
     assert 'core.snapshot1' not in config
     assert 'core.snapshot1' not in snapshot
@@ -255,16 +373,32 @@ def test_non_repository_config_snapshot(config_path: Path) -> None:
         new_file.write('[something "other"]\n\there = false')
 
     config = Config(config_path)
+    assert not config.is_snapshot
     assert 'this.that' in config
     assert config.get_bool('this.that')
     assert 'something.other.here' in config
     assert not config.get_bool('something.other.here')
 
     snapshot = config.snapshot()
+    assert not config.is_snapshot
+    assert snapshot.is_snapshot
     assert 'this.that' in snapshot
     assert snapshot.get_bool('this.that')
     assert 'something.other.here' in snapshot
     assert not snapshot.get_bool('something.other.here')
+    utils.assertRaisesWithArg(
+        GitError,
+        "cannot set 'something.other.changed': the configuration is read-only",
+        snapshot.set_multivar,
+        'something.other.changed',
+        '^$',
+        'foo',
+    )
+    utils.assertRaisesWithArg(
+        TypeError,
+        'This config is already a snapshot.',
+        snapshot.snapshot,
+    )
 
     assert 'this.snapshot1' not in config
     assert 'this.snapshot1' not in snapshot
@@ -276,4 +410,25 @@ def test_non_repository_config_snapshot(config_path: Path) -> None:
         KeyError,
         'this.snapshot1',
         lambda: snapshot.get_int('this.snapshot1'),
+    )
+
+
+def test_default_config_snapshot() -> None:
+    config = DefaultConfig()
+    assert not config.is_snapshot
+    snapshot = config.snapshot()
+    assert not config.is_snapshot
+    assert snapshot.is_snapshot
+    utils.assertRaisesWithArg(
+        GitError,
+        "cannot set 'something.other.changed': the configuration is read-only",
+        snapshot.set_multivar,
+        'something.other.changed',
+        '^$',
+        'foo',
+    )
+    utils.assertRaisesWithArg(
+        TypeError,
+        'This default config is already a snapshot.',
+        snapshot.snapshot,
     )

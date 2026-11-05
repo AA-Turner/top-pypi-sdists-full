@@ -8,6 +8,7 @@ import sys
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from functools import lru_cache, partial
+from itertools import chain
 from typing import TYPE_CHECKING, NamedTuple, TypedDict, TypeGuard, TypeVar, cast
 
 import jsonschema_rs
@@ -454,7 +455,11 @@ def _array(
         # No array can be that long.
         return st.nothing()
     if view.prefix_items or view.contains:
-        return _with_fixed_elements(schema, view, ctx)
+        if view.distinctness is not canonical.Distinctness.SOME_REPEATED:
+            return _with_fixed_elements(schema, view, ctx)
+        if not _can_repeat(view):
+            return st.nothing()
+        return _with_fixed_elements(schema, view, ctx).map(_repeat_valid(schema)).filter(_is_drawn)
     all_distinct = view.distinctness is canonical.Distinctness.ALL_DISTINCT
     try:
         element = _element(view.items, ctx)
@@ -596,16 +601,19 @@ def _from_layout(
     if max_items is not None and max_items < fixed:
         # The spelled-out elements alone overflow the length ceiling.
         return st.nothing()
-    if layout.closed or max_items == fixed:
-        free: SearchStrategy[JsonValue] = st.nothing()
-        free_values = None
-    else:
+    # What the positions past the spelled-out ones draw from, or `None` when no value can follow them.
+    tail: SearchStrategy[JsonValue] | None = None
+    free_values = None
+    if not layout.closed and max_items != fixed:
         free, free_values = _free(view, layout.placements, ctx)
+        # Skipped while a pointer target is still being built, where `is_empty` would force a strategy not there yet.
+        if free is not st.nothing() and (ctx.building_cycle or not free.is_empty):
+            tail = free
     if layout.closed:
         # The opening positions are the whole array, so the lower size bound has to fall within them.
         if minimum > fixed:
             return st.nothing()
-    elif free.is_empty:
+    elif tail is None:
         # The demanded elements carry the length: the shortfall first, then slack under the ceilings.
         if not _carry(layout.placements, minimum - fixed, unique=all_distinct):
             return st.nothing()
@@ -633,14 +641,14 @@ def _from_layout(
         for placement in layout.placements
         if placement.placed or placement.slack
     )
-    if free.is_empty:
+    if tail is None:
         # No tail part: `st.lists` refuses a positive ceiling over an element strategy drawing nothing.
         return _joined(parts, unique=all_distinct, checked=layout.counted, schema=schema)
     kwargs: _SizeBounds = {"min_size": max(0, minimum - fixed)}
     if max_items is not None:
         kwargs["max_size"] = max_items - fixed
     # `unique_by` settles the free positions; collisions across parts are left to the joined filter.
-    parts.append(st.lists(free, unique_by=json_identity if all_distinct else None, **kwargs))
+    parts.append(st.lists(tail, unique_by=json_identity if all_distinct else None, **kwargs))
     return _joined(parts, unique=all_distinct, checked=layout.counted, schema=schema)
 
 
@@ -821,6 +829,9 @@ def _free(
     else:
         # At least one demand is bounded, so the loop left a schema behind.
         assert remaining is not None
+        if isinstance(remaining.view(), canonical.FalseView):
+            # The demands take every value `items` admits, so no filler is left to follow them.
+            return st.nothing(), None
         return from_schema(remaining, ctx), _finite_values(remaining)
     if any(_covers(demand, view.items) for demand in bounded):
         # A demand admits everything `items` does; the matches carry the array on their own.
@@ -963,6 +974,47 @@ def _tiled(item: JsonValue, length: int) -> list[JsonValue]:
     if isinstance(item, (dict, list)):
         return [deepclone(item) for _ in range(length)]
     return [item] * length
+
+
+def _can_repeat(view: jsonschema_rs.canonical.ArrayView) -> bool:
+    """Whether two positions admit a common value, which a repeated element needs."""
+    max_items = _countable(view.max_items)
+    positions: list[jsonschema_rs.CanonicalSchema | None] = list(
+        view.prefix_items if max_items is None else view.prefix_items[:max_items]
+    )
+    # Two positions past the named ones are enough to hold a repeat between themselves.
+    tail = 2 if max_items is None else min(2, max_items - len(positions))
+    positions.extend([view.items] * tail)
+    for index, left in enumerate(positions):
+        for right in positions[index + 1 :]:
+            # A position admitting anything takes a copy of whatever the other one holds.
+            if left is None or right is None or _narrowed(left, right) is not None:
+                return True
+    return False
+
+
+def _repeat_valid(schema: jsonschema_rs.CanonicalSchema) -> Callable[[JsonValue], list[JsonValue] | None]:
+    """Make an earlier element repeat in a drawn array, or `None` when no such repeat clears the schema."""
+    is_valid = _validator(schema)
+
+    def repeat(value: JsonValue) -> list[JsonValue] | None:
+        assert isinstance(value, list)
+        if len({json_identity(item) for item in value}) < len(value):
+            return value
+        # A copy overwriting a later position keeps the length; an appended copy covers positions no copy fits.
+        overwritten = (
+            [*value[:position], value[source], *value[position + 1 :]]
+            for position in reversed(range(1, len(value)))
+            for source in range(position)
+        )
+        appended = ([*value, item] for item in value)
+        return next((candidate for candidate in chain(overwritten, appended) if is_valid(candidate)), None)
+
+    return repeat
+
+
+def _is_drawn(value: list[JsonValue] | None) -> bool:
+    return value is not None
 
 
 def _repeat_one(value: list[JsonValue]) -> list[JsonValue]:

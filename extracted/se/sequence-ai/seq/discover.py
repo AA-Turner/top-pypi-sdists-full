@@ -3,7 +3,7 @@ The class a folder deploys: found by reading the folder's files, never by runnin
 
 In one sentence: `seq deploy [folder]` reads each .py the folder's upload holds (seq.code_bundle's rules: what a
 .seqignore leaves out is not looked at) and parses it with `ast` - only a file that names `seq` at all - → a class whose
-decorator is @seq.policy, @seq.planner (deployed as a policy is), @seq.benchmark or @seq.adapter, however `seq` was imported (`import seq`, `import seq as s`,
+decorator is @seq.policy, @seq.benchmark or @seq.adapter, however `seq` was imported (`import seq`, `import seq as s`,
 `from seq import policy as p`) - or to which its module applies one by hand (`Model = seq.policy(...)(Model)`), a class
 of its own or one it imports by name (`from awomo.policy import Awomo` → `seq.policy(...)(Awomo)`: the one file that
 declares a class left as it is) - is a candidate, named by its decorator's name= when that is a plain string and by
@@ -32,7 +32,7 @@ _DEPLOYS_AS = {"policy": "policy", "planner": "policy", "benchmark": "benchmark"
 
 @dataclass(frozen=True)
 class Found:
-    """One decorated class of the folder: its decorator's kind (policy, planner, benchmark or adapter), its name (name=
+    """One decorated class of the folder: its decorator's kind (policy, benchmark or adapter), its name (name=
     or the class name), and where it is."""
     kind: str
     name: str
@@ -48,7 +48,7 @@ class Found:
 
     @property
     def deploys_as(self) -> str:
-        """The kind it is deployed as: a planner's a policy's."""
+        """The kind it is deployed as."""
         return _DEPLOYS_AS[self.kind]
 
 
@@ -68,7 +68,8 @@ def module_of(path: str) -> tuple[str, str | None]:
 
 def shown(root: str | Path, path: str) -> str:
     """`path`, a file of the folder at `root`, as the person who ran the command holds it: from where it runs
-    (`seq deploy my-x` → my-x/policy.py, `seq deploy` → policy.py), else whole - what they can open or delete as said.
+    (`seq deploy my_x_user` → my_x_user/policy.py, `seq deploy` → policy.py), else whole - what they can open or delete
+    as said.
     """
     full = Path(root).resolve() / path
     try:
@@ -182,7 +183,7 @@ def choose(found: list[Found], name: str | None, folder: str, read: int) -> Foun
     - an adapter beside one is not what it deploys - else its only adapter. Raises SeqAuthoringError, listing them,
     when there is none or no telling which."""
     if not found:
-        raise SeqAuthoringError(f"{folder} holds no class decorated @seq.policy, @seq.planner, @seq.benchmark or "
+        raise SeqAuthoringError(f"{folder} holds no class decorated @seq.policy, @seq.benchmark or "
                                 f"@seq.adapter (read {read} .py file{'' if read == 1 else 's'} it uploads)")
     if name is not None:
         named = [f for f in found if f.name == name] or [f for f in found if f.qualname == name]
